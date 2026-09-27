@@ -384,6 +384,8 @@ function hasRememberedAssessmentWork(location: PipelineWorkspaceLocation | undef
   return Boolean(location?.assessmentDialog || location?.assessmentMode === "prepare" || location?.assessmentMode === "interview");
 }
 
+const interviewRailKey = "pipeline:interview-rail";
+
 export default function ReferralPacketCanvas({
   referral,
   newDraftKey,
@@ -430,8 +432,18 @@ export default function ReferralPacketCanvas({
     : { view: "assessment" });
   const [activePage, setActivePage] = useState<WorkspaceView>(workspacePageForLocation(routedWorkspaceLocation, referral?.id));
   const [assessmentVisitedReferral, setAssessmentVisitedReferral] = useState<number | undefined>();
-  // Interview layout: the record rail is tucked away during the interview; this arrow brings it back (and hides it again).
+  // Interview layout: the record rail is tucked away during the interview; this arrow brings it back, and once
+  // brought back it stays until collapsed again, on this device (owner, 2026-09-27).
   const [interviewRailShown, setInterviewRailShown] = useState(false);
+  useEffect(() => {
+    try {
+      if (window.localStorage.getItem(interviewRailKey) === "shown") setInterviewRailShown(true);
+    } catch { /* storage unavailable: tucked away by default */ }
+  }, []);
+  const toggleInterviewRail = () => setInterviewRailShown((shown) => {
+    try { window.localStorage.setItem(interviewRailKey, shown ? "tucked" : "shown"); } catch { /* not remembered */ }
+    return !shown;
+  });
   // Kept-mounted steps: the element the assessment editor draws the Chart into.
   const [chartSlot, setChartSlot] = useState<HTMLElement | null>(null);
 
@@ -2478,9 +2490,6 @@ export default function ReferralPacketCanvas({
     : workspaceSteps;
   const chartPage = workspacePresentation.usesSourceProfile || historicalReadOnly ? 1 : 3;
   const displayedPage = visibleWorkspacePage(activePage, navigableWorkspaceSteps);
-  // Each visit to a step starts with the rail tucked away during the interview.
-  const [railStep, setRailStep] = useState(displayedPage);
-  if (railStep !== displayedPage) { setRailStep(displayedPage); setInterviewRailShown(false); }
   // Redesign vertical flow (docs/design/DECISIONS.md, "Record layout").
   const verticalFlow = designV2 && !phone;
   const railActivePage = displayedPage === 1 && loadedReferral && !navigableWorkspaceSteps.some((step) => step.page === 1) ? chartPage : displayedPage;
@@ -3152,7 +3161,7 @@ export default function ReferralPacketCanvas({
         {/* Shown only during the interview (styles); same control as the app bar's own collapse arrow. */}
         {verticalFlow ? <button type="button" data-interview-rail-toggle className={workspaceFolderStyles.interviewRailToggle}
           aria-label={interviewRailShown ? "Collapse navigation" : "Expand navigation"} title={interviewRailShown ? "Collapse navigation" : "Expand navigation"}
-          aria-expanded={interviewRailShown} aria-controls="workspace-record-rail" onClick={() => setInterviewRailShown((shown) => !shown)}>
+          aria-expanded={interviewRailShown} aria-controls="workspace-record-rail" onClick={toggleInterviewRail}>
           {interviewRailShown ? <ChevronLeft size={16} aria-hidden="true" /> : <ChevronRight size={16} aria-hidden="true" />}
         </button> : null}
 

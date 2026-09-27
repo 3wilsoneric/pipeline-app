@@ -588,6 +588,12 @@
      snaps there"): a bordered control with its arrow; choosing a section jumps straight to it. */
   .navigation[data-with-work-mode] .sectionPicker select { min-height: 40px; padding: 0 10px 0 12px; border: 1px solid var(--color-control-border); background-color: var(--color-paper); box-shadow: var(--shadow-card); cursor: pointer; font-size: var(--text-section); line-height: var(--text-section--line-height); letter-spacing: 0; }
   .navigation[data-with-work-mode] .sectionPicker select:hover { border-color: var(--color-ink-muted); }
+  /* The save status and interview date in the top-right corner, a size down (owner, 2026-09-27). */
+  .navigation[data-with-work-mode] .footerUtilities { order: 4; flex: 0 0 auto; gap: 2px; }
+  .navigation[data-with-work-mode] .footerUtilities :is(.saveRecovery, button) { min-height: 32px; margin: 0; padding: 0 8px; border-radius: var(--radius-input); color: var(--color-ink-2); font-size: var(--text-meta); line-height: var(--text-meta--line-height); font-weight: 500; }
+  .navigation[data-with-work-mode] .footerUtilities :is(.saveRecovery, button):hover { background: var(--color-segment); color: var(--color-ink); }
+  .navigation[data-with-work-mode] .footerUtilities [data-guide-target="assessment-save-status"] { font-size: var(--text-meta); }
+  .navigation[data-with-work-mode] .footerUtilities svg { width: 13px; height: 13px; }
   /* The All questions / Interview trail is not needed here; All questions is the first choice in the dropdown. */
   .navigation[data-with-work-mode] .phaseSummary { display: none; }
   .navigation[data-with-work-mode] .sectionTitle { padding-left: 0; border-left: 0; }

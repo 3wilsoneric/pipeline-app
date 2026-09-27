@@ -369,6 +369,11 @@
   .nextStep { display: flex; flex-shrink: 0; align-items: center; gap: 8px; margin-left: auto; padding: 8px 14px; white-space: nowrap; border-radius: var(--radius-input); background: var(--color-action); color: var(--color-on-fill); text-align: right; transition: background-color var(--duration-fade) ease; }
   .card:hover .nextStep { background: color-mix(in srgb, var(--color-action) 86%, black); }
   .nextStep svg { flex: none; }
+  /* A long next step (a list of documents) stays inside the card: the button shrinks and the text ends in an
+     ellipsis; the full text is the button's title. */
+  .nextStep { flex: 0 1 auto; min-width: 0; }
+  .nextStep .actionText { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .owner { flex: 0 1 auto; }
   .actionText { font-size: var(--text-value); line-height: var(--text-value--line-height); font-weight: 600; overflow-wrap: normal; }
 
   /* "View all" dialog: the same folders, unstacked, on the stage column. */

@@ -4,26 +4,29 @@
 
 .pane { position: sticky; top: 84px; display: flex; flex-direction: column; align-self: start; min-width: 0; min-height: 0; padding-right: 28px; }
 
-.text { flex: 1; min-height: 0; padding: 0 8px 0 4px; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+.text { display: flex; flex: 1; flex-direction: column; min-height: 0; padding: 0 8px 0 4px; overflow: hidden; }
 /* Like a clinical progress-notes form (owner, 2026-09-27: "a bit more medical chart"): a boxed sheet with a narrow
    label column, a vertical rule, answers in the right column on tight blue-green ruling; the notes continue in the
    same columns below. The section is named by the picker above, not repeated here. */
 .text { --rule: 26px; --chart-rule: color-mix(in srgb, var(--color-link) 14%, var(--color-paper)); --chart-edge: color-mix(in srgb, var(--color-link) 32%, var(--color-card-border)); }
-.page { border: 1px solid var(--chart-edge); border-top-width: 3px; background:
-  repeating-linear-gradient(to bottom, transparent 0 calc(var(--rule) - 1px), var(--chart-rule) calc(var(--rule) - 1px) var(--rule)),
-  var(--color-paper); }
-/* The label column fits its longest label (up to 45 percent), with its rule beside the filled-in answers only;
-   the notes below use the full width. */
+/* The sheet is only as tall as its content; when the answers run long they scroll inside it and the notes stay in
+   view below them (owner, 2026-09-27: "what if a section has a lot of answers with text and notes"). Each part
+   carries its own ruling so text and lines scroll together. */
+.page { display: flex; flex-direction: column; min-height: 0; max-height: 100%; border: 1px solid var(--chart-edge); border-top-width: 3px; background: var(--color-paper); }
+.page > :is(.topic, .notes) { background: repeating-linear-gradient(to bottom, transparent 0 calc(var(--rule) - 1px), var(--chart-rule) calc(var(--rule) - 1px) var(--rule)) local; }
+.topic { flex: 0 1 auto; min-height: calc(var(--rule) * 2); overflow-y: auto; overscroll-behavior: contain; }
 .page:has(textarea:focus) { border-color: var(--color-link); }
-.topic dl { display: grid; grid-template-columns: fit-content(45%) minmax(0, 1fr); margin: 0; }
+.topic dl { display: grid; grid-template-columns: fit-content(40%) minmax(0, 1fr); margin: 0; }
 .topic dl > div { display: contents; }
+.topic dl > div[data-long] > dt { grid-column: 1 / -1; border-right: 0; }
+.topic dl > div[data-long] > dd { grid-column: 1 / -1; padding-left: 10px; }
 .text dt { padding: 0 12px 0 10px; border-right: 1px solid var(--chart-edge); color: var(--color-ink-muted); font-size: var(--text-meta); line-height: var(--rule); font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; overflow-wrap: anywhere; }
 .text dd { margin: 0; padding: 0 10px 0 12px; color: var(--color-ink); font-size: var(--text-value); line-height: var(--rule); white-space: pre-line; overflow-wrap: anywhere; }
 .text dd > span { display: block; color: var(--color-ink-muted); font-size: var(--text-meta); line-height: var(--rule); }
 
 /* The topic's notes continue the form below what is known (owner, 2026-09-27: "as if you are notating it below"):
    "Notes" in the label column with the save status beside it, then the writing in the answer column, no box. */
-.notes { border-top: 1px solid var(--chart-edge); }
+.notes { flex: 0 0 auto; max-height: 55%; overflow-y: auto; overscroll-behavior: contain; border-top: 1px solid var(--chart-edge); }
 .notes [data-client-notes] { position: static; max-height: none; min-height: 0; overflow: visible; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
 .notes [data-client-notes] > header { gap: 10px; min-height: var(--rule); height: var(--rule); padding: 0 10px 0 0; border: 0; background: transparent; }
 .notes [data-client-notes] > header h3 { flex: 0 0 auto; padding: 0 10px; color: var(--color-ink-muted); font-size: var(--text-meta); line-height: var(--rule); font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }

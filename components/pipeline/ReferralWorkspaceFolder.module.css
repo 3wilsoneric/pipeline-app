@@ -816,6 +816,11 @@
     /* Trash is a row like Files and Activity, in red (owner, 2026-09-26). */
     .verticalFlow .actions > .trashTab { color: var(--color-danger); }
     .verticalFlow .actions > .trashTab:hover:not(:disabled) { background: var(--color-danger-soft); color: var(--color-danger); }
+    /* Files and Activity a size down, Trash a size further (owner, 2026-09-27). */
+    .verticalFlow .actions > .utilityTab { min-height: 28px; font-size: calc(var(--text-meta) - 1px); }
+    .verticalFlow .actions > .utilityTab svg { width: 13px; height: 13px; }
+    .verticalFlow .actions > .trashTab { min-height: 26px; font-size: calc(var(--text-meta) - 2px); }
+    .verticalFlow .actions > .trashTab svg { width: 12px; height: 12px; }
     /* The merged-changes check has no visible mark in the rail (owner: "don't need that"); screen readers still hear it. */
     .verticalFlow .actions > .syncStatus { position: absolute; width: 1px; min-height: 0; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
     .railMeta { display: flex; flex-direction: column; gap: 8px; margin-top: -8px; padding: 0 8px; color: var(--color-ink-muted); font-size: var(--text-label); line-height: var(--text-label--line-height); overflow-wrap: anywhere; }
@@ -962,9 +967,12 @@
    like the app bar's own collapse arrow, brings it back and hides it again. Top level because the switch is on <html>. */
 .interviewRailToggle { display: none; }
 @media (min-width: 1024px) {
-  :global(html[data-design="v2"][data-interview-focus]) .verticalFlow { position: relative; }
+  /* The interview uses the full width: no right gutter for the floating Notes button (not shown on this step). */
+  :global(html[data-design="v2"][data-interview-focus]) .verticalFlow { position: relative; max-width: none; padding-right: 24px; }
   :global(html[data-design="v2"][data-interview-focus]) .verticalFlow:not([data-interview-rail-shown]) { grid-template-columns: 20px minmax(0, 1fr); column-gap: 14px; }
   :global(html[data-design="v2"][data-interview-focus]) .verticalFlow:not([data-interview-rail-shown]) > .header { display: none; }
+  /* With the rail open during the interview: the save status is already in the top-right, and Review assessment is the next step. */
+  :global(html[data-design="v2"][data-interview-focus]) .verticalFlow > .header :is(.saveCenter, .nextStepBar) { display: none; }
   :global(html[data-design="v2"][data-interview-focus]) .verticalFlow > .interviewRailToggle { position: sticky; top: calc(50vh - 22px); z-index: 21; display: grid; grid-column: 1; grid-row: 1; align-self: start; justify-self: start; place-items: center; width: 20px; height: 44px; margin-top: 30vh; border: 1px solid var(--color-card-border); border-radius: var(--radius-input); background: var(--color-paper); box-shadow: var(--shadow-card); color: var(--color-ink-muted); }
   :global(html[data-design="v2"][data-interview-focus]) .verticalFlow[data-interview-rail-shown] > .interviewRailToggle { justify-self: end; margin-right: -30px; }
   :global(html[data-design="v2"][data-interview-focus]) .verticalFlow > .interviewRailToggle:hover { color: var(--color-ink); border-color: var(--color-ink-muted); }

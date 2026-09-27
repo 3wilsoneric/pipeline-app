@@ -592,18 +592,26 @@ export default function AssessmentWorkspace({
       window.removeEventListener("touchstart", release, true);
     };
   }, []);
-  // The section picker follows the scroll: the group whose heading most recently passed the top third.
+  // The section picker follows the scroll: the group whose heading most recently passed the top third. Worked out
+  // from the headings' positions on each scroll (not from intersection changes, which can leave a stale answer
+  // after quick jumps).
   useEffect(() => {
     if (!stackedQuestionsView) return;
-    const headings = [...document.querySelectorAll<HTMLElement>("[data-assessment-group-heading]")];
-    if (!headings.length) return;
-    const observer = new IntersectionObserver((entries) => {
-      if (pickedTopic.current && performance.now() < pickedTopic.current.until) return;
-      const visible = entries.filter((entry) => entry.isIntersecting).sort((left, right) => left.boundingClientRect.top - right.boundingClientRect.top)[0];
-      if (visible) setSpyGroup(visible.target.getAttribute("data-assessment-group-heading") as AssessmentToolSection);
-    }, { rootMargin: "0px 0px -66% 0px" });
-    headings.forEach((heading) => observer.observe(heading));
-    return () => observer.disconnect();
+    let frame = 0;
+    const follow = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        if (pickedTopic.current && performance.now() < pickedTopic.current.until) return;
+        const headings = [...document.querySelectorAll<HTMLElement>("[data-assessment-group-heading]")].filter((heading) => heading.offsetParent);
+        if (!headings.length) return;
+        const line = window.innerHeight * 0.34;
+        const passed = headings.filter((heading) => heading.getBoundingClientRect().top <= line);
+        const current = (passed[passed.length - 1] ?? headings[0]).getAttribute("data-assessment-group-heading") as AssessmentToolSection;
+        setSpyGroup((previous) => previous === current ? previous : current);
+      });
+    };
+    window.addEventListener("scroll", follow, true);
+    return () => { cancelAnimationFrame(frame); window.removeEventListener("scroll", follow, true); };
   }, [stackedQuestionsView, stackedHeadings]);
   const jumpToGroup = (section: AssessmentToolSection) => {
     const key = preparing ? preparationGroupForSection(section).key : section;
@@ -2600,6 +2608,7 @@ export default function AssessmentWorkspace({
               questionNavigation={!phoneInterview ? (recordedAnswers) => <AssessmentWorkingNavigation onAllQuestions={workModeInNavigation ? () => changeWorkingMode(true) : undefined} lead={workModeInNavigation ? <>
                 {interviewFocus && workspaceTitle ? <h2 className={workingStyles.focusTitle}>{workspaceTitle}</h2> : null}
                 {renderWorkMode()}
+                {interviewFocus ? renderSaveStatus() : null}
               </> : undefined} preparing={preparing} recordedAnswers={recordedAnswers} data={draft} pending={pendingFields} activeSection={stackedQuestionsView ? spySection : visibleSectionKey} guideTargets={assessmentSectionGuideTargets} onSectionChange={(section) => { setWorkingTarget(null); if (stackedQuestionsView) jumpToGroup(section); else setActiveSection(section); }} /> : undefined}
               disabled={isBusy || isAssessmentFinalized(selected) || !canEditClinical}
               reviewDisabled={isBusy || isAssessmentFinalized(selected) || !canEditClinical}
@@ -2648,7 +2657,8 @@ export default function AssessmentWorkspace({
       {!reviewingChart && preparing && phoneLayout ? sectionSteps : null}
       <footer aria-label="Assessment actions" data-assessment-chart-review={reviewingChart || undefined} className={`${workingStyles.footer} flex shrink-0 flex-wrap items-center justify-between bg-white ${phoneLayout ? phoneStyles.mobileFooter : "gap-x-3 gap-y-2 px-4 py-2 sm:px-6 lg:px-8"}`}>
         {reviewingChart && error ? <p role="alert" className={workingStyles.reviewError}>{error}</p> : null}
-        {renderSaveStatus()}
+        {/* Interview layout: the save status and interview date sit in the top-right of the interview bar instead. */}
+        {interviewFocus ? null : renderSaveStatus()}
         {!reviewingChart && !phoneLayout ? sectionSteps : (reviewingChart || selected.signed_at) ? <div>
         {renderPrimaryAssessmentActions()}
         </div> : null}

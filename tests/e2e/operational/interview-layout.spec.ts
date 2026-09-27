@@ -55,20 +55,42 @@ test.describe("interview layout", () => {
       });
       expect(seen).toEqual(["medication"]);
 
-      // The arrow brings the rail back and hides it again; the choice holds while in the interview.
+      // A topic with many long answers: the answers scroll inside the sheet and the notes stay in view below them.
+      await picker.selectOption("diagnosis_clinical");
+      const long = "Reports low mood most days for the past month, sleeping four to five hours, appetite reduced. Denies current suicidal ideation; one past attempt years ago. Engaged with outpatient psychiatry until spring, then lost contact after moving.";
+      const clinical = page.locator('[data-assessment-group-heading="diagnosis_clinical"] ~ section').first().locator("textarea");
+      for (let index = 0; index < Math.min(4, await clinical.count()); index++) { await clinical.nth(index).fill(long); await clinical.nth(index).blur(); }
+      await picker.selectOption("identity");
+      await picker.selectOption("diagnosis_clinical");
+      await expect(page.locator('[data-assessment-group-heading="diagnosis_clinical"]')).toBeInViewport();
+      const topicSheet = info.locator('[data-split-topic="diagnosis_clinical"]');
+      await expect(topicSheet).toContainText("Reports low mood");
+      await page.setViewportSize({ width: 1440, height: 520 });
+      await expect(info.locator("[data-client-notes] textarea").first()).toBeInViewport();
+      await expect.poll(() => page.evaluate(() => {
+        const sheet = document.querySelector("[data-interview-split] [data-split-chart] > div")!.getBoundingClientRect();
+        const bar = document.querySelector('[aria-label="Assessment actions"]')!.getBoundingClientRect();
+        return sheet.bottom <= bar.top + 1;
+      })).toBe(true);
+      await page.screenshot({ path: test.info().outputPath("long-answers.png") });
+      await page.setViewportSize({ width: 1440, height: 900 });
+
+      // The arrow brings the rail back; once back it stays, across steps and reloads, until it is collapsed.
       await page.getByRole("button", { name: "Expand navigation" }).last().click();
       await expect(rail).toBeVisible();
-      await page.getByRole("button", { name: "Collapse navigation" }).last().click();
-      await expect(rail).toBeHidden();
-
-      // Another step shows the rail as usual; coming back to the interview tucks it away again.
-      await page.getByRole("button", { name: "Expand navigation" }).last().click();
       await rail.getByRole("button", { name: "Chart", exact: true }).click();
       await expect(page.getByRole("heading", { name: "Referral chart", exact: true })).toBeVisible();
       await expect(root).not.toHaveAttribute("data-interview-focus", "true");
-      await expect(rail).toBeVisible();
       await expect(page.locator("[data-interview-rail-toggle]")).toBeHidden();
       await rail.getByRole("button", { name: "Assessment", exact: true }).click();
+      await expect(root).toHaveAttribute("data-interview-focus", "true");
+      await expect(rail).toBeVisible();
+      await page.reload();
+      await expect(root).toHaveAttribute("data-interview-focus", "true");
+      await expect(rail).toBeVisible();
+      await page.getByRole("button", { name: "Collapse navigation" }).last().click();
+      await expect(rail).toBeHidden();
+      await page.reload();
       await expect(root).toHaveAttribute("data-interview-focus", "true");
       await expect(rail).toBeHidden();
 

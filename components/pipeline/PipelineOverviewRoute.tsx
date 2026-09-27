@@ -2,6 +2,7 @@
 
 import { Activity, useEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
+import { useDesignV2 } from "@/components/design/DesignSwitch";
 
 import ClientProfileDirectory, { preloadCurrentClientDirectory } from "@/components/pipeline/ClientProfileDirectory";
 import OperationsDashboard from "@/components/pipeline/OperationsDashboard";
@@ -157,6 +158,7 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
   const { initialUser } = usePipelineAuth();
   const { searchTerm, setSearchTerm, setSearchOpen } = usePipelineShell();
   const searchParams = useSearchParams();
+  const designV2 = useDesignV2();
   const locationSearch = usePipelineLocationSearch(searchParamsText(searchParams));
   const activeSearchParams = useMemo(() => new URLSearchParams(locationSearch), [locationSearch]);
   const screen = getScreenFromParams(activeSearchParams);
@@ -290,8 +292,11 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
     const sourceLocation = `${window.location.pathname}${window.location.search}`;
     // Board actions and other explicit destinations must not be replaced by the
     // last visited tab. Assessment entry actions still resume their saved question.
+    // Redesign: opening a client returns to where the person last was in it; the suggested
+    // step is used only when there is no earlier visit (owner, 2026-09-27: "when you go back to
+    // a folder have to go to the place you were most recent at, not whats needed").
     const shouldResume = nextScreen === "packet" && Boolean(referral?.id) && resume
-      && (!location || (location.view === "assessment" && assessmentAction !== undefined && assessmentAction !== "review"));
+      && (!location || (designV2 && assessmentAction !== "review") || (location.view === "assessment" && assessmentAction !== undefined && assessmentAction !== "review"));
     const savedLocation = shouldResume
       ? await loadPipelineWorkspaceResumeLocation(referral!.id).catch(() => undefined)
       : undefined;

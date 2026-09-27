@@ -93,7 +93,9 @@ export default function InterviewSplit({ topics, data, currentTopic, notes }: {
       {topic ? <section key={topic.key} data-split-topic={topic.key} data-current aria-label={topic.label} className={styles.topic}>
         {answered.length ? <dl>{answered.map((question) => {
           const reason = getAssessmentUnableReason(data, question.field);
-          return <div key={question.field}><dt>{assessmentInterviewFieldLabel(question.field)}</dt><dd>{capturedAssessmentAnswer(question, data)}{reason ? <span>{reason}</span> : null}</dd></div>;
+          const answer = capturedAssessmentAnswer(question, data);
+          // A written answer runs the full width under its label; short facts keep the two columns.
+          return <div key={question.field} data-long={answer.length > 60 || answer.includes("\n") || undefined}><dt>{assessmentInterviewFieldLabel(question.field)}</dt><dd>{answer}{reason ? <span>{reason}</span> : null}</dd></div>;
         })}</dl> : <p className={styles.empty}>No information recorded for this section yet.</p>}
       </section> : null}
       {notes ? <div className={styles.notes}>{notes}</div> : null}

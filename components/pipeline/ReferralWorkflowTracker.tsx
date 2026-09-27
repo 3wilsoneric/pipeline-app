@@ -238,7 +238,7 @@ function LifecycleCardV2({ item, name, descriptionId, showOwner, onOpenPacket }:
         <span className={boardStyles.avatar} aria-hidden="true">{item.owner ? ownerInitials(item.owner) : null}</span>
         <span className={boardStyles.hiddenLabel}>Assessor</span><span className={boardStyles.ownerName}>{item.owner || "Unassigned"}</span>
       </span> : null}
-      <span className={boardStyles.nextStep}>
+      <span className={boardStyles.nextStep} title={item.board.next_action}>
         <span id={`${descriptionId}-action`} className={boardStyles.actionText}>{item.board.next_action}</span>
         <ArrowRight size={15} aria-hidden="true" />
       </span>
