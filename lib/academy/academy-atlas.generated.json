@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:ad048e82eb9aeed7",
-  "fingerprint": "ad048e82eb9aeed7667330762ee45a02a600ccea3f9fcc467115d86050a5051b",
+  "generatedAt": "source-fingerprint:3c1f089d3bb2e506",
+  "fingerprint": "3c1f089d3bb2e5060e1b9816a3d1065f2fea34fb3abe10e981908893d87feb39",
   "totals": {
     "files": 1499,
-    "lines": 386134,
+    "lines": 386178,
     "coveredFiles": 1499
   },
   "entries": [
@@ -1910,7 +1910,7 @@
       "kind": "repository-file",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 133,
+      "lines": 139,
       "moduleIds": [
         "developer-toolchain",
         "system-map"
@@ -5847,7 +5847,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 287,
+      "lines": 288,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -16741,7 +16741,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 547,
+      "lines": 584,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
