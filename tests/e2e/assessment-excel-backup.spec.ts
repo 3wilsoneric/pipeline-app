@@ -383,8 +383,12 @@ test("iPad WebKit exports and restores Excel with usable tablet and phone contro
     await expect(dialog).toHaveCSS("opacity", "1");
     await page.screenshot({ path: info.outputPath("ipad-excel-restore.png") });
     await page.setViewportSize({ width: 390, height: 844 });
+    await expect(dialog.getByRole("button", { name: "Commit 1 change", exact: true })).toBeEnabled();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: info.outputPath("webkit-excel-restore.png") });
+    await page.setViewportSize({ width: 834, height: 1194 });
+    await expect(dialog.getByRole("button", { name: "Commit 1 change", exact: true })).toBeEnabled();
+    await page.setViewportSize({ width: 390, height: 844 });
     await dialog.getByRole("button", { name: "Commit 1 change", exact: true }).tap();
     await expect(dialog).toHaveCount(0);
     expect((await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment.prior_awol_failed_placements).toBe("Synthetic tablet update");

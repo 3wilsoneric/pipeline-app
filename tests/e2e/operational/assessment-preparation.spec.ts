@@ -58,6 +58,15 @@ test.describe("assessment preparation", () => {
         const future = new Date(Date.now() + (30 + referral.id) * 86_400_000).toISOString().slice(0, 16);
         await schedule.getByLabel("Assessment date and time").fill(future);
         await schedule.getByLabel("Assessment method").selectOption("record_review");
+        const openSchedule = await schedule.elementHandle();
+        for (const viewport of [{ width: 390, height: 844 }, { width: 1440, height: 900 }]) {
+          await page.setViewportSize(viewport);
+          await expect(schedule).toBeVisible();
+          await expect(schedule.getByLabel("Assessment date and time")).toHaveValue(future);
+          await expect(schedule.getByLabel("Assessment method")).toHaveValue("record_review");
+          // The existing dialog must survive, not be re-created from a partially saved draft.
+          expect(await openSchedule!.evaluate((element) => element.isConnected)).toBe(true);
+        }
         await schedule.getByRole("button", { name: "Schedule record review", exact: true }).click();
         await expect(schedule).toHaveCount(0);
         await expect(page.getByRole("dialog", { name: "Begin assessment", exact: true })).toHaveCount(0);

@@ -3234,11 +3234,10 @@ export default function ReferralPacketCanvas({
 
         {renderExtractionConflict()}
 
-        {recordStack && loadedReferral ? stackSteps.map((page) => <div key={`record-step-${String(page)}`} data-record-step={String(page)}
-          className={page === 2 ? workspaceFolderStyles.readingPages : "pipeline-step-enter"}
+        {recordStack && loadedReferral ? stackSteps.filter((page) => page !== 2).map((page) => <div key={`record-step-${String(page)}`} data-record-step={String(page)}
+          className="pipeline-step-enter"
           style={{ display: page === displayedPage ? undefined : "none" }} aria-hidden={page !== displayedPage} inert={page !== displayedPage}>
           {page === 3 ? <PacketPage id="packet-charts" title="Chart" flush><div ref={setChartSlot} /></PacketPage>
-            : page === 2 ? renderAssessmentStep(readingAssessment, "Assessment", chartSlot ?? undefined)
             : page === "workflow" ? renderDecisionStep(readingDecision, loadedReferral)
             : renderEmailStep()}
         </div>) : null}
@@ -3274,9 +3273,11 @@ export default function ReferralPacketCanvas({
             {renderDecisionStep(readingDecision, loadedReferral)}
           </div>
         ) : null}
-        {!recordStack && (readingAssessment || (assessmentVisitedReferral !== undefined && assessmentVisitedReferral === referralWorkspaceId)) ? (
-          <div key={`assessment-${referralWorkspaceId ?? "training"}`} className={workspaceFolderStyles.readingPages} style={{ display: readingAssessment ? undefined : "none" }} aria-hidden={!readingAssessment} inert={!readingAssessment}>
-            {renderAssessmentStep(readingAssessment, displayedPage === 3 ? "Chart" : "Assessment")}
+        {/* Keep the editor at one React position across phone/desktop layouts. A viewport change must
+            not discard an open import preview, appointment draft, or other in-progress editor state. */}
+        {recordStack || readingAssessment || (assessmentVisitedReferral !== undefined && assessmentVisitedReferral === referralWorkspaceId) ? (
+          <div key={`assessment-${referralWorkspaceId ?? "training"}`} data-record-step={recordStack ? "2" : undefined} className={workspaceFolderStyles.readingPages} style={{ display: (recordStack ? displayedPage === 2 : readingAssessment) ? undefined : "none" }} aria-hidden={recordStack ? displayedPage !== 2 : !readingAssessment} inert={recordStack ? displayedPage !== 2 : !readingAssessment}>
+            {renderAssessmentStep(readingAssessment, !recordStack && displayedPage === 3 ? "Chart" : "Assessment", recordStack ? chartSlot : undefined)}
           </div>
         ) : null}
         {/* Each step ends by leading into the next one, so the record reads top to bottom (owner, 2026-09-26). */}
