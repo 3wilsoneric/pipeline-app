@@ -7,7 +7,6 @@ import type { WorkspaceStateProjection } from "@/lib/pipeline/workspace-state";
 // These UI tests supply the Home payload through request routes. A service worker
 // can bypass those routes and show unrelated server fixtures instead.
 test.use({ serviceWorkers: "block" });
-
 test("accepted board cards show the highest-priority open admission items", () => {
   const requirement = {
     id: "tb-result",

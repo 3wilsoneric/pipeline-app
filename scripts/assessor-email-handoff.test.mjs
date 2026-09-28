@@ -138,7 +138,7 @@ test("actual service mail composition sends the original bytes and populated HTM
   const { message } = JSON.parse(requests[1].init.body);
   assert.deepEqual(message.toRecipients, [{ emailAddress: { address: user.email } }]); assert.deepEqual(message.ccRecipients, []);
   assert.equal(message.subject, "Synthetic subject");
-  for (const text of ["alamo-health-management.png", "2026-10-01", "Synthetic Client", "Reviewed handoff"]) assert.ok(message.body.content.includes(text));
+  for (const text of ["alamo-health-management.png", "10/01/2026", "Synthetic Client", "Reviewed handoff"]) assert.ok(message.body.content.includes(text));
   for (const text of ["For the assessor", "Choose Forward", "community@example.invalid", "care@outlook.com"]) assert.ok(!message.body.content.includes(text), text);
   message.attachments.forEach((attachment, index) => { assert.equal(attachment.name, originals[index].name); assert.equal(attachment.contentType, originals[index].contentType); assert.deepEqual(Buffer.from(attachment.contentBytes, "base64"), originals[index].contentBytes); });
 });

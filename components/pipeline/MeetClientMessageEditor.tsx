@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Mail } from "lucide-react";
-import type { MeetClientSummary } from "@/lib/assessment/assessment-summary";
+import { formatMeetClientDate, type MeetClientSummary } from "@/lib/assessment/assessment-summary";
 import { toPipelinePath } from "@/lib/pipeline/base-path";
 import { renderMeetClientEmail } from "@/lib/notifications/meet-client-email-template";
 import { emptyMeetClientMessage, meetClientBodyLimit, meetClientSubjectLimit, type MeetClientMessage } from "@/lib/notifications/meet-client-message";
@@ -37,7 +37,7 @@ export default function MeetClientMessageEditor({ summary, preview, preparedBy, 
       <input id="meet-client-subject" className={styles.subjectInput} value={content.subject ?? rendered?.subject ?? "Meet the Client"} maxLength={meetClientSubjectLimit} readOnly={!editable || !editing}
         onChange={(event) => change({ subject: event.target.value })} onBlur={flush} />
     </div>
-    <div className={styles.addressRow}><span>Admission</span><span>{admissionDate || "Add the planned admission date in Decision before sending."}</span></div>
+    <div className={styles.addressRow}><span>Admission</span><span>{admissionDate ? formatMeetClientDate(admissionDate) : "Add the planned admission date in Decision before sending."}</span></div>
     {editable ? <div className={styles.messageTools}>
       <button type="button" className={styles.textButton} onClick={() => { flush(); setEditing(!editing); }}>{editing ? "Back to email preview" : "Edit message"}</button>
       {editing ? <span>Client details stay linked to the assessment.</span> : null}

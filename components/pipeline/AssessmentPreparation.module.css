@@ -121,7 +121,7 @@
 
   @media (prefers-reduced-motion: no-preference) {
     .worksheet { animation: file-page-in 150ms ease-out; }
-  
+
   }
 
   @media (max-width: 1100px), (hover: none) and (pointer: coarse) {
@@ -312,7 +312,7 @@
 
   @media (prefers-reduced-motion: no-preference) {
     .worksheet { animation: file-page-in 150ms ease-out; }
-  
+
   }
 
   @media (max-width: 1100px), (hover: none) and (pointer: coarse) {

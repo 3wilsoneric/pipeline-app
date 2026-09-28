@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { CheckCircle2, PencilLine, X } from "lucide-react";
 
 import type { ReferralCanvasPacketField } from "@/lib/pipeline/referral-canvas-extraction";
+import { displayWorkspaceSource } from "@/lib/pipeline/workspace-presentation";
 import {
   parseStructuredNarrative,
   serializeStructuredNarrative,
@@ -72,7 +73,7 @@ export default function StructuredNarrativeField({
 
         <div className="mt-4 flex items-end justify-between gap-3 border-t border-[#e3e6e4] pt-3">
           <div className="min-w-0 text-[10px] text-[#737373]">
-            {field.sourceFile ? <span className="truncate">Source: {field.sourceFile}</span> : "Manual chart entry"}
+            {field.sourceFile ? <span className="truncate">Source: {displayWorkspaceSource(field.sourceFile)}</span> : "Manual chart entry"}
           </div>
           <button
             ref={triggerRef}

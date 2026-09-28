@@ -28,6 +28,12 @@ const missingWorkspaceCommunities = new Set([
   "community not recorded",
 ]);
 
+export function displayWorkspaceSource(source: string) {
+  return source
+    .replace(/^Chart from workspace #\d+, as of /i, "Chart from prior workspace, as of ")
+    .replace(/^New intake from workspace #\d+;/i, "New intake from a prior workspace;");
+}
+
 export const californiaCountyNames = [
   "Alameda",
   "Alpine",

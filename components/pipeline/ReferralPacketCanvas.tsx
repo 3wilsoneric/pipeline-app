@@ -31,6 +31,7 @@ import {
   californiaCountyOptions,
   isImportedWorkspace,
   isInternalWorkspaceTag,
+  displayWorkspaceSource,
 } from "@/lib/pipeline/workspace-presentation";
 import PacketExtractionReview from "@/components/pipeline/PacketExtractionReview";
 import { usePacketExtraction } from "@/components/pipeline/use-packet-extraction";
@@ -318,9 +319,9 @@ export const initialFields: Record<FieldKey, PacketField> = {
     placeholder: "Referral summary",
   },
   currentMedications: {
-    label: "Current medications",
+    label: "Medication history",
     value: "",
-    placeholder: "One medication per line, or paste the med list note",
+    placeholder: "List medications on record, one per line. Confirm what is current before sending.",
   },
 };
 
@@ -3143,7 +3144,7 @@ export default function ReferralPacketCanvas({
                   </div>
                 </ChartSection> : null}
 
-                <ChartSection title="Medication profile" complete={countCompleteFields(fields, ["currentMedications"])} total={1}>
+                <ChartSection title="Medication history" complete={countCompleteFields(fields, ["currentMedications"])} total={1}>
                   <div className="px-5 py-4 sm:px-6" data-workspace-field="currentMedications" onFocusCapture={() => focusWorkspaceField("currentMedications")}>
                     <MedicationProfileField
                       field={fields.currentMedications}
@@ -3603,7 +3604,7 @@ export function ChartSection({
 function chartGuideTarget(title: string) {
   if (title === "Identity") return "intake-identity";
   if (title === "Referral details") return "intake-routing";
-  if (title === "Medication profile") return "intake-medications";
+  if (title === "Medication history") return "intake-medications";
   return undefined;
 }
 
@@ -3863,7 +3864,7 @@ export function EditablePacketField({
       {field.sourceFile ? (
         <div className="mt-2 flex items-center gap-1 text-[10px] font-black text-[#317f8f]">
           <CheckCircle2 size={12} />
-          {field.sourceFile}
+          {displayWorkspaceSource(field.sourceFile)}
         </div>
       ) : null}
     </div>
@@ -3960,7 +3961,7 @@ function MedicationProfileField({
       />
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-[#e3e6e4] pt-3 text-[10px] text-[#737373]">
         <span>Use one medication per line when possible.</span>
-        {field.sourceFile ? <span className="font-black text-[#317f8f]">Source: {field.sourceFile}</span> : <span>Manual chart entry</span>}
+        {field.sourceFile ? <span className="font-black text-[#317f8f]">Source: {displayWorkspaceSource(field.sourceFile)}</span> : <span>Manual chart entry</span>}
       </div>
     </section>
   );

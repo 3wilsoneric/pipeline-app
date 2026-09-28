@@ -13,4 +13,3 @@
 .document:hover { border-color: var(--color-control-border); background: var(--color-segment); color: var(--color-ink); }
 .document:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 1px; }
 .documentName { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-

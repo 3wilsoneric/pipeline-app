@@ -24,6 +24,7 @@ import type { CommunicationView } from "@/lib/notifications/communication-contra
 import type { OutlookDraftView } from "@/lib/notifications/outlook-draft-contract";
 import type { MeetClientMessage } from "@/lib/notifications/meet-client-message";
 import { meetClientIdentityIssues } from "@/lib/notifications/meet-client-identity";
+import { medicationInventory, medicationReviewMatches, type MedicationReview } from "@/lib/notifications/meet-client-medications";
 import { formatClientIdentityTitle, resolveClientCommunity } from "@/lib/pipeline/client-identity-presentation.mjs";
 
 import { toPipelinePath } from "@/lib/pipeline/base-path";
@@ -153,8 +154,9 @@ export default function AssessmentChartWorkspace({ referralId, active = true, so
   const emailMeetClient = async (outlookToken: string, delivery: "outlook" | "assessor" = "outlook") => {
     if (!canStartMeetClientSend(payload, acceptedReferralId === referralId, confirmed, sendInFlight.current)) return;
     if (!handoffDraftReady(emailDraft)) return;
+    if (!medicationReviewReady(payload.report, payload.referral, emailDraft)) throw new Error("Review current medications before preparing the handoff.");
     const recipientList = recipients;
-    const requestKey = handoffRequestKey(payload, recipientList, ccRecipients, emailDraft.fields.message);
+    const requestKey = handoffRequestKey(payload, recipientList, ccRecipients, emailDraft.fields.message, emailDraft.fields.medicationReview);
     if (sendRequest.current?.key !== requestKey) sendRequest.current = { key: requestKey, mutationId: crypto.randomUUID() };
     const mutationId = sendRequest.current.mutationId;
     sendInFlight.current = true;
@@ -179,6 +181,7 @@ export default function AssessmentChartWorkspace({ referralId, active = true, so
             client_mutation_id: mutationId,
             packet_revision: payload.email.admission_packet.revision,
             message: emailDraft.fields.message,
+            medication_review: emailDraft.fields.medicationReview,
           }),
         },
         { timeoutMs: 300_000 },
@@ -206,7 +209,8 @@ export default function AssessmentChartWorkspace({ referralId, active = true, so
 
   const prepareDirect = async (snapshotId?: string): Promise<CommunicationView> => {
     if (!payload || !handoffDraftReady(emailDraft) || !confirmed || sendInFlight.current) throw new Error("Finish reviewing the recipients before preparing this email.");
-    const key = handoffRequestKey(payload, recipients, ccRecipients, emailDraft.fields.message);
+    if (!medicationReviewReady(payload.report, payload.referral, emailDraft)) throw new Error("Review current medications before preparing the handoff.");
+    const key = handoffRequestKey(payload, recipients, ccRecipients, emailDraft.fields.message, emailDraft.fields.medicationReview);
     if (sendRequest.current?.key !== key) sendRequest.current = { key, mutationId: crypto.randomUUID() };
     sendInFlight.current = true; setSending(true); onSendingChange?.(true); setError("");
     try {
@@ -215,7 +219,7 @@ export default function AssessmentChartWorkspace({ referralId, active = true, so
         method: "POST", body: JSON.stringify({ recipients, cc_recipients: ccRecipients, confirmed: true,
           if_match: payload.referral.version, assessment_id: payload.report?.assessmentId, if_match_assessment: payload.report?.assessmentVersion,
           client_mutation_id: sendRequest.current.mutationId, packet_revision: payload.email.admission_packet.revision,
-          message: emailDraft.fields.message, ...(snapshotId ? { snapshot_id: snapshotId } : {}) }),
+          message: emailDraft.fields.message, medication_review: emailDraft.fields.medicationReview, ...(snapshotId ? { snapshot_id: snapshotId } : {}) }),
       }, { timeoutMs: 300_000 });
       if (result.communication.status === "submitted") setAcceptedReferralId(payload.referral.id);
       return result.communication;
@@ -269,7 +273,7 @@ export default function AssessmentChartWorkspace({ referralId, active = true, so
       {!composerOpen ? <HandoffDraftError value={emailDraft} /> : null}
       {!composerOpen && readyPayload.email.example_only ? <p role="status" className={styles.previewNote}>Not production yet — no email will be sent.</p> : null}
       <HandoffOverview payload={readyPayload} sent={sent} exampleReviewed={exampleReviewed} finishActions={finishActions}
-        existingDraft={existingDraft} composerOpen={composerOpen} reviewedCount={reviewedCount} onPreviewEmail={() => setReviewStep(sent || exampleReviewed || existingDraft ? 4 : Math.min(reviewedCount, 4))}
+        existingDraft={existingDraft} composerOpen={composerOpen} reviewedCount={reviewedCount} onPreviewEmail={() => setReviewStep(sent || exampleReviewed || existingDraft ? 4 : !medicationReviewReady(readyPayload.report, readyPayload.referral, emailDraft) && reviewedCount > 1 ? 1 : Math.min(reviewedCount, 4))}
         onOpenIntake={onOpenIntake} onOpenAssessment={onOpenAssessment} onOpenDecision={onOpenDecision} />
       {!readyPayload.email.example_only ? <CommunicationHistory referralId={readyPayload.referral.id} refreshKey={`${sent}:${composerOpen}`}
         onPrepareUpdated={readyPayload.email.can_send ? () => { void load().then(next => { if (next) { setAcceptedReferralId(null); setReviewStep(0); } }); } : undefined} /> : null}
@@ -366,18 +370,20 @@ function HandoffPendingTask({ signed, onOpenAssessment, onOpenDecision }: { sign
     </section>;
 }
 
-export function HandoffClinicalSummary({ report }: { report: AssessmentSummaryReport }) {
+export function HandoffClinicalSummary({ report, showMedicationHistory = true }: { report: AssessmentSummaryReport; showMedicationHistory?: boolean }) {
   const summary = report.meetClient;
   return <div className={styles.handoffReading}>
-        <HandoffSection title="Medications & injections" items={summary.medicationNotes}>
-          {summary.medications.length ? <ul className={styles.medicationList}>{summary.medications.map((medication, index) => <li key={index}><ReadableChartText value={medication} /></li>)}</ul> : <p className={styles.missing}>Medication list not recorded. Confirm with the referring team.</p>}
+        <HandoffSection title={showMedicationHistory ? "Medications & injections" : "Injection & med-room notes"} items={summary.medicationNotes}>
+          {showMedicationHistory && (summary.medications.length
+            ? <ul className={styles.medicationList}>{summary.medications.map((medication, index) => <li key={index}><ReadableChartText value={medication} /></li>)}</ul>
+            : <p className={styles.missing}>No medication history recorded in the assessment.</p>)}
         </HandoffSection>
         <HandoffSection title="Behavior & safety" items={summary.safetyNotes ?? []} />
         <HandoffSection title="Arrival & admission" items={summary.admissionNotes ?? []} />
         <HandoffSection title="Daily support & diet" items={Array.from(new Map([...summary.supportSnapshot, ...(summary.dietaryNotes ?? [])].map((item) => [item.label, item])).values())} />
         <HandoffSection title="Billing & benefits" items={summary.billingNotes ?? []} />
         {summary.bio.length ? <HandoffSection title="Getting to know the client" items={[]}><ul className={styles.medicationList}>{summary.bio.map((line, index) => <li key={index}><ReadableChartText value={line} /></li>)}</ul></HandoffSection> : null}
-        <p className={styles.sourceNote}>From signed assessment version {report.assessmentVersion}. Corrections belong in the chart; the email uses the same record.</p>
+        <p className={styles.sourceNote}>From signed assessment version {report.assessmentVersion}. Correct the chart there; current medications are selected separately for the email.</p>
     </div>;
 }
 
@@ -404,14 +410,28 @@ function MeetClientComposeDialog({ step, compact, sending, onClose, children }: 
   </dialog>;
 }
 
-function handoffRequestKey(payload: ChartPayload, recipientList: string[], ccRecipients: string[], message: MeetClientMessage) {
+function handoffRequestKey(payload: ChartPayload, recipientList: string[], ccRecipients: string[], message: MeetClientMessage, medicationReview: MedicationReview | null) {
   return JSON.stringify([
       payload.referral.id, payload.referral.version, payload.report?.assessmentId, payload.report?.assessmentVersion,
       [...new Set(recipientList.map((recipient) => recipient.toLowerCase()))].sort(),
       [...ccRecipients].sort(),
       payload.email.admission_packet.files.map((file) => file.document_id).sort(),
       message,
+      medicationReview,
     ]);
+}
+
+function medicationReviewReady(report: AssessmentSummaryReport | null, referral: Referral, draft?: HandoffRecipients): boolean {
+  if (!report || !draft) return false;
+  return medicationReviewMatches(draft.fields.medicationReview, report.assessmentId, report.assessmentVersion,
+    medicationInventory(report.meetClient.medications, referral.currentMedications || ""));
+}
+
+function handoffMedicationSummary(report: AssessmentSummaryReport | null, referral: Referral, draft?: HandoffRecipients) {
+  if (!report) return undefined;
+  const review = medicationReviewMatches(draft?.fields.medicationReview ?? null, report.assessmentId, report.assessmentVersion,
+    medicationInventory(report.meetClient.medications, referral.currentMedications || "")) ? draft!.fields.medicationReview : null;
+  return { ...report.meetClient, medications: review?.selected ?? [], medicationStatus: review?.status === "confirmed" ? undefined : review?.status ?? "unconfirmed" };
 }
 
 function handoffDraftReady(draft?: HandoffRecipients): draft is HandoffRecipients {
@@ -523,27 +543,57 @@ function HandoffReviewStep({ step, payload, draft, confirmed, onConfirmed, onBac
   onOpenFiles?: () => void; onOpenAssessment?: () => void;
 }) {
   const recipientCheckReady = confirmed && handoffDraftReady(draft) && Boolean(draft.fields.to.length);
+  const medicationCheckReady = Boolean(draft?.editable) && medicationReviewReady(payload.report, payload.referral, draft);
+  const [savingReview, setSavingReview] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const continueReview = async () => {
+    if (step !== 1) { onContinue(); return; }
+    if (!medicationCheckReady || !draft) return;
+    setSavingReview(true); setSaveError("");
+    try { await draft.flush(); }
+    catch (failure) { setSaveError(failure instanceof Error ? failure.message : "The medication review was not saved. Try again."); }
+    finally { setSavingReview(false); }
+    onContinue();
+  };
   return <div className={styles.composer}>
     <div className={styles.composeScroll}>
       {payload.email.example_only ? <p role="status" className={styles.demoNotice}>Demo only — no email will be sent.</p> : null}
-      {step === 1 ? <HandoffSummaryReview report={payload.report} onOpenAssessment={onOpenAssessment} /> : null}
+      {step === 1 ? <HandoffSummaryReview report={payload.report} referral={payload.referral} draft={draft} onOpenAssessment={onOpenAssessment} /> : null}
       {step === 2 ? <AdmissionPacketReview email={payload.email} referral={payload.referral} onOpenFiles={onOpenFiles} /> : null}
       {step === 3 ? <HandoffRecipientReview draft={draft} community={payload.referral.community} editable={payload.email.can_edit_recipients} confirmed={confirmed} onConfirmed={onConfirmed} /> : null}
       {step !== 3 ? <HandoffDraftError value={draft} /> : null}
+      {saveError ? <p role="alert" className={styles.reviewInstruction}>{saveError}</p> : null}
     </div>
     <footer className={styles.toolbar}>
       <button type="button" className={styles.textButton} onClick={onBack}>Back</button>
-      <button type="button" className={styles.sendButton} disabled={step === 3 && !recipientCheckReady} onClick={onContinue}>
+      <button type="button" className={styles.sendButton} disabled={savingReview || (step === 1 && !medicationCheckReady) || (step === 3 && !recipientCheckReady)} onClick={() => void continueReview()}>
         {["Confirm summary", "Confirm packet", "Preview email"][step - 1]}<ArrowRight size={18} aria-hidden="true" />
       </button>
     </footer>
   </div>;
 }
 
-function HandoffSummaryReview({ report, onOpenAssessment }: { report: AssessmentSummaryReport | null; onOpenAssessment?: () => void }) {
+function HandoffSummaryReview({ report, referral, draft, onOpenAssessment }: { report: AssessmentSummaryReport | null; referral: Referral; draft?: HandoffRecipients; onOpenAssessment?: () => void }) {
+  const inventory = medicationInventory(report?.meetClient.medications ?? [], referral.currentMedications || "");
+  const review = report && medicationReviewMatches(draft?.fields.medicationReview ?? null, report.assessmentId, report.assessmentVersion, inventory)
+    ? draft!.fields.medicationReview : null;
+  const setReview = (selected: string[], status: MedicationReview["status"]) => {
+    if (!report) return;
+    draft?.changeMedicationReview({ assessmentId: report.assessmentId, assessmentVersion: report.assessmentVersion, inventory, selected, status });
+  };
   return <div className={styles.reviewContent}>
-        <p className={styles.reviewInstruction}>Check the details the receiving team will need.</p>
-        {report ? <HandoffClinicalSummary report={report} /> : null}
+        <fieldset className={styles.medicationReview} disabled={!draft?.editable || !report}>
+          <legend>Which medications are current for this handoff?</legend>
+          <p>Intake and assessment entries are history until you confirm them. Select only what the receiving team should see as current.</p>
+          {inventory.map((entry) => <label key={entry}><input type="checkbox" checked={review?.selected.includes(entry) ?? false} onChange={(event) => {
+            const selected = event.target.checked ? [...(review?.selected ?? []), entry] : (review?.selected ?? []).filter((item) => item !== entry);
+            draft?.changeMedicationReview(selected.length ? { assessmentId: report!.assessmentId, assessmentVersion: report!.assessmentVersion, inventory, selected, status: "confirmed" } : null);
+          }} /><span>{entry}</span></label>)}
+          <label className={styles.medicationStatus}><input type="radio" name="current-medication-status" checked={review?.status === "unconfirmed"} onChange={() => setReview([], "unconfirmed")} /><span>Current medications cannot be confirmed yet</span></label>
+          <label><input type="radio" name="current-medication-status" checked={review?.status === "none"} onChange={() => setReview([], "none")} /><span>Confirmed: no current medications</span></label>
+          {review?.status === "confirmed" ? <p role="status">{review.selected.length} selected for the community email.</p> : review?.status === "unconfirmed" ? <p role="status">The email will say current medications are not confirmed.</p> : review?.status === "none" ? <p role="status">The email will state that no current medications were reported.</p> : null}
+        </fieldset>
+        {report ? <HandoffClinicalSummary report={report} showMedicationHistory={false} /> : null}
         {onOpenAssessment ? <button type="button" className={styles.textButton} onClick={onOpenAssessment}>Correct the assessment</button> : null}
       </div>;
 }
@@ -583,9 +633,11 @@ function MeetClientEmailPreview({ preparedDraft, onExistingDraft, email, report,
   onPrepareDirect: (snapshotId?: string) => Promise<CommunicationView>;
   onPrepareOutlook: (token: string, delivery?: "outlook" | "assessor") => Promise<OutlookDraftView | undefined>; onOutlookSent: () => void;
 }) {
+  const medicationSummary = handoffMedicationSummary(report, referral, emailDraft);
+  const medicationsReady = medicationReviewReady(report, referral, emailDraft);
   if (!preparedDraft && !email.example_only) return <div className={styles.composeScroll} style={{ padding: "20px 24px" }}>
-    <DirectHandoffPreview refresh={refresh} prepare={onPrepareDirect} onBack={onBack} onDone={onReviewComplete} ready={email.ready && confirmed && handoffDraftReady(emailDraft)} sending={sending} readinessReasons={handoffReadinessReasons(email, emailDraft, confirmed, false)}
-      editor={<MeetClientMessageEditor initialEditing summary={report?.meetClient} preview={email.preview} preparedBy={email.prepared_by ?? ""}
+    <DirectHandoffPreview refresh={refresh} prepare={onPrepareDirect} onBack={onBack} onDone={onReviewComplete} ready={email.ready && confirmed && medicationsReady && handoffDraftReady(emailDraft)} sending={sending} readinessReasons={handoffReadinessReasons(email, emailDraft, confirmed, false, medicationsReady)}
+      editor={<MeetClientMessageEditor initialEditing summary={medicationSummary} preview={email.preview} preparedBy={email.prepared_by ?? ""}
         attachments={email.admission_packet.files.map(file => file.name)} draft={emailDraft} admissionDate={getPlannedAdmissionDate(referral)} disabled={sending} />} />
   </div>;
   const composerReadOnly = [!email.can_edit_recipients, sending, sent, Boolean(preparedDraft)].some(Boolean);
@@ -593,7 +645,7 @@ function MeetClientEmailPreview({ preparedDraft, onExistingDraft, email, report,
         <div className={styles.addressRow}><span>Final sender</span><strong>You, from your own email</strong></div>
         <div className={styles.addressRow}><span>To</span><span>{emailDraft?.fields.to.map((contact) => contact.email).join("; ") || "No recipients"}</span></div>
         {emailDraft?.fields.cc.length ? <div className={styles.addressRow}><span>Cc</span><span>{emailDraft.fields.cc.map((contact) => contact.email).join("; ")}</span></div> : null}
-        <MeetClientMessageEditor demo={email.example_only} summary={report?.meetClient} preview={email.preview} preparedBy={email.prepared_by ?? ""}
+        <MeetClientMessageEditor demo={email.example_only} summary={medicationSummary} preview={email.preview} preparedBy={email.prepared_by ?? ""}
           attachments={email.admission_packet.files.map((file) => file.name)} draft={emailDraft} admissionDate={getPlannedAdmissionDate(referral)} disabled={composerReadOnly} />
         {!email.example_only ? <details className={styles.deliveryDetails}><summary>Delivery details</summary>
           {email.blockers.length ? <ul>{email.blockers.map((blocker) => <li key={blocker}>{blocker}</li>)}</ul> : null}
@@ -613,13 +665,13 @@ function MeetClientEmailPreview({ preparedDraft, onExistingDraft, email, report,
     {emailDraft && !preparedDraft ? <HandoffDraftStatus value={emailDraft} /> : null}
     {sent || email.example_only ? renderCompletion() : <footer className={`${styles.toolbar} ${styles.outlookToolbar}`}>
       {!preparedDraft ? <button type="button" className={styles.textButton} disabled={sending} onClick={onBack}>Back to recipients</button> : null}
-      <OutlookHandoffControls selected referralId={referral.id} demo={false} ready={canSendHandoff(email, emailDraft, confirmed, sending)} readinessReasons={handoffReadinessReasons(email, emailDraft, confirmed, sending)} sending={sending}
+      <OutlookHandoffControls selected referralId={referral.id} demo={false} ready={canSendHandoff(email, emailDraft, confirmed, sending) && medicationsReady} readinessReasons={handoffReadinessReasons(email, emailDraft, confirmed, sending, medicationsReady)} sending={sending}
         onPrepare={onPrepareOutlook} onEmail={() => onPrepareOutlook("", "assessor")} onSent={onOutlookSent} onExistingDraft={onExistingDraft} />
     </footer>}
   </div>;
 }
 
-function handoffReadinessReasons(email: ChartPayload["email"], draft: HandoffRecipients | undefined, confirmed: boolean, sending: boolean): string[] {
+function handoffReadinessReasons(email: ChartPayload["email"], draft: HandoffRecipients | undefined, confirmed: boolean, sending: boolean, medicationsReady: boolean): string[] {
   if (sending) return ["Preparing your handoff. Please wait."];
   const reasons = [...email.blockers];
   if (!email.can_send) reasons.push("This workspace cannot prepare a handoff with your current access. Ask an administrator to check your access.");
@@ -628,6 +680,7 @@ function handoffReadinessReasons(email: ChartPayload["email"], draft: HandoffRec
   else if (draft.hasPendingRecipients) reasons.push("Go back to recipients and press Enter or + to add the unfinished address.");
   else if (!draft.fields.to.length) reasons.push("Go back to recipients and add at least one authorized recipient to the To list.");
   else if (!confirmed) reasons.push("Go back to recipients and confirm that each person is authorized to receive this client's information.");
+  if (!medicationsReady) reasons.push("Go back to the client summary and review current medications.");
   return reasons;
 }
 
@@ -685,6 +738,7 @@ function PreparedDraftDetails({ draft }: { draft: OutlookDraftView }) {
   return <section className={styles.recipientSection} style={{ overflowWrap: "anywhere" }} aria-label="Prepared handoff details">
     <h3>{draft.delivery_method === "assessor_email" ? "Recipients for your forward" : "Prepared handoff"}</h3>
     <p>{draft.delivery_method === "assessor_email" ? `Forward the Alamo Admissions email in ${draft.mailbox} with every attachment. Copy the reviewed addresses below.` : `Use the prepared message in ${draft.mailbox}. To change the message, recipients or files, prepare a replacement below.`}</p>
+    <p>Check the current-medication list in this prepared copy before sending. Later changes in Pipeline do not update an email already prepared.</p>
     {draft.to_recipients ? <>
       {addressRow("To", draft.to_recipients)}
       {addressRow("Cc", draft.cc_recipients ?? [])}

@@ -391,9 +391,9 @@
 
   @media (prefers-reduced-motion: no-preference) {
     .answerUpdate { animation: answer-recorded 900ms ease-out both; }
-  
+
     .readingPage { animation: reading-page-in 160ms ease-out; }
-  
+
   }
   .appointment { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 16px; padding: 6px 16px; border-bottom: 1px solid #d9dfdb; background: #fff; color: #33483e; }
   .appointment > div { display: flex; flex-wrap: wrap; gap: 2px 12px; font-size: 13px; line-height: 1.5; }
@@ -916,9 +916,9 @@
 
   @media (prefers-reduced-motion: no-preference) {
     .answerUpdate { animation: answer-recorded 900ms ease-out both; }
-  
+
     .readingPage { animation: reading-page-in 160ms ease-out; }
-  
+
   }
   .appointment { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 16px; padding: 6px 16px; border-bottom: 1px solid #d9dfdb; background: #fff; color: #33483e; }
   .appointment > div { display: flex; flex-wrap: wrap; gap: 2px 12px; font-size: 13px; line-height: 1.5; }

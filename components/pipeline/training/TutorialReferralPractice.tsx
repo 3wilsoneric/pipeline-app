@@ -232,7 +232,7 @@ function TutorialIntake({ referral, files, onFiles, onChange, onCreate }: { refe
           detail={key === "dob" ? `Age ${ageFromCalendarDate(referral.dob) ?? "not known"}` : undefined} onFocus={() => undefined} onChange={(value) => onChange({ [property]: value })} />;
       })}</div>
     </ChartSection></div>)}
-    <div className={styles.notes}>{(["note", "currentMedications"] as const).map((key) => <label key={key}>{key === "note" ? "Referral summary" : "Current medications"}<textarea rows={4} value={referral[key]} onChange={(event) => onChange({ [key]: event.target.value })} /></label>)}</div>
+    <div className={styles.notes}>{(["note", "currentMedications"] as const).map((key) => <label key={key}>{key === "note" ? "Referral summary" : "Medication history"}<textarea rows={4} value={referral[key]} onChange={(event) => onChange({ [key]: event.target.value })} /></label>)}</div>
     <p role="status" className={styles.saved}><Check size={16} />Sample changes kept in this tutorial</p>
   </div>;
 }

@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
 import { createOperationalAssessment, createOperationalReferral, readOperationalReferral, recordOperationalAcceptance, signOperationalAssessment } from "./support/operational-api";
-import { openRecipients, confirmRecipients } from "./support/handoff-review";
+import { openRecipients, openSummary, confirmRecipients } from "./support/handoff-review";
 import type { AxeResults } from "axe-core";
 
 test.skip(process.env.PIPELINE_DESKTOP_E2E !== "true", "Requires the isolated handoff draft store.");
@@ -281,11 +281,17 @@ test("Retry saving after a draft load failure restores the saved recipients", as
   await page.route(endpoint, route => route.request().method() === "GET"
     ? route.fulfill({ status: 503, json: { error: "Synthetic draft load interrupted" } }) : route.continue());
   await page.reload();
-  const dialog = await openRecipients(page);
-  await expect(dialog.getByRole("alert")).toContainText("Recipient drafts could not be loaded");
+  const summary = await openSummary(page);
+  await expect(summary.getByRole("alert")).toContainText("Recipient drafts could not be loaded");
   await page.unroute(endpoint);
-  await dialog.getByRole("button", { name: "Retry saving", exact: true }).click();
+  await summary.getByRole("button", { name: "Retry saving", exact: true }).click();
+  await expect(summary.getByRole("alert")).toHaveCount(0);
+  await summary.getByRole("button", { name: "Confirm summary", exact: true }).click();
+  const packet = page.getByRole("dialog", { name: "Check admission packet", exact: true });
+  await expect(packet).toBeVisible();
+  await packet.getByRole("button", { name: "Confirm packet", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Check recipients", exact: true });
+  await expect(dialog).toBeVisible();
   await expect(dialog.getByRole("list", { name: "To recipients", exact: true })).toContainText("first@example.invalid");
-  await expect(dialog.getByRole("alert")).toHaveCount(0);
   await confirmRecipients(page);
 });

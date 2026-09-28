@@ -179,7 +179,8 @@ for (const width of [1440, 390]) {
       const stack = page.locator('[data-board-stage="received"]');
       const first = stack.locator("[data-board-card]").first();
       const last = stack.locator("[data-board-card]").last();
-      await expect(first).toContainText("Referral #910101");
+      await expect(first).toContainText("Referral received");
+      await expect(first).not.toContainText("#910101");
       await expect(first).toContainText("Received Sep 17, 2026");
       await expect(first.locator("[data-folder-details]")).toContainText("Documents needed2");
       await expect(last.locator("[data-folder-name]")).toHaveCSS("font-weight", "700");

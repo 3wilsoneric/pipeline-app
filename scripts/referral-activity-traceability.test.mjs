@@ -67,8 +67,9 @@ for (const mode of ["local_file", "postgres"]) {
       }
       const [first, second] = created;
       assert.equal((await referrals.getReferral(first.id)).name, "Pending Review", "the stored source value is not rewritten");
-      assert.notEqual(formatClientIdentityTitle(first), formatClientIdentityTitle(second));
-      assert.equal(formatClientIdentityTitle(first), `Unnamed referral · #${first.id}`);
+      assert.notEqual(first.id, second.id);
+      assert.equal(formatClientIdentityTitle(first), "Name not recorded");
+      assert.equal(formatClientIdentityTitle(second), "Name not recorded");
 
       // As the create route does: with no referral assignee the starting user
       // becomes the assessment's assessor, and the seed records that name.

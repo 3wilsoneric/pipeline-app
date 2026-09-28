@@ -104,7 +104,7 @@ test("a chart allows another intake while retries remain idempotent", async ({ p
   expect(created.admissionDate).toBe("");
   expect(created.assessment).toBeUndefined();
   expect(created.admissionDecision).toBeUndefined();
-  expect(created.fieldSources?.currentMedications).toContain(`workspace #${source.id}`);
+  expect(created.fieldSources?.currentMedications).toMatch(/^Chart from prior workspace, as of .+; verify for this referral$/);
   await expect(page).toHaveURL(new RegExp(`referralId=${created.id}.*workspaceField=name`));
   await expect(page.locator("#packet-page-1")).toBeVisible();
   await expect(page.locator(`input[value="${created.name}"]`)).toBeVisible();

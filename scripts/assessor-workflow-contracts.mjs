@@ -517,7 +517,7 @@ const renderedMeetClient = meetClientTemplate.renderMeetClientEmail({
   name: "<Test Client>",
 }, "Supervisor & Reviewer", "delivery-fixture", ["LIC 602 <signed>.pdf", "Medication list.pdf"]);
 check("Meet the Client subject excludes the client name", !renderedMeetClient.subject.includes("Test Client"));
-check("Meet the Client email includes the admission date", renderedMeetClient.html.includes("Admission date") && renderedMeetClient.html.includes("2026-10-12"));
+check("Meet the Client email includes a month/day/year admission date", renderedMeetClient.html.includes("Admission date") && renderedMeetClient.html.includes("10/12/2026") && !renderedMeetClient.html.includes("2026-10-12"));
 check("Meet the Client HTML escapes clinical and identity content", renderedMeetClient.html.includes("&lt;Test Client&gt;") && renderedMeetClient.html.includes("Supervisor &amp; Reviewer") && !renderedMeetClient.html.includes("<Test Client>"));
 check("Meet the Client identifies and escapes every attached admission file", renderedMeetClient.html.includes("LIC 602 &lt;signed&gt;.pdf") && renderedMeetClient.html.includes("Medication list.pdf") && !renderedMeetClient.html.includes("LIC 602 <signed>.pdf"));
 check("small packets use direct Graph delivery", attachmentPolicy.meetClientAttachmentDeliveryMode([{ byteSize: 500_000 }, { byteSize: 500_000 }]) === "direct");
@@ -679,7 +679,8 @@ const outlookDraftControls = read("components/pipeline/OutlookHandoffControls.ts
 check("staff reviews the exact packet and verified recipients before saving the Outlook draft", assessmentChartWorkspace.includes('aria-label="Referral packet attachments"')
   && assessmentChartWorkspace.includes("email.admission_packet.files.map")
   && assessmentChartWorkspace.includes("I verified that each recipient is authorized to receive this summary and the packet files.")
-  && assessmentChartWorkspace.includes('ready={canSendHandoff(email, emailDraft, confirmed, sending)}')
+  && assessmentChartWorkspace.includes('ready={canSendHandoff(email, emailDraft, confirmed, sending) && medicationsReady}')
+  && assessmentChartWorkspace.includes('const medicationsReady = medicationReviewReady(report, referral, emailDraft)')
   && assessmentChartWorkspace.includes('return !sending && email.ready && confirmed && Boolean(draft?.fields.to.length) && handoffDraftReady(draft)')
   && outlookDraftControls.includes('const preparationDisabled = disabled || !ready || isDemo || state.occupied')
   && outlookDraftControls.includes('disabled={preparationDisabled}')

@@ -73,6 +73,7 @@ import {
   removeOfflineAssessmentWorkingSet,
   saveOfflineAssessmentDraft,
   saveOfflineAssessmentWorkingSet,
+  type OfflineAssessmentWorkingSet,
 } from "@/lib/offline/offline-assessment-store";
 import {
   buildTrainingAssessment,
@@ -469,6 +470,7 @@ export default function AssessmentWorkspace({
   const closingRef = useRef(false);
   const initializedAssessmentIdRef = useRef<{ id: string; principal: string } | null>(null);
   const touchedFieldsRef = useRef(new Set<AssessmentToolFieldKey>());
+  const resolvedRecoveryFieldsRef = useRef(new Set<AssessmentToolFieldKey>());
   const workbookSourcesRef = useRef<AssessmentDraftWorkbookSources>({});
   const focusedAssessmentIdRef = useRef("");
   const preparationRequestedRef = useRef(false);
@@ -761,14 +763,25 @@ export default function AssessmentWorkspace({
         if (recovered.activeQuestion) setWorkingTarget((current) => current ?? { field: recovered.activeQuestion! });
       }
     };
-    const applyRecoveryAnswers = (recovered: PipelineAssessmentDraft, assessment: PipelineAssessmentRecord) => {
+    const applyRecoveryAnswers = (recovered: PipelineAssessmentDraft, assessment: PipelineAssessmentRecord, browserAlternatives: OfflineAssessmentWorkingSet["conflictingAnswers"]) => {
       restoreRecoveryPosition(recovered);
-      if (recovered.dirtySections.length === 0) return;
+      if (recovered.dirtySections.length === 0 && !browserAlternatives?.length) return;
 
       // Recovery may finish after the assessor has already typed or saved. Only
       // restore untouched fields; a late read must never erase newer input.
       const currentData = pickAssessmentToolData(assessment);
       const { merged, recoveredBase, conflicts } = mergeRecoveryAnswers(recovered, currentData);
+      for (const candidate of browserAlternatives ?? []) {
+        if (sameAssessmentValue(merged[candidate.field], candidate.value)) continue;
+        const existing = conflicts.find((conflict) => conflict.field === candidate.field);
+        if (existing) {
+          existing.alternatives = [...(existing.alternatives ?? []), candidate.value];
+          continue;
+        }
+        const definition = assessmentToolFieldDefinitions.find((field) => field.key === candidate.field);
+        if (!definition) continue;
+        conflicts.push({ field: candidate.field, section: definition.section, localValue: merged[candidate.field], remoteValue: candidate.value, source: "browser-drafts" });
+      }
       // Keep the pre-conflict comparison value until the assessor chooses an
       // answer. Otherwise the next persisted draft loses the conflict on reopen.
       baseDataRef.current = recoveredBase;
@@ -797,13 +810,13 @@ export default function AssessmentWorkspace({
     }
     };
     const initialization = initializedAssessmentIdRef.current;
-    const { recovered, recoveredVersion } = await readAssessmentRecovery(assessment.assessment_id, offlinePrincipal);
+    const { recovered, recoveredVersion, browserAlternatives } = await readAssessmentRecovery(assessment.assessment_id, offlinePrincipal);
     if (initializedAssessmentIdRef.current !== initialization || selectedRef.current?.assessment_id !== assessment.assessment_id) return;
     draftVersionRef.current = recoveredVersion;
     setRecoveryLoadedFor(`${assessment.assessment_id}:${offlinePrincipal}`);
     if (!recovered || recovered.assessmentId !== assessment.assessment_id) return;
     restoreAppointmentDraft(recovered, selectedRef.current);
-    applyRecoveryAnswers(recovered, selectedRef.current);
+    applyRecoveryAnswers(recovered, selectedRef.current, browserAlternatives);
     if (offlinePrincipal && new URL(window.location.href).searchParams.get("syncOfflineAssessment") === assessment.assessment_id) {
       setOfflineReturnToSync(assessment.assessment_id);
     }
@@ -831,10 +844,16 @@ export default function AssessmentWorkspace({
       workbookSources: structuredClone(workbookSourcesRef.current),
     };
     const returnPath = `${window.location.pathname}${window.location.search}`;
+    const editedFields = [...touchedFieldsRef.current];
+    const resolvedFields = [...resolvedRecoveryFieldsRef.current];
     // Serialize snapshots with recovery writes so an older encrypted copy
     // cannot finish after an acknowledged save and become the newest draft.
-    const next = localRecoveryQueueRef.current.catch(() => undefined).then(() =>
-      saveOfflineAssessmentWorkingSet(offlinePrincipal, workingDraft, returnPath, { editable: true, activate }));
+    const next = localRecoveryQueueRef.current.catch(() => undefined).then(async () => {
+      await saveOfflineAssessmentWorkingSet(offlinePrincipal, workingDraft, returnPath, {
+        editable: true, activate, editedFields, resolvedFields,
+      });
+      for (const field of resolvedFields) resolvedRecoveryFieldsRef.current.delete(field);
+    });
     localRecoveryQueueRef.current = next.catch(() => undefined);
     await next;
   }, [activeSection, canEditClinical, offlinePrincipal, phoneQuestion, referralId]);
@@ -842,6 +861,12 @@ export default function AssessmentWorkspace({
   const persistRecoveryDraft = useCallback(async (assessment: PipelineAssessmentRecord) => {
     if (trainingAssessmentMode) return;
     if (dirtySectionsRef.current.size === 0 && !pendingScheduleRef.current) return;
+    // The working set reconciles other tabs before the narrower exit draft is written.
+    try {
+      await persistOfflineWorkingSet(assessment, false);
+    } catch {
+      // Server recovery must remain available when encrypted browser storage fails.
+    }
     const recoverySessionId = await currentOfflineRecoverySessionId();
     const recovery: PipelineAssessmentDraft = {
       schema: 1,
@@ -890,7 +915,7 @@ export default function AssessmentWorkspace({
       }
       throw error;
     }
-  }, [activeSection, offlinePrincipal, referralId, trainingAssessmentMode]);
+  }, [activeSection, offlinePrincipal, persistOfflineWorkingSet, referralId, trainingAssessmentMode]);
 
   const clearRecoveryDraft = useCallback((assessmentId: string) => {
     const canRetireRecovery = () => dirtySectionsRef.current.size === 0 && !pendingScheduleRef.current && selectedRef.current?.assessment_id === assessmentId;
@@ -1018,6 +1043,7 @@ export default function AssessmentWorkspace({
     // open a different assessment or authorize resetting work already entered.
     if (!attachingPrincipal) {
       touchedFieldsRef.current.clear();
+      resolvedRecoveryFieldsRef.current.clear();
       workbookSourcesRef.current = {};
       selectedRef.current = selected;
       baseDataRef.current = data;
@@ -2069,18 +2095,19 @@ export default function AssessmentWorkspace({
     commitAnswer(field);
   };
 
-  const resolveAssessmentConflict = (field: AssessmentToolFieldKey, useLatest: boolean) => {
+  const resolveAssessmentConflict = (field: AssessmentToolFieldKey, useLatest: boolean, alternative?: AssessmentToolData[AssessmentToolFieldKey]) => {
     const change = remoteChangeRef.current;
     const conflict = change?.conflicts.find((item) => item.field === field);
     if (!change || !conflict) return;
     touchedFieldsRef.current.add(field);
+    if (conflict.source === "browser-drafts" || conflict.alternatives?.length) resolvedRecoveryFieldsRef.current.add(field);
     const nextDraft = pickAssessmentToolData(draftRef.current);
     const nextBase = pickAssessmentToolData(baseDataRef.current);
     if (useLatest) {
-      nextDraft[field] = conflict.remoteValue as never;
+      nextDraft[field] = (alternative ?? conflict.remoteValue) as never;
       delete workbookSourcesRef.current[field];
     }
-    nextBase[field] = conflict.remoteValue as never;
+    if (conflict.source !== "browser-drafts") nextBase[field] = conflict.remoteValue as never;
     draftRef.current = nextDraft;
     baseDataRef.current = nextBase;
     setDraft(nextDraft);
@@ -2092,7 +2119,14 @@ export default function AssessmentWorkspace({
     dirtySectionsRef.current = nextDirty;
     setDirtySections(nextDirty);
     setMessage(remaining.length > 0 ? `${remaining.length} field conflicts still need review` : "Conflict resolved; saving changes...");
-    if (!useLatest) void queueSectionSave(conflict.section, { [field]: structuredClone(nextDraft[field]) }).catch(() => undefined);
+    if (conflict.source === "browser-drafts") {
+      const current = selectedRef.current;
+      if (current) void persistOfflineWorkingSet(current).then(() =>
+        queueSectionSave(conflict.section, { [field]: structuredClone(nextDraft[field]) }))
+        .catch((cause) => setError(messageFor(cause, "The selected answer could not be saved.")));
+    } else if (!useLatest) {
+      void queueSectionSave(conflict.section, { [field]: structuredClone(nextDraft[field]) }).catch(() => undefined);
+    }
   };
 
   const focusAnswer = (field: AssessmentToolFieldKey) => {
@@ -2385,7 +2419,9 @@ export default function AssessmentWorkspace({
           <div className="flex items-center gap-2 text-[11px] font-black text-[#333333]">
             <RefreshCw size={13} className="text-[#0f8b73]" />
             {remoteChange.conflicts.length > 0
-              ? `${remoteChange.assessment.updated_by.name} changed fields you were editing.`
+              ? remoteChange.conflicts.some((conflict) => conflict.source === "browser-drafts")
+                ? "Two browser tabs have different unsaved answers. Choose which to keep."
+                : `${remoteChange.assessment.updated_by.name} changed fields you were editing.`
               : `Latest changes from ${remoteChange.assessment.updated_by.name} were merged.`}
           </div>
           {remoteChange.conflicts.length > 0 ? (
@@ -2396,13 +2432,15 @@ export default function AssessmentWorkspace({
                   <div key={conflict.field} className="grid gap-2 border-t border-[#e5cf9d] pt-2 sm:grid-cols-[180px_minmax(0,1fr)_auto] sm:items-center">
                     <div className="text-[11px] font-black">{definition?.label ?? conflict.field}</div>
                     <div className="min-w-0 text-[10px] text-[#595959]">
-                      <span className="font-semibold">Yours:</span> {displayAssessmentValue(conflict.localValue)}
+                      <span className="font-semibold">{conflict.source === "browser-drafts" ? "Current draft:" : "Yours:"}</span> {displayAssessmentValue(conflict.localValue)}
                       <span className="mx-2 text-[#9a6115]">|</span>
-                      <span className="font-semibold">Latest:</span> {displayAssessmentValue(conflict.remoteValue)}
+                      <span className="font-semibold">{conflict.source === "browser-drafts" ? "Other tab:" : "Latest:"}</span> {displayAssessmentValue(conflict.remoteValue)}
+                      {conflict.alternatives?.map((value, index) => <span key={index}> | Other unsaved answer: {displayAssessmentValue(value)}</span>)}
                     </div>
                     <div className="flex gap-2">
                       <button type="button" onClick={() => resolveAssessmentConflict(conflict.field, false)} className="h-8 border border-[#9a6115] px-3 text-[10px] font-black text-[#7a4c0d] hover:bg-white">Keep mine</button>
-                      <button type="button" onClick={() => resolveAssessmentConflict(conflict.field, true)} className="h-8 bg-[#111111] px-3 text-[10px] font-black text-white hover:bg-[#0f8b73]">Use latest</button>
+                      <button type="button" onClick={() => resolveAssessmentConflict(conflict.field, true)} className="h-8 bg-ink px-3 text-[10px] font-black text-on-fill hover:bg-primary">{conflict.source === "browser-drafts" ? "Use other tab" : "Use latest"}</button>
+                      {conflict.alternatives?.map((value, index) => <button key={index} type="button" onClick={() => resolveAssessmentConflict(conflict.field, true, value)} className="h-8 border border-stage-amber px-3 text-[10px] font-black text-warning hover:bg-paper">Use other answer {index + 2}</button>)}
                     </div>
                   </div>
                 );
@@ -2699,27 +2737,65 @@ function newestRecoveryDraft(current: PipelineAssessmentDraft | null, candidate:
   return candidate && (!current || Date.parse(candidate.savedAt) >= Date.parse(current.savedAt)) ? candidate : current;
 }
 
+function combineRecoveryDrafts(
+  current: PipelineAssessmentDraft | null,
+  candidate: PipelineAssessmentDraft | null | undefined,
+  alternatives: OfflineAssessmentWorkingSet["conflictingAnswers"],
+  authoritativeCurrent = false,
+  authoritativeCandidate = false,
+) {
+  if (!candidate || candidate.assessmentId !== current?.assessmentId) return current ?? candidate ?? null;
+  const candidateIsNewer = Date.parse(candidate.savedAt) >= Date.parse(current.savedAt);
+  const [newer, older] = candidateIsNewer ? [candidate, current] : [current, candidate];
+  const newerIsCompleteWorkingSet = candidateIsNewer ? authoritativeCandidate : authoritativeCurrent;
+  const data = pickAssessmentToolData(newer.data);
+  const baseData = pickAssessmentToolData(newer.baseData);
+  const workbookSources = { ...newer.workbookSources };
+  const dirtySections = new Set(newer.dirtySections);
+  for (const { key: field, section } of assessmentToolFieldDefinitions) {
+    if (sameAssessmentValue(older.data[field], older.baseData[field])) continue;
+    if (!sameAssessmentValue(newer.data[field], newer.baseData[field])) {
+      if (!sameAssessmentValue(older.data[field], newer.data[field])
+        && !alternatives?.some((answer) => answer.field === field && sameAssessmentValue(answer.value, older.data[field]))) {
+        alternatives?.push({ field, value: older.data[field] });
+      }
+      continue;
+    }
+    if (newerIsCompleteWorkingSet) continue;
+    data[field] = older.data[field] as never;
+    baseData[field] = older.baseData[field] as never;
+    if (older.workbookSources?.[field]) workbookSources[field] = older.workbookSources[field];
+    dirtySections.add(section);
+  }
+  return { ...newer, data, baseData, workbookSources, dirtySections: [...dirtySections], scheduleDraft: newer.scheduleDraft ?? older.scheduleDraft };
+}
+
 function hasPendingRecovery(draft: PipelineAssessmentDraft | null) {
   return Boolean(draft && (draft.dirtySections.length > 0 || draft.scheduleDraft));
 }
 
 async function readBrowserAssessmentRecovery(assessmentId: string, principal: string | null) {
   let recovered: PipelineAssessmentDraft | null = null;
+  let browserAlternatives: OfflineAssessmentWorkingSet["conflictingAnswers"] = [];
+  let hasWorkingSet = false;
   if (principal) {
     try {
-      recovered = await loadOfflineAssessmentDraft(principal, assessmentId);
+      const exitDraft = await loadOfflineAssessmentDraft(principal, assessmentId);
       const workingSet = await loadOfflineAssessmentWorkingSet(principal, assessmentId);
-      if (!hasPendingRecovery(recovered)) recovered = newestRecoveryDraft(recovered, workingSet?.draft);
+      hasWorkingSet = Boolean(workingSet);
+      browserAlternatives = workingSet?.conflictingAnswers ?? [];
+      recovered = combineRecoveryDrafts(exitDraft, workingSet?.draft ?? null, browserAlternatives, false, true);
     } catch {
       // Server recovery remains available when encrypted browser storage is unavailable.
     }
     recovered = newestRecoveryDraft(recovered, volatileAssessmentRecovery(principal, assessmentId));
   }
-  return recovered;
+  return { recovered, browserAlternatives, hasWorkingSet };
 }
 
 async function readAssessmentRecovery(assessmentId: string, principal: string | null) {
-  let recovered = await readBrowserAssessmentRecovery(assessmentId, principal);
+  const browserRecovery = await readBrowserAssessmentRecovery(assessmentId, principal);
+  let recovered = browserRecovery.recovered;
   let recoveredVersion = 0;
   if (usesServerUserWorkspaceState()) {
     try {
@@ -2727,14 +2803,14 @@ async function readAssessmentRecovery(assessmentId: string, principal: string | 
         `/api/me/assessment-drafts/${encodeURIComponent(assessmentId)}`, { cache: "no-store" },
       );
       if (!hasPendingRecovery(recovered) && !await isActiveOtherRecoverySession(payload.draft?.recoverySessionId)) {
-        recovered = newestRecoveryDraft(recovered, payload.draft);
+        recovered = combineRecoveryDrafts(recovered, payload.draft, browserRecovery.browserAlternatives, browserRecovery.hasWorkingSet);
       }
       recoveredVersion = payload.version;
     } catch {
       // Browser recovery remains available during a transient server-state outage.
     }
   }
-  return { recovered, recoveredVersion };
+  return { recovered, recoveredVersion, browserAlternatives: browserRecovery.browserAlternatives };
 }
 
 function AssessmentEmpty({ title, detail, action, error }: { title: string; detail: string; action?: React.ReactNode; error?: string }) {

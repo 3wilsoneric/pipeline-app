@@ -8,6 +8,7 @@ import type { ReferralActivityEvent, ReferralWorkflowMetadata } from "@/lib/pipe
 import { workflowStatusLabels } from "@/lib/pipeline/workflow-status";
 import { activityEventLabel, activityEventProvenance } from "@/lib/pipeline/referral-activity-presentation";
 import { referralOwnerResponsibilityLabels, referralRoleFacts } from "@/lib/pipeline/referral-owner-identity";
+import { displayWorkspaceSource } from "@/lib/pipeline/workspace-presentation";
 
 type ReferralActivityPanelProps = { referralId?: number; version?: number };
 
@@ -159,7 +160,7 @@ function ActivityRow({ event, referralId, detailed = false }: { event: ReferralA
           </dl>
         </details>
       ) : null}
-      {detailed && event.reason ? <p className="mt-2 break-words text-[14px] leading-6 text-[#35473c]">{event.reason}</p> : null}
+      {detailed && event.reason ? <p className="mt-2 break-words text-[14px] leading-6 text-[#35473c]">{displayWorkspaceSource(event.reason)}</p> : null}
       {!detailed && event.undo ? <RestoreDocument event={event} referralId={referralId} /> : null}
       {changes.length ? (
         <dl className="mt-2 space-y-1 text-[14px] leading-6 text-[#35473c]">

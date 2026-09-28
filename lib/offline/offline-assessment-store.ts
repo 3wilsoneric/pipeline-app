@@ -8,6 +8,7 @@ import {
 } from "@/lib/assessment/assessment-interview-schema";
 import {
   assessmentToolFieldDefinitions,
+  type AssessmentToolFieldKey,
   type AssessmentToolSection,
 } from "@/lib/assessment/assessment-tool-schema";
 import type { PipelineAssessmentDraft } from "@/lib/pipeline/user-workspace-state-types";
@@ -101,6 +102,7 @@ export type OfflineAssessmentQuestion = Pick<
 
 export type OfflineAssessmentWorkingSet = {
   schema: 1;
+  conflictingAnswers?: Array<{ field: AssessmentToolFieldKey; value: PipelineAssessmentDraft["data"][AssessmentToolFieldKey] }>;
   savedAt: string;
   returnPath: string;
   editable: boolean;
@@ -220,7 +222,7 @@ export async function saveOfflineAssessmentWorkingSet(
   principalId: string,
   draft: PipelineAssessmentDraft,
   returnPath: string,
-  options: { editable: boolean; activate?: boolean },
+  options: { editable: boolean; activate?: boolean; editedFields: AssessmentToolFieldKey[]; resolvedFields?: AssessmentToolFieldKey[] },
 ) {
   const database = await openDatabase();
   const principal = await hashValue(principalId);
@@ -271,15 +273,64 @@ export async function loadOfflineAssessmentWorkingSet(principalId: string, asses
       .sort((left, right) => Number(right.sessionId === sessionId) - Number(left.sessionId === sessionId) || right.updatedAt - left.updatedAt);
     if (!records.length) return null;
     const key = await getOrCreateKey(database, principal);
+    const available: OfflineAssessmentWorkingSet[] = [];
+    let unreadable: unknown;
     for (const stored of records) {
-      if (await isActiveOtherRecoverySession(stored.sessionId)) continue;
-      const workingSet = await decryptPayload<OfflineAssessmentWorkingSet>(key, principal, stored.id, stored);
-      if (workingSet.draft.assessmentId === assessmentId) return workingSet;
+      // An active tab owns its unsaved answers. Only merge another slot once
+      // that tab has closed and released its lifetime lock.
+      if (stored.sessionId !== sessionId && await isActiveOtherRecoverySession(stored.sessionId)) continue;
+      try {
+        const workingSet = await decryptPayload<OfflineAssessmentWorkingSet>(key, principal, stored.id, stored);
+        if (workingSet.draft.assessmentId === assessmentId) available.push(workingSet);
+      } catch (error) {
+        unreadable ??= error;
+      }
     }
-    return null;
+    if (!available.length) {
+      if (unreadable) throw unreadable;
+      return null;
+    }
+    // Keep the current (or newest) tab as the primary answer. Other slots
+    // contribute recovery alternatives without being modified or replayed.
+    return available.slice(1).reverse().reduce(mergeOfflineWorkingSets, available[0]);
   } finally {
     database.close();
   }
+}
+
+function mergeOfflineWorkingSets(primary: OfflineAssessmentWorkingSet, other: OfflineAssessmentWorkingSet): OfflineAssessmentWorkingSet {
+  const data = { ...primary.draft.data };
+  const baseData = { ...primary.draft.baseData };
+  const workbookSources = { ...primary.draft.workbookSources };
+  const dirtySections = new Set(primary.draft.dirtySections);
+  const conflictingAnswers = [...(primary.conflictingAnswers ?? [])];
+  const addAlternative = (field: AssessmentToolFieldKey, value: PipelineAssessmentDraft["data"][AssessmentToolFieldKey]) => {
+    if (JSON.stringify(value) === JSON.stringify(data[field])) return;
+    if (!conflictingAnswers.some((answer) => answer.field === field && JSON.stringify(answer.value) === JSON.stringify(value))) {
+      conflictingAnswers.push({ field, value });
+    }
+  };
+  for (const answer of other.conflictingAnswers ?? []) addAlternative(answer.field, answer.value);
+  for (const { key: field, section } of assessmentToolFieldDefinitions) {
+    if (JSON.stringify(other.draft.data[field]) === JSON.stringify(other.draft.baseData[field])) continue;
+    if (JSON.stringify(data[field]) !== JSON.stringify(baseData[field])) {
+      addAlternative(field, other.draft.data[field]);
+      continue;
+    }
+    data[field] = other.draft.data[field] as never;
+    baseData[field] = other.draft.baseData[field] as never;
+    if (other.draft.workbookSources?.[field]) workbookSources[field] = other.draft.workbookSources[field];
+    else delete workbookSources[field];
+    dirtySections.add(section);
+  }
+  return {
+    ...primary,
+    conflictingAnswers: conflictingAnswers.filter(({ field, value }) => JSON.stringify(value) !== JSON.stringify(data[field])),
+    draft: {
+      ...primary.draft, data, baseData, workbookSources, dirtySections: [...dirtySections],
+      scheduleDraft: primary.draft.scheduleDraft ?? other.draft.scheduleDraft,
+    },
+  };
 }
 
 export async function removeOfflineAssessmentWorkingSet(principalId: string, assessmentId: string) {

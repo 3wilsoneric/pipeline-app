@@ -431,3 +431,11 @@
   .admissionDateDialog .toolbar { flex-wrap: wrap; }
   .admissionDateDialog .toolbar > span { font-size: 14px; color: var(--color-ink-muted); }
 }
+
+.medicationReview { display: grid; gap: 10px; margin: 0 0 22px; padding: 20px; border: 1px solid var(--color-stage-green-border); border-radius: var(--radius-paper); background: var(--color-primary-soft); }
+.medicationReview legend { padding: 0 6px; color: var(--color-action); font-size: 21px; font-weight: 680; }
+.medicationReview > p { margin: 0 0 6px; color: var(--color-ink-muted); font-size: 15px; line-height: 1.5; }
+.medicationReview label { display: flex; align-items: flex-start; gap: 12px; padding: 9px 0; color: var(--color-ink-2); font-size: 17px; line-height: 1.45; cursor: pointer; }
+.medicationReview input { width: 20px; height: 20px; margin-top: 2px; flex: none; accent-color: var(--color-primary); }
+.medicationReview .medicationStatus { margin-top: 4px; border-top: 1px solid var(--color-paper-rule); }
+.medicationReview :focus-visible { outline: 3px solid var(--color-focus); outline-offset: 3px; }

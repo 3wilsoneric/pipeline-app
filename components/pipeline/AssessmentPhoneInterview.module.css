@@ -83,7 +83,7 @@
   :global([data-mobile-keyboard="true"]) .question [data-working-field] > div > div:first-child > label { font-size: 22px; }
   @media (prefers-reduced-motion: no-preference) {
     .question { animation: enter 130ms ease-out; }
-  
+
   }
 }
 
@@ -166,6 +166,6 @@
   :global([data-mobile-keyboard="true"]) .question [data-working-field] > div > div:first-child > label { font-size: 22px; }
   @media (prefers-reduced-motion: no-preference) {
     .question { animation: enter 130ms ease-out; }
-  
+
   }
 }

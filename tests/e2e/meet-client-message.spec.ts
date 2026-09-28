@@ -22,6 +22,7 @@ async function openMessage(page: Page, referralId: number) {
   await recipients.getByRole("combobox", { name: /^To/ }).press("Enter");
   await expect.poll(async () => (await (await page.request.get(`/api/referrals/${referralId}/handoff-recipients`)).json()).draft?.to?.some((item: { email: string }) => item.email === "care@example.invalid")).toBe(true);
   await confirmRecipients(page);
+  await expect(page.getByRole("textbox", { name: "Subject", exact: true })).toBeVisible();
 }
 
 for (const width of [1440, 390]) test(`message saves, retains recipients and tracks the admission date at ${width}`, async ({ page }, info) => {
@@ -47,7 +48,7 @@ for (const width of [1440, 390]) test(`message saves, retains recipients and tra
   const preview = page.frameLocator('iframe[title="Meet the Client email preview"]');
   await expect(preview.locator("body")).toContainText(text, { useInnerText: true });
   await expect(preview.locator("script")).toHaveCount(0);
-  await expect(preview.locator("body")).toContainText("2026-10-01");
+  await expect(preview.locator("body")).toContainText("10/01/2026");
   await page.getByRole("button", { name: "Edit message", exact: true }).click();
   await page.screenshot({ path: info.outputPath(`message-editor-${width}.png`) });
   await page.addScriptTag({ path: createRequire(process.cwd() + "/package.json").resolve("axe-core/axe.min.js") });
@@ -62,8 +63,8 @@ for (const width of [1440, 390]) test(`message saves, retains recipients and tra
   expect(changed.status(), await changed.text()).toBe(200);
   await openMessage(page, referral.id);
   await expect(preview.locator("body")).toContainText(text, { useInnerText: true });
-  await expect(preview.locator("body")).toContainText("2026-10-02");
-  await expect(preview.locator("body")).not.toContainText("2026-10-01");
+  await expect(preview.locator("body")).toContainText("10/02/2026");
+  await expect(preview.locator("body")).not.toContainText("10/01/2026");
   await page.getByRole("button", { name: "Edit message", exact: true }).click();
   await expect(page.getByRole("textbox", { name: "Subject", exact: true })).toHaveValue("Arrival arrangements");
   expect(sends).toBe(0);

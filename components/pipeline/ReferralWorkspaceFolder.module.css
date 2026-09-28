@@ -242,7 +242,7 @@
 
   @media (prefers-reduced-motion: no-preference) {
     .readingPages [data-assessment-question-content], .readingPages [aria-label="Assessment chart review"] { animation: paper-in 150ms ease-out; }
-  
+
   }
 
   @media (max-width: 1250px) {
@@ -606,7 +606,7 @@
 
   @media (prefers-reduced-motion: no-preference) {
     .readingPages [data-assessment-question-content], .readingPages [aria-label="Assessment chart review"] { animation: paper-in 150ms ease-out; }
-  
+
   }
 
   @media (max-width: 1250px) {

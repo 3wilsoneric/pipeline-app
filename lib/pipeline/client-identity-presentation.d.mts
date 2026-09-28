@@ -2,7 +2,7 @@ export type ClientIdentityTitleInput = {
   name?: unknown;
   gender?: unknown;
   community?: unknown;
-  /** Shown as "Unnamed referral · #<id>" when the name is absent or a system placeholder. */
+  /** Retained for lookup; never included in the displayed client title. */
   referralId?: number;
   /** A whole Referral may be passed; a numeric `id` is treated as its referral ID. */
   id?: unknown;

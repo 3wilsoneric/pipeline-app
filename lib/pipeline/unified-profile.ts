@@ -97,7 +97,7 @@ export async function getUnifiedClientProfile(
     try {
       sources.push({ referral_id: referral.id, profile: await getHistoricalProfile(referral) });
     } catch {
-      warnings.push(`Original notes for workspace #${referral.id} could not be loaded. Retry the chart.`);
+      warnings.push("Original notes for a prior workspace could not be loaded. Retry the chart.");
     }
   }
   return { ...profile, pipeline: { ...profile.pipeline, source_profiles: sources, source_warnings: warnings } };

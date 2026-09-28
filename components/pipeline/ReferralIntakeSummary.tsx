@@ -68,7 +68,7 @@ export default function ReferralIntakeSummary({ referral, assessment, headerActi
     </ChartBand>
     <ChartBand title="Intake information">
       <ChartGrid ariaLabel="Intake information" columns="care">
-        {cell(fact("Medications on record", "currentMedications"))}
+        {cell(fact("Medication history", "currentMedications"))}
         {cell({ label: "Conserved status", value: referral.conserved === "yes" ? "Yes" : referral.conserved === "no" ? "No" : "Not documented" })}
       </ChartGrid>
     </ChartBand>
