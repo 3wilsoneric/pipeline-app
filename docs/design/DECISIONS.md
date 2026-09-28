@@ -244,6 +244,7 @@ Cuts only; no new wording. Redesign switch only. Explanations that carry a rule 
 - The assessor appears once, in the footer; with none it reads "Unassigned" in orange with an empty dashed avatar.
 - The card's note is the client's latest note (see "Notes").
 - Columns take stronger tints (green, lavender, peach) and a dot in their color before the name.
+- Owner revision, 2026-09-28: Referral received and Decision should retain color without red/green stop/go meaning, not become gray. After previewing slate-blue, the owner chose tan manila for Referral received; Decision remains muted violet with a richer tint. These Home board families cover their stage dots, progress and ordinary status chips. In progress retains its blue family; white cards, accepted-status green, document warnings and actual error/destructive colors remain unchanged. This supersedes the green/peach column tints, not the record-step outcome colors.
 
 - A long next step (for example a list of documents to collect) stays inside the card: the green button shrinks and its text ends with an ellipsis, the full text as its tooltip (owner, 2026-09-27: "look at what happens to the folder").
 - Opening a client from Home returns to where the person last was in it; the card's suggested step is used only on a first visit (owner, 2026-09-27: "when you go back to a folder have to go to the place you were most recent at, not whats needed"). The Calendar still opens the exact item chosen.

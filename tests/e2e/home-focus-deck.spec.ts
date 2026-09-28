@@ -58,6 +58,43 @@ test("board folders show document work without an overall completion percentage"
   await card.screenshot({ path: testInfo.outputPath("board-card.png"), animations: "disabled" });
 });
 
+for (const width of [1440, 390]) {
+  test(`redesign received and decision columns stay neutral and readable at ${width}px`, async ({ page }, info) => {
+    test.skip(process.env.PIPELINE_DESIGN_V2 !== "true", "Redesign colors only");
+    await page.setViewportSize({ width, height: 950 });
+    await homeFixture(page, undefined, 2);
+    await page.goto("/");
+    await expect(page.locator("html")).toHaveAttribute("data-design", "v2");
+    for (const stage of ["received", "decision", "in_progress"]) {
+      if (width < 1024) await page.getByRole("combobox", { name: "Referral stage", exact: true }).selectOption(stage);
+      const column = page.locator(`[data-board-stage="${stage}"]`);
+      await expect(column).toBeVisible();
+      const palette = stage === "received"
+        ? { background: "rgb(234, 217, 183)", border: "rgb(213, 189, 143)", ink: "rgb(114, 89, 46)" }
+        : stage === "decision"
+          ? { background: "rgb(226, 213, 237)", border: "rgb(205, 185, 223)", ink: "rgb(101, 81, 124)" }
+          : { background: "rgb(223, 227, 250)", border: "rgb(213, 222, 250)", ink: "rgb(47, 84, 200)" };
+      await expect(column).toHaveCSS("background-color", palette.background);
+      await expect(column).toHaveCSS("border-top-color", palette.border);
+      await expect(column.locator("[data-board-card]").first()).toHaveCSS("background-color", "rgb(255, 255, 255)");
+      await expect(column.locator("[data-board-status]").first()).toHaveCSS("color", palette.ink);
+      await page.screenshot({ path: info.outputPath(`neutral-board-${width}-${stage}.png`), animations: "disabled" });
+      await column.locator("[data-open-folder]").click();
+      const folder = page.getByRole("dialog");
+      await expect(folder).toBeVisible();
+      await expect(folder.locator("[data-board-card]")).toHaveCount(2);
+      await page.keyboard.press("Escape");
+      await expect(folder).toHaveCount(0);
+    }
+    await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
+    const violations = await page.evaluate(async () => {
+      const axe = (window as unknown as { axe: { run: (selector: string, options: object) => Promise<AxeResults> } }).axe;
+      return (await axe.run("[data-current-work-board]", { runOnly: ["color-contrast"] })).violations;
+    });
+    expect(violations).toEqual([]);
+  });
+}
+
 async function homeFixture(page: Page, moduleIds = ["current-work", "new-assignments", "upcoming-assessments"], filesPerStage = 0, withFinished = false, longLabels = false, scope?: "mixed" | "team-only") {
   const acknowledgments: unknown[] = [];
   let layout = { schema: 3, module_ids: moduleIds, locked: true };
