@@ -273,12 +273,12 @@
 :where(html[data-design="v2"]) {
   /* Referral board. Tokens: app/design-tokens.css. Rules: docs/design/PRINCIPLES.md. */
 
-  /* Stage column: warm neutral ground; the stage color marks the dot, status, and progress. */
+  /* Non-alert stage colors: Received manila, Decision violet, In progress blue. */
   .docket {
-    --stage-accent: var(--color-stage-green);
-    --stage-tint: var(--color-stage-green-tile);
-    --docket-edge: var(--color-stage-green-border);
-    --stage-column: var(--stage-green-column);
+    --stage-accent: var(--color-stage-manila);
+    --stage-tint: var(--color-stage-manila-tile);
+    --docket-edge: var(--color-stage-manila-border);
+    --stage-column: var(--stage-manila-column);
     position: relative;
     padding: 14px;
     border: 1px solid var(--docket-edge);
@@ -292,7 +292,7 @@
     .docket:hover:not(:has(dialog[open])) { transform: scale(1.012); }
   }
   .docket[data-board-stage="in_progress"] { --stage-accent: var(--color-stage-blue); --stage-tint: var(--color-stage-blue-tile); --docket-edge: var(--color-stage-blue-border); --stage-column: var(--stage-blue-column); }
-  .docket[data-board-stage="decision"] { --stage-accent: var(--color-stage-orange); --stage-tint: var(--color-stage-orange-tile); --docket-edge: var(--color-stage-orange-border); --stage-column: var(--stage-orange-column); }
+  .docket[data-board-stage="decision"] { --stage-accent: var(--color-stage-violet); --stage-tint: var(--color-stage-violet-tile); --docket-edge: var(--color-stage-violet-border); --stage-column: var(--stage-violet-column); }
 
   .stageHeading { margin: 0 0 6px; }
   .stageHeading h2 { width: 100%; margin: 0; text-transform: none; }

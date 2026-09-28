@@ -41,9 +41,13 @@
   --color-action: #1d5241;
   --color-on-fill: #ffffff;
 
-  /* Stage families (principle 1). Mapping to tabs: DECISIONS.md.
-     green = Referral received; blue = In progress, Chart, Assessment;
-     orange = Decision, Finish & send. No stage uses red. */
+  /* Stage families (principle 1). Current board and record mappings: DECISIONS.md. */
+  --color-stage-manila: #72592e;
+  --color-stage-manila-tile: #f5ebd6;
+  --color-stage-manila-border: #d5bd8f;
+  --color-stage-violet: #65517c;
+  --color-stage-violet-tile: #f2edf7;
+  --color-stage-violet-border: #cdb9df;
   --color-stage-green: #17714f;
   --color-stage-green-tile: #e8f4ee;
   --color-stage-green-border: #cfe6da;
@@ -117,6 +121,8 @@
   --page-ground: #f4f5f7;
   --folder-tab: #f0f2f5;
   --folder-body: #eceef2;
+  --stage-manila-column: #ead9b7;
+  --stage-violet-column: #e2d5ed;
   --stage-green-column: #dcefe2;
   --stage-blue-column: #dfe3fa;
   --stage-orange-column: #fbe4d5;
