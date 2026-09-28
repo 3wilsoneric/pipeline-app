@@ -4,6 +4,10 @@ import { getReferralBoardState } from "@/lib/pipeline/referral-flow";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import type { WorkspaceStateProjection } from "@/lib/pipeline/workspace-state";
 
+// These UI tests supply the Home payload through request routes. A service worker
+// can bypass those routes and show unrelated server fixtures instead.
+test.use({ serviceWorkers: "block" });
+
 test("accepted board cards show the highest-priority open admission items", () => {
   const requirement = {
     id: "tb-result",
@@ -519,14 +523,16 @@ test("expanded folders retain stage accents and long file labels stay readable",
 
 test("iPad folder scrolling does not turn the Home deck", async ({ baseURL }) => {
   const browser = await webkit.launch();
+  const context = await browser.newContext({ baseURL, viewport: { width: 834, height: 1194 }, hasTouch: true, isMobile: true, serviceWorkers: "block" });
   try {
-    const page = await browser.newPage({ baseURL, viewport: { width: 834, height: 1194 }, hasTouch: true, isMobile: true });
+    const page = await context.newPage();
     await homeFixture(page, undefined, 10);
     await page.goto("/");
     const open = page.getByRole("button", { name: "Open referral received folder", exact: true });
     await open.tap();
     const dialog = page.getByRole("dialog", { name: "Referral received folder", exact: true });
     await expect(dialog).toBeVisible();
+    await expect(dialog.locator("[data-board-card]")).toHaveCount(10);
     const grid = dialog.locator("[data-expanded-folder]");
     await grid.dispatchEvent("pointerdown", { pointerId: 8, isPrimary: true, pointerType: "touch", button: 0, clientX: 200, clientY: 300 });
     await grid.dispatchEvent("pointermove", { pointerId: 8, clientX: 80, clientY: 304 });
@@ -537,5 +543,5 @@ test("iPad folder scrolling does not turn the Home deck", async ({ baseURL }) =>
     await expect(dialog).toHaveCount(0);
     await expect(page.getByRole("tab", { name: "Board", exact: true })).toHaveAttribute("aria-selected", "true");
     await expect(open).toBeFocused();
-  } finally { await browser.close(); }
+  } finally { try { await context.close(); } finally { await browser.close(); } }
 });
