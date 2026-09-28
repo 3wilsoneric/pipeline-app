@@ -2439,8 +2439,8 @@ export default function AssessmentWorkspace({
                     </div>
                     <div className="flex gap-2">
                       <button type="button" onClick={() => resolveAssessmentConflict(conflict.field, false)} className="h-8 border border-[#9a6115] px-3 text-[10px] font-black text-[#7a4c0d] hover:bg-white">Keep mine</button>
-                      <button type="button" onClick={() => resolveAssessmentConflict(conflict.field, true)} className="h-8 bg-[#111111] px-3 text-[10px] font-black text-white hover:bg-[#0f8b73]">{conflict.source === "browser-drafts" ? "Use other tab" : "Use latest"}</button>
-                      {conflict.alternatives?.map((value, index) => <button key={index} type="button" onClick={() => resolveAssessmentConflict(conflict.field, true, value)} className="h-8 border border-[#9a6115] px-3 text-[10px] font-black text-[#7a4c0d] hover:bg-white">Use other answer {index + 2}</button>)}
+                      <button type="button" onClick={() => resolveAssessmentConflict(conflict.field, true)} className="h-8 bg-ink px-3 text-[10px] font-black text-on-fill hover:bg-primary">{conflict.source === "browser-drafts" ? "Use other tab" : "Use latest"}</button>
+                      {conflict.alternatives?.map((value, index) => <button key={index} type="button" onClick={() => resolveAssessmentConflict(conflict.field, true, value)} className="h-8 border border-stage-amber px-3 text-[10px] font-black text-warning hover:bg-paper">Use other answer {index + 2}</button>)}
                     </div>
                   </div>
                 );
