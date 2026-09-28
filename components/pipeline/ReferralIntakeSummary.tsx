@@ -24,14 +24,15 @@ export default function ReferralIntakeSummary({ referral, assessment, headerActi
     return { label, value: (key === "name" ? presentClientName(value, referral.id) : key === "dob" || key === "referralReceived" ? formatProfileDate(value) : value)?.trim() || "Not documented", ...(wide ? { span: "wide" } : {}) };
   };
   // Redesign: the referral's summary paragraph sits near the top of the Chart, the client's home page.
-  const summary = useDesignV2() ? referralCanvasValue(referral, "summary")?.trim() : "";
+  const designV2 = useDesignV2();
+  const summary = designV2 ? referralCanvasValue(referral, "summary")?.trim() : "";
   const cell = (value: ClientChartFact) => {
     const field = referralChartEditFields[value.label as keyof typeof referralChartEditFields];
     return <ChartCell key={value.label} fact={value} onEdit={onEditField && field ? () => onEditField(field) : undefined} editHint="Edit in intake" multiline />;
   };
 
   return <ClientChartFrame label="Referral chart">
-    <ClientChartHeader title="Referral chart" actions={headerActions}>
+    <ClientChartHeader title="Referral chart" hideTitle={designV2} actions={headerActions}>
       <ChartHeaderCell label="Referral updated" value={formatProfileDate(referral.updatedAt || referral.createdAt) || "Not documented"} />
     </ClientChartHeader>
     <ChartGrid ariaLabel="Referral identity" columns="identity">

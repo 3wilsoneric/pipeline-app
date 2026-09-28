@@ -50,9 +50,11 @@ export async function leaveInterviewFullScreen(page: Page) {
 
 // All questions: a button beside Interview, or (redesign interview) the first choice in the section dropdown.
 export async function openAllQuestions(page: Page) {
+  const preparation = page.locator('[data-assessment-working-section][data-assessment-phase="preparation"]');
   const button = page.locator("[data-assessment-view]").getByRole("button", { name: "All questions", exact: true }).first();
   const choice = page.locator('select[aria-label="Assessment section"]:has(option[value="all-questions"])').first();
-  await button.or(choice).first().waitFor();
+  await preparation.or(button).or(choice).first().waitFor();
+  if (await preparation.isVisible()) return;
   if (await button.isVisible()) { await button.click(); return; }
   await choice.selectOption("all-questions");
 }

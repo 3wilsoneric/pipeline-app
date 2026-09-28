@@ -919,13 +919,12 @@
     /* The chart review wraps the cards in its own full-bleed surfaces; let the wash show through them. */
     .verticalFlow .connectedFolder section[aria-label="Assessment chart review"], .verticalFlow .connectedFolder main:has(> section[aria-label="Assessment chart review"]) { background: transparent; }
     .verticalFlow :is(article[aria-label="Referral chart"], section[aria-label="Document checklist"], section[aria-label="Admission requirements"]) { border-color: var(--color-card-border); border-radius: var(--radius-paper); background: var(--color-paper); box-shadow: var(--shadow-card); }
-    /* The chart's own sections: identity is the first card; each later section is a title on the wash over its card. */
-    .verticalFlow article[aria-label="Referral chart"] { overflow: visible; border: 0; background: transparent; box-shadow: none; }
-    .verticalFlow article[aria-label="Referral chart"] > header { border: 1px solid var(--color-card-border); border-bottom-color: var(--color-paper-rule); border-radius: var(--radius-paper) var(--radius-paper) 0 0; }
-    .verticalFlow article[aria-label="Referral chart"] > dl { overflow: hidden; border: 1px solid var(--color-card-border); border-top: 0; border-radius: 0 0 var(--radius-paper) var(--radius-paper); background: var(--color-paper-rule); box-shadow: var(--shadow-card); }
-    .verticalFlow article[aria-label="Referral chart"] > section { margin-top: 20px; }
-    .verticalFlow article[aria-label="Referral chart"] > section > h2 { padding-inline: 20px; padding-top: 0; border-top: 0; }
-    .verticalFlow article[aria-label="Referral chart"] > section > dl { overflow: hidden; border: 1px solid var(--color-card-border); border-radius: var(--radius-paper); background: var(--color-paper-rule); box-shadow: var(--shadow-card); }
+    /* One medical sheet: ruled fields and section bands, not separated floating cards. */
+    .verticalFlow article[aria-label="Referral chart"] { overflow: hidden; border: 1px solid var(--color-control-border); background: var(--color-paper); box-shadow: none; }
+    .verticalFlow article[aria-label="Referral chart"] > header { border-bottom: 1px solid var(--color-control-border); background: var(--color-sheet); }
+    .verticalFlow article[aria-label="Referral chart"] > header > div { padding: 8px 16px; }
+    .verticalFlow article[aria-label="Referral chart"] > section { margin: 0; }
+    .verticalFlow article[aria-label="Referral chart"] > section > h2 { margin: 0; padding: 10px 16px; border-block: 1px solid var(--color-control-border); background: var(--color-sheet); font-size: var(--text-value); line-height: var(--text-value--line-height); font-weight: 700; }
     /* Chart: the upload is a button in the Documents row, not a drop box above the page; the whole card still takes drops. */
     .verticalFlow [data-record-step="3"] section[data-guide-target="workspace-files-upload"] { position: relative; margin: 16px 0 0; }
     .verticalFlow [data-record-step="3"] section[data-guide-target="workspace-files-upload"] > button[data-guide-target="initial-packet-upload"] { position: absolute; top: 4px; right: 112px; z-index: 1; width: auto; min-height: 44px; gap: 8px; padding: 0 12px; border: 0; border-radius: var(--radius-input); background: transparent; color: var(--color-link); }
@@ -935,12 +934,12 @@
     .verticalFlow [data-record-step="3"] section[data-guide-target="workspace-files-upload"] > button[data-guide-target="initial-packet-upload"] strong { font-size: var(--text-label); font-weight: 600; }
     .verticalFlow [data-record-step="3"] section[data-guide-target="workspace-files-upload"] > details > summary { min-height: 52px; border-top: 0; }
     .verticalFlow [data-record-step="3"] section[data-guide-target="workspace-files-upload"][data-file-drag-active] { outline: 2px dashed var(--color-link); outline-offset: 2px; }
-    /* Readability pass (owner, 2026-09-26). Section titles lead each card with room above them. */
-    .verticalFlow article[aria-label="Referral chart"] > section { margin-top: 28px; }
-    .verticalFlow article[aria-label="Referral chart"] > section > h2 { padding-bottom: 8px; font-weight: 700; }
-    /* Hairlines drawn by each cell, so a short last row ends in white instead of a gray filler block. */
+    /* Fields keep their large edit targets while labels, pencils and spacing become more compact. */
     .verticalFlow article[aria-label="Referral chart"] dl { gap: 0; background: var(--color-paper); }
-    .verticalFlow article[aria-label="Referral chart"] dl > [data-chart-field] { box-shadow: 1px 0 0 var(--color-paper-rule), 0 1px 0 var(--color-paper-rule); }
+    .verticalFlow article[aria-label="Referral chart"] dl > [data-chart-field] { min-height: 76px; padding: 12px 16px; border-right: 1px solid var(--color-control-border); border-bottom: 1px solid var(--color-control-border); }
+    .verticalFlow article[aria-label="Referral chart"] [data-chart-field] dt { font-size: var(--text-meta); line-height: var(--text-meta--line-height); }
+    .verticalFlow article[aria-label="Referral chart"] [data-chart-field] dd { margin-top: 4px; font-size: var(--text-value); line-height: var(--text-value--line-height); }
+    .verticalFlow article[aria-label="Referral chart"] [data-chart-field="Client"] dd { font-size: var(--text-section); font-weight: 700; }
     /* One even grid: identity is the name plus three equal columns; contacts use three like the other sections. */
     @media (min-width: 1280px) {
       .verticalFlow dl[aria-label="Referral identity"] { grid-template-columns: minmax(0, 2fr) repeat(3, minmax(0, 1fr)); }
@@ -978,4 +977,3 @@
   :global(html[data-design="v2"][data-interview-focus]) .verticalFlow > .interviewRailToggle:hover { color: var(--color-ink); border-color: var(--color-ink-muted); }
   :global(html[data-design="v2"][data-interview-focus]) .verticalFlow > .interviewRailToggle:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 }
-

@@ -72,7 +72,7 @@ export function AssessmentWorkingNavigation({ data, pending, activeSection, guid
   </nav>;
 }
 
-export function AssessmentWorkMode({ preparing, disabled, canBegin, startAttemptFailed, onChange, onBegin, scheduleAction, appointment, chartAction }: { preparing: boolean; disabled: boolean; canBegin: boolean; startAttemptFailed: boolean; onChange: (prepare: boolean) => void; onBegin: () => void; scheduleAction?: React.ReactNode; appointment?: string; chartAction?: React.ReactNode }) {
+export function AssessmentWorkMode({ preparing, compactPreparation, disabled, canBegin, startAttemptFailed, onChange, onBegin, scheduleAction, appointment, chartAction }: { preparing: boolean; compactPreparation?: boolean; disabled: boolean; canBegin: boolean; startAttemptFailed: boolean; onChange: (prepare: boolean) => void; onBegin: () => void; scheduleAction?: React.ReactNode; appointment?: string; chartAction?: React.ReactNode }) {
   const designV2 = useDesignV2();
   const renderPhaseSteps = () => (<div className={styles.phaseSummary}>
       <ol className={styles.phaseSteps} aria-label="Preparation and interview">
@@ -82,14 +82,14 @@ export function AssessmentWorkMode({ preparing, disabled, canBegin, startAttempt
       {designV2 && !preparing ? null : <p>{preparing ? "All assessment questions. Add or update what you know before, during, or after the interview." : "Focused questions for the conversation. Open All questions to add or update any other detail, then return here."}</p>}
     </div>);
   const renderAppointment = () => (preparing && appointment ? <div className={styles.appointment} aria-label="Assessment appointment"><span>Scheduled</span><strong>{appointment}</strong>{scheduleAction ? <div className={styles.editAppointment}>{scheduleAction}</div> : null}</div> : scheduleAction ? <div className={styles.scheduleAction}>{scheduleAction}</div> : null);
-  return <section className={styles.workMode} aria-label="Assessment progress" data-phase={preparing ? "preparation" : "interview"}>
-    {renderPhaseSteps()}
+  return <section className={styles.workMode} aria-label="Assessment progress" data-phase={preparing ? "preparation" : "interview"} data-compact-preparation={compactPreparation || undefined}>
+    {compactPreparation ? null : renderPhaseSteps()}
     {preparing || canBegin || scheduleAction || chartAction ? <div className={styles.prepActions}>
       {renderAppointment()}
       {chartAction}
       {canBegin ? <button type="button" data-guide-target="assessment-begin" className={styles.beginAssessment} disabled={disabled} onClick={(event) => { event.currentTarget.focus({ preventScroll: true }); onBegin(); }}><Play size={16} aria-hidden="true" />{startAttemptFailed ? "Retry start time" : "Begin interview"}</button> : null}
     </div> : null}
-    {startAttemptFailed && canBegin ? <p role="status" className={styles.startPending}>Start time not saved. You can keep answering.</p> : null}
+    {startAttemptFailed && (canBegin || compactPreparation) ? <p role="status" className={styles.startPending}>Start time not saved. You can keep answering.</p> : null}
   </section>;
 }
 

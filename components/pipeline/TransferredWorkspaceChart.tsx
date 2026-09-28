@@ -80,10 +80,11 @@ function WorkspaceClientChartLoader({ referral, headerActions, contactActions, a
       .catch(() => { if (!controller.signal.aborted) setError("The complete client chart could not be loaded."); });
     return () => controller.abort();
   }, [profilePath, retry, dataGeneration]);
-  // Redesign order (owner, 2026-09-26): who the client is first, then where it stands, the checklist, and the assessment.
+  // Chart home (owner, 2026-09-28): requirements first, then the medical sheet and workflow records.
   if (!profilePath || error || !profile) return <>
-    {homeChart ? intakeChart : standing}
-    {homeChart ? process : intakeChart}
+    {homeChart ? checklist : standing}
+    {intakeChart}
+    {homeChart ? process : null}
     {standing ? null : checklist}
     {!intakeReferral ? <ClientChartHeader title="Client chart" actions={headerActions}>{null}</ClientChartHeader> : null}
     {!profilePath ? <p role="alert">{intakeReferral ? "Supporting records need a client connection. Referral details remain available." : "This workspace needs its client identity connected before the chart can be loaded."}</p>
@@ -93,6 +94,6 @@ function WorkspaceClientChartLoader({ referral, headerActions, contactActions, a
   </>;
   // Keep the same sibling slots as the loading/error view. An extra fragment
   // here remounts the intake chart when supporting records arrive, losing focus.
-  return <>{homeChart ? intakeChart : standing}{homeChart ? process : intakeChart}{standing ? null : checklist}<ClientChartRecord profile={profile} sourceReferralId={referral!.id} headerActions={headerActions} assessment={assessment} onEditReferralField={onEditReferralField} onEditAssessmentField={onEditAssessmentField}
+  return <>{homeChart ? checklist : standing}{intakeChart}{homeChart ? process : null}{standing ? null : checklist}<ClientChartRecord profile={profile} sourceReferralId={referral!.id} headerActions={headerActions} assessment={assessment} onEditReferralField={onEditReferralField} onEditAssessmentField={onEditAssessmentField}
     intakeReferral={intakeReferral} excludeReferralAssessments={designV2} />{homeChart ? null : answers}</>;
 }

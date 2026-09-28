@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { ArrowRight, Check, Circle, Minus } from "lucide-react";
+import { ArrowRight, Check, Circle, ClipboardCheck, Minus } from "lucide-react";
 
 import { fetchPipelineJson, readPipelineJsonCache, usePipelineDataGeneration } from "@/lib/auth/authenticated-fetch";
 import { isRequirementComplete } from "@/lib/pipeline/workflow-records";
@@ -10,7 +10,6 @@ import { assessmentInterviewFieldLabel, assessmentInterviewOptionLabel } from "@
 import type { AssessmentToolFieldKey } from "@/lib/assessment/assessment-tool-schema";
 import { formatProfileDate } from "@/lib/pipeline/client-profile-presentation";
 import {
-  admissionRequirementSummary,
   decisionProgressSteps,
   handoffDescriptions,
   requirementGroups,
@@ -42,14 +41,19 @@ export default function AdmissionChecklistGlance({ referralId, onOpenDecision }:
   const workflow = useReferralWorkflow(referralId);
   const groups = workflow ? requirementGroups(workflow.work_items) : [];
   if (!workflow || groups.length === 0) return null;
+  const items = groups.flatMap((group) => group.items);
+  const resolved = resolvedRequirementCount(items);
   return <section aria-label="Admission requirements" className={styles.glance}>
     <header className={styles.header}>
       <div>
-        <h2>Admission requirements</h2>
-        <p>{admissionRequirementSummary(workflow.work_items)}</p>
+        <h2><ClipboardCheck size={20} aria-hidden="true" />Admission requirements</h2>
       </div>
       {onOpenDecision ? <button type="button" onClick={onOpenDecision} className={styles.open}>Open decision<ArrowRight size={16} aria-hidden="true" /></button> : null}
     </header>
+    <div className={styles.progressSummary}>
+      <progress aria-label="Admission requirements resolved" value={resolved} max={items.length} />
+      <strong>{resolved} / {items.length} resolved</strong>
+    </div>
     <div className={styles.groups}>
       {groups.map((group) => <section key={group.label} aria-label={`${group.label} requirements`} className={styles.group}>
         <div className={styles.groupHead}>
@@ -138,7 +142,7 @@ function summaryText(field: AssessmentToolFieldKey, value: unknown) {
 
 // Chart built by the process (docs/design/DECISIONS.md, "Chart built by the process"; owner, 2026-09-27): the
 // Chart reads in the order of the work — Assessment, Decision, Finish & send — and each finished step is filed
-// here with its stamp (what and when), so the Chart grows as the steps drop off the rail. A step still under way
+// here with its stamp (what and when), while every step remains reachable in the rail. A step still under way
 // shows its status in one line, with the way into it. All wording is existing.
 export function ChartProcess({ referralId, assessment, record, entry, appointment, onOpenAssessment, onOpenDecision, onOpenFinish }: {
   referralId: number;
@@ -163,28 +167,25 @@ export function ChartProcess({ referralId, assessment, record, entry, appointmen
   const referral = workflow?.referral;
   const handoff = referral?.ehrHandoff;
   const accepted = workflow?.decision?.outcome === "accepted";
-  const openRequirements = workflow ? requirementGroups(workflow.work_items).some((group) => group.items.some((item) => !isRequirementComplete(item.status))) : false;
   return <div className={styles.process} data-chart-process>
     <ChartStage id={`chart-assessment-${referralId}`} title="Assessment" filed={assessmentFiled}
       status={assessmentFiled ? `Assessment signed ${formatProfileDate(assessment?.signed_at ?? null) ?? ""}`.trim() : signed?.label}
-      action={assessmentFiled && onOpenAssessment ? <button type="button" onClick={onOpenAssessment} className={styles.open}>Open assessment<ArrowRight size={16} aria-hidden="true" /></button> : null}>
+      action={onOpenAssessment ? <button type="button" onClick={onOpenAssessment} className={styles.open}>Open assessment<ArrowRight size={16} aria-hidden="true" /></button> : null}>
       {assessmentFiled ? <AssessmentSummaryGlance assessment={assessment} /> : appointment ? <div className={styles.appointment}>{appointment}</div> : null}
       {entry}
       {record}
     </ChartStage>
     <ChartStage id={`chart-decision-${referralId}`} title="Decision" filed={decisionFiled}
       status={decided ? (decisionFiled ? `${decided.label} · ${decided.detail}` : decided.label) : undefined}
-      action={decisionFiled && onOpenDecision ? <button type="button" onClick={onOpenDecision} className={styles.open}>Open decision<ArrowRight size={16} aria-hidden="true" /></button> : null}>
+      action={onOpenDecision ? <button type="button" onClick={onOpenDecision} className={styles.open}>Open decision<ArrowRight size={16} aria-hidden="true" /></button> : null}>
       {workflow && (workflow.recommendation || workflow.decision?.reasonNote) ? <dl className={styles.facts}>
         {workflow.recommendation ? <div><dt>Placement recommendation</dt><dd>{workflow.recommendation.outcome === "accept" ? "Accept" : workflow.recommendation.outcome === "decline" ? "Deny" : "Under review"}{workflow.recommendation.reasonNote ? <span>{workflow.recommendation.reasonNote}</span> : null}</dd></div> : null}
         {workflow.decision?.reasonNote ? <div><dt>Decision reason</dt><dd>{workflow.decision.reasonNote}</dd></div> : null}
       </dl> : null}
-      {/* Requirements stay while any is open; the Decision tab edits them. */}
-      {!decisionFiled || openRequirements ? <AdmissionChecklistGlance referralId={referralId} onOpenDecision={decisionFiled ? undefined : onOpenDecision} /> : null}
     </ChartStage>
     {accepted || packet?.state === "done" ? <ChartStage id={`chart-finish-${referralId}`} title="Finish & send" filed={packet?.state === "done"}
       status={packet ? (packet.state === "done" ? `${packet.label} · ${packet.detail}` : packet.label) : undefined}
-      action={packet?.state === "done" && onOpenFinish ? <button type="button" onClick={onOpenFinish} className={styles.open}>Finish & send<ArrowRight size={16} aria-hidden="true" /></button> : null}>
+      action={onOpenFinish ? <button type="button" onClick={onOpenFinish} className={styles.open}>Finish & send<ArrowRight size={16} aria-hidden="true" /></button> : null}>
       {referral?.admissionDate || (accepted && handoff) ? <dl className={styles.facts}>
         {referral?.admissionDate ? <div><dt>Admission date</dt><dd>{formatProfileDate(referral.admissionDate) ?? referral.admissionDate}</dd></div> : null}
         {accepted && handoff ? <div><dt>EHR handoff</dt><dd>{handoffDescriptions[handoff.status]}{handoff.sentAt ? <span>{formatProfileDate(handoff.sentAt)}</span> : null}</dd></div> : null}

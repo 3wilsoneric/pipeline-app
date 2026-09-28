@@ -17,7 +17,8 @@ test.describe("interview layout", () => {
     expect((await assessor.get("/api/members")).status()).toBe(200);
     expect((await coordinator.get("/api/members")).status()).toBe(200);
     const referral = await createOperationalReferral(coordinator, "assessmentCoordinator", {}, { assigneeId: pipelineActors.assessorA.id });
-    await createOperationalAssessment(assessor, referral.id);
+    const assessment = await createOperationalAssessment(assessor, referral.id);
+    expect((await assessor.post(`/api/assessments/${assessment.assessment_id}/start`, { data: { if_match: assessment.version } })).status()).toBe(200);
     const { page, context } = await actorPage(browser, "assessorA", url);
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
@@ -98,7 +99,7 @@ test.describe("interview layout", () => {
       await openAllQuestions(page);
       await expect(root).not.toHaveAttribute("data-interview-focus", "true");
       await expect(rail).toBeVisible();
-      await page.getByRole("button", { name: "Interview", exact: true }).click();
+      await page.getByRole("button", { name: "Return to interview", exact: true }).click();
       await expect(root).toHaveAttribute("data-interview-focus", "true");
 
       // A narrow window keeps the normal layout with the rail.
@@ -113,7 +114,7 @@ test.describe("interview layout", () => {
     }
   });
 
-  test("Schedule interview and the appointment show only until the interview begins", async ({ browser, baseURL }) => {
+  test("preparation has one interview action, preserves saves, and records the start only after confirmation", async ({ browser, baseURL }) => {
     test.setTimeout(120_000);
     const url = requireOperationalBaseURL(baseURL);
     const coordinator = await actorApiContext("assessmentCoordinator", url);
@@ -121,22 +122,71 @@ test.describe("interview layout", () => {
     expect((await assessor.get("/api/members")).status()).toBe(200);
     expect((await coordinator.get("/api/members")).status()).toBe(200);
     const referral = await createOperationalReferral(coordinator, "assessmentCoordinator", {}, { assigneeId: pipelineActors.assessorA.id });
-    await createOperationalAssessment(assessor, referral.id);
+    const assessment = await createOperationalAssessment(assessor, referral.id);
+    const read = async () => (await (await assessor.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
     const { page, context } = await actorPage(browser, "assessorA", url);
+    let releaseSave = () => {};
+    const saveHeld = new Promise<void>((resolve) => { releaseSave = resolve; });
+    let starts = 0;
+    page.on("request", (request) => { if (request.method() === "POST" && request.url().endsWith(`/assessments/${assessment.assessment_id}/start`)) starts++; });
     try {
       await page.setViewportSize({ width: 1440, height: 900 });
       await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentMode=prepare`);
       const progress = page.getByRole("region", { name: "Assessment progress", exact: true });
       await expect(progress.getByRole("button", { name: /Schedule interview|Edit assessment appointment/ })).toHaveCount(1);
-      await progress.getByRole("button", { name: "Begin interview", exact: true }).click();
-      await page.getByRole("dialog", { name: "Begin interview", exact: true }).getByRole("button", { name: "Begin interview", exact: true }).click();
+      const bar = page.getByRole("navigation", { name: "Assessment sections" });
+      await expect(bar.getByRole("combobox", { name: "Assessment section" })).toBeVisible();
+      await expect(progress).toHaveAttribute("data-compact-preparation", "true");
+      await expect(page.getByRole("list", { name: "Preparation and interview" })).toHaveCount(0);
+      await expect(page.getByRole("button", { name: "Open interview", exact: true })).toHaveCount(0);
+      const begin = page.getByRole("button", { name: "Begin interview", exact: true });
+      await expect(begin).toHaveCount(1);
+      await expect(begin).toBeInViewport();
+      const notes = page.locator('[data-client-notes] [data-note-heading="topic:identity"] textarea');
+      await notes.fill("Synthetic preparation note stays with this client.");
+      await expect.poll(async () => (await (await assessor.get(`/api/referrals/${referral.id}/notes`)).json()).blocks.find((block: { block_key: string }) => block.block_key === "topic:identity")?.body).toBe("Synthetic preparation note stays with this client.");
+
+      // A slow ordinary save must not block opening or cancelling the start dialog.
+      await page.route(`**/api/assessments/${assessment.assessment_id}`, async (route) => {
+        if (route.request().method() === "PATCH") await saveHeld;
+        await route.continue();
+      });
+      const answer = "Synthetic location prepared before the interview.";
+      await page.getByRole("textbox", { name: "Current location", exact: true }).fill(answer);
+      await begin.click({ timeout: 2_000 });
+      const dialog = page.getByRole("dialog", { name: "Begin interview", exact: true });
+      await expect(dialog).toBeVisible({ timeout: 1_000 });
+      expect(starts).toBe(0);
+      expect((await read()).started_at).toBeNull();
+      await dialog.getByRole("button", { name: "Keep preparing", exact: true }).click();
+      await expect(dialog).toHaveCount(0);
+      await expect(page.getByRole("textbox", { name: "Current location", exact: true })).toHaveValue(answer);
+      releaseSave();
+      await expect.poll(async () => (await read()).current_location).toBe(answer);
+      await page.unroute(`**/api/assessments/${assessment.assessment_id}`);
+      await begin.click();
+      await dialog.getByRole("button", { name: "Begin interview", exact: true }).click();
       await expect(page.locator("html")).toHaveAttribute("data-interview-focus", "true");
+      const started = await read();
+      expect(started.started_at).toBeTruthy();
+      expect(started.current_location).toBe(answer);
+      await bar.getByRole("combobox", { name: "Assessment section" }).selectOption("identity");
+      await expect(notes).toHaveValue("Synthetic preparation note stays with this client.");
       await openAllQuestions(page);
       // Back in All questions after the interview began: nothing to schedule, no appointment line.
-      await expect(page.getByRole("button", { name: "Prepare assessment", exact: true })).toHaveAttribute("aria-pressed", "true");
+      await expect(page.locator('[data-assessment-working-section][data-assessment-phase="preparation"]')).toBeVisible();
       await expect(page.getByRole("button", { name: /Schedule interview|Edit assessment appointment/ })).toHaveCount(0);
       await expect(page.locator('[aria-label="Assessment appointment"]')).toHaveCount(0);
+      await expect(begin).toHaveCount(0);
+      const resume = page.getByRole("button", { name: "Return to interview", exact: true });
+      await expect(resume).toHaveCount(1);
+      await resume.click();
+      await expect(page.locator("html")).toHaveAttribute("data-interview-focus", "true");
+      expect((await read()).started_at).toBe(started.started_at);
+      expect(starts).toBe(1);
+      expect((await (await assessor.get(`/api/referrals/${referral.id}/assessments`)).json()).assessments).toHaveLength(1);
     } finally {
+      releaseSave();
       await context.close();
       await Promise.all([coordinator.dispose(), assessor.dispose()]);
     }

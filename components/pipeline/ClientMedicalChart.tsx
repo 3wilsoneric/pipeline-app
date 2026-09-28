@@ -13,7 +13,7 @@ function ChartFieldLabel({ label, onEdit, editHint = "Edit" }: { label: string; 
   if (designV2) return onEdit ? <button type="button" aria-label={`Edit ${label}`} aria-description={editHint === "Edit in intake" ? "Opens this field in intake" : undefined} title={`${editHint}: ${label}`} onClick={onEdit} data-chart-edit={label}
     className="group -my-3 inline-flex min-h-11 max-w-full items-center gap-2 rounded-sm text-left hover:text-link focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus">
     <span className="min-w-0 group-hover:underline group-focus-visible:underline">{label}</span>
-    <span aria-hidden="true" className="inline-flex shrink-0 items-center text-link"><Pencil size={14} /></span>
+    <span aria-hidden="true" className="inline-flex shrink-0 items-center text-link"><Pencil size={11} /></span>
   </button> : label;
   return onEdit ? <button type="button" aria-label={`Edit ${label}`} aria-description={editHint === "Edit in intake" ? "Opens this field in intake" : undefined} title={`${editHint}: ${label}`} onClick={onEdit} data-chart-edit={label}
     className="group -my-3 inline-flex min-h-11 max-w-full items-center gap-2 rounded-sm text-left hover:text-[#08735e] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#08735e]">
@@ -72,11 +72,11 @@ export function ClientChartFrame({ label, children }: { label: string; children:
   return <article aria-label={label} className={designV2 ? "min-w-0 overflow-hidden rounded-paper border border-paper-rule bg-paper" : "min-w-0 overflow-hidden border border-[#d4dcd8] bg-white"}>{children}</article>;
 }
 
-export function ClientChartHeader({ title, children, actions }: { title: string; children: React.ReactNode; actions?: React.ReactNode }) {
+export function ClientChartHeader({ title, children, actions, hideTitle = false }: { title: string; children: React.ReactNode; actions?: React.ReactNode; hideTitle?: boolean }) {
   const designV2 = useDesignV2();
   return <header className={designV2 ? "grid grid-cols-1 border-b border-paper-rule bg-paper sm:grid-cols-[1fr_auto_auto]" : "grid grid-cols-1 border-b border-[#d4dcd8] bg-[#f5f7f6] sm:grid-cols-[1fr_auto_auto]"}>
     <div className={`flex min-w-0 flex-wrap items-center justify-between gap-x-4 px-5 sm:px-6 ${actions ? "py-1" : "py-3.5"}`}>
-      {designV2 ? <h1 className="text-title text-ink">{title}</h1> : <div className="flex items-center gap-2.5">
+      {designV2 ? <h1 className={hideTitle ? "sr-only" : "text-title text-ink"}>{title}</h1> : <div className="flex items-center gap-2.5">
       <span aria-hidden="true" className="h-6 w-1 bg-[#2f8475]" />
       <h1 className="text-[21px] font-bold tracking-[-0.02em] text-[#1d2924]">{title}</h1>
       </div>}
