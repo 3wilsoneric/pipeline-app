@@ -24,7 +24,7 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
     const cards = page.getByRole("button", { name: /^Open profile for / });
     await expect(cards).toHaveCount(3);
     await expect(card.getByText("0 documents", { exact: true })).toHaveCount(profileKey ? 0 : 1);
-    for (const value of ["Jan 2, 1985", "41", "R-100", "Example Plan", summaryFields.primary_diagnosis, "Example Clinician", "Regular", "209 days"]) {
+    for (const value of ["Jan 2, 1985", "41", "Example Plan", summaryFields.primary_diagnosis, "Example Clinician", "Regular", "209 days"]) {
       await expect(card.getByText(value, { exact: true })).toBeVisible();
     }
 
@@ -80,7 +80,7 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
       else expect(nextBounds!.y - firstBounds!.y - firstBounds!.height).toBe(24);
       const summary = body.locator(":scope > span > span").nth(1);
       expect(await summary.evaluate((node) => getComputedStyle(node).gridTemplateColumns.split(" ").length)).toBe(width >= 768 ? 4 : 2);
-      await expect(summary.locator(":scope > span")).toHaveCount(12);
+      await expect(summary.locator(":scope > span")).toHaveCount(11);
       if (width === 1440) expect(firstBounds!.width).toBeGreaterThan(width * 0.9);
       for (const bounds of await cards.evaluateAll((nodes) => nodes.map((node) => {
         const rect = node.getBoundingClientRect();

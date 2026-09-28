@@ -109,12 +109,13 @@ test("loading the decision cannot move assessment navigation during a press", as
   let release = () => {};
   let decisionChunkPending = false;
   const pending = new Promise<void>((resolve) => { release = resolve; });
-  await page.route("**/_next/static/chunks/*.js", async (route) => {
+  // Hold the decision's data boundary, not a string inside a generated bundle:
+  // bundlers may combine the decision and assessment renderers in one chunk.
+  await page.route(`**/api/referrals/${referral.id}/workflow`, async (route) => {
+    if (route.request().method() !== "GET") return route.continue();
     const response = await route.fetch();
-    if ((await response.text()).includes("Retry decision")) {
-      decisionChunkPending = true;
-      await pending;
-    }
+    decisionChunkPending = true;
+    await pending;
     await route.fulfill({ response });
   });
   try {
@@ -140,7 +141,7 @@ test("loading the decision cannot move assessment navigation during a press", as
     // a review control that has already unmounted after successful navigation.
     await page.mouse.up();
     await expect(page.locator("#assessment-current_symptoms")).toHaveValue("Synthetic stable navigation observation");
-  } finally { release(); await page.mouse.up(); }
+  } finally { release(); if (!page.isClosed()) await page.mouse.up(); }
 });
 
 test("recommendation remains available in review after starting and saves without a final decision", async ({ page }) => {

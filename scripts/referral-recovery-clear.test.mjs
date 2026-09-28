@@ -12,6 +12,7 @@ function fixture(respond) {
     } },
     "@/lib/pipeline/referral-local-recovery": { clearLocalReferralRecovery: async (key) => { cleared.push(key); }, listLocalReferralRecoveries: async () => [] },
     "@/lib/pipeline/user-workspace-state-client": { usesServerUserWorkspaceState: () => true },
+    "@/lib/offline/offline-assessment-store": { currentOfflineRecoverySessionId: async () => "fixture-tab-session" },
   });
   return { client, requests, cleared };
 }
@@ -49,6 +50,7 @@ test("a queued save is awaited before deciding whether a draft needs deletion", 
   release({ version: 9 });
   await Promise.all([saving, clearing]);
   assert.deepEqual(f.requests.map(r => [r.method, r.body?.if_match]), [["GET", undefined], ["PUT", 0], ["DELETE", 9]]);
+  assert.equal(f.requests.find(r => r.method === "PUT").body.draft.recoverySessionId, "fixture-tab-session");
 });
 
 test("failed/conflicting deletion never clears local recovery or advances its version", async () => {

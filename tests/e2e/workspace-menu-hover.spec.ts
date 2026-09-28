@@ -4,10 +4,10 @@ for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]]
   // Phone navigation has its own menu/return/save contract in phone-app.spec.ts.
   for (const width of [1440, 834]) {
     const sidebarTest = test.extend<{ sidebarPage: Page }>({
-      sidebarPage: async ({ baseURL }, use) => {
+      sidebarPage: async ({ baseURL }, providePage) => {
         const browser = await browserType.launch();
         const context = await browser.newContext({ baseURL, viewport: { width, height: 900 }, hasTouch: width < 960, deviceScaleFactor: width < 960 ? 3 : 2, reducedMotion: "reduce" });
-        try { await use(await context.newPage()); }
+        try { await providePage(await context.newPage()); }
         finally { await context.close(); await browser.close(); }
       },
     });
@@ -18,7 +18,7 @@ for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]]
         sidebarTest(`layout and hover on ${path}`, async ({ sidebarPage: page }) => {
           const rail = page.getByRole("complementary", { name: "App navigation", exact: true });
           const panel = page.locator("#pipeline-app-navigation");
-          const content = page.locator(".pipeline-surfaces > div > main");
+          const content = page.locator(".pipeline-surfaces main").first();
           await page.goto(path);
           await expect(page.locator("html")).toHaveAttribute("data-pipeline-keyboard-shortcuts-ready", "true");
           await expect(rail).toBeVisible();
@@ -48,7 +48,7 @@ for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]]
       sidebarTest("pinning, branding, keyboard and profile navigation", async ({ sidebarPage: page }, info) => {
         const rail = page.getByRole("complementary", { name: "App navigation", exact: true });
         const panel = page.locator("#pipeline-app-navigation");
-        const content = page.locator(".pipeline-surfaces > div > main");
+        const content = page.locator(".pipeline-surfaces main").first();
         await page.goto("/?screen=calendar");
         await expect(page.locator("html")).toHaveAttribute("data-pipeline-keyboard-shortcuts-ready", "true");
         const collapsedContent = (await content.boundingBox())!;
@@ -128,7 +128,7 @@ test("hover preview, pinning, keyboard and profile flyout keep navigation usable
   await page.goto("/?screen=calendar");
   const rail = page.getByRole("complementary", { name: "App navigation", exact: true });
   const toggle = rail.locator("[data-navigation-toggle]");
-  const content = page.locator(".pipeline-surfaces > div > main");
+  const content = page.locator(".pipeline-surfaces main").first();
   const start = (await content.boundingBox())!;
   await rail.getByRole("button", { name: "Open calendar", exact: true }).hover();
   await expect(toggle).toHaveAccessibleName("Keep navigation expanded");

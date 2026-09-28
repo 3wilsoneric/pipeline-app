@@ -40,6 +40,11 @@ Academy evidence must never contain PHI, client identifiers, packet text, client
 
 ## Commands
 
+These are optional developer-course maintenance commands, not Pipeline release
+requirements. Normal releases retain private-route access and saved-progress
+checks, and test the current user tutorials through `npm run check:tutorials`.
+Unrelated application changes do not require an atlas or registry refresh.
+
 ```bash
 npm run academy:atlas:check
 npm run academy:check
@@ -47,12 +52,13 @@ npm run academy:route:check
 npm run academy:certify
 ```
 
-After reviewed source, curriculum, or repository-topology changes:
+When explicitly updating this course and its reviewed source references:
 
 ```bash
 npm run academy:refresh
 git diff -- lib/academy/academy-atlas.generated.json docs/academy/academy-registry.json
 npm run academy:certify
+npm run test:e2e:academy
 ```
 
 Do not refresh fingerprints merely to make a failing check green. First review changed source anchors, learning ownership, journey invariants, exercises, and checkpoints.
@@ -72,4 +78,6 @@ The September 22 Meet the Client review covered the shell's early Outlook prompt
 
 An activity completion means the learner recorded the required work. It does not certify production authority. Mastery requires source-backed recall, applied evidence, safe decisions under failure and concurrency, independent review where required, and teach-back. The owner capstone is the final integrated proof.
 
-See [ENTERPRISE_ACADEMY_STANDARD.md](ENTERPRISE_ACADEMY_STANDARD.md) for maintenance, review, and evidence rules.
+See [ENTERPRISE_ACADEMY_STANDARD.md](ENTERPRISE_ACADEMY_STANDARD.md) for optional
+course maintenance. The September 26 policy in [AGENTS.md](../../AGENTS.md) controls
+release checks.

@@ -14,11 +14,8 @@ for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]]
       await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=intake`);
       await page.getByRole("combobox", { name: "Workspace view", exact: true }).selectOption({ label: "Assessment" });
       await expect(page.locator('[data-assessment-phase="preparation"]')).toBeVisible();
-      await page.getByRole("region", { name: "Assessment progress", exact: true }).getByRole("button", { name: "Begin assessment", exact: true }).tap();
-      const begin = page.getByRole("dialog", { name: "Begin assessment", exact: true });
-      await expect(begin).toBeInViewport();
-      await begin.getByRole("button", { name: "Begin assessment", exact: true }).tap();
-      await expect(begin).toHaveCount(0);
+      await page.getByRole("region", { name: "Assessment progress", exact: true }).getByRole("button", { name: "Interview", exact: true }).tap();
+      await expect(page.getByRole("dialog", { name: "Begin interview", exact: true })).toHaveCount(0);
       const pocket = page.locator("[data-phone-interview]");
       await expect(pocket).toBeVisible();
       await expect(pocket.locator("[data-working-field]")).toHaveCount(1);
@@ -57,27 +54,27 @@ for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]]
       await pocket.getByRole("button", { name: "Next", exact: true }).tap();
       await expect(device).toHaveCount(0);
 
-      await findQuestion(page, "Secondary diagnosis");
-      const diagnosis = pocket.getByRole("textbox", { name: "Secondary diagnosis", exact: true });
+      await findQuestion(page, "Current symptoms");
+      const diagnosis = pocket.getByRole("textbox", { name: "Current symptoms", exact: true });
       await diagnosis.fill("Synthetic phone note");
       await page.context().setOffline(true);
       await pocket.getByRole("button", { name: "Next", exact: true }).tap();
       await expect(page.locator('[data-guide-target="assessment-save-status"]')).toContainText(/offline|device|queued/i);
       await page.context().setOffline(false);
-      await expect.poll(async () => (await read())[0]?.secondary_diagnoses, { timeout: 15_000 }).toEqual(["Synthetic phone note"]);
+      await expect.poll(async () => (await read())[0]?.current_symptoms, { timeout: 15_000 }).toBe("Synthetic phone note");
       await page.reload();
       await expect(pocket).toBeVisible();
       await pocket.getByRole("button", { name: "Client info", exact: true }).tap();
       const reference = page.getByRole("dialog", { name: "Client information", exact: true });
       await reference.getByLabel("Reference information").selectOption("all");
       await expect(reference.getByText("Synthetic phone note", { exact: true })).toBeVisible();
-      await reference.getByRole("button", { name: "Review Secondary diagnosis", exact: true }).tap();
+      await reference.getByRole("button", { name: "Review Current symptoms", exact: true }).tap();
       await expect(diagnosis).toHaveValue("Synthetic phone note");
 
       await diagnosis.fill("Synthetic rotation edit");
       await page.setViewportSize({ width: 1024, height: 768 });
       await expect(page.getByRole("complementary", { name: "Current information", exact: true })).toBeVisible();
-      await expect.poll(async () => (await read())[0]?.secondary_diagnoses).toEqual(["Synthetic rotation edit"]);
+      await expect.poll(async () => (await read())[0]?.current_symptoms).toBe("Synthetic rotation edit");
       await page.setViewportSize({ width: 390, height: 844 });
       await expect(diagnosis).toHaveValue("Synthetic rotation edit");
 
@@ -102,13 +99,13 @@ for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]]
       const assessments = await read();
       expect(assessments).toHaveLength(1);
       expect(assessments[0].signed_at).toBeNull();
-      expect(assessments[0].started_at).toBeTruthy();
+      expect(assessments[0].started_at).toBeNull();
 
       await page.getByRole("combobox", { name: "Workspace view", exact: true }).selectOption({ label: "Assessment" });
       await expect(page.getByRole("button", { name: "Begin assessment", exact: true })).toHaveCount(0);
       await expect(pocket).toBeVisible();
       expect((await read())[0]?.started_at).toBeNull();
-      await findQuestion(page, "Secondary diagnosis");
+      await findQuestion(page, "Current symptoms");
       await expect(diagnosis).toHaveValue("Synthetic rotation edit");
       expect((await read())[0].assessment_id).toBe(assessments[0].assessment_id);
     } finally { await context.close(); await browser.close(); }
@@ -126,13 +123,13 @@ test("phone questions preserve source verification rather than counting suggesti
   await page.route(`**/api/referrals/${referral.id}/assessments`, async (route) => {
     const response = await route.fetch();
     const payload = await response.json();
-    payload.assessments[0].secondary_diagnoses = ["Synthetic extracted diagnosis"];
-    payload.assessments[0].field_provenance.secondary_diagnoses = [{ source_field_key: "secondary_diagnoses", source_file: "Synthetic referral.pdf", confidence: 0.8, review_status: "pending", source_page_no: 2, evidence_url: null }];
+    payload.assessments[0].current_symptoms = "Synthetic extracted symptoms";
+    payload.assessments[0].field_provenance.current_symptoms = [{ source_field_key: "current_symptoms", source_file: "Synthetic referral.pdf", confidence: 0.8, review_status: "pending", source_page_no: 2, evidence_url: null }];
     await route.fulfill({ response, json: payload });
   });
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=diagnosis_clinical`);
-  await findQuestion(page, "Secondary diagnosis");
-  const field = page.locator('[data-phone-interview] [data-working-field="secondary_diagnoses"]');
+  await findQuestion(page, "Current symptoms");
+  const field = page.locator('[data-phone-interview] [data-working-field="current_symptoms"]');
   await expect(field).toContainText("Synthetic referral.pdf");
   for (const label of ["Use", "Reject"]) {
     const control = field.getByRole("button", { name: label, exact: true });
@@ -140,7 +137,7 @@ test("phone questions preserve source verification rather than counting suggesti
     expect((await control.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   }
   await page.getByRole("button", { name: "Client info", exact: true }).tap();
-  await expect(page.getByRole("button", { name: "Review Secondary diagnosis", exact: true })).toContainText("Needs verification");
+  await expect(page.getByRole("button", { name: "Review Current symptoms", exact: true })).toContainText("Needs verification");
   await page.unrouteAll({ behavior: "wait" });
 });
 

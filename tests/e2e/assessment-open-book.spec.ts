@@ -30,6 +30,7 @@ for (const width of [1440, 834, 390]) {
         ? preview.getByRole("dialog", { name: "Client information", exact: true })
         : preview.getByRole("complementary", { name: "Current information", exact: true });
       const action = width < 640 ? "Review" : "Edit";
+      if (width === 834) await reference.getByRole("button", { name: /^Current information/ }).click();
       const medications = reference.getByRole("button", { name: `${action} Medications at intake`, exact: true });
       const entries = ["Synthetic medication A, dose pending verification", "Synthetic medication B, dose pending verification"];
       for (const entry of entries) {
@@ -68,13 +69,14 @@ for (const width of [1440, 1024, 768, 640]) {
     const book = page.locator("[data-assessment-working-section]");
     const reference = page.getByRole("complementary", { name: "Current information" });
     const editor = page.locator("[data-assessment-question-editor]");
-    const secondary = editor.getByRole("textbox", { name: "Secondary diagnosis", exact: true });
+    const secondary = editor.getByRole("textbox", { name: "Cognition / orientation", exact: true });
     if (width < 960) await reference.getByRole("button", { name: /^Current information/ }).click();
     await expect(reference.getByRole("combobox")).toHaveCount(0);
     await expect(reference).not.toContainText("Taylor Rivera");
     await expect(reference).toContainText("During the practice interview");
     await expect(editor.locator('[data-working-field="current_symptoms"]')).toHaveCount(0);
     await expect(page.getByRole("navigation", { name: "Remaining assessment questions" })).toHaveCount(0);
+    await reference.getByRole("button", { name: "Edit Cognition / orientation", exact: true }).click();
     await secondary.fill("Synthetic prepared diagnosis");
     await expect(secondary).toBeFocused();
     await secondary.press("Tab");
@@ -88,7 +90,8 @@ for (const width of [1440, 1024, 768, 640]) {
       const nav = (await page.getByRole("navigation", { name: "Assessment sections", exact: true }).boundingBox())!;
       expect((await editor.boundingBox())!.y - (nav.y + nav.height)).toBeLessThan(24);
     }
-    await reference.getByRole("button", { name: "Edit Secondary diagnosis", exact: true }).click();
+    if (width < 960) await reference.getByRole("button", { name: /^Current information/ }).click();
+    await reference.getByRole("button", { name: "Edit Cognition / orientation", exact: true }).click();
     await expect(secondary).toBeFocused();
     await expect(secondary).toHaveValue("Synthetic prepared diagnosis");
     await secondary.fill("");
@@ -274,8 +277,9 @@ test("unfinished view preserves pending source verification and missing reasons"
   await page.route(`**/api/referrals/${referral.id}/assessments`, async (route) => {
     const response = await route.fetch();
     const payload = await response.json();
-    payload.assessments[0].field_provenance.secondary_diagnoses = [{
-      source_field_key: "secondary_diagnoses", source_file: "Synthetic referral.pdf", confidence: 0.8,
+    payload.assessments[0].cognition_orientation = "Synthetic extracted cognition";
+    payload.assessments[0].field_provenance.cognition_orientation = [{
+      source_field_key: "cognition_orientation", source_file: "Synthetic referral.pdf", confidence: 0.8,
       review_status: "pending", source_page_no: 2, evidence_url: null,
     }];
     payload.assessments[0].current_symptoms = "unable_to_assess";
@@ -284,19 +288,19 @@ test("unfinished view preserves pending source verification and missing reasons"
   });
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=diagnosis_clinical`);
   const editor = page.locator("[data-assessment-question-editor]");
-  const field = editor.locator('[data-working-field="secondary_diagnoses"]');
+  const field = editor.locator('[data-working-field="cognition_orientation"]');
   await expect(field).toContainText("Synthetic referral.pdf");
   await expect(field.getByRole("button", { name: "Use", exact: true })).toBeVisible();
   await expect(field.getByRole("button", { name: "Reject", exact: true })).toBeVisible();
   await expect(editor.locator('[data-working-field="current_symptoms"]')).toBeVisible();
   const reference = page.getByRole("complementary", { name: "Current information" });
-  await expect(reference.getByRole("button", { name: "Edit Secondary diagnosis", exact: true })).toContainText("Needs verification");
+  await expect(reference.getByRole("button", { name: "Edit Cognition / orientation", exact: true })).toContainText("Needs verification");
   await expect(reference.getByRole("button", { name: "Edit Current symptoms", exact: true })).toContainText("Reason missing");
   await expect(page.getByRole("button", { name: "Prepare from records", exact: true })).toHaveCount(0);
   await expect(field.getByRole("button", { name: "Use", exact: true })).toBeVisible();
-  await expect(reference.getByRole("button", { name: "Edit Secondary diagnosis", exact: true })).toContainText("Source: Synthetic referral.pdf");
-  await expect(reference.getByRole("button", { name: "Edit Secondary diagnosis", exact: true })).toContainText("Needs verification");
-  await expect(page.getByRole("button", { name: "Interview", exact: true })).toHaveCount(0);
+  await expect(reference.getByRole("button", { name: "Edit Cognition / orientation", exact: true })).toContainText("Source: Synthetic referral.pdf");
+  await expect(reference.getByRole("button", { name: "Edit Cognition / orientation", exact: true })).toContainText("Needs verification");
+  await expect(page.getByRole("region", { name: "Assessment progress", exact: true }).getByRole("button", { name: "Interview", exact: true })).toHaveAttribute("aria-pressed", "true");
   await expect(editor.locator('[data-working-field="current_symptoms"]')).toBeVisible();
   await page.unrouteAll({ behavior: "wait" });
 });
@@ -352,7 +356,7 @@ for (const width of [1440, 390]) {
     } else await reference.getByRole("button", { name: "Edit Secondary diagnosis", exact: true }).click();
     const secondary = page.locator("#assessment-secondary_diagnoses");
     await secondary.fill("Final answer before immediate exit");
-    await page.getByRole("button", { name: width < 640 ? "Back to previous page" : "Workspaces", exact: true }).click();
+    await page.getByRole("button", { name: width < 640 ? "Back to previous page" : "Open referrals", exact: true }).click();
     await expect(page.locator("[data-assessment-view]")).toHaveCount(0);
     await expect.poll(async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment.secondary_diagnoses).toEqual(["Final answer before immediate exit"]);
     await page.goto(root + "&workspaceStage=assessment&assessmentSection=diagnosis_clinical");
@@ -375,7 +379,7 @@ for (const width of [1440, 390]) {
     await page.locator('footer[aria-label="Assessment actions"]').getByRole("button", { name: "Review assessment", exact: true }).click();
     await expect(page.getByRole("region", { name: "Assessment chart review" })).toContainText("Final answer before signing");
     await page.getByRole("button", { name: "Sign & continue to decision", exact: true }).click();
-    await page.getByRole("dialog", { name: "Sign assessment", exact: true }).getByRole("button", { name: "Sign assessment", exact: true }).click();
+    await page.getByRole("alertdialog", { name: "Sign this assessment?", exact: true }).getByRole("button", { name: "Sign assessment", exact: true }).click();
     await expect(page.locator("#admission-workflow")).toBeVisible();
     await expect(chart).toHaveCount(1);
     const saved = (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;

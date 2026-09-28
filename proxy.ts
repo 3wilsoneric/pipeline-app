@@ -24,6 +24,16 @@ export async function proxy(request: NextRequest) {
     return withSecurityHeaders(denied ?? continueRequest(request), request);
   }
 
+  // Alamo Platform reads aggregate counts server-to-server with its own secret.
+  if (applicationPathname.startsWith("/api/integrations/platform/")) {
+    const denied = requireBearerSecretAtProxy(
+      request,
+      process.env.PIPELINE_PLATFORM_SUMMARY_SECRET?.trim(),
+      "Platform integration is not configured.",
+    );
+    return withSecurityHeaders(denied ?? continueRequest(request), request);
+  }
+
   if (!isProtectedPath(applicationPathname)) {
     return withSecurityHeaders(continueRequest(request), request);
   }
@@ -92,11 +102,16 @@ function isSharedIdentityPath(pathname: string) {
 }
 
 function requireInternalWorkerAtProxy(request: NextRequest) {
-  const primarySecret = process.env.PIPELINE_WORKER_SHARED_SECRET?.trim();
-  const cronSecret = process.env.CRON_SECRET?.trim();
-  const expected = primarySecret || cronSecret;
+  return requireBearerSecretAtProxy(
+    request,
+    process.env.PIPELINE_WORKER_SHARED_SECRET?.trim() || process.env.CRON_SECRET?.trim(),
+    "Worker authentication is not configured.",
+  );
+}
+
+function requireBearerSecretAtProxy(request: NextRequest, expected: string | undefined, unconfiguredMessage: string) {
   if (!expected) {
-    return NextResponse.json({ error: "Worker authentication is not configured." }, { status: 503 });
+    return NextResponse.json({ error: unconfiguredMessage }, { status: 503 });
   }
 
   const supplied = request.headers.get("authorization")?.match(/^Bearer\s+(\S+)$/i)?.[1] ?? "";

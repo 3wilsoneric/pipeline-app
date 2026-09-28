@@ -108,7 +108,7 @@ async function homeFixture(page: Page, moduleIds = ["current-work", "new-assignm
       for (const [index, workflow_status] of ["ready_to_schedule", "assessment_in_progress", "decision_pending", "admitted"].entries()) {
         payload.workflow.all_board_items.push({ ...item, referral_id: 940000 + index, client_name: `Team ${["Rivera", "Brooks", "Chen", "Patel"][index]}`, workflow_status,
           owner: "Another Assessor", outcome_state: workflow_status === "admitted" ? "accepted" : "pending",
-          board: { stage: ["received", "in_progress", "decision", "awaiting_admit"][index], detail: ["Referral received", "Assessment underway", "Under review", "Email not sent"][index], next_action: "Open workspace", location: { view: "workflow" } } });
+          board: { stage: ["received", "in_progress", "decision", "decision"][index], detail: ["Referral received", "Assessment underway", "Under review", "Email not sent"][index], next_action: "Open workspace", location: { view: "workflow" } } });
       }
       if (scope === "team-only") Object.assign(payload.workflow, { active_items: [], board_items: [], active_total: 0 });
     }
@@ -131,8 +131,8 @@ for (const width of [1440, 390]) test(`folder All and Mine switch instantly with
   await page.setViewportSize({ width, height: 900 });
   await homeFixture(page, undefined, 2, true, false, "mixed");
   await page.goto("/");
-  for (const [index, title] of ["Referral received", "In progress", "Decision", "Awaiting admit"].entries()) {
-    if (width < 1024) await page.getByRole("combobox", { name: "Referral stage", exact: true }).selectOption(["received", "in_progress", "decision", "awaiting_admit"][index]);
+  for (const [index, title] of ["Referral received", "In progress", "Decision"].entries()) {
+    if (width < 1024) await page.getByRole("combobox", { name: "Referral stage", exact: true }).selectOption(["received", "in_progress", "decision", "decision"][index]);
     const opener = page.getByRole("button", { name: `Open ${title.toLowerCase()} folder`, exact: true });
     await opener.click();
     const folder = page.getByRole("dialog", { name: `${title} folder`, exact: true });
@@ -143,9 +143,9 @@ for (const width of [1440, 390]) test(`folder All and Mine switch instantly with
     // All data is already present. Even a disconnected browser can switch scopes.
     await page.context().setOffline(true);
     await toggle.getByRole("button", { name: "All", exact: true }).click();
-    await expect(folder.locator("[data-board-card]")).toHaveCount(mineCount + 1);
+    await expect(folder.locator("[data-board-card]")).toHaveCount(mineCount + (index === 2 ? 2 : 1));
     await expect(folder.getByRole("button", { name: `Open Team ${["Rivera", "Brooks", "Chen", "Patel"][index]}`, exact: true })).toBeVisible();
-    await expect(folder.locator("h2")).toContainText(`${mineCount + 1} files`);
+    await expect(folder.locator("h2")).toContainText(`${mineCount + (index === 2 ? 2 : 1)} files`);
     expect(await folder.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
     const box = await toggle.getByRole("button", { name: "All", exact: true }).boundingBox();
     expect(box!.height).toBeGreaterThanOrEqual(44);
@@ -163,7 +163,7 @@ for (const width of [1440, 390]) test(`folder All and Mine switch instantly with
 test("All is reachable when Mine is empty, including admitted referrals awaiting email", async ({ page }) => {
   await homeFixture(page, undefined, 0, false, false, "team-only");
   await page.goto("/");
-  for (const title of ["Referral received", "Awaiting admit"]) {
+  for (const title of ["Referral received", "Decision"]) {
     await page.getByRole("button", { name: `Open ${title.toLowerCase()} folder`, exact: true }).click();
     const folder = page.getByRole("dialog", { name: `${title} folder`, exact: true });
     await expect(folder).toContainText("None assigned to you here.");
@@ -192,7 +192,7 @@ for (const width of [1440, 834, 390, 320]) test(`focus deck keeps the foreground
   if (width < 640) {
     const appointment = deck.getByRole("button", { name: /Jordan Appointment/ });
     const name = appointment.locator("strong");
-    const action = appointment.getByText("Begin assessment", { exact: true });
+    const action = appointment.getByText("Prepare assessment", { exact: true });
     expect((await name.boundingBox())!.width).toBeGreaterThan(200);
     expect((await action.boundingBox())!.y).toBeGreaterThan((await name.boundingBox())!.y + (await name.boundingBox())!.height);
     // The deck scales into place; measure its settled touch target, not an animation frame.

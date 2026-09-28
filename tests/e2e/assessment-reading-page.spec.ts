@@ -14,7 +14,7 @@ for (const width of [1440, 1024, 834, 640, 390, 320]) {
     } });
     expect(created.status()).toBe(201);
     const { assessment } = await created.json();
-    const url = `/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=prior_history`;
+    const url = `/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentMode=interview&assessmentSection=prior_history`;
     await page.goto(url);
     const phone = width < 640;
     const reference = phone ? page.getByRole("dialog", { name: "Client information", exact: true }) : page.getByRole("complementary", { name: "Current information", exact: true });
@@ -58,7 +58,7 @@ test("iPad reading page supports touch editing and leaves section navigation int
   const browser = await webkit.launch();
   try {
     const page = await browser.newPage({ baseURL, viewport: { width: 834, height: 1194 }, hasTouch: true, isMobile: true });
-    await page.goto("/?view=referrals&screen=packet&trainingAssessment=prepare&demo=1&workspaceStage=assessment&assessmentSection=prior_history");
+    await page.goto("/?view=referrals&screen=packet&trainingAssessment=interview&demo=1&workspaceStage=assessment&assessmentSection=prior_history");
     const reference = page.getByRole("complementary", { name: "Current information", exact: true });
     // The tablet shows a compact reference summary; open it before reading answers.
     await reference.getByRole("button", { name: /^Current information/ }).tap();

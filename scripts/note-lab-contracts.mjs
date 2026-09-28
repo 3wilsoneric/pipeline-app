@@ -28,6 +28,7 @@ const rollback = read("database/rollbacks/0023_note_lab_field_reviews.sql");
 const engineModule = loadTypeScriptModule(process.cwd(), "lib/note-lab/note-lab-engine.ts");
 const contractsModule = loadTypeScriptModule(process.cwd(), "lib/note-lab/note-lab-contracts.ts");
 const standardsModule = loadTypeScriptModule(process.cwd(), "lib/note-lab/assessment-language-standards.ts");
+const guideModule = loadTypeScriptModule(process.cwd(), "lib/assessment/assessment-narrative-guide.ts");
 
 const checks = [];
 const check = (name, condition) => checks.push({ name, ok: Boolean(condition) });
@@ -58,11 +59,11 @@ check("calibration is bounded to fifteen field reviews", store.includes("NOTE_LA
   && store.includes("This calibration is already complete."));
 check("the combined rail preserves the assessment section navigation",
   workspace.includes('aria-label="Assessment section navigation"')
-  && workspace.includes("assessmentPracticeNavigationGroups.map")
+  && workspace.includes("navigationGroups.map")
   && workspace.includes('aria-current={active ? "step" : undefined}'));
 check("only authored narrative questions expose field-level guidance",
-  workspace.includes("hasUsefulWritingGuidance")
-  && workspace.includes('question.control === "textarea"')
+  workspace.includes('if (question.control !== "textarea") return null')
+  && workspace.includes("if (!specification || !narrativeGuide) return null")
   && workspace.includes("PracticeQuestionGuide")
   && workspace.includes("<details")
   && workspace.includes("<summary")
@@ -129,9 +130,15 @@ check("admitted-note analysis forbids causal or decision interpretation",
   && admittedAnalysis.includes("No pattern in this profile may be interpreted as causing admission"));
 
 const scenarioCatalog = engineModule.buildNoteLabScenarioCatalog();
-check("every coachable field has a concrete standard", scenarioCatalog.length === 64
+const medicationLineFields = new Set(["injection_frequency", "last_injection", "next_injection_due"]);
+check("every coachable field has a concrete standard",
+  JSON.stringify(scenarioCatalog.map((scenario) => scenario.targetField)) === JSON.stringify(guideModule.getAssessmentNarrativeGuideCoverage().coveredFields)
   && scenarioCatalog.every((scenario) => scenario.recommendedCriterionIds.length >= 4
-    && scenario.formatStandard.instructionSteps.length >= 3
+    && (medicationLineFields.has(scenario.targetField)
+      ? scenario.formatStandard.instructionSteps.length === 2
+        && scenario.formatStandard.instructionSteps[0].title === "Medication name"
+        && /unknown|uncertainty/.test(scenario.formatStandard.instructionSteps[1].title)
+      : scenario.formatStandard.instructionSteps.length >= 3)
     && scenario.formatStandard.instructionSteps.every((step) => step.title.length > 3 && step.instruction.length > 20)
     && scenario.formatStandard.requiredElements.length > 0
     && scenario.formatStandard.referenceAnswer.length > 20));
@@ -142,9 +149,9 @@ check("base scenarios contain no historical provenance", scenarioCatalog.every((
   && !JSON.stringify(scenarioCatalog).includes("sourceCanvasId"));
 const emptyProgress = contractsModule.emptyNoteLabProgress(contractsModule.NOTE_LAB_CALIBRATION_VERSION);
 const emptyCalibration = engineModule.buildNoteLabCalibration(scenarioCatalog, emptyProgress);
-check("the sidebar field sequence is bounded and canonical", emptyCalibration.fieldSteps.length === 15
+check("the sidebar field sequence is bounded and canonical", emptyCalibration.fieldSteps.length === contractsModule.NOTE_LAB_CALIBRATION_TARGET
   && emptyCalibration.fieldSteps[0].field === "prior_placements"
-  && emptyCalibration.fieldSteps[14].field === "staff_interaction_notes"
+  && JSON.stringify(emptyCalibration.fieldSteps.map((step) => step.field)) === JSON.stringify(scenarioCatalog.slice(0, contractsModule.NOTE_LAB_CALIBRATION_TARGET).map((scenario) => scenario.targetField))
   && emptyCalibration.fieldSteps.every((step) => !step.reviewed));
 const firstScenario = engineModule.selectNextScenario(scenarioCatalog, emptyProgress);
 const secondScenario = engineModule.selectNextScenario(scenarioCatalog, {

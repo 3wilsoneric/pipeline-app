@@ -18,7 +18,8 @@ for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]]
         // Document review stays collapsed; short landscape screens can scroll to the field.
         const review = page.getByRole("region", { name: "Extraction review", exact: true });
         await expect(review).toBeHidden();
-        expect((await name.boundingBox())!.y).toBeLessThan(340);
+        // The current attachment-first intake places identity below the upload
+        // area; assert reachability, not the retired fixed vertical offset.
         await name.scrollIntoViewIfNeeded();
         await expect(name).toBeInViewport();
         await expect(name).toHaveCSS("font-size", "16px");
@@ -73,13 +74,14 @@ for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]]
       await expect(page).toHaveURL(/referralId=\d+/);
       const savedReferralId = new URL(page.url()).searchParams.get("referralId");
       await expect(header.getByRole("button", { name: "Create referral", exact: true })).toHaveCount(0);
+      await page.getByRole("dialog", { name: "Workspace created", exact: true }).getByRole("button", { name: "Close workspace created", exact: true }).tap();
       await header.getByLabel("Workspace view", { exact: true }).selectOption({ label: "Assessment" });
-      await expect(page.locator("[data-phone-interview]")).toBeVisible();
+      await expect(page.locator('[data-assessment-phase="preparation"]')).toBeVisible();
       await page.screenshot({ path: info.outputPath(`preparation-${engine}-phone.png`) });
       for (const width of [768, 1024, 1194]) {
         await page.setViewportSize({ width, height: 900 });
-        const preparedName = page.getByRole("button", { name: "Edit Resident name", exact: true });
-        await expect(preparedName).toContainText(clientName);
+        const preparedName = page.getByRole("textbox", { name: "Resident name", exact: true });
+        await expect(preparedName).toHaveValue(clientName);
         expect((await preparedName.boundingBox())!.height).toBeGreaterThanOrEqual(44);
         expect((await page.getByRole("button", { name: "Next section", exact: true }).boundingBox())!.height).toBeGreaterThanOrEqual(44);
         const preparation = page.getByTestId("assessment-client-folder");

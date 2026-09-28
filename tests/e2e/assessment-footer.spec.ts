@@ -3,6 +3,10 @@ import { randomUUID } from "node:crypto";
 import { createOperationalReferral } from "./support/operational-api";
 
 async function openAssessmentReview(page: Page) {
+  const progress = page.getByRole("region", { name: "Assessment progress", exact: true });
+  if (await progress.getByRole("button", { name: "Interview", exact: true }).isVisible()) {
+    await progress.getByRole("button", { name: "Interview", exact: true }).click();
+  }
   if (page.viewportSize()!.width < 640) {
     await page.getByRole("button", { name: "Choose questionnaire section", exact: true }).click();
     await page.getByRole("dialog", { name: "Questionnaire sections", exact: true }).getByRole("button", { name: /^Review assessment/ }).click();
@@ -31,12 +35,12 @@ for (const width of [1440, 768, 390, 320]) {
     await expect(footer).toBeInViewport();
     await expect(footer.getByRole("button", { name: "Sign assessment", exact: true })).toHaveCount(0);
     await expect(footer.getByRole("button", { name: "Schedule interview", exact: true })).toBeHidden();
-    await expect(primary.getByRole("button")).toHaveCount(width < 640 ? 0 : 1);
-    await expect(width < 640 ? page.getByRole("navigation", { name: "Question steps" }).getByRole("button", { name: /Next/ }) : primary.getByRole("button", { name: "Next section", exact: true })).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Assessment section steps", exact: true }).getByRole("button", { name: "Next section", exact: true })).toHaveCount(1);
+    await expect(page.getByRole("navigation", { name: "Assessment section steps", exact: true }).getByRole("button", { name: "Next section", exact: true })).toBeVisible();
     await expect(footer.getByRole("button", { name: "Sign assessment", exact: true })).toHaveCount(0);
     expect((await read()).started_at).toBeNull();
 
-    const appointment = page.getByRole("region", { name: "Assessment appointment" });
+    const appointment = page.getByRole("region", { name: "Assessment progress", exact: true });
     await appointment.getByRole("button", { name: "Schedule interview", exact: true }).click();
     const schedule = page.getByRole("dialog", { name: "Schedule interview", exact: true });
     await schedule.getByLabel("Assessment date and time").fill("2027-09-20T10:00");
@@ -44,15 +48,15 @@ for (const width of [1440, 768, 390, 320]) {
     await expect(schedule).toHaveCount(0);
     await expect.poll(async () => Boolean((await read()).scheduled_start_at)).toBe(true);
     expect((await read()).started_at).toBeNull();
-    await expect(width < 640 ? page.getByRole("navigation", { name: "Question steps" }).getByRole("button", { name: /Next/ }) : primary.getByRole("button", { name: "Next section", exact: true })).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Assessment section steps", exact: true }).getByRole("button", { name: "Next section", exact: true })).toBeVisible();
 
     await expect(page.getByRole("button", { name: "Begin assessment", exact: true })).toHaveCount(0);
-    await appointment.getByRole("button", { name: "Change appointment", exact: true }).click();
+    await appointment.getByRole("button", { name: "Edit assessment appointment", exact: true }).click();
     await expect(schedule).toBeInViewport();
     await schedule.getByRole("button", { name: "Close schedule", exact: true }).click();
-    await expect(appointment.getByRole("button", { name: "Change appointment", exact: true })).toBeFocused();
+    await expect(appointment.getByRole("button", { name: "Edit assessment appointment", exact: true })).toBeFocused();
     expect((await read()).started_at).toBeNull();
-    await expect(primary.getByRole("button")).toHaveCount(width < 640 ? 0 : 1);
+    await expect(page.getByRole("navigation", { name: "Assessment section steps", exact: true }).getByRole("button", { name: "Next section", exact: true })).toHaveCount(1);
     await expect(footer.getByRole("button", { name: /Schedule interview|Change appointment/ })).toHaveCount(0);
     await page.screenshot({ path: info.outputPath(`assessment-footer-ready-${width}.png`) });
 
@@ -68,7 +72,7 @@ for (const width of [1440, 768, 390, 320]) {
     await openAssessmentReview(page);
     // Unanswered questions remain permissible; the signature still uses the existing save path.
     await primary.getByRole("button", { name: "Sign & continue to decision", exact: true }).click();
-    await page.getByRole("dialog", { name: "Sign assessment", exact: true }).getByRole("button", { name: "Sign assessment", exact: true }).click();
+    await page.getByRole("alertdialog", { name: "Sign this assessment?", exact: true }).getByRole("button", { name: "Sign assessment", exact: true }).click();
     await expect(page.locator("#admission-workflow")).toBeVisible();
     const signed = await read();
     expect(signed.signed_at).toBeTruthy();
@@ -135,7 +139,7 @@ for (const width of [1440, 390]) {
     await expect(page.getByRole("button", { name: "Begin assessment", exact: true })).toHaveCount(0);
     await openAssessmentReview(page);
     await footer.getByRole("button", { name: "Sign & continue to decision", exact: true }).click();
-    await page.getByRole("dialog", { name: "Sign assessment", exact: true }).getByRole("button", { name: "Sign assessment", exact: true }).click();
+    await page.getByRole("alertdialog", { name: "Sign this assessment?", exact: true }).getByRole("button", { name: "Sign assessment", exact: true }).click();
     await expect(page.locator("#admission-workflow")).toBeVisible();
     const saved = (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
     expect(saved.signed_at).toBeTruthy();

@@ -194,7 +194,7 @@ test("phone keeps the same question and focus through Current info, Files and sc
   // than opening the software keyboard.
   const view = page.getByRole("combobox", { name: "Workspace view", exact: true });
   await view.selectOption("files");
-  await expect(pocket).toHaveCount(0);
+  await expect(pocket).toBeHidden();
   await page.getByRole("combobox", { name: "Workspace view", exact: true }).selectOption("2");
   await expect(answer).toHaveValue("Synthetic answer kept through side trips.");
   expect(await position()).toBe(before);

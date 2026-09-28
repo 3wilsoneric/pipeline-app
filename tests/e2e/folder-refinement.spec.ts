@@ -76,6 +76,7 @@ test("the prominent create action still saves once and opens the same client's c
   await create.click();
   await expect(page).toHaveURL(/referralId=\d+/);
   await expect(create).toHaveCount(0);
+  await page.getByRole("dialog", { name: "Workspace created", exact: true }).getByRole("button", { name: "Close workspace created", exact: true }).click();
   const stages = page.getByRole("navigation", { name: "Workspace stages", exact: true });
   const chart = stages.getByRole("button", { name: /Chart$/ });
   await expect(chart).toHaveAttribute("aria-current", "page");

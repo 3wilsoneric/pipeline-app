@@ -107,7 +107,9 @@ test("assessment navigation retains the section through Files and Activity, and 
   }
   await page.getByRole("button", { name: "Next section", exact: true }).click();
   await expect(section).not.toHaveValue("prior_history");
-  await expect(section).toBeFocused();
+  // Preparation now focuses the new section heading; interview focuses its
+  // first answer. Keyboard navigation must stay in the newly selected section.
+  await expect(page.locator('[data-assessment-question-editor] h3')).toBeFocused();
   await page.keyboard.press("Tab");
   await expect(page.locator("[data-assessment-question-editor] :focus")).toHaveCount(1);
   await expect(page.locator('[data-guide-target="assessment-save-status"]')).toHaveCSS("font-size", "13px");

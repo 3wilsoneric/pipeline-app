@@ -1,6 +1,30 @@
-import type { Page } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 
 export async function editPreparedAnswer(page: Page, label: string) {
+  // Preparation keeps recorded fields editable; interview references expose Edit.
+  const input = page.getByRole("textbox", { name: label, exact: true });
+  await expect.poll(async () =>
+    await input.isVisible() ||
+    await page.getByRole("complementary", { name: "Current information", exact: true }).isVisible() ||
+    await page.getByRole("button", { name: "Client info", exact: true }).isVisible() ||
+    await page.getByRole("button", { name: /^Recorded answers:/ }).isVisible()
+  ).toBe(true);
+  if (await input.isVisible()) return;
+  const reference = page.getByRole("complementary", { name: "Current information", exact: true });
+  if (await reference.isVisible()) {
+    if (!await reference.getByRole("button", { name: `Edit ${label}`, exact: true }).isVisible()) {
+      await reference.getByRole("button", { name: /^Current information/ }).click();
+    }
+    await reference.getByRole("button", { name: `Edit ${label}`, exact: true }).click();
+    return;
+  }
+  const clientInfo = page.getByRole("button", { name: "Client info", exact: true });
+  if (await clientInfo.isVisible()) {
+    await clientInfo.click();
+    await page.getByRole("dialog", { name: "Client information", exact: true }).getByLabel("Reference information").selectOption("all");
+    await page.getByRole("dialog", { name: "Client information", exact: true }).getByRole("button", { name: `Review ${label}`, exact: true }).click();
+    return;
+  }
   const recorded = page.getByRole("region", { name: "Recorded answers", exact: true });
   if (!await recorded.isVisible()) await page.getByRole("button", { name: /^Recorded answers:/ }).click();
   await recorded.getByRole("button", { name: `Edit ${label}`, exact: true }).click();

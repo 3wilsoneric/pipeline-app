@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { createOperationalAssessment, createOperationalReferral, readOperationalReferral, recordOperationalAcceptance, signOperationalAssessment } from "./support/operational-api";
 
-for (const width of [1440, 390]) test(`accepted work resumes the client handoff without arrival controls at ${width}px`, async ({ page }, info) => {
+for (const width of [1440, 390]) test(`accepted work resumes the client handoff without recording arrival at ${width}px`, async ({ page }, info) => {
   await page.setViewportSize({ width, height: 900 });
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: `Synthetic Handoff ${width}`, owner: "", tags: [] });
   const assessment = await createOperationalAssessment(page.request, referral.id);
@@ -18,7 +18,8 @@ for (const width of [1440, 390]) test(`accepted work resumes the client handoff 
   await expect(page).toHaveURL(/workspaceView=workflow/);
   await expect(handoff.getByRole("list", { name: "Handoff progress" })).toContainText("Assessment signed");
   await expect(page.getByRole("button", { name: "Confirm admitted", exact: true })).toHaveCount(0);
-  await expect(page.getByLabel("Actual admission date", { exact: true })).toHaveCount(0);
+  await expect(page.getByLabel("Actual admission date", { exact: true })).toHaveValue("");
+  await expect(page.getByRole("button", { name: "Mark admitted", exact: true })).toBeEnabled();
   await page.screenshot({ path: info.outputPath(`handoff-steps-${width}.png`), animations: "disabled" });
   await handoff.getByLabel("Planned admission date", { exact: true }).fill("2026-10-12");
   await handoff.getByRole("button", { name: "Review email & packet", exact: true }).click();

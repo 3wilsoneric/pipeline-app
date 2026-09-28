@@ -23,109 +23,66 @@ test.describe("Pipeline Learning Center", () => {
     });
   });
 
-  test("starts an assessor workflow and advances through real controls", async ({ page }) => {
+  test("starts the fictional workflow and opens its assessment from the Board", async ({ page }) => {
     const errors = watchBrowserErrors(page);
-    await mockTrainingProgress(page);
-    await startGuide(page, "Check my work");
-
-    await expect(page.getByRole("dialog", { name: /Check my work guided tutorial/ })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Check your queue" })).toBeVisible();
-    await expect(page.getByRole("dialog", { name: /Check my work guided tutorial/ })).toContainText("Continue working reopens saved work when available.");
-    await expect(page.locator('[data-guide-target="my-queue"]')).toBeVisible();
-    await page.getByRole("dialog", { name: /Check my work guided tutorial/ }).getByRole("button", { name: "Continue", exact: true }).click();
-
-    await expect(page.getByRole("heading", { name: "Open Workspaces" })).toBeVisible();
-    await page.getByLabel("Open referrals").click();
-    await expect(page).toHaveURL(/view=referrals/);
-    await expect(page.getByRole("heading", { name: "Search for the referral" })).toBeVisible();
-    await expect.poll(() => errors).toEqual([]);
+    const writes = watchClinicalWrites(page);
+    await startGuide(page, "Walk through a referral");
+    const guide = page.getByRole("complementary", { name: "Tutorial steps", exact: true });
+    await expect(guide.getByRole("heading", { name: "Home board", exact: true })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Fictional referral tutorial" })).toContainText("Nothing saved or sent to Pipeline");
+    await page.locator("[data-board-card]").click();
+    await expect(guide.getByRole("heading", { name: "Assessment", exact: true })).toBeVisible();
+    await expect(page.locator('[data-assessment-view="assessment"]')).toBeVisible();
+    expect(errors).toEqual([]);
+    expect(writes).toEqual([]);
   });
 
-  test("lets an operator skip a step without performing its action", async ({ page }) => {
-    await mockTrainingProgress(page);
-    await startGuide(page, "Find a referral");
-
-    await expect(page.getByRole("heading", { name: "Open Workspaces" })).toBeVisible();
-    await expect(page.getByTestId("guide-spotlight-outline")).toBeVisible();
-    await page.getByRole("button", { name: "Skip step" }).click();
-    await expect(page).toHaveURL(/view=referrals/);
-    await expect(page.getByRole("heading", { name: "Search referrals" })).toBeVisible();
+  test("lets an operator jump past a step without creating a referral or signing", async ({ page }) => {
+    const writes = watchClinicalWrites(page);
+    await startGuide(page, "Walk through a referral");
+    const guide = page.getByRole("complementary", { name: "Tutorial steps", exact: true });
+    await guide.getByRole("combobox").selectOption("5");
+    await expect(guide.getByRole("heading", { name: "Decision", exact: true })).toBeVisible();
+    await expect(page.getByRole("radio", { name: "Accept", exact: true })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Fictional referral tutorial" })).toContainText("Skipped actions use sample information");
+    expect(writes).toEqual([]);
   });
 
-  test("guides referral intake without covering the upload control", async ({ page }) => {
+  test("sample intake supports selection, cancellation and file drop without live uploads", async ({ page }) => {
     const errors = watchBrowserErrors(page);
-    await mockTrainingProgress(page);
+    const writes = watchClinicalWrites(page);
     await startGuide(page, "Create a referral");
-
-    await expect(page.getByRole("heading", { name: "Select New referral" })).toBeVisible();
-    await page.getByLabel("Create new referral").click();
-    await expect(page).toHaveURL(/view=referrals&screen=packet/);
-
-    const coach = page.getByTestId("guided-coach-panel");
+    const coach = page.getByRole("complementary", { name: "Tutorial steps", exact: true });
     const upload = page.getByRole("region", { name: "Document checklist", exact: true });
-    await expect(page.getByRole("heading", { name: "Upload the packet" })).toBeVisible();
-    await expect(coach).not.toContainText("This step is on another Pipeline page.");
-    await expect(page.getByTestId("guide-spotlight-outline")).toBeVisible();
-    await expect(upload).toBeVisible();
-    await expect(upload.getByRole("button", { name: /Drop files or choose files/ })).toBeVisible();
+    await expect(coach.getByRole("heading", { name: "Referral details", exact: true })).toBeVisible();
+    await upload.scrollIntoViewIfNeeded();
     await expectGuideDoesNotCoverTarget(coach, upload);
-
-    const fileChooserPromise = page.waitForEvent("filechooser");
+    const chooser = page.waitForEvent("filechooser");
     await upload.getByRole("button", { name: /Drop files or choose files/ }).click();
-    const fileChooser = await fileChooserPromise;
-    await fileChooser.setFiles({
-      name: "training-notes.txt",
-      mimeType: "text/plain",
-      buffer: Buffer.from("Synthetic training notes"),
-    });
-    await expect(page.getByRole("dialog", { name: "Label your files" })).toBeVisible();
-    await page.getByRole("dialog", { name: "Label your files" }).getByRole("button", { name: "Cancel", exact: true }).click();
-    await expect(page.getByRole("heading", { name: "Upload the packet" })).toBeVisible();
-
+    await (await chooser).setFiles({ name: "training-notes.txt", mimeType: "text/plain", buffer: Buffer.from("Synthetic training notes") });
+    const labels = page.getByRole("dialog", { name: "Label your files", exact: true });
+    await expect(labels).toBeVisible();
+    await labels.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(upload.getByText("training-notes.txt", { exact: true })).toHaveCount(0);
     await dropTrainingPdf(upload, "training-referral.pdf");
     await confirmReferralFileLabels(page, {}, "referral_packet");
-    await expect(page.getByRole("alert").filter({ hasText: "Upload a PDF" })).toHaveCount(0);
     await expect(upload.getByText("training-referral.pdf", { exact: true })).toBeVisible();
-    await expect(upload.getByText("Pending upload", { exact: true })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Verify identity" })).toBeVisible();
-    await expectGuideDoesNotCoverTarget(coach, page.locator('[data-guide-target~="intake-identity"]'));
-
-    await page.getByRole("button", { name: "Skip step" }).click();
-    await expect(page.getByRole("heading", { name: "Assign the referral" })).toBeVisible();
-    await expectGuideDoesNotCoverTarget(coach, page.locator('[data-guide-target~="intake-routing"]'));
-    await page.getByRole("button", { name: "Skip step" }).click();
-    await expect(page.getByRole("heading", { name: "Add medication information" })).toBeVisible();
-    await expectGuideDoesNotCoverTarget(coach, page.locator('[data-guide-target~="intake-medications"]'));
-    await page.getByRole("button", { name: "Skip step" }).click();
-    await expect(page.getByRole("heading", { name: "Review before creating" })).toBeVisible();
-    await expect(coach).toContainText("Finish this guide without creating a live referral.");
-    await expectGuideDoesNotCoverTarget(coach, page.locator('[data-guide-target~="create-workspace"]'));
-    await page.getByRole("button", { name: "Skip and finish" }).click();
-    await expect(coach).toBeHidden();
-    await expect.poll(() => errors).toEqual([]);
+    await expect(page.getByRole("alert").filter({ hasText: "Upload a PDF" })).toHaveCount(0);
+    await page.getByRole("button", { name: "Create referral", exact: true }).click();
+    await expect(coach.getByRole("heading", { name: "Schedule", exact: true })).toBeVisible();
+    await expect(page.getByRole("dialog", { name: "Schedule interview", exact: true })).toBeVisible();
+    expect(errors).toEqual([]);
+    expect(writes).toEqual([]);
   });
 
-  test("clears a paused walkthrough on reload", async ({ page }) => {
-    await mockTrainingProgress(page);
-    await startGuide(page, "Find a referral");
-    await expect(page.getByRole("heading", { name: "Open Workspaces" })).toBeVisible();
-    await page.getByRole("button", { name: "Pause tutorial" }).click();
-
+  test("closing a walkthrough returns to work and stays closed after reload", async ({ page }) => {
+    await startGuide(page, "Walk through a referral");
+    await page.getByRole("button", { name: "Close tutorial", exact: true }).click();
+    await expect(page).toHaveURL(new URL("/", test.info().project.use.baseURL).toString());
     await page.reload();
-    await page.getByRole("button", { name: "Open guided tutorials" }).click();
-    await expect(page.getByRole("dialog", { name: "Guided tutorial library" })).toBeVisible();
-    await expect(page.getByRole("button", { name: /Continue where you stopped/ })).toHaveCount(0);
-  });
-
-  test("keeps an unfinished walkthrough closed on an ordinary return", async ({ page }) => {
-    await mockTrainingProgress(page);
-    await startGuide(page, "Find a referral");
-    await expect(page.getByRole("dialog", { name: /Find a referral guided tutorial/ })).toBeVisible();
-
-    await page.reload();
-    await expect(page.getByRole("dialog", { name: /guided tutorial/ })).toHaveCount(0);
-    await page.getByRole("button", { name: "Open guided tutorials" }).click();
-    await expect(page.getByRole("dialog", { name: "Guided tutorial library" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Fictional referral tutorial" })).toHaveCount(0);
+    await page.getByRole("button", { name: "Open guided tutorials", exact: true }).click();
+    await expect(page.getByRole("dialog", { name: "Tutorials", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: /Continue where you stopped/ })).toHaveCount(0);
   });
 
@@ -145,7 +102,7 @@ test.describe("Pipeline Learning Center", () => {
     await name.fill("Synthetic Help Draft");
     const currentUrl = page.url();
     await page.getByRole("button", { name: "Open guided tutorials" }).click();
-    await page.getByRole("button", { name: "Close guided tutorials", exact: true }).click();
+    await page.getByRole("button", { name: "Close tutorials", exact: true }).click();
     await expect(name).toHaveValue("Synthetic Help Draft");
     await expect(page).toHaveURL(currentUrl);
   });
@@ -171,28 +128,29 @@ test.describe("Pipeline Learning Center", () => {
         report: { definition, columns: [], metrics: [], rows: [], row_count: 0, truncated: false, generated_at: "2026-09-13T12:00:00Z" },
       } });
     });
-    await startGuide(page, "Run a report");
-    await page.getByRole("button", { name: "Open reports", exact: true }).click();
-    const coach = page.getByRole("dialog", { name: "Run a report guided tutorial" });
+    await startGuide(page, "View reports");
+    const coach = page.getByRole("complementary", { name: "View reports tutorial", exact: true });
     const report = page.getByRole("combobox", { name: "Report", exact: true });
-    await expect(coach.getByRole("heading", { name: "Choose the report" })).toBeVisible();
+    await expect(coach.getByRole("heading", { name: "Choose a report" })).toBeVisible();
     await report.click();
     await report.press("Escape");
-    await expect(coach.getByRole("heading", { name: "Choose the report" })).toBeVisible();
+    await expect(coach.getByRole("heading", { name: "Choose a report" })).toBeVisible();
     // Commit an actual selection, not just focus/open the dropdown.
     await report.selectOption("assessment_completion");
-    await expect(coach.getByRole("heading", { name: "Set the report filters" })).toBeVisible();
+    await coach.getByRole("button", { name: "Next", exact: true }).click();
+    await expect(coach.getByRole("heading", { name: "Set the scope" })).toBeVisible();
     await page.getByLabel("Report month", { exact: true }).fill("2026-08");
-    await expect(coach.getByRole("heading", { name: "Apply the filters" })).toBeVisible();
-    await expect(coach).toContainText("Select Apply to refresh the result.");
+    await coach.getByRole("button", { name: "Next", exact: true }).click();
+    await expect(coach.getByRole("heading", { name: "Apply changed filters" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Export CSV", exact: true })).toBeDisabled();
     expect(queries.at(-1)?.get("month")).not.toBe("2026-08");
     await page.getByRole("button", { name: "Apply", exact: true }).click();
-    await expect(coach.getByRole("heading", { name: "Check the results" })).toBeVisible();
+    await coach.getByRole("button", { name: "Next", exact: true }).click();
+    await expect(coach.getByRole("heading", { name: "Read the result" })).toBeVisible();
     await expect.poll(() => queries.at(-1)?.get("month")).toBe("2026-08");
     await expect(page.getByRole("button", { name: "Export CSV", exact: true })).toBeEnabled();
-    await coach.getByRole("button", { name: "Continue", exact: true }).click();
-    await expect(coach).toContainText("The guide does not download it for you.");
+    await coach.getByRole("button", { name: "Next", exact: true }).click();
+    await expect(coach).toContainText("This tutorial does not export for you.");
     expect(exports).toEqual([]);
   });
 
@@ -202,15 +160,11 @@ test.describe("Pipeline Learning Center", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await startGuide(page, "Create a referral");
 
-    await expect(page.getByRole("heading", { name: "Select New referral" })).toBeVisible();
-    await page.getByRole("button", { name: /^Open page menu/ }).click();
-    await expect(page.getByTestId("guide-spotlight-outline")).toBeVisible();
-    await page.getByLabel("Create new referral").click();
-    await expect(page).toHaveURL(/view=referrals&screen=packet/);
+    await expect(page).toHaveURL(/tutorials\/referral/);
 
     const coach = page.getByTestId("guided-coach-panel");
     const upload = page.getByRole("region", { name: "Document checklist", exact: true });
-    await expect(page.getByRole("heading", { name: "Upload the packet" })).toBeVisible();
+    await expect(coach.getByRole("heading", { name: "Referral details", exact: true })).toBeVisible();
     await expectGuideDoesNotCoverTarget(coach, upload);
     await expect(upload.getByRole("button", { name: /Drop files or choose files/ })).toBeInViewport();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
@@ -224,31 +178,33 @@ test.describe("Pipeline Learning Center", () => {
       await page.goto("/?screen=calendar");
       const help = page.getByRole("button", { name: "Open guided tutorials", exact: true });
       const openHelp = async () => {
-        if (width < 640 && !await help.isVisible()) await page.getByRole("button", { name: /^Open page menu/ }).click();
+        await expect(page.locator('[data-pipeline-ready="guided-coach"]')).toBeAttached();
+        if (width < 640 && !await page.getByRole("dialog", { name: "Pipeline pages", exact: true }).isVisible()) {
+          await page.getByRole("button", { name: /^Open page menu/ }).click();
+          await expect(page.getByRole("dialog", { name: "Pipeline pages", exact: true })).toBeVisible();
+        }
         await help.click();
       };
       if (width < 640) await page.getByRole("button", { name: /^Open page menu/ }).click();
       await expect(help).toBeVisible();
-      await expect(help).toHaveAttribute("title", "Help · Learning Center");
+      await expect(help).toHaveAttribute("title", "Tutorials");
       await page.getByRole("button", { name: /Open profile menu for/ }).click();
       await expect(page.getByRole("dialog", { name: "Profile settings", exact: true }).getByText(/Learning Center/)).toHaveCount(0);
       await page.keyboard.press("Escape");
       await openHelp();
-      const library = page.getByRole("dialog", { name: "Guided tutorial library" });
-      await expect(library.getByText("Learning Center", { exact: true })).toBeVisible();
-      await expect(library.getByRole("heading", { name: "Guided walkthroughs" })).toBeVisible();
+      const library = page.getByRole("dialog", { name: "Tutorials" });
+      await expect(library.getByRole("heading", { name: "Tutorials", exact: true })).toBeVisible();
       await expect(page).toHaveURL(/screen=calendar/);
       const bounds = (await library.boundingBox())!;
       expect(bounds.x).toBeGreaterThanOrEqual(0);
       expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
       await page.screenshot({ path: info.outputPath(`help-walkthroughs-${width}.png`) });
-      await library.getByRole("button", { name: /Find a referral/ }).click();
-      await expect(page.getByRole("dialog", { name: "Find a referral guided tutorial" })).toBeVisible();
-      await expect(page.getByRole("heading", { name: "Open Workspaces" })).toBeVisible();
-      await page.getByRole("button", { name: "Pause tutorial", exact: true }).click();
+      await library.getByRole("button", { name: /^Walk through a referral/ }).click();
+      await expect(page.getByRole("complementary", { name: "Tutorial steps", exact: true })).toBeVisible();
+      await page.getByRole("button", { name: "Close tutorial", exact: true }).click();
+      await expect(page).toHaveURL(/screen=calendar/);
       await openHelp();
-      await expect(library.getByRole("button", { name: /Continue where you stopped/ })).toBeVisible();
-      await library.getByRole("button", { name: "Close guided tutorials", exact: true }).click();
+      await library.getByRole("button", { name: "Close tutorials", exact: true }).click();
       await expect(library).toBeHidden();
     });
   }
@@ -328,5 +284,13 @@ async function startGuide(page: import("@playwright/test").Page, title: string) 
   await page.goto(homeUrl);
   if ((page.viewportSize()?.width ?? 1440) < 640) await page.getByRole("button", { name: /^Open page menu/ }).click();
   await page.getByRole("button", { name: "Open guided tutorials", exact: true }).click();
-  await page.getByRole("dialog", { name: "Guided tutorial library", exact: true }).getByRole("button", { name: new RegExp("^" + title) }).click();
+  await page.getByRole("dialog", { name: "Tutorials", exact: true }).getByRole("button", { name: new RegExp("^" + title) }).click();
+}
+
+function watchClinicalWrites(page: import("@playwright/test").Page) {
+  const writes: string[] = [];
+  page.on("request", request => {
+    if (["POST", "PUT", "PATCH", "DELETE"].includes(request.method()) && /^\/api\/(referrals|assessments|uploads)(\/|$)/.test(new URL(request.url()).pathname)) writes.push(request.url());
+  });
+  return writes;
 }

@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { createRequire } from "node:module";
 import { expect, test, type Page } from "@playwright/test";
 import { createOperationalAssessment, createOperationalReferral, readOperationalReferral, recordOperationalAcceptance, signOperationalAssessment } from "./support/operational-api";
+import { openRecipients, confirmRecipients } from "./support/handoff-review";
 
 test.skip(process.env.PIPELINE_DESKTOP_E2E !== "true", "Handoff drafts use the isolated workspace-state store.");
 
@@ -16,8 +17,11 @@ async function messageCase(page: Page) {
 
 async function openMessage(page: Page, referralId: number) {
   await page.goto(`/?view=referrals&screen=packet&referralId=${referralId}&workspaceView=email`);
-  await page.getByRole("button", { name: "Preview email", exact: true }).click();
-  await expect(page.getByRole("textbox", { name: "Subject", exact: true })).toBeEditable();
+  const recipients = await openRecipients(page);
+  await recipients.getByRole("combobox", { name: /^To/ }).fill("care@example.invalid");
+  await recipients.getByRole("combobox", { name: /^To/ }).press("Enter");
+  await expect.poll(async () => (await (await page.request.get(`/api/referrals/${referralId}/handoff-recipients`)).json()).draft?.to?.some((item: { email: string }) => item.email === "care@example.invalid")).toBe(true);
+  await confirmRecipients(page);
 }
 
 for (const width of [1440, 390]) test(`message saves, retains recipients and tracks the admission date at ${width}`, async ({ page }, info) => {
@@ -26,22 +30,20 @@ for (const width of [1440, 390]) test(`message saves, retains recipients and tra
   let sends = 0;
   page.on("request", (request) => { if (request.method() === "POST" && request.url().endsWith("/meet-client-email")) sends++; });
   await openMessage(page, referral.id);
-  await expect(page.getByRole("link", { name: "Open Client data sheet.pdf", exact: true })).toBeVisible();
-  await page.getByRole("textbox", { name: "Subject", exact: true }).fill("Arrival arrangements");
+  await expect(page.frameLocator('iframe[title="Meet the Client email preview"]').locator("body")).toContainText("Client data sheet.pdf");
   await page.getByRole("button", { name: "Edit message", exact: true }).click();
+  await page.getByRole("textbox", { name: "Subject", exact: true }).fill("Arrival arrangements");
   const body = page.getByRole("textbox", { name: "Meet the Client message" });
   await expect(body).toHaveValue(/Hello team/);
   const text = "Hello team,\nPlease call before arrival. <script>text only</script>";
   await body.fill(text);
-  const to = page.getByRole("combobox", { name: /^To/ });
-  await to.fill("Care team <care@example.invalid>");
-  await to.press("Enter");
+  await body.blur();
   await expect(page.getByRole("status").filter({ hasText: "Handoff draft saved" })).toBeVisible();
   const endpoint = `/api/referrals/${referral.id}/handoff-recipients`;
   const saved = await (await page.request.get(endpoint)).json();
   expect(saved.draft.message).toEqual({ subject: "Arrival arrangements", body: text });
   expect(saved.draft.to[0].email).toBe("care@example.invalid");
-  await page.getByRole("button", { name: "Preview message", exact: true }).click();
+  await page.getByRole("button", { name: "Back to email preview", exact: true }).click();
   const preview = page.frameLocator('iframe[title="Meet the Client email preview"]');
   await expect(preview.locator("body")).toContainText(text, { useInnerText: true });
   await expect(preview.locator("script")).toHaveCount(0);
@@ -59,10 +61,11 @@ for (const width of [1440, 390]) test(`message saves, retains recipients and tra
   const changed = await page.request.patch(`/api/referrals/${referral.id}`, { data: { if_match: current.version, patch: { plannedAdmissionDate: "2026-10-02" } } });
   expect(changed.status(), await changed.text()).toBe(200);
   await openMessage(page, referral.id);
-  await expect(page.getByRole("textbox", { name: "Subject", exact: true })).toHaveValue("Arrival arrangements");
   await expect(preview.locator("body")).toContainText(text, { useInnerText: true });
   await expect(preview.locator("body")).toContainText("2026-10-02");
   await expect(preview.locator("body")).not.toContainText("2026-10-01");
+  await page.getByRole("button", { name: "Edit message", exact: true }).click();
+  await expect(page.getByRole("textbox", { name: "Subject", exact: true })).toHaveValue("Arrival arrangements");
   expect(sends).toBe(0);
 });
 
@@ -74,6 +77,7 @@ test("message save failures retain the draft and retry without losing text", asy
   await page.getByRole("button", { name: "Edit message", exact: true }).click();
   const body = page.getByRole("textbox", { name: "Meet the Client message" });
   await body.fill("Keep this message through the interruption.");
+  await body.blur();
   await expect(page.getByRole("alert").filter({ hasText: "Synthetic save interruption" })).toBeVisible();
   await expect(body).toHaveValue("Keep this message through the interruption.");
   await page.unroute(endpoint);

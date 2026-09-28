@@ -377,6 +377,15 @@ test("shares Clients picker styling with compact Reports and Calendar controls",
   await page.goto("/?screen=calendar");
   await page.getByRole("button", { name: "Show calendar filters" }).click();
   const assessor = page.getByLabel("Filter calendar by assessor");
+  // A fresh store need not contain scheduled assessors. The test supplies one
+  // instead of depending on another spec having booked an appointment.
+  await page.route("**/api/calendar/events**", async (route) => {
+    const response = await route.fetch();
+    const payload = await response.json();
+    await route.fulfill({ response, json: { ...payload, assessors: [{ id: "picker-assessor", name: "Synthetic Assessor" }] } });
+  });
+  await page.getByRole("button", { name: "Refresh calendar", exact: true }).click();
+  await page.getByRole("group", { name: "Whose schedule", exact: true }).getByRole("button", { name: "Team", exact: true }).click();
   const option = assessor.locator('option:not([value=""])').first();
   await expect(option).toHaveAttribute("value", /.+/);
   const value = (await option.getAttribute("value"))!;

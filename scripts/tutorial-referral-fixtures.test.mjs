@@ -61,7 +61,10 @@ test("instructions describe the recorded outcome, not a fictional completion", (
   const state = sample.createTutorialReferral();
   assert.match(sample.tutorialStepInstruction(state, 7), /has not been sent/);
   state.referral.admissionDecision = sample.tutorialDecision(state, "accepted");
-  assert.match(sample.tutorialStepInstruction(state, 5), /Enter the planned admission date/);
+  const acceptedInstruction = sample.tutorialStepInstruction(state, 5);
+  assert.match(acceptedInstruction, /Review the email and packet now/);
+  assert.match(acceptedInstruction, /add the planned admission date before sending/);
+  assert.match(acceptedInstruction, /Acceptance alone does not send anything/);
   state.sentAt = new Date().toISOString();
   assert.match(sample.tutorialStepInstruction(state, 6), /Simulated send complete/);
   assert.match(sample.tutorialStepInstruction(state, 7), /awaiting admission/);

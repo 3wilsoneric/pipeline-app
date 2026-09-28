@@ -56,7 +56,7 @@ for (const [name, engine] of [["Chromium", chromium], ["WebKit", webkit]] as con
     test(`${name} uses one workspace directory at ${width}px`, async ({ baseURL }, info) => {
       const browser = await engine.launch();
       try {
-        const page = await browser.newPage({ baseURL, viewport: { width, height: 900 }, hasTouch: width < 1000 });
+        const page = await browser.newPage({ baseURL, viewport: { width, height: 900 }, hasTouch: width < 1000, serviceWorkers: "block" });
         const errors: string[] = [];
         page.on("pageerror", (error) => errors.push(error.message));
         const requests = await mockDirectory(page);
@@ -124,24 +124,28 @@ test("directory failures remain retryable instead of showing a false empty state
   await expect(directory.getByText("No workspaces match this search", { exact: true })).toBeVisible();
 });
 
-test("personal Board keeps all active files and collapses finished outcomes", async ({ page }, testInfo) => {
+test("personal Board keeps all active files and excludes completed outcomes", async ({ page }, testInfo) => {
   await page.route("**/api/operations/home", async (route) => {
     const response = await route.fetch();
     const payload = await response.json();
-    const item = { referral_id: 710001, client_name: "Avery Active", community: "Turlock", workflow_status: "ready_to_schedule", flow_state: "ready_to_schedule", outcome_state: "pending", owner: "Playwright QA", completion_pct: 30, missing_document_count: 0, received_at: "2026-09-18", next_action: "Schedule interview", location: { view: "intake" } };
+    const item = { referral_id: 710001, client_name: "Avery Active", community: "Turlock", workflow_status: "ready_to_schedule", flow_state: "ready_to_schedule", outcome_state: "pending", owner: "Playwright QA", completion_pct: 30, missing_document_count: 0, received_at: "2026-09-18", next_action: "Schedule interview", location: { view: "intake" }, board: { stage: "received", detail: "Referral created", next_action: "Schedule interview", location: { view: "intake" } } };
     const items = Array.from({ length: 7 }, (_, index) => ({ ...item, referral_id: item.referral_id + index, client_name: `Avery Active ${index}` }));
     payload.scope = "personal";
     payload.workflow.active_total = 7;
     payload.workflow.active_items = items;
-    payload.workflow.board_items = [...items, { ...item, referral_id: 720000, client_name: "Blair Finished", flow_state: "complete", workflow_status: "admitted", outcome_state: "accepted" }];
+    payload.workflow.all_board_items = items;
+    payload.workflow.board_items = [...items, { ...item, referral_id: 720000, client_name: "Blair Finished", flow_state: "complete", workflow_status: "admitted", outcome_state: "accepted", board: { stage: null, detail: "Admitted", next_action: "Review chart", location: { view: "chart" } } }];
     await route.fulfill({ response, json: payload });
   });
   await page.goto("/");
   const board = page.getByRole("region", { name: "Current work board" });
   await expect(board.getByRole("button", { name: /^Open Avery Active/ })).toHaveCount(7);
   await expect(board.getByRole("button", { name: "Open Blair Finished" })).toBeHidden();
-  await board.locator("summary").click();
-  await expect(board.getByRole("button", { name: "Blair Finished Turlock Admitted" })).toBeVisible();
+  await board.getByRole("button", { name: "Open referral received folder", exact: true }).click();
+  const folder = page.getByRole("dialog", { name: "Referral received folder", exact: true });
+  await expect(folder.locator("[data-board-card]")).toHaveCount(7);
+  await expect(folder.getByRole("button", { name: /Blair Finished/ })).toHaveCount(0);
+  await page.keyboard.press("Escape");
   await expect(page.getByRole("tab", { name: "Board", exact: true })).toHaveAttribute("aria-selected", "true");
   await page.screenshot({ path: testInfo.outputPath("personal-board.png") });
 });

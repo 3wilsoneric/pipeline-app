@@ -269,6 +269,7 @@ jobs:
               alamoClientId='${{ vars.PIPELINE_ALAMO_CLIENT_ID }}' \
               alamoApiScope='${{ vars.PIPELINE_ALAMO_API_SCOPE }}' \
               enableMeetClientMail='${{ inputs.enable_meet_client_mail }}' \
+              enablePlatformSummary='${{ vars.PIPELINE_PLATFORM_SUMMARY_ENABLED || 'false' }}' \
               graphMailClientId='${{ vars.PIPELINE_GRAPH_MAIL_CLIENT_ID }}' \
               meetClientSender='${{ vars.PIPELINE_MEET_CLIENT_SENDER }}' \
               meetClientAllowedEmailDomains='${{ vars.PIPELINE_MEET_CLIENT_ALLOWED_EMAIL_DOMAINS }}' \
@@ -364,6 +365,7 @@ jobs:
               alamoClientId='${{ vars.PIPELINE_ALAMO_CLIENT_ID }}' \
               alamoApiScope='${{ vars.PIPELINE_ALAMO_API_SCOPE }}' \
               enableMeetClientMail='${{ inputs.enable_meet_client_mail }}' \
+              enablePlatformSummary='${{ vars.PIPELINE_PLATFORM_SUMMARY_ENABLED || 'false' }}' \
               graphMailClientId='${{ vars.PIPELINE_GRAPH_MAIL_CLIENT_ID }}' \
               meetClientSender='${{ vars.PIPELINE_MEET_CLIENT_SENDER }}' \
               meetClientAllowedEmailDomains='${{ vars.PIPELINE_MEET_CLIENT_ALLOWED_EMAIL_DOMAINS }}' \

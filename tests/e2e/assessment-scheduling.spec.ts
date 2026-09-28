@@ -103,58 +103,32 @@ test("dismisses native scheduling pickers before closing the appointment", async
   await expect(dialog).toHaveCount(0);
 });
 
-test("includes the tutorial controls in the appointment keyboard cycle and pauses the guide on Escape", async ({ page }) => {
-  await page.route("**/api/training/progress", (route) => route.fulfill({ json: {
-    revision: 0,
-    progress: { version: 2, curriculumVersion: "2026.09.operator.1", role: "assessment_coordinator", completedActivityIds: [], activeModuleId: "pipeline-purpose", activeActivityId: "learn", evidence: {}, confidence: {}, scenarioResults: {}, tutorialResults: {} },
-    updatedAt: new Date().toISOString(),
-    persistence: "browser",
-  } }));
-  await page.goto("/");
-  await page.getByRole("button", { name: "Open guided tutorials", exact: true }).click();
-  await expect(page.getByRole("dialog", { name: "Guided tutorial library", exact: true })).toBeVisible();
-  await page.evaluate(() => window.dispatchEvent(new CustomEvent("pipeline:guided-coach", {
-    detail: { type: "start", tutorialId: "start-assessment", stepIndex: 2 },
-  })));
-  const coach = page.getByTestId("guided-coach-panel");
-  await expect(coach).toBeVisible();
-  await expect(coach.getByRole("heading", { name: "Save the schedule" })).toBeVisible();
+test("the referral walkthrough keeps its nonmodal appointment keyboard controls usable", async ({ page }) => {
+  await page.goto("/tutorials/referral?task=start-assessment");
+  const guide = page.getByRole("complementary", { name: "Tutorial steps", exact: true });
+  await expect(guide.getByRole("heading", { name: "Schedule", exact: true })).toBeVisible();
   const dialog = page.getByRole("dialog", { name: "Schedule interview", exact: true });
   const date = dialog.getByLabel("Assessment date and time");
   await date.fill("2027-09-14T09:30");
   await dialog.getByLabel("Assessment duration").selectOption("90");
-  await date.focus();
-  await page.keyboard.press("Tab");
-  await expect(date).toBeFocused();
-  await dismissSchedulingPickers(page, dialog);
-  await expect(coach).toBeVisible();
-  await expect(coach.getByRole("heading", { name: "Save the schedule" })).toBeVisible();
-  const pause = coach.getByRole("button", { name: "Pause tutorial" });
-  const skip = coach.getByRole("button", { name: "Skip step", exact: true });
+  await dialog.getByLabel("Assessment method").selectOption("zoom");
+  await dialog.getByLabel("Zoom meeting link").fill("https://example.invalid/tutorial-focus");
   const save = dialog.getByRole("button", { name: "Schedule interview", exact: true });
   const close = dialog.getByRole("button", { name: "Close schedule", exact: true });
+  await expect(dialog).toHaveAttribute("aria-modal", "false");
+  await expect(save).toBeEnabled();
   await save.focus();
-  await page.keyboard.press("Tab");
-  await expect(pause).toBeFocused();
   await page.keyboard.press("Shift+Tab");
+  await expect(dialog.getByRole("button", { name: "Back to assessment", exact: true })).toBeFocused();
+  await page.keyboard.press("Tab");
   await expect(save).toBeFocused();
   await close.focus();
-  await page.keyboard.press("Shift+Tab");
-  await expect(skip).toBeFocused();
   await page.keyboard.press("Tab");
-  await expect(close).toBeFocused();
-  await pause.focus();
-  await page.keyboard.press("Escape");
-  await expect(coach).toBeHidden();
-  await expect(dialog).toBeVisible();
-  await expect(date).toHaveValue("2027-09-14T09:30");
-  await expect(dialog.getByLabel("Assessment duration")).toHaveValue("90");
   await expect(date).toBeFocused();
-  await save.focus();
-  await page.keyboard.press("Tab");
-  await expect(close).toBeFocused();
-  await page.keyboard.press("Escape");
+  await close.click();
   await expect(dialog).toHaveCount(0);
+  await expect(guide.getByRole("heading", { name: "Assessment", exact: true })).toBeVisible();
+  await expect(guide.getByRole("button", { name: "Next: Review & sign", exact: true })).toBeEnabled();
 });
 
 async function dismissSchedulingPickers(page: Page, dialog: Locator) {

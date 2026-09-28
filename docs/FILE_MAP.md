@@ -160,13 +160,14 @@ Role: file lookup, not a second working policy or a current health claim. Start 
 - `docs/academy/CURRICULUM.md` - 10-track, 36-module enterprise codebase ownership curriculum and competency gates.
 - `docs/academy/ARCHITECTURE_GUIDE.md` - developer mental model for current runtime, domain, persistence, extraction, security, and testing boundaries.
 - `docs/academy/lessons/01_CREATE_REFERRAL.md` - complete first vertical code trace from canvas through PostgreSQL and Blob processing.
-- `docs/academy/academy-registry.json`, `scripts/academy-readiness.mjs`, and `scripts/academy-atlas.mjs` - reviewed fingerprints, deterministic staleness gate, and generated every-file learning ownership map.
+- `docs/academy/academy-registry.json`, `scripts/academy-readiness.mjs`, and `scripts/academy-atlas.mjs` - optional developer-course fingerprints and repository index; not release gates.
 - `app/(pipeline)/academy/page.tsx`, `components/pipeline/PipelineDeveloperAcademy.tsx`, and `lib/academy/academy-curriculum.ts` - private owner-only curriculum, journeys, repository atlas, labs, mastery console, and conflict-safe durable progress.
 - `lib/academy/academy-access.ts`, `lib/academy/academy-access-policy.ts`, and `scripts/academy-route-contracts.mjs` - fail-closed Academy identity boundary and executable route/course contracts.
 - `app/(pipeline)/training/page.tsx`, `components/pipeline/PipelineOperatorAcademy.tsx`, and `lib/training/operator-training-curriculum.ts` - authenticated role-aware Learning Center with 36 modules, guided tours, practice, job aids, product map, and certification preparation.
 - `components/pipeline/training/PipelineGuidedCoach.tsx` and `lib/training/operator-guided-tutorials.ts` - deterministic cross-route coaching, source-owned spotlight targets, and mutating-action safety boundaries.
 - `lib/training/operator-training-resources.ts` and `components/pipeline/training/*` - synthetic decision scenarios, pressure-ready job aids, workflow capability map, and end-user mastery surfaces.
-- `docs/training/*`, `scripts/operator-training-readiness.mjs`, and `scripts/operator-training-route-contracts.mjs` - curriculum governance, supervisor observation, source drift detection, and executable Learning Center contracts.
+- `docs/training/*`, `scripts/operator-training-readiness.mjs`, and `scripts/operator-training-route-contracts.mjs` - optional legacy curriculum maintenance and Learning Center contracts.
+- `scripts/tutorial-referral-fixtures.test.mjs`, `scripts/tutorial-workflow-fixtures.test.mjs`, `tests/e2e/operator-training.spec.ts`, and `tests/e2e/tutorial-workflows.spec.ts` - current tutorial checks used by normal releases.
 - `docs/REFERRAL_PACKET_EXTRACTION_BUILD_SPEC.md` - extraction architecture and implementation spec.
 - `docs/REFERRAL_PACKET_INGESTION_RUNBOOK.md` - backlog and steady-state ingestion runbook.
 - `docs/REFERRAL_OPERATING_RELIABILITY_PLAN.md` - operating reliability plan.
