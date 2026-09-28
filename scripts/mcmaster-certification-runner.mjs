@@ -108,6 +108,8 @@ async function runCalibration(port, runRoot) {
     await waitForHealth(baseUrl, server);
     await runScorecard(baseUrl);
   } catch (error) {
+    // fail() exits the process, so finally cannot perform this cleanup.
+    await stopServer(server);
     fail(`${error instanceof Error ? error.message : "McMaster calibration failed."}\n${serverLog}`);
   } finally {
     await stopServer(server);
@@ -158,10 +160,11 @@ function certificationEnvironment(port, runRoot) {
 
 async function waitForHealth(baseUrl, server) {
   let lastHealth = "No health response was received.";
-  for (let attempt = 0; attempt < 80; attempt += 1) {
-    if (server.exitCode !== null) throw new Error(`Pipeline exited before becoming ready (${server.exitCode}).`);
+  const deadline = Date.now() + 8_000;
+  while (Date.now() < deadline) {
+    if (server.exitCode !== null || server.signalCode !== null) throw new Error(`Pipeline exited before becoming ready (${server.exitCode ?? server.signalCode}).`);
     try {
-      const response = await fetch(`${baseUrl}/api/health`);
+      const response = await fetch(`${baseUrl}/api/health`, { signal: AbortSignal.timeout(Math.max(1, Math.min(1_000, deadline - Date.now()))) });
       if (response.ok) return;
       const payload = await response.json().catch(() => null);
       lastHealth = summarizeHealth(payload, response.status);
@@ -215,7 +218,7 @@ async function runScorecard(baseUrl) {
 }
 
 async function stopServer(server) {
-  if (server.exitCode !== null) return;
+  if (server.exitCode !== null || server.signalCode !== null) return;
   server.kill("SIGTERM");
   const exited = await Promise.race([
     new Promise((resolve) => server.once("exit", () => resolve(true))),
