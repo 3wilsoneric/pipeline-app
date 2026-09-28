@@ -321,7 +321,7 @@ export const initialFields: Record<FieldKey, PacketField> = {
   currentMedications: {
     label: "Medication history",
     value: "",
-    placeholder: "List medications on record, one per line. Confirm what is current before sending.",
+    placeholder: "List all past and current medications, one per line.",
   },
 };
 

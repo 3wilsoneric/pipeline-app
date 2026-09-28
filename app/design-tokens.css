@@ -43,8 +43,8 @@
 
   /* Stage families (principle 1). Current board and record mappings: DECISIONS.md. */
   --color-stage-manila: #72592e;
-  --color-stage-manila-tile: #f5ebd6;
-  --color-stage-manila-border: #d5bd8f;
+  --color-stage-manila-tile: #f7efdf;
+  --color-stage-manila-border: #ddc8a6;
   --color-stage-violet: #65517c;
   --color-stage-violet-tile: #f2edf7;
   --color-stage-violet-border: #cdb9df;
@@ -121,7 +121,7 @@
   --page-ground: #f4f5f7;
   --folder-tab: #f0f2f5;
   --folder-body: #eceef2;
-  --stage-manila-column: #ead9b7;
+  --stage-manila-column: #efe2cb;
   --stage-violet-column: #e2d5ed;
   --stage-green-column: #dcefe2;
   --stage-blue-column: #dfe3fa;

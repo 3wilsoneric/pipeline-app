@@ -69,7 +69,7 @@ for (const width of [1440, 390]) {
       const column = page.locator(`[data-board-stage="${stage}"]`);
       await expect(column).toBeVisible();
       const palette = stage === "received"
-        ? { background: "rgb(234, 217, 183)", border: "rgb(213, 189, 143)", ink: "rgb(114, 89, 46)" }
+        ? { background: "rgb(239, 226, 203)", border: "rgb(221, 200, 166)", ink: "rgb(114, 89, 46)" }
         : stage === "decision"
           ? { background: "rgb(226, 213, 237)", border: "rgb(205, 185, 223)", ink: "rgb(101, 81, 124)" }
           : { background: "rgb(223, 227, 250)", border: "rgb(213, 222, 250)", ink: "rgb(47, 84, 200)" };

@@ -71,6 +71,7 @@ assert(context.clientReferralSections(profile)[0].facts.some((fact) => fact.valu
 assert.equal(load("lib/pipeline/referral-validation.ts").validateReferralCreateInput(seed).ok, true);
 
 const intakeCanvas = readFileSync("components/pipeline/ReferralPacketCanvas.tsx", "utf8");
+assert.match(intakeCanvas, /currentMedications:\s*\{\s*label: "Medication history",\s*value: "",\s*placeholder: "List all past and current medications, one per line\."/, "intake describes the full medication history without an early sending instruction");
 const visibleFields = intakeCanvas.match(/const visibleChartFieldKeys[^=]*=\s*\[([\s\S]*?)\];/);
 assert(visibleFields, "intake declares its visible progress fields");
 assert.doesNotMatch(visibleFields[1], /"summary"/, "hidden summary is not counted as intake work");
