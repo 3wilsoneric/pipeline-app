@@ -77,9 +77,7 @@ test.describe("assessor meeting fields", () => {
       await page.goto(assessmentUrl);
       await expect(editor).toBeVisible();
       // The redesign reopens the Assessment step where it was left; closing the interview left it in All questions.
-      const preparing = editor.getByRole("button", { name: "Prepare assessment", exact: true });
-      await preparing.or(editor.getByRole("button", { name: "All questions", exact: true })).or(editor.locator('select[aria-label="Assessment section"]:has(option[value="all-questions"])')).first().waitFor();
-      if (!await preparing.isVisible()) await openAllQuestions(page);
+      await openAllQuestions(page);
       await find("Injection frequency");
       await expect(editor.getByRole("textbox", { name: "Injection frequency", exact: true })).toHaveValue(entries[0][2]);
       const saved = await read();

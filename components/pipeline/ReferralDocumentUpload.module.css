@@ -13,7 +13,7 @@
 .panel > summary::-webkit-details-marker { display: none; }
 .panel > summary > span { display: flex; align-items: center; gap: 12px; color: #52655d; font-size: 13px; }
 .panel[open] > summary { border-bottom: 1px solid #e0e6e2; }
-.panel[open] > summary svg { transform: rotate(180deg); }
+.panel[open] > summary > span svg { transform: rotate(180deg); }
 .contents { padding: 16px; }
 .dropzone { width: 100%; display: flex; align-items: center; gap: 14px; padding: 20px; text-align: left; border: 1px dashed #9eafa7; border-radius: 7px; background: #f8faf9; cursor: pointer; transition: background 150ms, border-color 150ms; }
 .dropzone:hover, .surface[data-file-drag-active] .dropzone { background: #eff7f3; border-color: #087d66; }
@@ -68,3 +68,10 @@
   .notice, .dialog footer { padding: 16px; }
 }
 @media (prefers-reduced-motion: reduce) { .dropzone { transition: none; } }
+
+/* Chart documents: a distinct file section, with the existing drop/upload path. */
+:global(html[data-design="v2"]) .compact { border-color: var(--color-stage-blue-border); border-radius: var(--radius-paper); background: var(--color-paper); }
+:global(html[data-design="v2"]) .compact .panel > summary { min-height: 60px; padding: 12px 18px; border-top: 0; background: var(--color-stage-blue-tile); }
+:global(html[data-design="v2"]) .compact .panel > summary strong { display: flex; align-items: center; gap: 10px; color: var(--color-ink); font-size: var(--text-section); line-height: var(--text-section--line-height); }
+:global(html[data-design="v2"]) .compact .panel > summary strong svg { color: var(--color-stage-blue); }
+:global(html[data-design="v2"]) .compact .panel > summary > span { color: var(--color-ink-2); font-size: var(--text-label); }

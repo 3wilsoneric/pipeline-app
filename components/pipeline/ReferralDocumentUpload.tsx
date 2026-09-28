@@ -7,6 +7,7 @@ import { documentCategories, type DocumentCategory } from "@/lib/extraction/cont
 import { referralDocumentLabels, suggestReferralDocumentLabel, suggestUpdatedReferralDocumentLabel, validateReferralDocumentFiles, type LabeledReferralFile } from "@/lib/pipeline/referral-document-labels";
 import type { ReferralFile } from "@/lib/pipeline/referral-types";
 import UploadedDocumentList from "./UploadedDocumentList";
+import { useDesignV2 } from "@/components/design/DesignSwitch";
 import styles from "./ReferralDocumentUpload.module.css";
 
 type Selection = { file: File; category: DocumentCategory | "" | "workbook"; previousName?: string };
@@ -25,6 +26,7 @@ export default function ReferralDocumentUpload({ readOnly = false, collapsible =
   onWorkbook?: (file: File) => void;
   children?: ReactNode;
 }) {
+  const designV2 = useDesignV2();
   const [selection, setSelection] = useState<Selection[]>([]);
   const [error, setError] = useState("");
   const [dragging, setDragging] = useState(false);
@@ -90,7 +92,7 @@ export default function ReferralDocumentUpload({ readOnly = false, collapsible =
     onDrop={(event) => { if (!event.dataTransfer.types.includes("Files") && !event.dataTransfer.files.length) return; event.preventDefault(); event.stopPropagation(); depth.current = 0; setDragging(false); choose(Array.from(event.dataTransfer.files)); }}>
     {uploadControl}
     {collapsible ? <details ref={panel} data-testid="document-checklist-panel" className={styles.panel}>
-      <summary data-testid="document-checklist-toggle"><strong>Documents</strong><span>{documentCountLabel(dragging, queued.length, files.length)}<ChevronDown size={18} aria-hidden="true" /></span></summary>
+      <summary data-testid="document-checklist-toggle"><strong>{designV2 ? <FileText size={20} aria-hidden="true" /> : null}Documents</strong><span>{documentCountLabel(dragging, queued.length, files.length)}<ChevronDown size={18} aria-hidden="true" /></span></summary>
       <div className={styles.contents}>{content}</div>
     </details> : content}
     {open ? <FileLabelDialog selection={selection} setSelection={setSelection} onClose={() => setSelection([])} onCommit={commit} readOnly={readOnly} workbookAvailable={Boolean(onWorkbook)} /> : null}

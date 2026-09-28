@@ -2293,7 +2293,18 @@ export default function AssessmentWorkspace({
     } else setWorkingTarget(null);
     setNotebookView(prepare ? "prepare" : "assessment");
   };
-  const continueFromPreparation = () => changeWorkingMode(false);
+  // Preparation has one deliberate interview action. Opening its confirmation
+  // does not start the interview or wait for an ordinary answer save.
+  const simplifiedPreparation = designV2 && !phoneLayout && !trainingAssessmentMode && preparing;
+  const preparationNeedsStart = simplifiedPreparation && assessmentReadyToBegin(selected) && canEditClinical;
+  const preparationActionLabel = !simplifiedPreparation ? "Open interview"
+    : preparationNeedsStart ? (unrecordedStartId === selectedId ? "Retry start time" : "Begin interview")
+    : selected.started_at ? "Return to interview" : "Interview";
+  const preparationActionDisabled = isClosing || isBusy || (!simplifiedPreparation && !canEditClinical);
+  const continueFromPreparation = () => {
+    if (preparationNeedsStart) requestInterviewStart();
+    else changeWorkingMode(false);
+  };
 
   const nextConversationSection = () => {
     setWorkingTarget(null);
@@ -2317,14 +2328,14 @@ export default function AssessmentWorkspace({
   );
 
   const saveIndicatorColor = () => error ? "text-[#69716c]" : !networkOnline || pendingOfflineSaves > 0 || dirty || isBusy ? "text-[#59645e]" : "text-[#0c705f]";
-  const renderReturnToInterview = () => !reviewingChart && preparing && interviewReturnRef.current?.assessmentId === selectedId
+  const renderReturnToInterview = () => !simplifiedPreparation && !reviewingChart && preparing && interviewReturnRef.current?.assessmentId === selectedId
     ? <button type="button" className={workingStyles.returnToInterview} disabled={isBusy || isClosing} onClick={() => changeWorkingMode(false)}>Return to interview</button>
     : null;
   // Redesign interview: the All questions / Interview switch and its actions share the sticky section row, so the
   // page has one in-page navigation row (owner, 2026-09-26: "four layers of nav").
-  const workModeInNavigation = designV2 && stackedQuestionsView && !preparing && !phoneInterview;
+  const workModeInNavigation = designV2 && stackedQuestionsView && !phoneInterview;
   // Redesign: Schedule interview and the appointment line show only while the interview has not begun.
-  const renderWorkMode = () => (!reviewingChart && !selected.signed_at ? <AssessmentWorkMode preparing={preparing} disabled={isBusy || isClosing} canBegin={assessmentReadyToBegin(selected) && canEditClinical} startAttemptFailed={unrecordedStartId === selectedId} onChange={changeWorkingMode} onBegin={requestInterviewStart} scheduleAction={(designV2 ? canScheduleUnstartedAssessment(selected, canEditClinical) : canEditClinical) && !interviewFocus ? renderScheduleAction() : null} chartAction={designV2 && referral && !trainingAssessmentMode && !splitInterview ? <ChartPeek referral={referral} assessment={{ ...selected, ...draft }} /> : null} appointment={hasActiveAssessmentSchedule(selected) && !(designV2 && selected.started_at) ? new Date(selected.scheduled_start_at!).toLocaleString("en-US", { timeZone: "America/Los_Angeles", weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" }) : undefined} /> : null);
+  const renderWorkMode = () => (!reviewingChart && !selected.signed_at ? <AssessmentWorkMode preparing={preparing} compactPreparation={simplifiedPreparation} disabled={isBusy || isClosing} canBegin={!simplifiedPreparation && assessmentReadyToBegin(selected) && canEditClinical} startAttemptFailed={unrecordedStartId === selectedId} onChange={changeWorkingMode} onBegin={requestInterviewStart} scheduleAction={(designV2 ? canScheduleUnstartedAssessment(selected, canEditClinical) : canEditClinical) && !interviewFocus ? renderScheduleAction() : null} chartAction={designV2 && referral && !trainingAssessmentMode && !splitInterview ? <ChartPeek referral={referral} assessment={{ ...selected, ...draft }} /> : null} appointment={hasActiveAssessmentSchedule(selected) && !(designV2 && selected.started_at) ? new Date(selected.scheduled_start_at!).toLocaleString("en-US", { timeZone: "America/Los_Angeles", weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" }) : undefined} /> : null);
   // In full screen the rail is hidden, so the bottom bar shows the save status again.
   const railSaveStatus = designV2 && embeddedFolder && !phoneLayout && !trainingAssessmentMode && !interviewFocus;
   const renderSaveStatus = () => (
@@ -2513,7 +2524,7 @@ export default function AssessmentWorkspace({
     <button type="button" aria-label="Previous section" className={workingStyles.previousSection} onClick={() => { if (previousSection) { setWorkingTarget(null); setActiveSection(previousSection.key); } }} disabled={!previousSection || isClosing} title={previousSection ? `Previous: ${previousSection.label}` : undefined}><ChevronLeft size={16} aria-hidden="true" /><span>Previous</span></button>
     <span className={workingStyles.stepPosition} aria-label={`Section ${pageIndex + 1} of ${pageSections.length}`}><strong>{pageIndex + 1}</strong> of {pageSections.length}</span>
     </>}
-    <div data-assessment-primary-action><button type="button" data-guide-target="assessment-next-section" onClick={nextConversationSection} disabled={isClosing || (!nextSection && isBusy) || (preparing && !nextSection && !canEditClinical)} title={nextSection ? `Next: ${nextSection.label}` : undefined}>{nextSection ? "Next section" : preparing ? "Open interview" : "Review assessment"}<ChevronRight size={16} aria-hidden="true" /></button></div>
+    <div data-assessment-primary-action><button type="button" data-guide-target={preparationNeedsStart && !nextSection ? "assessment-begin" : "assessment-next-section"} onClick={nextConversationSection} disabled={isClosing || (!nextSection && (preparing ? preparationActionDisabled : isBusy))} title={nextSection ? `Next: ${nextSection.label}` : undefined}>{nextSection ? "Next section" : preparing ? preparationActionLabel : "Review assessment"}<ChevronRight size={16} aria-hidden="true" /></button></div>
   </nav>;
 
   // Kept-mounted steps: this editor draws the Chart step (with its appointment and unanswered-items
@@ -2617,7 +2628,7 @@ export default function AssessmentWorkspace({
               onAllQuestions={() => changeWorkingMode(true)}
               required={requiredInterviewFields}
               target={workingTarget}
-              questionNavigation={!phoneInterview ? (recordedAnswers) => <AssessmentWorkingNavigation onAllQuestions={workModeInNavigation ? () => changeWorkingMode(true) : undefined} lead={workModeInNavigation ? <>
+              questionNavigation={!phoneInterview ? (recordedAnswers) => <AssessmentWorkingNavigation onAllQuestions={workModeInNavigation && !preparing ? () => changeWorkingMode(true) : undefined} lead={workModeInNavigation ? <>
                 {interviewFocus && workspaceTitle ? <h2 className={workingStyles.focusTitle}>{workspaceTitle}</h2> : null}
                 {renderWorkMode()}
                 {interviewFocus ? renderSaveStatus() : null}

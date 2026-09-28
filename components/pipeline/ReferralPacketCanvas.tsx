@@ -2523,10 +2523,10 @@ export default function ReferralPacketCanvas({
   // Redesign vertical flow (docs/design/DECISIONS.md, "Record layout").
   const verticalFlow = designV2 && !phone;
   const railActivePage = displayedPage === 1 && loadedReferral && !navigableWorkspaceSteps.some((step) => step.page === 1) ? chartPage : displayedPage;
-  const railProgress = verticalFlow ? workspaceStepProgress(loadedReferral?.workflowStatus) : undefined;
-  // Redesign: a finished step is filed into the Chart and drops off the rail (docs/design/DECISIONS.md, "Chart built
-  // by the process"); the step on screen stays listed so the person can see where they are.
-  const railSteps = railProgress ? navigableWorkspaceSteps.filter((step) => railProgress[String(step.page)] !== "done" || step.page === railActivePage) : navigableWorkspaceSteps;
+  const railProgress = verticalFlow ? workspaceStepProgress(loadedReferral?.workflowStatus, assessmentSummary) : undefined;
+  // Recording a later decision does not finish an unsigned assessment. Every
+  // step stays reachable for the remaining work and for reviewing filed work.
+  const railSteps = navigableWorkspaceSteps;
   const railStepIndex = railSteps.findIndex((step) => step.page === railActivePage);
   const nextWorkspaceStep = railStepIndex >= 0 ? railSteps[railStepIndex + 1] : undefined;
   const railDone = railProgress ? Object.values(railProgress).filter((state) => state === "done").length : 0;
@@ -2756,7 +2756,7 @@ export default function ReferralPacketCanvas({
             ) : null}
             {/* Client notes: beside the questions on the Assessment step; from this button everywhere else. */}
             {designV2 && loadedReferral && (phone || displayedPage !== 2) && !trainingAssessmentMode && !trainingIntakeMode ? <ClientNotesButton key={loadedReferral.id} referralId={loadedReferral.id} readOnly={permissionReadOnly || historicalReadOnly} /> : null}
-            <WorkspaceStageNavigation steps={railSteps} activePage={displayedPage === 1 && loadedReferral && !navigableWorkspaceSteps.some((step) => step.page === 1) ? chartPage : displayedPage} onOpen={(page) => void navigatePage(page)} progress={designV2 ? workspaceStepProgress(loadedReferral?.workflowStatus) : undefined} />
+            <WorkspaceStageNavigation steps={railSteps} activePage={displayedPage === 1 && loadedReferral && !navigableWorkspaceSteps.some((step) => step.page === 1) ? chartPage : displayedPage} onOpen={(page) => void navigatePage(page)} progress={designV2 ? workspaceStepProgress(loadedReferral?.workflowStatus, assessmentSummary) : undefined} />
             {verticalFlow && nextWorkspaceStep ? (
               <div className={workspaceFolderStyles.nextStepBar}>
                 <button type="button" onClick={() => void navigatePage(nextWorkspaceStep.page)} data-folder-stage={nextWorkspaceStep.page}>
@@ -3457,15 +3457,13 @@ function WorkspaceStageButton({ page, label, selected, onOpen, progress }: {
 type StepState = "done" | "active" | "todo";
 type StepProgress = Partial<Record<string, StepState>>;
 
-// Visual progress for the redesign rail, derived from the recorded workflow status.
-function workspaceStepProgress(status: Referral["workflowStatus"]): StepProgress {
-  const assessmentDone = ["assessment_signed", "recommendation_submitted", "changes_requested", "decision_pending", "approved_for_placement", "accepted", "admitted", "declined", "closed"];
-  const assessmentActive = ["assessment_scheduled", "assessment_in_progress", "waiting_for_information", "assessment_ready_to_sign"];
+// Visual progress uses the assessment's signature independently of the referral's decision status.
+function workspaceStepProgress(status: Referral["workflowStatus"], assessment: { assessmentId?: string; signedAt?: string | null }): StepProgress {
   const decisionDone = ["approved_for_placement", "accepted", "admitted", "declined", "closed"];
   const decisionActive = ["recommendation_submitted", "changes_requested", "decision_pending"];
   const finishDone = ["admitted", "closed"];
   const state = (done: string[], active: string[]): StepState => status && done.includes(status) ? "done" : status && active.includes(status) ? "active" : "todo";
-  return { 2: state(assessmentDone, assessmentActive), workflow: state(decisionDone, decisionActive), email: state(finishDone, ["approved_for_placement", "accepted"]) };
+  return { 2: assessment.signedAt ? "done" : assessment.assessmentId ? "active" : "todo", workflow: state(decisionDone, decisionActive), email: state(finishDone, ["approved_for_placement", "accepted"]) };
 }
 
 function WorkspaceSaveStatus({ status, error, createdWorkspaceId, referralId, hasReferral, saving, dirtyCount, queuedFileCount, onRetry }: {

@@ -79,7 +79,7 @@ test("client notes follow the topic, saves while typing, and fits beside the que
   await expect(root).not.toHaveAttribute("data-interview-focus", "true");
   await expect(railChart).toBeVisible();
   await page.reload();
-  await expect(page.getByRole("button", { name: "Prepare assessment", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator('[data-assessment-working-section][data-assessment-phase="preparation"]')).toBeVisible();
   // Preparing: the notebook sits to the right and can be hidden and brought back.
   await expect(page.locator("[data-client-notes]")).toBeVisible();
   await page.getByRole("button", { name: "Hide notes" }).click();
