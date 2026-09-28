@@ -277,7 +277,7 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
     try {
       const assessment = await resolveAssessmentForSchedule(scheduleTarget, scheduleAssessmentRef.current);
       scheduleAssessmentRef.current = assessment;
-      await fetchPipelineJson<{ assessment: PipelineAssessmentRecord }>(`/api/assessments/${encodeURIComponent(assessment.assessment_id)}/schedule`, {
+      const saved = await fetchPipelineJson<{ assessment: PipelineAssessmentRecord; warnings?: string[] }>(`/api/assessments/${encodeURIComponent(assessment.assessment_id)}/schedule`, {
         method: "POST",
         body: JSON.stringify({
           if_match: assessment.version,
@@ -292,7 +292,7 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
           },
         }),
       });
-      const message = scheduleTarget.reschedule ? "Assessment rescheduled" : "Assessment scheduled";
+      const message = `${scheduleTarget.reschedule ? "Assessment rescheduled" : "Assessment scheduled"}${saved.warnings?.length ? `. ${saved.warnings.join(" ")}` : ""}`;
       scheduleAssessmentRef.current = null;
       setScheduleTarget(null);
       refreshCalendar(message);

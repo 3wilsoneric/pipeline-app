@@ -40,6 +40,8 @@ const assessmentReviewRevisionRollback = await readFile("database/rollbacks/0031
 const extractionEvidenceBoundingBoxesRollback = await readFile("database/rollbacks/0032_extraction_evidence_bounding_boxes.sql", "utf8");
 const workflowContinuityRollback = await readFile("database/rollbacks/0033_workflow_continuity.sql", "utf8");
 const contactDirectoryRollback = await readFile("database/rollbacks/0034_contact_directory.sql", "utf8");
+const assessmentOutlookRollback = (await readFile("database/rollbacks/0047_assessment_outlook_calendar.sql", "utf8"))
+  .replace(/^\s*(begin|commit);$/gmi, "");
 const sql = postgres(databaseUrl, {
   ssl: process.env.PIPELINE_DATABASE_SSL_MODE === "disable" ? false : process.env.PIPELINE_DATABASE_SSL_MODE === "verify-full" ? "verify-full" : "require",
   max: 1,
@@ -223,6 +225,18 @@ try {
       && before[0].workspace_month_index
       && before[0].workspace_month_history
     ),
+  });
+  await connection.unsafe(assessmentOutlookRollback);
+  const assessmentOutlookDuring = await connection`
+    select to_regclass('pipeline.assessment_outlook_calendar') is not null as ledger_preserved,
+      not exists(select 1 from pipeline.schema_migrations where migration_id='0047_assessment_outlook_calendar') as history_removed,
+      not exists(select 1 from pg_trigger where tgname in (
+        'assessments_outlook_calendar_queue', 'assessments_outlook_calendar_remove', 'referrals_outlook_calendar_queue'
+      )) as triggers_removed
+  `;
+  checks.push({
+    name: "assessment Outlook rollback preserves the delivery ledger and removes schedule triggers",
+    ok: Object.values(assessmentOutlookDuring[0]).every(Boolean),
   });
   await connection.unsafe(contactDirectoryRollback);
   const contactDirectoryDuring = await connection`
