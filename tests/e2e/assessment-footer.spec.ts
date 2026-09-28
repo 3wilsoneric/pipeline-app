@@ -1,3 +1,4 @@
+import { closeTestBrowser } from "./support/browser-lifecycle";
 import { expect, test, webkit, type Page } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { createOperationalReferral } from "./support/operational-api";
@@ -118,7 +119,7 @@ test("secondary actions close on Escape and outside press without exiting the as
     await expect(appointmentButton).toBeFocused();
     await expect(surface).toBeVisible();
   } finally {
-    await browser.close();
+    await closeTestBrowser(browser);
   }
 });
 

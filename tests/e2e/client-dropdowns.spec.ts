@@ -1,3 +1,4 @@
+import { closeTestBrowser } from "./support/browser-lifecycle";
 import { randomUUID } from "node:crypto";
 import { expect, test, type Locator, type Page, type TestInfo } from "@playwright/test";
 import { clientDirectoryFixture, unifiedProfileFixture } from "./support/pipeline-clinical-fixtures";
@@ -103,7 +104,7 @@ for (const browserName of ["webkit", "firefox"] as const) {
       if (styled) await checkStyledMenus(page, testInfo);
       else await checkNativeFallback(page);
     } finally {
-      await browser.close();
+      await closeTestBrowser(browser);
     }
   });
 }

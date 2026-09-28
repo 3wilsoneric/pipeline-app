@@ -1,3 +1,4 @@
+import { closeTestBrowser } from "./support/browser-lifecycle";
 import { openAssessmentChart, returnToAssessmentQuestions } from "./support/assessment-navigation";
 import { expect, test, webkit, type Page } from "@playwright/test";
 import { randomUUID } from "node:crypto";
@@ -58,7 +59,7 @@ for (const width of [1440, 834, 390]) {
       }
       await expect(editor).toBeFocused();
       await expect(editor).toHaveValue(entries.join("\n"));
-    } finally { await tablet?.close(); }
+    } finally { await closeTestBrowser(tablet); }
   });
 }
 

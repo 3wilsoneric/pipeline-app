@@ -1,3 +1,4 @@
+import { closeTestBrowser } from "./support/browser-lifecycle";
 import { expect, test, type Page } from "@playwright/test";
 
 async function openCalendar(page: Page, outsideHours = false) {
@@ -162,6 +163,6 @@ test("Safari uses a readable weekly list and compact phone month instead of a wi
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: testInfo.outputPath("calendar-month-phone.png") });
   } finally {
-    await browser.close();
+    await closeTestBrowser(browser);
   }
 });

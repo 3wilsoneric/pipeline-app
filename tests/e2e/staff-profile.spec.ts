@@ -1,3 +1,4 @@
+import { closeTestBrowser } from "./support/browser-lifecycle";
 import { expect, test, webkit } from "@playwright/test";
 
 type ProfilePayload = {
@@ -242,6 +243,6 @@ for (const size of [{ width: 320, height: 568 }, { width: 390, height: 844 }, { 
         return (await axe.run(document, { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21aa"] } })).violations.map(({ id, nodes }) => ({ id, targets: nodes.map((node) => node.target) }));
       });
       expect(violations).toEqual([]);
-    } finally { await browser.close(); }
+    } finally { await closeTestBrowser(browser); }
   });
 }

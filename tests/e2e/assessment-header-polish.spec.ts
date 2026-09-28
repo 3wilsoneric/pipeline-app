@@ -1,3 +1,4 @@
+import { closeTestBrowser } from "./support/browser-lifecycle";
 import { expect, test, webkit, type Page } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import type { AxeResults } from "axe-core";
@@ -99,5 +100,5 @@ test("iPad WebKit retains the native section picker and readable status", async 
     await expect(header.getByLabel("Section 10 of 12", { exact: true })).toBeVisible();
     expect(await header.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
     await page.screenshot({ path: info.outputPath("assessment-header-ipad.png") });
-  } finally { await browser.close(); }
+  } finally { await closeTestBrowser(browser); }
 });

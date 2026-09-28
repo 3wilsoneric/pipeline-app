@@ -1,3 +1,4 @@
+import { closeTestBrowser } from "./support/browser-lifecycle";
 import { chromium, expect, test, webkit } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { createOperationalReferral, createOperationalAssessment, startOperationalAssessment } from "./support/operational-api";
@@ -102,7 +103,7 @@ for (const [browserName, browserType] of [["chromium", chromium], ["webkit", web
         expect(saved.email).toBe("after@example.invalid");
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
         await page.screenshot({ path: info.outputPath(`chart-edit-${width}.png`) });
-      } finally { await browser.close(); }
+      } finally { await closeTestBrowser(browser); }
     });
   }
 }

@@ -4,8 +4,9 @@ import { randomUUID } from "node:crypto";
 for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]] as const) {
   test(`${engine} intake remains usable through touch, rotation and keyboard resizing`, async ({ baseURL }, info) => {
     const browser = await browserType.launch();
+    const context = await browser.newContext({ baseURL, hasTouch: true, isMobile: true, viewport: { width: 390, height: 844 } });
     try {
-      const page = await browser.newPage({ baseURL, hasTouch: true, isMobile: true, viewport: { width: 390, height: 844 } });
+      const page = await context.newPage();
       await page.goto(`/?view=referrals&screen=packet&draftId=${randomUUID()}`);
       const workspace = page.getByTestId("packet-workspace");
       await expect(workspace).toHaveAttribute("aria-busy", "false");
@@ -113,7 +114,7 @@ for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]]
       await expect(page.getByRole("dialog", { name: "Profile settings", exact: true })).toBeInViewport();
       expect(await page.locator('meta[name="viewport"]').getAttribute("content")).not.toMatch(/user-scalable=no|maximum-scale=1/);
     } finally {
-      await browser.close();
+      try { await context.close(); } finally { await browser.close(); }
     }
   });
 }

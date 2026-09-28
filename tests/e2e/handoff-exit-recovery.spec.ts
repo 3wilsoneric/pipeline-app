@@ -14,9 +14,9 @@ async function chooseWorkspaceView(page: Page, label: "Files" | "Decision" | "Fi
   const phonePicker = page.getByRole("combobox", { name: "Workspace view", exact: true });
   if (await phonePicker.isVisible()) await phonePicker.selectOption({ label });
   else if (label === "Decision" && process.env.PIPELINE_DESIGN_V2 === "true") {
-    // Completed decisions are filed in the Chart, not left as an active rail step.
+    // Exercise the Chart's Decision shortcut, distinct from admission requirements.
     await page.getByRole("navigation", { name: "Workspace stages", exact: true }).getByRole("button", { name: "Chart", exact: true }).click();
-    await page.getByRole("button", { name: "Open decision", exact: true }).click();
+    await page.locator('[data-chart-stage="Decision"]').getByRole("button", { name: "Open decision", exact: true }).click();
   }
   else await page.getByRole("button", { name: label === "Files" ? "Workspace files" : label, exact: true }).click();
 }
@@ -175,7 +175,7 @@ test("unfinished recipient text survives closing review and cannot be skipped in
 });
 
 for (const steps of [1, 2]) test(`browser Back by ${steps} entries preserves unrecorded decisions and Forward history`, async ({ page }, info) => {
-  const name = `Synthetic ${steps === 1 ? "Browserback" : "Historyjump"}${info.project.name.replace(/[^a-z]/g, "")}`;
+  const name = `Synthetic ${steps === 1 ? "Browserback" : "Historyjump"}${info.project.name.replace(/[^a-z]/g, "")}${randomUUID().replace(/[^a-z]/g, "")}`;
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name, owner: "", tags: [] });
   await createOperationalAssessment(page.request, referral.id);
   await page.goto("/");
