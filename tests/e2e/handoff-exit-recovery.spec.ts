@@ -243,6 +243,7 @@ test("browser Back from contact settings saves unfinished addresses and remains 
   });
   await page.goto("/settings");
   await page.getByRole("link", { name: /^Community contact lists/ }).click();
+  await expect(page.getByRole("heading", { name: "Community contact lists", exact: true })).toBeVisible();
   const cc = page.getByRole("combobox", { name: /^Cc/ });
   await cc.fill("retain@example.invalid");
   await page.goBack();

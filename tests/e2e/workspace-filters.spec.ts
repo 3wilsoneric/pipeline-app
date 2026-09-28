@@ -24,6 +24,9 @@ async function choose(page: Page, label: string, choices: string[]) {
 for (const width of [1440, 390]) {
   test(`workspace and file filters support multiple values without losing other selections at ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 1000 });
+    // This empty-directory layout fixture must not inherit unfinished intake
+    // from earlier recovery specs sharing the same synthetic server account.
+    await page.route("**/api/me/referral-drafts", (route) => route.fulfill({ json: { drafts: [] } }));
     let directoryParams = new URLSearchParams();
     let fileParams = new URLSearchParams();
     await page.route(/\/api\/referrals(?:\/directory)?\?/, async (route) => {
@@ -44,9 +47,19 @@ for (const width of [1440, 390]) {
     await expect(page.getByText("Recently updated first", { exact: true })).toHaveCount(0);
     const directory = page.getByRole("main", { name: "Referral workspaces" });
     await expect(directory.getByText("Workspaces", { exact: true })).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "Unfinished referral intake", exact: true })).toHaveCount(0);
     const directoryBox = (await directory.boundingBox())!;
     const searchBox = (await page.getByLabel("Search all workspaces", { exact: true }).boundingBox())!;
-    expect(searchBox.y - directoryBox.y).toBeLessThanOrEqual(32);
+    if (process.env.PIPELINE_DESIGN_V2 === "true") {
+      // The redesign wraps the input in a padded search control. Keep that
+      // control at the top and the input centered inside it, without treating
+      // the approved inner padding as an extra directory heading.
+      const controlBox = (await directory.locator('[data-guide-target="workspace-search"]').boundingBox())!;
+      expect(controlBox.y - directoryBox.y).toBeLessThanOrEqual(32);
+      expect(searchBox.y + searchBox.height / 2).toBeCloseTo(controlBox.y + controlBox.height / 2, 0);
+    } else {
+      expect(searchBox.y - directoryBox.y).toBeLessThanOrEqual(32);
+    }
     expect(directoryParams.get("scope")).toBe("team");
     await expect(page.getByRole("tab", { name: "Activity", exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: /Show workspaces as/ })).toHaveCount(0);
