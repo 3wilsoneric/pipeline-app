@@ -57,7 +57,7 @@ assert.equal(seed.source, "");
 assert.equal(seed.note, "");
 assert.equal(seed.requirements.length, 0);
 for (const key of ["packetId", "packetFields", "documentHash", "assessment", "admissionDecision", "manualIntakeAuthorization", "interview", "ownerId", "assignedAt", "assessmentReview", "ehrHandoff"]) assert.equal(seed[key], undefined, key);
-assert.match(seed.fieldSources.currentMedications, /workspace #71.*verify/);
+assert.match(seed.fieldSources.currentMedications, /prior workspace.*verify/);
 assert.equal(JSON.stringify({ source, profile }), before, "deriving a chart/intake must not mutate source material");
 assert.equal(context.clientChartRecord(profile).date_of_birth, "1984-06-12");
 const incompleteCensus = { ...profile, resident: { date_of_birth: null, payor: null, primary_diagnosis: null },

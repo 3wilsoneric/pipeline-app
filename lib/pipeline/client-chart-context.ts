@@ -85,7 +85,7 @@ export function clientReferralSections(profile: UnifiedClientProfileResponse, su
     : referralSummaryFieldKeys.has(key) && referralCanvasValue(summarized, key as PersistedCanvasFieldKey) === value);
   return profile.pipeline.referrals.map((referral) => ({
     key: `referral:${referral.id}`,
-    label: `Workspace #${referral.id} · ${referral.community} · ${referral.date || referral.createdAt.slice(0, 10)}`,
+    label: `Workspace · ${referral.community} · ${referral.date || referral.createdAt.slice(0, 10)}`,
     facts: [
       ...(referral.admissionDecision ? [
         { label: "Decision", value: referral.admissionDecision.outcome === "accepted" ? "Accept" : "Deny" },
@@ -133,5 +133,5 @@ export function workspaceSourceSections(source: HistoricalProfileResponse): Clie
 
 export function clientSourceSections(profile: UnifiedClientProfileResponse) {
   return (profile.pipeline.source_profiles ?? []).flatMap((source) => workspaceSourceSections(source.profile)
-    .map((section) => ({ ...section, key: `${source.referral_id}:${section.key}`, label: `Workspace #${source.referral_id} · ${section.label}` })));
+    .map((section) => ({ ...section, key: `${source.referral_id}:${section.key}`, label: `Prior workspace · ${section.label}` })));
 }

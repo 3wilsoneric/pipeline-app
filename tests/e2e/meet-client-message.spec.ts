@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { createRequire } from "node:module";
 import { expect, test, type Page } from "@playwright/test";
 import { createOperationalAssessment, createOperationalReferral, readOperationalReferral, recordOperationalAcceptance, signOperationalAssessment } from "./support/operational-api";
+import { reviewCurrentMedications } from "./support/handoff-review";
 
 test.skip(process.env.PIPELINE_DESKTOP_E2E !== "true", "Handoff drafts use the isolated workspace-state store.");
 
@@ -18,6 +19,7 @@ async function openMessage(page: Page, referralId: number) {
   await page.goto(`/?view=referrals&screen=packet&referralId=${referralId}&workspaceView=email`);
   await page.getByRole("button", { name: "Review handoff", exact: true }).click();
   await page.getByRole("dialog", { name: "Confirm admit date" }).getByRole("button", { name: "Confirm admit date" }).click();
+  await reviewCurrentMedications(page);
   await page.getByRole("button", { name: "Confirm summary", exact: true }).click();
   await expect(page.getByRole("link", { name: "Open Client data sheet.pdf", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Confirm packet", exact: true }).click();
@@ -53,7 +55,7 @@ for (const width of [1440, 390]) test(`message saves, retains recipients and tra
   const preview = page.frameLocator('iframe[title="Meet the Client email preview"]');
   await expect(preview.locator("body")).toContainText(text, { useInnerText: true });
   await expect(preview.locator("script")).toHaveCount(0);
-  await expect(preview.locator("body")).toContainText("2026-10-01");
+  await expect(preview.locator("body")).toContainText("10/01/2026");
   await page.getByRole("button", { name: "Edit message", exact: true }).click();
   await page.screenshot({ path: info.outputPath(`message-editor-${width}.png`) });
   await page.addScriptTag({ path: createRequire(process.cwd() + "/package.json").resolve("axe-core/axe.min.js") });
@@ -69,8 +71,8 @@ for (const width of [1440, 390]) test(`message saves, retains recipients and tra
   await openMessage(page, referral.id);
   await expect(page.getByRole("textbox", { name: "Subject", exact: true })).toHaveValue("Arrival arrangements");
   await expect(preview.locator("body")).toContainText(text, { useInnerText: true });
-  await expect(preview.locator("body")).toContainText("2026-10-02");
-  await expect(preview.locator("body")).not.toContainText("2026-10-01");
+  await expect(preview.locator("body")).toContainText("10/02/2026");
+  await expect(preview.locator("body")).not.toContainText("10/01/2026");
   expect(sends).toBe(0);
 });
 

@@ -5,9 +5,10 @@ import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import { usePersonaSwitchSave } from "@/lib/demo/persona-switch-save";
 import { addListRecipients, parseRecipientText, type CommunityRecipientList, type RecipientFields } from "@/lib/pipeline/community-recipient-lists";
 import { emptyMeetClientMessage, type MeetClientMessage } from "@/lib/notifications/meet-client-message";
+import type { MedicationReview } from "@/lib/notifications/meet-client-medications";
 
-type DraftFields = RecipientFields & { message: MeetClientMessage };
-const empty = (): DraftFields => ({ to: [], cc: [], message: emptyMeetClientMessage() });
+type DraftFields = RecipientFields & { message: MeetClientMessage; medicationReview: MedicationReview | null };
+const empty = (): DraftFields => ({ to: [], cc: [], message: emptyMeetClientMessage(), medicationReview: null });
 const emptyInput = () => ({ to: "", cc: "" });
 type Session = { key: string; version: number; fields: DraftFields; input: ReturnType<typeof emptyInput>; saved: string; queued: string; queue: Promise<void>; error: string };
 
@@ -34,12 +35,12 @@ export function useHandoffRecipients(referralId: number | undefined, community: 
       let note = "";
       try { templates = (await fetchPipelineJson<{ lists: CommunityRecipientList[] }>("/api/community-recipient-lists", { cache: "no-store", signal: controller.signal })).lists; }
       catch { note = "Community list unavailable. Add authorized recipients below."; }
-      const stored = endpoint ? await fetchPipelineJson<{ draft: (RecipientFields & { community: string; message?: MeetClientMessage }) | null; version: number }>(endpoint, { signal: controller.signal }) : { draft: null, version: 0 };
+      const stored = endpoint ? await fetchPipelineJson<{ draft: (RecipientFields & { community: string; message?: MeetClientMessage; medicationReview?: MedicationReview | null }) | null; version: number }>(endpoint, { signal: controller.signal }) : { draft: null, version: 0 };
       if (session.current !== current || controller.signal.aborted) return;
       const template = templates.find((list) => list.community === community);
       const values = stored.draft?.community === community ? stored.draft : template ?? empty();
       current.version = stored.version;
-      current.fields = { to: values.to, cc: values.cc, message: stored.draft?.message ?? emptyMeetClientMessage() };
+      current.fields = { to: values.to, cc: values.cc, message: stored.draft?.message ?? emptyMeetClientMessage(), medicationReview: stored.draft?.medicationReview ?? null };
       current.saved = JSON.stringify(current.fields);
       current.queued = current.saved;
       setFields(current.fields); setRecipientInput(current.input); setInputError(""); setLists(templates); setError("");
@@ -72,7 +73,7 @@ export function useHandoffRecipients(referralId: number | undefined, community: 
   const change = (next: RecipientFields) => {
     const current = session.current;
     if (!current || !endpoint || loading || current.error) return;
-    current.fields = { ...next, message: current.fields.message }; setFields(current.fields); setMessage("Saving handoff draft...");
+    current.fields = { ...current.fields, ...next }; setFields(current.fields); setMessage("Saving handoff draft...");
     save();
   };
   const changeMessage = (next: MeetClientMessage) => {
@@ -81,6 +82,12 @@ export function useHandoffRecipients(referralId: number | undefined, community: 
     current.fields = { ...current.fields, message: next }; setFields(current.fields); setMessage("Saving handoff draft...");
     if (messageSaveTimer.current) clearTimeout(messageSaveTimer.current);
     messageSaveTimer.current = setTimeout(() => { messageSaveTimer.current = null; save(); }, 400);
+  };
+  const changeMedicationReview = (next: MedicationReview | null) => {
+    const current = session.current;
+    if (!current || !endpoint || loading || current.error) return;
+    current.fields = { ...current.fields, medicationReview: next }; setFields(current.fields); setMessage("Saving handoff draft...");
+    save();
   };
   const changeRecipientInput = (lane: keyof RecipientFields, input: string) => {
     const current = session.current;
@@ -139,7 +146,7 @@ export function useHandoffRecipients(referralId: number | undefined, community: 
     window.addEventListener("beforeunload", leave);
     return () => window.removeEventListener("beforeunload", leave);
   }, []);
-  return { fields: loading ? empty() : fields, recipientInput: loading ? emptyInput() : recipientInput, inputError, changeRecipientInput, hasPendingRecipients: !loading && Object.values(recipientInput).some(value => value.trim()), lists: loading ? [] : lists, loading, message: loading ? "Loading recipients..." : message, error: loading ? "" : error, change, changeMessage, flush, retry, applyCommunityList, reload: () => setReloadKey((value) => value + 1), editable: Boolean(referralId) && !loading && !error };
+  return { fields: loading ? empty() : fields, recipientInput: loading ? emptyInput() : recipientInput, inputError, changeRecipientInput, hasPendingRecipients: !loading && Object.values(recipientInput).some(value => value.trim()), lists: loading ? [] : lists, loading, message: loading ? "Loading recipients..." : message, error: loading ? "" : error, change, changeMessage, changeMedicationReview, flush, retry, applyCommunityList, reload: () => setReloadKey((value) => value + 1), editable: Boolean(referralId) && !loading && !error };
 }
 
 export type HandoffRecipients = ReturnType<typeof useHandoffRecipients>;

@@ -1,5 +1,5 @@
 import { readPdfText } from "./support/pdf";
-import { openAdmitDate, openSummary, openFiles, openRecipients, confirmRecipients } from "./support/handoff-review";
+import { openAdmitDate, openSummary, openFiles, openRecipients, confirmRecipients, reviewCurrentMedications } from "./support/handoff-review";
 import { confirmReferralFileLabels } from "./support/referral-upload";
 import { randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
@@ -123,11 +123,28 @@ test("a changed admit date must be reloaded and the confirmed date populates the
   await summary.getByRole("button", { name: "Back", exact: true }).click();
   await page.getByLabel("Planned admit date", { exact: true }).fill("2026-10-05");
   await page.getByRole("button", { name: "Confirm admit date", exact: true }).click();
+  await reviewCurrentMedications(page);
   await page.getByRole("button", { name: "Confirm summary", exact: true }).click();
   await page.getByRole("button", { name: "Confirm packet", exact: true }).click();
   await addRecipient(page); await confirmRecipients(page);
   const email = page.frameLocator('iframe[title="Meet the Client email preview"]').locator("body");
-  await expect(email).toContainText("2026-10-05"); await expect(email).not.toContainText("2026-10-04");
+  await expect(email).toContainText("10/05/2026"); await expect(email).not.toContainText("10/04/2026");
+});
+
+test("current-medication choices remain in the handoff draft after reopening", async ({ page }) => {
+  const { referral } = await referralWithAssessment(page);
+  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
+  const summary = await openSummary(page);
+  const review = summary.getByRole("group", { name: "Which medications are current for this handoff?" });
+  await expect(summary.getByRole("button", { name: "Confirm summary", exact: true })).toBeDisabled();
+  await review.getByRole("checkbox", { name: "Synthetic recorded medication" }).check();
+  await summary.getByRole("button", { name: "Confirm summary", exact: true }).click();
+  const saved = await page.request.get(`/api/referrals/${referral.id}/handoff-recipients`);
+  expect(saved.status()).toBe(200);
+  expect((await saved.json()).draft.medicationReview.selected).toEqual(["Synthetic recorded medication"]);
+  await page.reload();
+  const reopened = await openSummary(page);
+  await expect(reopened.getByRole("checkbox", { name: "Synthetic recorded medication" })).toBeChecked();
 });
 
 test("Decision previews before an admit date and carries a saved date into the first handoff check", async ({ page }) => {
@@ -148,6 +165,7 @@ test("Decision previews before an admit date and carries a saved date into the f
   await date.getByRole("button", { name: "Review without admit date", exact: true }).click();
   const summary = page.getByRole("dialog", { name: "Check client summary", exact: true });
   await expect(summary).toBeVisible();
+  await reviewCurrentMedications(page);
   await summary.getByRole("button", { name: "Confirm summary", exact: true }).click();
   const files = page.getByRole("dialog", { name: "Check admission packet", exact: true });
   await expect(files).toBeVisible();
@@ -177,7 +195,7 @@ test("Finish & send does not claim an intake save and routes incomplete identity
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
   const readiness = page.getByRole("region", { name: "Handoff readiness", exact: true });
   await expect(readiness.getByRole("heading", { name: "Complete client details" })).toBeVisible();
-  await expect(page.getByRole("region", { name: "Email and referral packet" })).toContainText("Unnamed referral · #");
+  await expect(page.getByRole("region", { name: "Email and referral packet" })).toContainText("Name not recorded");
   await expect(page.getByRole("region", { name: "Email and referral packet" })).toContainText("Community not selected");
   await expect(readiness).toContainText("existing email copy is kept");
   await expect(page.getByTestId("workspace-save-status")).toHaveCount(0);
@@ -209,9 +227,12 @@ for (const width of [1440, 1280, 834, 390, 320]) test(`guided checks lead to the
   await page.keyboard.press("Escape");
   await expect(overview).not.toContainText("Checked");
   const summary = await openSummary(page);
-  await expect(summary.getByRole("region", { name: "Medications & injections" })).toContainText("Synthetic recorded medication");
+  await expect(summary.getByRole("group", { name: "Which medications are current for this handoff?" })).toContainText("Synthetic recorded medication");
+  await expect(summary.getByRole("region", { name: "Injection & med-room notes" })).toContainText("Synthetic injection and recorded dose");
   await expect(summary.getByRole("region", { name: "Behavior & safety" })).toContainText("Historical incident");
   await expect(summary.getByRole("button", { name: "Confirm summary", exact: true })).toBeInViewport();
+  expect(await checkA11y(page, 'dialog[aria-label="Check client summary"]')).toEqual([]);
+  await summary.screenshot({ path: info.outputPath(`guided-medication-review-${width}.png`), animations: "disabled" });
   await page.keyboard.press("Escape");
   await expect(summary).toHaveCount(0);
   await expect(overview.getByRole("button", { name: "Continue review", exact: true })).toBeFocused();
@@ -238,7 +259,9 @@ for (const width of [1440, 1280, 834, 390, 320]) test(`guided checks lead to the
   await expect(preview.locator("body")).not.toContainText("one-time code");
   await expect(preview.locator("body")).not.toContainText("secure packet");
   await expect(preview.locator("body")).toContainText("Client data sheet.pdf");
-  await expect(preview.locator("body")).toContainText("2026-10-01");
+  await expect(preview.locator("body")).toContainText("Current medications for handoff");
+  await expect(preview.locator("body")).toContainText("Synthetic recorded medication");
+  await expect(preview.locator("body")).toContainText("10/01/2026");
   await expect(preview.locator("body")).toContainText('Synthetic facility <img src=x onerror="alert(1)">');
   await expect(preview.locator("body")).toContainText("Received; signatures still need review.");
   await expect(preview.locator("img")).toHaveCount(1);
@@ -269,7 +292,7 @@ for (const width of [1440, 1280, 834, 390, 320]) test(`guided checks lead to the
   expect(response.headers()["cache-control"]).toContain("no-store");
   const payload = await response.json();
   const { user } = await (await page.request.get("/api/auth/me")).json();
-  expect(payload.email.preview).toEqual(renderMeetClientEmail(payload.report.meetClient, user.name, "Preview — assigned when sent", payload.email.admission_packet.files.map((file: { name: string }) => file.name), undefined, { demo: payload.email.example_only }));
+  expect(payload.email.preview).toEqual(renderMeetClientEmail({ ...payload.report.meetClient, medications: [] }, user.name, "Preview — assigned when sent", payload.email.admission_packet.files.map((file: { name: string }) => file.name), undefined, { demo: payload.email.example_only }));
   const dataSheet = await page.request.get(`/api/referrals/${referral.id}/admission-summary?download=chart`);
   expect(dataSheet.status()).toBe(200);
   expect(dataSheet.headers()["content-type"]).toBe("application/pdf");

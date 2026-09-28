@@ -5,6 +5,7 @@ import { useConfirmationDialog } from "./useConfirmationDialog";
 import { useRef, useState, type ReactNode } from "react";
 
 import { fetchPipelineJson, PipelineApiError } from "@/lib/auth/authenticated-fetch";
+import { presentClientName } from "@/lib/pipeline/client-identity-presentation.mjs";
 import { identityDatesConflict } from "@/lib/pipeline/master-record-matching";
 import type { PipelineResidentLink } from "@/lib/pipeline/resident-link-records";
 import { createMutationId } from "@/lib/pipeline/referral-packet-upload";
@@ -176,8 +177,8 @@ function IdentityEvidenceComparison({
     <div aria-label="Identity evidence comparison">
       <p className="text-[11px] text-[#4f5c57]">Compare the referral with the governed resident record. The server checks the same evidence again when you confirm.</p>
       <div className="mt-3 grid gap-px bg-[#d9d9d9] sm:grid-cols-2">
-        <IdentityEvidenceRecord label="Referral record" name={referral.name} dateOfBirth={referral.dob} community={referral.community} identifier={`Workspace #${referral.id}`} formatDate={formatDate} />
-        <IdentityEvidenceRecord label="Governed resident record" name={resident?.display_name ?? residentDisplayName} dateOfBirth={resident?.date_of_birth ?? null} community={resident?.community_name ?? "Not reported"} identifier={null} formatDate={formatDate} />
+        <IdentityEvidenceRecord label="Referral record" name={presentClientName(referral.name, referral.id)} dateOfBirth={referral.dob} community={referral.community} formatDate={formatDate} />
+        <IdentityEvidenceRecord label="Governed resident record" name={resident?.display_name ?? residentDisplayName} dateOfBirth={resident?.date_of_birth ?? null} community={resident?.community_name ?? "Not reported"} formatDate={formatDate} />
       </div>
       <div className={`mt-2 text-[10px] font-black ${dobStatus.includes("conflict") ? "text-[#a63d2f]" : "text-[#386353]"}`} role="status">
         {dobStatus} · {matchMethod}{link.match_confidence === null ? "" : ` · ${Math.round(link.match_confidence * 100)}% confidence`}
@@ -192,14 +193,12 @@ function IdentityEvidenceRecord({
   name,
   dateOfBirth,
   community,
-  identifier,
   formatDate,
 }: {
   label: string;
   name: string;
   dateOfBirth: string | null;
   community: string;
-  identifier: string | null;
   formatDate: (value: string | null) => string;
 }) {
   return (
@@ -210,8 +209,6 @@ function IdentityEvidenceRecord({
       <dd className="font-bold text-[#202522]">{formatDate(dateOfBirth)}</dd>
       <dt className="mt-2 text-[#737373]">Community</dt>
       <dd className="font-bold text-[#202522]">{community}</dd>
-      {identifier ? <><dt className="mt-2 text-[#737373]">Identifier</dt>
-      <dd className="font-bold text-[#202522]">{identifier}</dd></> : null}
     </dl>
   );
 }
@@ -273,8 +270,8 @@ export function IdentitySuggestionControls({ profile, onConnectionChanged }: Ide
         {profile.pipeline.connection.suggestions.map((suggestion) => (
           <div key={suggestion.referral_id} className="grid gap-3 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
             <div className="min-w-0">
-              <div className="text-[12px] font-black text-[#202522]">{suggestion.client_name}</div>
-              <div className="mt-1 text-[10px] text-[#737373]">{suggestion.community} · workspace #{suggestion.referral_id}</div>
+              <div className="text-[12px] font-black text-[#202522]">{presentClientName(suggestion.client_name, suggestion.referral_id)}</div>
+              <div className="mt-1 text-[10px] text-[#737373]">{suggestion.community}</div>
               <ul className="mt-2 space-y-1 text-[10px] text-[#4f5c57]">
                 {suggestion.reasons.map((reason) => <li key={reason}>• {reason}</li>)}
               </ul>

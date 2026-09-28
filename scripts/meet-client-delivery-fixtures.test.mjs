@@ -10,11 +10,23 @@ import { loadTypeScriptModule } from "./ts-module-loader.mjs";
 const summaryOwner = loadTypeScriptModule(resolve(import.meta.dirname, ".."), "lib/assessment/assessment-summary.ts");
 const schemaOwner = loadTypeScriptModule(resolve(import.meta.dirname, ".."), "lib/assessment/assessment-tool-schema.ts");
 const recipientOwner = loadTypeScriptModule(resolve(import.meta.dirname, ".."), "lib/notifications/microsoft-graph-mail.ts");
+const templateOwner = loadTypeScriptModule(resolve(import.meta.dirname, ".."), "lib/notifications/meet-client-email-template.ts");
+const medicationOwner = loadTypeScriptModule(resolve(import.meta.dirname, ".."), "lib/notifications/meet-client-medications.ts");
 
 const require = createRequire(import.meta.url);
 const source = ts.transpileModule(readFileSync("app/api/referrals/[referralId]/meet-client-email/route.ts", "utf8"), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
 }).outputText;
+
+test("medication history keeps dose punctuation intact and review choices must match the inventory", () => {
+  const inventory = medicationOwner.medicationInventory(["Medication A; PRN", "Medication B"], "Medication A; PRN\nHistorical medication");
+  assert.deepEqual(Array.from(inventory), ["Medication A; PRN", "Medication B", "Historical medication"]);
+  assert.equal(medicationOwner.parseMedicationReview({ assessmentId: "a", assessmentVersion: 1, inventory, selected: ["Unknown"], status: "confirmed" }), null);
+  const reviewed = medicationOwner.parseMedicationReview({ assessmentId: "a", assessmentVersion: 1, inventory, selected: ["Medication B"], status: "confirmed" });
+  assert.equal(medicationOwner.medicationReviewMatches(reviewed, "a", 1, inventory), true);
+  assert.equal(medicationOwner.medicationReviewMatches(reviewed, "a", 2, inventory), false);
+  assert.equal(medicationOwner.parseMedicationReview({ assessmentId: "a", assessmentVersion: 1, inventory, selected: [], status: "none" })?.status, "none");
+});
 
 test("corrected identity replaces placeholders in the Meet the Client summary", () => {
   const assessment = { ...schemaOwner.createEmptyAssessmentToolData(), resident_name: "Pending Review", community: "Unassigned" };
@@ -25,6 +37,33 @@ test("corrected identity replaces placeholders in the Meet the Client summary", 
   const fromAssessment = summaryOwner.buildMeetClientSummary({ ...assessment, resident_name: "Jordan Lee", community: "Santa Clarita" }, { ...referral, name: "Pending Review", community: "Unassigned" });
   assert.equal(fromAssessment.name, "Jordan Lee");
   assert.equal(fromAssessment.community, "Santa Clarita");
+});
+
+test("Meet the Client shows assessment-current medications and month/day/year dates", () => {
+  const assessment = {
+    ...schemaOwner.createEmptyAssessmentToolData(),
+    assessment_id: "synthetic-assessment",
+    version: 3,
+    date_of_birth: "1980-06-12",
+    assessment_date: "2026-09-28",
+    medications_at_intake: ["Current medication 10 mg"],
+    im_injections: "yes",
+    last_injection: "2026-09-10",
+    next_injection_due: "2026-10-08",
+  };
+  const referral = { name: "Casey Rivera", community: "San Pablo", dob: "1980-06-12", currentMedications: "Historical medication", plannedAdmissionDate: "2026-10-01", source: "" };
+  const summary = summaryOwner.buildMeetClientSummary(assessment, referral);
+  assert.deepEqual(summary.medications, ["Current medication 10 mg"]);
+  assert.equal(summary.medicationNotes.find((item) => item.label === "Next injection due")?.value, "10/08/2026");
+  const email = templateOwner.renderMeetClientEmail(summary, "Synthetic Assessor", "fixture");
+  for (const value of ["06/12/1980", "09/28/2026", "10/01/2026", "09/10/2026", "10/08/2026"]) assert.match(email.html, new RegExp(value));
+  assert.match(email.html, /Current medications for handoff/);
+  assert.doesNotMatch(email.html, /Historical medication|1980-06-12|2026-10-01/);
+  const unconfirmed = summaryOwner.buildMeetClientSummary({ ...assessment, medications_at_intake: [] }, referral);
+  assert.deepEqual(unconfirmed.medications, []);
+  assert.match(templateOwner.renderMeetClientEmail(unconfirmed, "Synthetic Assessor", "fixture").html, /Current medications not confirmed/);
+  assert.equal(summaryOwner.formatMeetClientDate("2026-02-30"), "2026-02-30");
+  assert.equal(summaryOwner.formatMeetClientDate("Date unknown"), "Date unknown");
 });
 
 test("provider acceptance survives audit failure without recording a false failed send", async () => {
@@ -178,7 +217,46 @@ test("delivery and its generated chart use fresh agreement work items and the ca
   assert.match(summary.admissionNotes.find(({ label }) => label === "Signed admission agreement").value, /signatures still need review/);
   assert.equal(summary.medicationNotes.find(({ label }) => label === "Last injection given").value, "Synthetic injection - date unknown");
   assert.equal(summary.safetyNotes.find(({ label }) => label === "Last reported assault \/ context").value, "Synthetic historical incident");
-  assert.deepEqual(fixture.packetReports[0].meetClient, summary);
+  assert.deepEqual(JSON.parse(JSON.stringify(fixture.packetReports[0].meetClient)), JSON.parse(JSON.stringify(summary)));
+  assert.deepEqual(summary.medications, ["Current fixture medication"]);
+  assert.doesNotMatch(JSON.stringify(summary), /Historical fixture medication/);
+});
+
+test("handoff sends only explicitly selected current medications while retaining full chart history", async () => {
+  const fixture = deliveryFixture();
+  const review = { assessmentId: "synthetic-assessment", assessmentVersion: 7,
+    inventory: ["Current fixture medication", "Historical fixture medication"], selected: ["Historical fixture medication"], status: "confirmed" };
+  assert.equal((await fixture.send("6", { medication_review: review })).status, 200);
+  assert.deepEqual(fixture.messages[0].summary.medications, ["Historical fixture medication"]);
+  assert.deepEqual(fixture.packetReports[0].meetClient.medications, ["Current fixture medication"]);
+});
+
+test("missing and stale medication reviews cannot reserve or deliver a handoff", async () => {
+  for (const medication_review of [undefined, { assessmentId: "synthetic-assessment", assessmentVersion: 6,
+    inventory: ["Current fixture medication", "Historical fixture medication"], selected: ["Current fixture medication"], status: "confirmed" },
+    { assessmentId: "synthetic-assessment", assessmentVersion: 7, inventory: ["Current fixture medication"], selected: ["Current fixture medication"], status: "confirmed" }]) {
+    const fixture = deliveryFixture();
+    const response = await fixture.send("6", { medication_review });
+    assert.ok([409, 422].includes(response.status));
+    assert.equal(fixture.reservationCalls(), 0);
+    assert.equal(fixture.providerCalls(), 0);
+  }
+});
+
+test("an edited message cannot reintroduce a medication omitted from the current list", async () => {
+  const fixture = deliveryFixture();
+  const response = await fixture.send("6", { message: { subject: null, body: "Historical fixture medication is current" } });
+  assert.equal(response.status, 422);
+  assert.equal(fixture.reservationCalls(), 0);
+});
+
+test("a confirmed empty list stays distinct from an unconfirmed list", async () => {
+  const fixture = deliveryFixture();
+  const review = { assessmentId: "synthetic-assessment", assessmentVersion: 7,
+    inventory: ["Current fixture medication", "Historical fixture medication"], selected: [], status: "none" };
+  assert.equal((await fixture.send("6", { medication_review: review })).status, 200);
+  assert.equal(fixture.messages[0].summary.medicationStatus, "none");
+  assert.match(templateOwner.renderMeetClientEmail(fixture.messages[0].summary, "Fixture", "id").html, /No current medications reported/);
 });
 
 test("edited message reaches the provider unchanged, and malformed edits never reserve a send", async () => {
@@ -203,8 +281,8 @@ function deliveryFixture({ secureLink = false, rejectedSize = false, exampleOnly
   const audits = [];
   const messages = [];
   const packetReports = [];
-  const assessment = { ...schemaOwner.createEmptyAssessmentToolData(), assessment_id: "synthetic-assessment", version: 7, updated_by: { name: "Synthetic Assessor" }, signed_at: signed ? "2026-09-11T10:00:00Z" : null, im_injections: "yes", last_injection: "Synthetic injection - date unknown", assault_history: "yes", last_assault_details: "Synthetic historical incident" };
-  const referral = { id: 6, version: 4, name, dob: "1970-01-01", source: "Synthetic Clinic", community, admissionDate, requirements: [{ type: "signed_admission_agreement", status: "needed" }] };
+  const assessment = { ...schemaOwner.createEmptyAssessmentToolData(), assessment_id: "synthetic-assessment", version: 7, updated_by: { name: "Synthetic Assessor" }, signed_at: signed ? "2026-09-11T10:00:00Z" : null, medications_at_intake: ["Current fixture medication"], im_injections: "yes", last_injection: "Synthetic injection - date unknown", assault_history: "yes", last_assault_details: "Synthetic historical incident" };
+  const referral = { id: 6, version: 4, name, dob: "1970-01-01", source: "Synthetic Clinic", community, currentMedications: "Historical fixture medication", admissionDate, requirements: [{ type: "signed_admission_agreement", status: "needed" }] };
   const jsonError = (error, status = 400) => Response.json({ error }, { status });
   class GraphMailDeliveryError extends Error { constructor(code, message, status) { super(message); this.code = code; this.status = status; } }
   const dependencies = {
@@ -219,6 +297,7 @@ function deliveryFixture({ secureLink = false, rejectedSize = false, exampleOnly
     "@/lib/notifications/admission-packet-store": { PacketAccessError: class extends Error {}, findWorkspaceOutlookDraft: async () => null },
     "@/lib/notifications/meet-client-email-template": loadTypeScriptModule(process.cwd(), "lib/notifications/meet-client-email-template.ts"),
     "@/lib/notifications/meet-client-message": loadTypeScriptModule(process.cwd(), "lib/notifications/meet-client-message.ts"),
+    "@/lib/notifications/meet-client-medications": medicationOwner,
     "@/lib/notifications/meet-client-identity": loadTypeScriptModule(process.cwd(), "lib/notifications/meet-client-identity.ts"),
     "@/lib/pipeline/admission-lifecycle": loadTypeScriptModule(process.cwd(), "lib/pipeline/admission-lifecycle.ts"),
     "@/lib/demo/demo-environment": { getPipelineDemoEnvironment: () => ({ enabled: exampleOnly, writable: exampleOnly }) },
@@ -289,7 +368,7 @@ function deliveryFixture({ secureLink = false, rejectedSize = false, exampleOnly
   return {
     auditStates, metrics, audits, messages, packetReports, providerCalls: () => calls, reservationCalls: () => reservations,
     send: (referralId = "6", body = {}, delivery = "") => exports.POST(new Request(`http://localhost/api/referrals/6/meet-client-email${delivery ? `?delivery=${delivery}` : ""}`, {
-      method: "POST", body: JSON.stringify({ confirmed: true, if_match: previewVersion, assessment_id: "synthetic-assessment", if_match_assessment: previewAssessmentVersion, recipients: ["synthetic@example.invalid"], client_mutation_id: "synthetic-delivery-fixture", packet_revision: "1".repeat(64), ...body }),
+      method: "POST", body: JSON.stringify({ confirmed: true, if_match: previewVersion, assessment_id: "synthetic-assessment", if_match_assessment: previewAssessmentVersion, recipients: ["synthetic@example.invalid"], client_mutation_id: "synthetic-delivery-fixture", packet_revision: "1".repeat(64), medication_review: { assessmentId: "synthetic-assessment", assessmentVersion: 7, inventory: ["Current fixture medication", "Historical fixture medication"], selected: ["Current fixture medication"], status: "confirmed" }, ...body }),
     }), { params: Promise.resolve({ referralId }) }),
   };
 }

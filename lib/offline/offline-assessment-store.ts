@@ -8,6 +8,7 @@ import {
 } from "@/lib/assessment/assessment-interview-schema";
 import {
   assessmentToolFieldDefinitions,
+  type AssessmentToolFieldKey,
   type AssessmentToolSection,
 } from "@/lib/assessment/assessment-tool-schema";
 import type { PipelineAssessmentDraft } from "@/lib/pipeline/user-workspace-state-types";
@@ -54,6 +55,7 @@ export type OfflineAssessmentQuestion = Pick<
 
 export type OfflineAssessmentWorkingSet = {
   schema: 1;
+  conflictingAnswers?: Array<{ field: AssessmentToolFieldKey; value: PipelineAssessmentDraft["data"][AssessmentToolFieldKey] }>;
   savedAt: string;
   returnPath: string;
   editable: boolean;
@@ -149,44 +151,79 @@ export async function saveOfflineAssessmentWorkingSet(
   principalId: string,
   draft: PipelineAssessmentDraft,
   returnPath: string,
-  options: { editable: boolean; activate?: boolean },
+  options: { editable: boolean; activate?: boolean; editedFields: AssessmentToolFieldKey[]; resolvedFields?: AssessmentToolFieldKey[] },
 ) {
   const database = await openDatabase();
   const principal = await hashValue(principalId);
   if (options.activate !== false) await enforceActivePrincipal(database, principal);
   const key = await getOrCreateKey(database, principal);
   const id = await recordId(principal, "assessment-working-set", draft.assessmentId);
-  const workingSet = createWorkingSet(draft, returnPath, options.editable);
-  const encrypted = await encryptPayload(key, principal, id, workingSet);
-  const now = Date.now();
-  const transaction = database.transaction([recordsStore, activeStore], "readwrite");
-  const activeRequest = transaction.objectStore(activeStore).get(activeAssessmentKey);
-  activeRequest.onsuccess = () => {
-    const previousActive = activeRequest.result as StoredActiveAssessment | undefined;
-    // A late save acknowledgment can refresh the active offline copy, but must
-    // never reactivate an old assessment or remove the one now being worked on.
-    if (options.activate === false && previousActive?.recordId !== id) return;
-    if (previousActive?.recordId && previousActive.recordId !== id) {
-      transaction.objectStore(recordsStore).delete(previousActive.recordId);
+  const write = async () => {
+    const stored = await request<StoredRecord | undefined>(database.transaction(recordsStore).objectStore(recordsStore).get(id));
+    let workingDraft = draft;
+    let conflictingAnswers: NonNullable<OfflineAssessmentWorkingSet["conflictingAnswers"]> = [];
+    if (stored && stored.expiresAt > Date.now()) {
+      const previousWorkingSet = await decryptPayload<OfflineAssessmentWorkingSet>(key, principal, id, stored);
+      const previous = previousWorkingSet.draft;
+      const data = { ...draft.data };
+      const baseData = { ...draft.baseData };
+      const workbookSources = { ...draft.workbookSources };
+      const dirtySections = new Set(draft.dirtySections);
+      conflictingAnswers = (previousWorkingSet.conflictingAnswers ?? [])
+        .filter(({ field }) => !options.resolvedFields?.includes(field));
+      for (const { key: field, section } of assessmentToolFieldDefinitions) {
+        if (options.resolvedFields?.includes(field)) continue;
+        const previousChanged = JSON.stringify(previous.data[field]) !== JSON.stringify(previous.baseData[field]);
+        const incomingChanged = JSON.stringify(draft.data[field]) !== JSON.stringify(draft.baseData[field]);
+        const same = JSON.stringify(previous.data[field]) === JSON.stringify(draft.data[field]);
+        if (!previousChanged || same) continue;
+        if (incomingChanged || options.editedFields.includes(field)) {
+          if (!conflictingAnswers.some((answer) => answer.field === field && JSON.stringify(answer.value) === JSON.stringify(previous.data[field]))) {
+            conflictingAnswers.push({ field, value: previous.data[field] });
+          }
+          dirtySections.add(section);
+          continue;
+        }
+        // An unrelated snapshot cannot retire an unsaved answer in another tab.
+        data[field] = previous.data[field] as never;
+        baseData[field] = previous.baseData[field] as never;
+        if (previous.workbookSources?.[field]) workbookSources[field] = previous.workbookSources[field];
+        else delete workbookSources[field];
+        dirtySections.add(section);
+      }
+      workingDraft = {
+        ...draft, data, baseData, workbookSources, dirtySections: [...dirtySections],
+        scheduleDraft: draft.scheduleDraft ?? previous.scheduleDraft,
+      };
     }
-    transaction.objectStore(recordsStore).put({
-      id,
-      principal,
-      kind: "assessment-working-set",
-      updatedAt: now,
-      expiresAt: now + expiryMs,
-      ...encrypted,
-    } satisfies StoredRecord);
-    transaction.objectStore(activeStore).put({
-      id: activeAssessmentKey,
-      principal,
-      recordId: id,
-      updatedAt: now,
-      expiresAt: now + expiryMs,
-    } satisfies StoredActiveAssessment);
+    const workingSet = {
+      ...createWorkingSet(workingDraft, returnPath, options.editable),
+      conflictingAnswers: conflictingAnswers.filter(({ field, value }) => JSON.stringify(value) !== JSON.stringify(workingDraft.data[field])),
+    };
+    const encrypted = await encryptPayload(key, principal, id, workingSet);
+    const now = Date.now();
+    const transaction = database.transaction([recordsStore, activeStore], "readwrite");
+    const activeRequest = transaction.objectStore(activeStore).get(activeAssessmentKey);
+    activeRequest.onsuccess = () => {
+      const previousActive = activeRequest.result as StoredActiveAssessment | undefined;
+      if (options.activate === false && previousActive?.recordId !== id) return;
+      if (previousActive?.recordId && previousActive.recordId !== id) transaction.objectStore(recordsStore).delete(previousActive.recordId);
+      transaction.objectStore(recordsStore).put({
+        id, principal, kind: "assessment-working-set", updatedAt: now, expiresAt: now + expiryMs, ...encrypted,
+      } satisfies StoredRecord);
+      transaction.objectStore(activeStore).put({
+        id: activeAssessmentKey, principal, recordId: id, updatedAt: now, expiresAt: now + expiryMs,
+      } satisfies StoredActiveAssessment);
+    };
+    await transactionDone(transaction);
   };
-  await transactionDone(transaction);
-  database.close();
+  try {
+    // Serialize the encrypted read/merge/write across tabs when the browser supports Web Locks.
+    if (navigator.locks) await navigator.locks.request(`pipeline-assessment:${id}`, write);
+    else await write();
+  } finally {
+    database.close();
+  }
 }
 
 export async function loadOfflineAssessmentWorkingSet(principalId: string, assessmentId: string) {

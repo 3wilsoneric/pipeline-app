@@ -160,9 +160,9 @@ export function activityEventProvenance(event: {
 }) {
   return [
     { label: "Source", value: activitySourceLabel(event.source) },
-    { label: event.source === "audit" ? "Audit event" : "Entry", value: event.event_id },
+    { label: event.source === "audit" ? "Audit event" : "Entry", value: event.source === "record" && event.entity_type === "referral" ? "Derived referral event" : event.event_id },
     ...(event.entity_type
-      ? [{ label: "Record", value: `${entityLabels[event.entity_type] ?? humanize(event.entity_type)} ${event.entity_id ?? ""}`.trim() }]
+      ? [{ label: "Record", value: event.entity_type === "referral" ? "Referral" : `${entityLabels[event.entity_type] ?? humanize(event.entity_type)} ${event.entity_id ?? ""}`.trim() }]
       : []),
     { label: "Action code", value: event.action },
     ...(event.from_version !== null || event.to_version !== null

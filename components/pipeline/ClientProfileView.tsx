@@ -397,7 +397,7 @@ function ClientWorkspaceHistory({
           >
             <span className="min-w-0">
               <strong className="block truncate text-[13px] text-[#17231e]">{referral.community}</strong>
-              <span className="mt-1 block text-[10px] text-[#69726e]">Workspace #{referral.id} · {referral.owner ? `Source owner: ${referral.owner}` : "Source owner not recorded"}</span>
+              <span className="mt-1 block text-[10px] text-[#69726e]">{referral.owner ? `Source owner: ${referral.owner}` : "Source owner not recorded"}</span>
             </span>
             <span className="flex items-center gap-2 text-[10px] font-black text-[#0f8b73]">
               Open
@@ -686,7 +686,7 @@ export function ClientDocumentGallery({ documents }: { documents: ReferralFile[]
             </div>
             <div className="mt-2 break-words text-[12px] font-black leading-5 text-[#111111]">{document.name}</div>
             <div className="mt-2 text-[10px] leading-4 text-[#737373]">
-              {document.referralId ? `Referral #${document.referralId}` : "Client file"}{document.community ? ` · ${document.community}` : ""}
+              {document.referralId ? "Referral file" : "Client file"}{document.community ? ` · ${document.community}` : ""}
               {document.pageCount ? ` · ${document.pageCount} page${document.pageCount === 1 ? "" : "s"}` : ""}
             </div>
             <div className="mt-1 text-[10px] text-[#737373]">Uploaded {formatDate(document.uploadedAt)}</div>

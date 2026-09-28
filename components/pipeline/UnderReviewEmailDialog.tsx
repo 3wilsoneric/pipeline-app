@@ -9,8 +9,7 @@ export function defaultUnderReviewMessage(referralId: number, note: string) {
   return `An assessor marked this referral Under Review.\n\n${note.trim() ? `Context:\n${note.trim()}\n\n` : ""}Open the Pipeline workspace to review and follow up:\n${workspaceUrl}`;
 }
 
-export default function UnderReviewEmailDialog({ referralId, initialMessage, sending, error, onSend, onClose }: {
-  referralId: number;
+export default function UnderReviewEmailDialog({ initialMessage, sending, error, onSend, onClose }: {
   initialMessage: string;
   sending: boolean;
   error: string;
@@ -23,7 +22,6 @@ export default function UnderReviewEmailDialog({ referralId, initialMessage, sen
       <div className="space-y-4 px-5 py-5 text-[14px] text-[#34453d]">
         <div><span className="font-semibold">To</span><p>andrew@aaahealthservices.com; sandeep@aaahealthservices.com</p></div>
         <div><span className="font-semibold">Subject</span><p>Pipeline referral under review</p></div>
-        <div><span className="font-semibold">Workspace</span><p>Referral #{referralId}</p></div>
         <label className="block font-semibold" htmlFor="under-review-email-message">Message</label>
         <textarea id="under-review-email-message" autoFocus value={message} onChange={(event) => setMessage(event.target.value)} rows={9} maxLength={4000} className="w-full resize-y rounded-md border border-[#cbd6d2] px-3 py-2 font-normal leading-6 focus-visible:outline-2 focus-visible:outline-[#087d66]" />
         {error ? <p role="alert" className="text-[#9b433b]">{error}</p> : null}

@@ -165,7 +165,7 @@ function LifecycleCard({ item, showOwner, onOpenPacket }: {
     <span data-folder-body className={`${folderStyles.body} ${boardStyles.body}`}>
       <span className={`${folderStyles.paper} ${boardStyles.paper}`}>
         <span className={boardStyles.fileIndex}>
-          <span>{item.packet_sent_at ? `Packet sent ${formatProfileDate(item.packet_sent_at)}` : `Referral #${item.referral_id}`}</span>
+          <span>{item.packet_sent_at ? `Packet sent ${formatProfileDate(item.packet_sent_at)}` : "Referral received"}</span>
           {item.received_at ? <span>Received {formatProfileDate(item.received_at)}</span> : null}
         </span>
         <span className={boardStyles.nextStep}>

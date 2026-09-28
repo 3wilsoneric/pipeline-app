@@ -22,6 +22,8 @@ export type AssessmentFieldConflict = {
   localValue: AssessmentToolData[AssessmentToolFieldKey];
   remoteValue: AssessmentToolData[AssessmentToolFieldKey];
   section: AssessmentToolSection;
+  source?: "browser-drafts";
+  alternatives?: AssessmentToolData[AssessmentToolFieldKey][];
 };
 
 export type AssessmentRemoteChange = {

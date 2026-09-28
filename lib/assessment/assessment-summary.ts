@@ -33,6 +33,7 @@ export type MeetClientSummary = {
   admissionDate: string;
   bio: string[];
   medications: string[];
+  medicationStatus?: "none" | "unconfirmed";
   medicationNotes: AssessmentSummaryItem[];
   supportSnapshot: AssessmentSummaryItem[];
   admissionNotes?: AssessmentSummaryItem[];
@@ -144,9 +145,7 @@ export function buildMeetClientSummary(
   assessment: PipelineAssessmentRecord,
   referral: AssessmentReferralContext,
 ): MeetClientSummary {
-  const medications = cleanList(assessment.medications_at_intake).length > 0
-    ? cleanList(assessment.medications_at_intake)
-    : splitMedicationFallback(referral.currentMedications);
+  const medications = cleanList(assessment.medications_at_intake);
   return {
     name: assessmentClientName(assessment, referral),
     dateOfBirth: assessment.date_of_birth || referral.dob,
@@ -231,7 +230,11 @@ function buildMedicationHandoff(assessment: PipelineAssessmentRecord): Assessmen
   return [
     ...buildItems(assessment, [["medication_adherence", "Medication support"], ["prn_patterns", "PRN pattern and effect"]]),
     { label: "IM injections", value: formatValue(assessment.im_injections, "im_injections") || "Not recorded; confirm with the referring team." },
-    ...(includeInjectionDetails ? injectionFields.map(([key, label]) => ({ label, value: assessment[key]?.trim() || "Not recorded; confirm with the referring team." })) : []),
+    ...(includeInjectionDetails ? injectionFields.map(([key, label]) => {
+      const recorded = assessment[key]?.trim() ?? "";
+      const value = key === "last_injection" || key === "next_injection_due" ? formatMeetClientDate(recorded) : recorded;
+      return { label, value: value || "Not recorded; confirm with the referring team." };
+    }) : []),
   ];
 }
 
@@ -321,8 +324,14 @@ function cleanList(value: unknown) {
     : [];
 }
 
-function splitMedicationFallback(value: string | undefined) {
-  return (value ?? "").split(/\r?\n|;/).map((entry) => entry.trim()).filter(Boolean);
+export function formatMeetClientDate(value: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return value;
+  const [, year, month, day] = match;
+  const parsed = new Date(`${year}-${month}-${day}T00:00:00.000Z`);
+  return parsed.getUTCFullYear() === Number(year) && parsed.getUTCMonth() + 1 === Number(month) && parsed.getUTCDate() === Number(day)
+    ? `${month}/${day}/${year}`
+    : value;
 }
 
 function compactItems(values: Array<AssessmentSummaryItem | null>) {

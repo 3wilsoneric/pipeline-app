@@ -1,4 +1,4 @@
-import type { MeetClientSummary } from "@/lib/assessment/assessment-summary";
+import { formatMeetClientDate, type MeetClientSummary } from "@/lib/assessment/assessment-summary";
 import type { MeetClientMessage } from "./meet-client-message";
 
 export function renderMeetClientEmail(
@@ -26,20 +26,20 @@ function renderEmailHeader(options: { demo?: boolean; logoUrl?: string }) {
 function meetClientContent(summary: MeetClientSummary, attachmentNames: string[], body?: string | null) {
   const identityRows = [
     ["Name", summary.name],
-    ["Date of birth", summary.dateOfBirth],
+    ["Date of birth", formatMeetClientDate(summary.dateOfBirth)],
     ["Community", summary.community],
-    ["Admission date", summary.admissionDate],
-    ["Assessment date", summary.assessmentDate],
+    ["Admission date", formatMeetClientDate(summary.admissionDate)],
+    ["Assessment date", formatMeetClientDate(summary.assessmentDate)],
   ];
   if (body != null) return {
-    html: `${table(identityRows)}<div style="white-space:pre-wrap">${escapeHtml(body)}</div>${emailSection("Admission packet", attachmentNames)}`,
-    text: body, edited: true,
+    html: `${table(identityRows)}<div style="white-space:pre-wrap">${escapeHtml(body)}</div>${emailItemSection("Current medications for handoff", [{ label: "Confirmed current list", value: currentMedicationText(summary) }])}${emailSection("Admission packet", attachmentNames)}`,
+    text: `${body}\n\nCurrent medications for handoff\n${currentMedicationText(summary)}`, edited: true,
   };
   return { html: defaultMeetClientContent(summary, identityRows, attachmentNames), text: meetClientMessageText(summary), edited: false };
 }
 
 function defaultMeetClientContent(summary: MeetClientSummary, identityRows: string[][], attachmentNames: string[]) {
-  const medicationRows = [{ label: "Recorded medications", value: summary.medications.length ? summary.medications.join("\n") : "Not recorded; confirm the medication list with the referring team." }, ...summary.medicationNotes];
+  const medicationRows = [{ label: "Current medications for handoff", value: currentMedicationText(summary) }, ...summary.medicationNotes];
   return `${admissionIntroduction(summary)}${table(identityRows)}${emailItemSection("Admission & coordination", summary.admissionNotes ?? [])}${emailSection("Meet the client", summary.bio)}${emailItemSection("Med room", medicationRows)}${emailItemSection("Behavior & safety", summary.safetyNotes ?? [])}${emailItemSection("Allergies & diet", summary.dietaryNotes ?? [])}${emailItemSection("Billing team", summary.billingNotes ?? [])}${emailItemSection("Support snapshot", summary.supportSnapshot)}${emailSection("Admission packet", attachmentNames)}`;
 }
 
@@ -50,15 +50,19 @@ function meetClientMessageText(summary: MeetClientSummary) {
     "Hello team,\n\nPlease review the handoff details below and the admission packet.",
     items("Admission & coordination", summary.admissionNotes ?? []),
     summary.bio.length ? `Meet the client\n${summary.bio.join("\n")}` : "",
-    items("Med room", [{ label: "Recorded medications", value: summary.medications.join("\n") || "Not recorded; confirm the medication list with the referring team." }, ...summary.medicationNotes]),
+    items("Med room", [{ label: "Current medications for handoff", value: currentMedicationText(summary) }, ...summary.medicationNotes]),
     items("Behavior & safety", summary.safetyNotes ?? []),
     items("Allergies & diet", summary.dietaryNotes ?? []),
     items("Billing team", summary.billingNotes ?? []),
     items("Support snapshot", summary.supportSnapshot),
   ].filter(Boolean).join("\n\n");
 }
+function currentMedicationText(summary: MeetClientSummary) {
+  if (summary.medicationStatus === "none") return "No current medications reported in this handoff. Verify against the medication administration record.";
+  return summary.medications.join("\n") || "Current medications not confirmed. Verify with the referring team before administration.";
+}
 function admissionIntroduction(summary: MeetClientSummary) {
-  const arrival = summary.admissionDate ? `scheduled for admission on ${summary.admissionDate}` : "being prepared for admission (date to be confirmed)";
+  const arrival = summary.admissionDate ? `scheduled for admission on ${formatMeetClientDate(summary.admissionDate)}` : "being prepared for admission (date to be confirmed)";
   return `<p>Hello team,</p><p>The admission packet includes every file uploaded to this workspace, along with the client data sheet for <strong>${escapeHtml(summary.name)}</strong>, ${escapeHtml(arrival)}${summary.community ? ` at ${escapeHtml(summary.community)}` : ""}.</p><p>Please review the handoff details below and the admission packet. Unrecorded information is marked for confirmation, not assumed.</p>`;
 }
 

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
 
+import { presentClientName } from "@/lib/pipeline/client-identity-presentation.mjs";
 import type { Referral } from "@/lib/pipeline/referral-types";
 
 export type ReferralDuplicateCandidate = {
@@ -76,12 +77,12 @@ export default function DuplicateReferralReviewDialog({
             {review.candidates.map((candidate, index) => (
               <article key={candidate.referral_id} className="grid gap-3 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
                 <div>
-                  <div className="text-[13px] font-black text-[#111111]">{candidate.name}</div>
+                  <div className="text-[13px] font-black text-[#111111]">{presentClientName(candidate.name, candidate.referral_id)}</div>
                   <div className="mt-1 text-[11px] text-[#595959]">
                     {candidate.county || "County not recorded"} · {candidate.community} · DOB {candidate.date_of_birth || "not recorded"}
                   </div>
                   <div className="mt-1 text-[10px] text-[#737373]">
-                    Referral #{candidate.referral_id} · Received {candidate.referral_received || "not recorded"} · {candidate.owner || "Unassigned"} · {candidate.in_trash ? "In Trash" : candidate.stage}
+                    Received {candidate.referral_received || "not recorded"} · {candidate.owner || "Unassigned"} · {candidate.in_trash ? "In Trash" : candidate.stage}
                   </div>
                 </div>
                 <button

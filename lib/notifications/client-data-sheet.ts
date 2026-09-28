@@ -1,7 +1,7 @@
 import "server-only";
 import { join } from "node:path";
 import { loadImage, PDFDocument, type CanvasRenderingContext2D, type Image, type SKRSContext2D } from "@napi-rs/canvas";
-import { buildAdmissionAgreementSummary, type AssessmentSummaryReport, type AssessmentSummaryItem } from "@/lib/assessment/assessment-summary";
+import { buildAdmissionAgreementSummary, formatMeetClientDate, type AssessmentSummaryReport, type AssessmentSummaryItem } from "@/lib/assessment/assessment-summary";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import { getPlannedAdmissionDate } from "@/lib/pipeline/admission-lifecycle";
 
@@ -17,19 +17,19 @@ type PdfPageContext = CanvasRenderingContext2D & Pick<SKRSContext2D, "drawImage"
 export async function renderClientDataSheet(report: AssessmentSummaryReport | null, referral: Referral): Promise<Buffer> {
   const logo = await (alamoLogo ??= loadImage(join(process.cwd(), "public/brand/alamo-health-management.png")));
   const identity = report?.identity.map((item) => item.label === "Community" && referral.community
-    ? { ...item, value: referral.community } : item) ?? [
-    { label: "Name", value: referral.name }, { label: "Date of birth", value: referral.dob },
+    ? { ...item, value: referral.community } : { ...item, value: formatMeetClientDate(item.value) }) ?? [
+    { label: "Name", value: referral.name }, { label: "Date of birth", value: formatMeetClientDate(referral.dob) },
     { label: "Community", value: referral.community }, { label: "Referrer", value: referral.source },
   ];
   const sheet = new DataSheet(referral.name, logo);
-  sheet.text(report?.signed ? `Signed ${report.signedAt ?? ""} by ${report.signedBy}` : "Working chart - not signed", 10, false, "#596d64");
+  sheet.text(report?.signed ? `Signed ${formatSignedTimestamp(report.signedAt)} by ${report.signedBy}` : "Working chart - not signed", 10, false, "#596d64");
   sheet.section("Client & referral", identity);
   sheet.section("Admission", admissionItems(referral));
   const sections = report?.sections ?? [{ title: "Intake notes", items: [
     { label: "Summary", value: referral.note || "Not recorded" },
     { label: "Medications", value: referral.currentMedications || "Not recorded" },
   ] }];
-  for (const section of sections) sheet.section(section.title, section.items);
+  for (const section of sections) sheet.section(section.title, section.items.map((item) => ({ ...item, value: formatMeetClientDate(item.value) })));
   sheet.section("About this copy", [{ label: "Source record", value:
     `${report ? `Assessment ${report.assessmentId} - Version ${report.assessmentVersion}.` : "Assessment not yet recorded."} Referral version ${referral.version}. Snapshot only; later chart changes are not reflected in this copy.` }]);
   return sheet.close();
@@ -38,11 +38,20 @@ export async function renderClientDataSheet(report: AssessmentSummaryReport | nu
 function admissionItems(referral: Referral): AssessmentSummaryItem[] {
   return [
     buildAdmissionAgreementSummary(referral.requirements),
-    { label: "Admission date", value: getPlannedAdmissionDate(referral) || "Not recorded" },
+    { label: "Admission date", value: formatMeetClientDate(getPlannedAdmissionDate(referral)) || "Not recorded" },
     { label: "County", value: referral.county || "Not recorded" },
     { label: "Contact", value: [referral.phone, referral.email].filter(Boolean).join(" / ") || "Not recorded" },
     { label: "Coverage / payer", value: referral.payer || "Not recorded" },
   ];
+}
+
+function formatSignedTimestamp(value: string | null) {
+  if (!value) return "";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Los_Angeles", month: "2-digit", day: "2-digit", year: "numeric",
+    hour: "numeric", minute: "2-digit", timeZoneName: "short",
+  }).format(date);
 }
 
 class DataSheet {
