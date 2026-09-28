@@ -118,15 +118,15 @@ test("different unsaved answers in two tabs both survive closing the browser pag
     await other.waitForTimeout(800);
     await page.close({ runBeforeUnload: false });
     await other.close({ runBeforeUnload: false });
+    const unsaved = (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
+    expect(unsaved.prior_placements).toBeNull();
+    expect(unsaved.prior_5150_5250_holds).toBeNull();
 
     const reopened = await page.context().newPage();
     try {
       await reopened.goto(url);
       await expect(reopened.locator("#assessment-prior_placements")).toHaveValue("First tab's unsaved placement");
       await expect(reopened.getByRole("textbox", { name: /Prior 5150/ })).toHaveValue("Second tab's unsaved hold history");
-      const saved = (await (await reopened.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
-      expect(saved.prior_placements).toBeNull();
-      expect(saved.prior_5150_5250_holds).toBeNull();
     } finally {
       await reopened.close();
     }
@@ -249,6 +249,16 @@ test("leaving the assessment from two tabs keeps both unsaved answers", async ({
       await tab.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: "Chart", exact: true }).click();
       await expect(tab.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: "Chart", exact: true })).toHaveAttribute("aria-current", "page");
     }
+    const whileOwned = await page.context().newPage();
+    try {
+      await whileOwned.goto(url);
+      await expect(whileOwned.locator("#assessment-prior_placements")).toHaveValue("");
+      await expect(whileOwned.getByRole("textbox", { name: /Prior 5150/ })).toHaveValue("");
+    } finally {
+      await whileOwned.close();
+    }
+    await page.close({ runBeforeUnload: false });
+    await other.close({ runBeforeUnload: false });
     const reopened = await page.context().newPage();
     try {
       await reopened.goto(url);

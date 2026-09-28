@@ -276,8 +276,9 @@ export async function loadOfflineAssessmentWorkingSet(principalId: string, asses
     const available: OfflineAssessmentWorkingSet[] = [];
     let unreadable: unknown;
     for (const stored of records) {
-      // This read never changes another tab's slot. Keep its last snapshot
-      // available even when that tab has navigated away but remains open.
+      // An active tab owns its unsaved answers. Only merge another slot once
+      // that tab has closed and released its lifetime lock.
+      if (stored.sessionId !== sessionId && await isActiveOtherRecoverySession(stored.sessionId)) continue;
       try {
         const workingSet = await decryptPayload<OfflineAssessmentWorkingSet>(key, principal, stored.id, stored);
         if (workingSet.draft.assessmentId === assessmentId) available.push(workingSet);

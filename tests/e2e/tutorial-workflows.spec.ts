@@ -155,7 +155,7 @@ test("sign, accept, preview and simulate send stay local without confirming admi
   await page.getByLabel("Planned admission date", { exact: true }).fill("2026-10-04");
   await page.getByRole("button", { name: "Review email & packet", exact: true }).click();
   await expect(page.locator("#tutorial-step")).toHaveValue("6");
-  await expect(page.frameLocator('iframe[title="Sample Meet the Client email"]').getByText("2026-10-04", { exact: true })).toBeVisible();
+  await expect(page.frameLocator('iframe[title="Sample Meet the Client email"]').getByText("10/04/2026", { exact: true })).toBeVisible();
   await page.getByRole("checkbox", { name: "Recipients checked" }).check();
   await page.getByRole("button", { name: "Simulate send", exact: true }).click();
   await expect(page.getByRole("status")).toContainText("No email was sent");

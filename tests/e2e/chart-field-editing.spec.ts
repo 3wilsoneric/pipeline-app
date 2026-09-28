@@ -51,7 +51,7 @@ for (const [browserName, browserType] of [["chromium", chromium], ["webkit", web
         const url = `/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=chart`;
         await page.goto(url);
         const chart = page.getByRole("article", { name: "Referral chart", exact: true });
-        for (const field of ["Client", "Date of birth", "Gender", "Community", "Medications on record", "Conserved status"]) {
+        for (const field of ["Client", "Date of birth", "Gender", "Community", "Medication history", "Conserved status"]) {
           const edit = chart.getByRole("button", { name: `Edit ${field}`, exact: true });
           await expect(edit.locator("svg")).toBeVisible();
           // The pencil stays visible without repeating the editor hint on every field.

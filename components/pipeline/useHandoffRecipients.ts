@@ -164,7 +164,7 @@ export function useHandoffRecipients(referralId: number | undefined, community: 
       const stored = await fetchPipelineJson<{ draft: DraftFields & { community: string } | null; version: number }>(endpoint, { cache: "no-store" });
       if (session.current !== current) return;
       const persisted = stored.draft?.community === community ? stored.draft : null;
-      if (persisted && JSON.stringify({ to: persisted.to, cc: persisted.cc, message: persisted.message }) === JSON.stringify(current.fields)) {
+      if (persisted && JSON.stringify({ to: persisted.to, cc: persisted.cc, message: persisted.message, medicationReview: persisted.medicationReview ?? null }) === JSON.stringify(current.fields)) {
         current.version = stored.version;
         current.saved = JSON.stringify(current.fields);
         current.queued = current.saved;

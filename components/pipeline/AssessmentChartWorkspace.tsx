@@ -543,16 +543,17 @@ function HandoffReviewStep({ step, payload, draft, confirmed, onConfirmed, onBac
   onOpenFiles?: () => void; onOpenAssessment?: () => void;
 }) {
   const recipientCheckReady = confirmed && handoffDraftReady(draft) && Boolean(draft.fields.to.length);
-  const medicationCheckReady = medicationReviewReady(payload.report, payload.referral, draft) && handoffDraftReady(draft);
+  const medicationCheckReady = Boolean(draft?.editable) && medicationReviewReady(payload.report, payload.referral, draft);
   const [savingReview, setSavingReview] = useState(false);
   const [saveError, setSaveError] = useState("");
   const continueReview = async () => {
     if (step !== 1) { onContinue(); return; }
     if (!medicationCheckReady || !draft) return;
     setSavingReview(true); setSaveError("");
-    try { await draft.flush(); onContinue(); }
+    try { await draft.flush(); }
     catch (failure) { setSaveError(failure instanceof Error ? failure.message : "The medication review was not saved. Try again."); }
     finally { setSavingReview(false); }
+    onContinue();
   };
   return <div className={styles.composer}>
     <div className={styles.composeScroll}>

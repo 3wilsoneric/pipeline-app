@@ -13,7 +13,7 @@ export const referralChartEditFields = {
   Name: "name", Client: "name", Gender: "gender", "Date of birth": "dob", SSN: "ssn",
   Assessor: "owner", "Assigned assessor": "owner", "Referral received": "referralReceived", Community: "community",
   County: "county", "Referral source": "referent", "Responsible person": "responsiblePerson",
-  "Referrer name": "referrerName", Phone: "phone", Email: "email", "Medications on record": "currentMedications",
+  "Referrer name": "referrerName", Phone: "phone", Email: "email", "Medication history": "currentMedications", "Medications on record": "currentMedications",
   Conserved: "conserved", "Conserved status": "conserved",
 } as const;
 export type ReferralChartEditField = (typeof referralChartEditFields)[keyof typeof referralChartEditFields];
