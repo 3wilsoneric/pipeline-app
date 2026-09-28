@@ -1,3 +1,4 @@
+import { closeTestBrowser } from "./support/browser-lifecycle";
 import { chromium, expect, test, webkit, type Locator } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { confirmReferralFileLabels } from "./support/referral-upload";
@@ -86,7 +87,7 @@ for (const [name, browserType] of [["chromium", chromium], ["webkit", webkit]] a
       expect(inventory.find((file: {name: string}) => file.name === "saved-workspace-note.pdf").category).toBe("TB test");
       const saved = (await (await page.request.get(`/api/referrals/${referralId}`)).json()).referral;
       expect(saved.documentName).toBe("dropped-face-sheet.pdf");
-    } finally { await browser.close(); }
+    } finally { await closeTestBrowser(browser); }
   });
 
   test(`${name}: labeling is cancelable, validates files, and fits a phone`, async ({ baseURL }, info) => {
@@ -138,7 +139,7 @@ for (const [name, browserType] of [["chromium", chromium], ["webkit", webkit]] a
       });
       expect(prevented).toBe(false);
       await expect(panel).not.toHaveAttribute("open");
-    } finally { await browser.close(); }
+    } finally { await closeTestBrowser(browser); }
   });
 }
 

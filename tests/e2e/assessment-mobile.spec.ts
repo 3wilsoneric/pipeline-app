@@ -1,3 +1,4 @@
+import { closeTestBrowser } from "./support/browser-lifecycle";
 import { expect, test, webkit, type Page } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -232,7 +233,7 @@ test("WebKit iPad retains answers and reference access while editing and rotatin
       await page.screenshot({ path: info.outputPath(`reading-webkit-${size.width}.png`) });
     }
   } finally {
-    await browser.close();
+    await closeTestBrowser(browser);
   }
 });
 
@@ -258,7 +259,7 @@ test("WebKit touch editing can find, edit and return to the same answer", async 
     await page.screenshot({ path: info.outputPath("assessment-webkit-phone.png") });
     await context.close();
   } finally {
-    await browser.close();
+    await closeTestBrowser(browser);
   }
 });
 

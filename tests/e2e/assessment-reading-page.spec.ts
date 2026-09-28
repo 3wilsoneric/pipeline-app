@@ -1,3 +1,4 @@
+import { closeTestBrowser } from "./support/browser-lifecycle";
 import { expect, test, webkit } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { createOperationalReferral } from "./support/operational-api";
@@ -71,5 +72,5 @@ test("iPad reading page supports touch editing and leaves section navigation int
     await expect(reference).not.toContainText("facility discharge note");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await expect(page.getByRole("button", { name: "Next section", exact: true })).toBeVisible();
-  } finally { await browser.close(); }
+  } finally { await closeTestBrowser(browser); }
 });

@@ -1,3 +1,4 @@
+import { closeTestBrowser } from "./support/browser-lifecycle";
 import { expect, test, webkit } from "@playwright/test";
 import type { AxeResults } from "axe-core";
 import { createServer, request as httpRequest } from "node:http";
@@ -51,7 +52,7 @@ test("iPad WebKit loads the app manifest and recovers from an offline launch", a
     await page.goto("/");
     await expect(page.getByRole("button", { name: "Open referrals", exact: true })).toBeVisible();
   } finally {
-    await browser.close();
+    await closeTestBrowser(browser);
     server.closeAllConnections();
     await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
   }
@@ -109,7 +110,7 @@ for (const size of [
       await expect(dialog).toHaveCount(0);
       await expect(page.locator("body")).not.toHaveCSS("overflow", "hidden");
     } finally {
-      await browser.close();
+      await closeTestBrowser(browser);
     }
   });
 }

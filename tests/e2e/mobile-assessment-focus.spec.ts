@@ -1,3 +1,4 @@
+import { closeTestBrowser } from "./support/browser-lifecycle";
 import { expect, test, webkit, type Page } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { createOperationalReferral, startOperationalAssessment } from "./support/operational-api";
@@ -168,7 +169,7 @@ test("iPhone WebKit supports portrait, landscape and iPad without replacing answ
       return (await axe.run('[data-phone-interview], [data-phone-header], [data-testid="workspace-folder-header"]', { runOnly: ["color-contrast", "button-name", "select-name", "aria-valid-attr-value"] })).violations;
     });
     expect(violations).toEqual([]);
-  } finally { await browser.close(); }
+  } finally { await closeTestBrowser(browser); }
 });
 
 // Batch 4, item 10: the phone keeps its one-question flow and the working
