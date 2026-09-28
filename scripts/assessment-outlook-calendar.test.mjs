@@ -35,7 +35,7 @@ test("Outlook invitations create once, update the assigned attendee, and cancel 
     const row = { assessment_id: "synthetic-assessment", transaction_id: randomUUID(), event_id: null };
     const appointment = {
       referral_id: 3000, scheduled_start_at: "2026-10-20T17:00:00Z", scheduled_duration_minutes: 60,
-      scheduled_location: "Phone", schedule_status: "scheduled", assessor_id: "assessor-a",
+      scheduled_method: "phone", scheduled_location: "", schedule_status: "scheduled", assessor_id: "assessor-a",
       assessor_email: "one@example.test", workspace_status: "active", deleted_at: null,
     };
     globalThis.fetch = async (url, init) => { calls.push({ url, init }); return response(201, { id: "graph-event-1" }); };
@@ -44,6 +44,7 @@ test("Outlook invitations create once, update the assigned attendee, and cancel 
     assert.equal(created.transactionId, row.transaction_id);
     assert.equal(created.subject, "Pipeline assessment");
     assert.equal(created.sensitivity, "private");
+    assert.equal(created.location.displayName, "Phone");
     assert.deepEqual(created.attendees.map(item => item.emailAddress.address), ["one@example.test"]);
     assert.equal(created.start.timeZone, "UTC");
     assert.equal(created.end.dateTime, "2026-10-20T18:00:00.000");
@@ -58,10 +59,11 @@ test("Outlook invitations create once, update the assigned attendee, and cancel 
         end: { dateTime: "2026-10-20T18:00:00Z" }, location: { displayName: "Phone" },
         attendees: [{ emailAddress: { address: "one@example.test" } }] });
     };
-    const rescheduled = { ...appointment, assessor_email: "two@example.test", scheduled_start_at: "2026-10-20T19:00:00Z" };
+    const rescheduled = { ...appointment, assessor_email: "two@example.test", scheduled_method: "video", scheduled_start_at: "2026-10-20T19:00:00Z" };
     assert.deepEqual(await sync({ ...row, event_id: "graph-event-1" }, rescheduled), { eventId: "graph-event-1" });
     assert.deepEqual(calls.map(call => call.init.method), [undefined, "PATCH"]);
     assert.deepEqual(JSON.parse(calls[1].init.body).attendees.map(item => item.emailAddress.address), ["two@example.test"]);
+    assert.equal(JSON.parse(calls[1].init.body).location.displayName, "Video");
 
     calls.length = 0;
     globalThis.fetch = async (url, init) => {

@@ -15,6 +15,7 @@ type Appointment = {
   referral_id: number | string;
   scheduled_start_at: Date | string | null;
   scheduled_duration_minutes: number | string | null;
+  scheduled_method: string | null;
   scheduled_location: string | null;
   schedule_status: string;
   assessor_id: string | null;
@@ -104,7 +105,7 @@ async function loadAppointment(assessmentId: string): Promise<Appointment | null
   const sql = getPipelineSql();
   const rows = await sql<Appointment[]>`
     select a.referral_id, a.scheduled_start_at, a.scheduled_duration_minutes,
-      a.scheduled_location, a.schedule_status, a.assessor_id,
+      a.scheduled_method, a.scheduled_location, a.schedule_status, a.assessor_id,
       m.email as assessor_email, r.workspace_status, r.deleted_at
     from pipeline.assessments a
     join pipeline.referrals r on r.referral_id = a.referral_id
@@ -135,7 +136,9 @@ async function synchronizeEvent(row: Claim, appointment: Appointment | null): Pr
   const duration = Number(appointment.scheduled_duration_minutes);
   if (!Number.isFinite(start) || !Number.isFinite(duration) || duration <= 0) throw new GraphCalendarError("invalid_schedule");
   const end = start + duration * 60_000;
-  const location = appointment.scheduled_location?.trim().slice(0, 255) ?? "";
+  const methodLabels: Record<string, string> = { in_person: "In person", phone: "Phone", zoom: "Zoom", video: "Video", record_review: "Record review" };
+  const method = methodLabels[appointment.scheduled_method ?? ""] ?? "";
+  const location = [method, appointment.scheduled_location?.trim()].filter(Boolean).join(" · ").slice(0, 255);
   const desired = {
     subject: "Pipeline assessment",
     body: { contentType: "HTML", content: `<p>Open this assessment in <a href="${workspaceUrl(appointment.referral_id)}">Pipeline</a>. Sign in to view client details.</p>` },
