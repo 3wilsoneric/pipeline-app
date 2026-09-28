@@ -1,4 +1,5 @@
 import "server-only";
+import { supervisorQueuePage } from "./supervisor-queue-page";
 import { getPlannedAdmissionDate, isAwaitingAdmission } from "./admission-lifecycle";
 
 import type { PipelineUser } from "@/lib/auth/pipeline-auth";
@@ -198,7 +199,7 @@ export async function getOperationsDashboardSnapshot(
   return {
     snapshot: buildOperationsSnapshot(operational, assessmentReport),
     supervisorQueue: includeSupervisorQueue
-      ? await buildSupervisorExceptionSnapshot(operational)
+      ? supervisorQueuePage(await buildSupervisorExceptionSnapshot(operational))
       : null,
   };
 }
@@ -579,7 +580,11 @@ async function buildSupervisorExceptionSnapshot(
 
   const sorted = dedupeExceptions(items).sort(compareSupervisorExceptions);
   const counts: SupervisorExceptionSnapshot["counts"] = {};
-  for (const item of sorted) counts[item.kind] = (counts[item.kind] ?? 0) + 1;
+  const severityCounts = { critical: 0, attention: 0, review: 0 };
+  for (const item of sorted) {
+    counts[item.kind] = (counts[item.kind] ?? 0) + 1;
+    severityCounts[item.severity] += 1;
+  }
   recordPipelineMetric("pipeline.queue.supervisor_exceptions", sorted.length, "count", {
     operation: "supervisor_queue",
     result: sorted.length > 0 ? "attention" : "clear",
@@ -588,7 +593,8 @@ async function buildSupervisorExceptionSnapshot(
     generated_at: operational.now.toISOString(),
     total: sorted.length,
     counts,
-    items: sorted.slice(0, 250),
+    severity_counts: severityCounts,
+    items: sorted,
   };
 }
 
@@ -721,7 +727,8 @@ function compareSupervisorExceptions(left: SupervisorExceptionItem, right: Super
   return rank[right.severity] - rank[left.severity]
     || (left.due_at ?? "9999").localeCompare(right.due_at ?? "9999")
     || (right.age_hours ?? 0) - (left.age_hours ?? 0)
-    || left.label.localeCompare(right.label);
+    || left.label.localeCompare(right.label)
+    || left.id.localeCompare(right.id);
 }
 
 function ageHours(value: string, now: Date) {

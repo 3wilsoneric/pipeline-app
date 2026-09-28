@@ -216,6 +216,8 @@ export type SupervisorExceptionSnapshot = {
   total: number;
   counts: Partial<Record<SupervisorExceptionKind, number>>;
   items: SupervisorExceptionItem[];
+  next_offset?: number | null;
+  severity_counts?: Record<SupervisorExceptionItem["severity"], number>;
 };
 
 export type OperationsSnapshot = {

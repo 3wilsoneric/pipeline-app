@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { createOperationalAssessment, createOperationalReferral, startOperationalAssessment } from "./support/operational-api";
+import { openAllQuestions, openWorkspaceFiles, returnToAssessmentQuestions } from "./support/assessment-navigation";
 
 test.use({ serviceWorkers: "block" });
 test.skip(process.env.PIPELINE_DESKTOP_E2E !== "true", "Encrypted per-tab recovery is covered by desktop E2E.");
@@ -112,7 +113,7 @@ test("a second intake tab does not adopt an active tab's server recovery", async
   });
   await page.locator('[data-workspace-field="referent"] input').fill("First tab server copy");
   await page.locator('[data-workspace-field="referent"] input').blur();
-  await page.getByRole("button", { name: "Workspace files", exact: true }).click();
+  await openWorkspaceFiles(page);
   await expect.poll(async () => {
     const response = await page.request.get(`/api/me/referral-drafts/${referral.id}`);
     const payload = await response.json();
@@ -148,20 +149,28 @@ test("two assessment tabs keep separate encrypted copies when both server saves 
   try {
     await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=prior_history`);
     await expect(page.locator("#assessment-prior_placements")).toBeVisible();
+    // Editable fields do not wait on recovery initialization. Clone only once
+    // this tab has acquired the session that a real duplicated tab inherits.
+    await expect.poll(() => page.evaluate(() => sessionStorage.getItem("pipeline-recovery-session-v1"))).toBeTruthy();
     const inheritedSession = await page.evaluate(() => sessionStorage.getItem("pipeline-recovery-session-v1"));
     expect(inheritedSession).toBeTruthy();
     await second.addInitScript((value) => { if (!sessionStorage.getItem("pipeline-recovery-session-v1")) sessionStorage.setItem("pipeline-recovery-session-v1", value); }, inheritedSession!);
     await second.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=prior_history`);
+    // Both editors must be interactive before concurrent typing starts; fill()
+    // does not reject a visible textarea inside the restoring/inert workspace.
+    await expect(page.getByTestId("packet-workspace")).toHaveAttribute("aria-busy", "false");
+    await expect(second.getByTestId("packet-workspace")).toHaveAttribute("aria-busy", "false");
     await page.locator("#assessment-prior_placements").fill("First tab history");
     await second.locator("#assessment-prior_placements").fill("Second tab history");
-    await page.getByRole("button", { name: "Workspace files", exact: true }).click();
-    await second.getByRole("button", { name: "Workspace files", exact: true }).click();
+    await openWorkspaceFiles(page);
+    await openWorkspaceFiles(second);
     await expect.poll(() => countRecoveryRecords(page, "assessment-draft")).toBe(2);
+    expect(await second.evaluate(() => sessionStorage.getItem("pipeline-recovery-session-v1"))).not.toBe(inheritedSession);
     await page.reload();
     await second.reload();
-    await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: "Assessment", exact: true }).click();
-    await second.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: "Assessment", exact: true }).click();
-    await second.getByRole("button", { name: "All questions", exact: true }).click();
+    await returnToAssessmentQuestions(page);
+    await returnToAssessmentQuestions(second);
+    await openAllQuestions(second);
     await expect(page.locator("#assessment-prior_placements")).toHaveValue("First tab history");
     await expect(second.locator("#assessment-prior_placements")).toHaveValue("Second tab history");
   } finally {
@@ -179,8 +188,9 @@ test("a second assessment tab does not adopt an active tab's encrypted recovery"
     ? route.fulfill({ status: 503, json: { error: "Synthetic assessment save outage" } }) : route.continue());
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=prior_history`);
   await expect(page.locator("#assessment-prior_placements")).toBeVisible();
+  await expect(page.getByTestId("packet-workspace")).toHaveAttribute("aria-busy", "false");
   await page.locator("#assessment-prior_placements").fill("First tab history only");
-  await page.getByRole("button", { name: "Workspace files", exact: true }).click();
+  await openWorkspaceFiles(page);
   await expect.poll(() => countRecoveryRecords(page, "assessment-draft")).toBe(1);
   await expect.poll(() => countRecoveryRecords(page, "assessment-working-set")).toBe(1);
   await expect.poll(async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment.prior_placements).toBeNull();
@@ -191,7 +201,7 @@ test("a second assessment tab does not adopt an active tab's encrypted recovery"
     await second.addInitScript((value) => { if (!sessionStorage.getItem("pipeline-recovery-session-v1")) sessionStorage.setItem("pipeline-recovery-session-v1", value); }, inheritedSession!);
     await second.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=prior_history`);
     await expect.poll(() => second.evaluate(() => sessionStorage.getItem("pipeline-recovery-session-v1"))).not.toBe(inheritedSession);
-    await second.getByRole("button", { name: "All questions", exact: true }).click();
+    await openAllQuestions(second);
     await expect(second.locator("#assessment-prior_placements")).toBeVisible();
     await expect(second.locator("#assessment-prior_placements")).toHaveValue("");
   } finally {

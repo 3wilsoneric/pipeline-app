@@ -77,7 +77,7 @@ for (const width of [1440, 390]) test(`main navigation proceeds on a confirmed d
   await openCalendar(page, width);
   await expect(page).toHaveURL(/screen=calendar/);
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=intake`);
-  await expect(page.getByTestId("workspace-save-status")).toContainText("Saved on this device · waiting to sync");
+  await expect(page.getByTestId("workspace-save-status").or(page.getByRole("region", { name: "Saving", exact: true }))).toContainText("Saved on this device · waiting to sync");
   await page.getByRole("button", { name: "Edit referral details", exact: true }).click();
   await expect(page.locator('[data-workspace-field="referent"] input')).toHaveValue("Synthetic device-only source");
 });
@@ -127,7 +127,7 @@ test("failed recovery cleanup does not replay a chart edit already saved to the 
   const writesBeforeReload = chartWrites;
   await page.reload();
   await expect(page.getByTestId("packet-workspace")).toHaveAttribute("aria-busy", "false");
-  await expect(page.getByTestId("workspace-save-status")).not.toContainText("Restored edits");
+  await expect(page.getByTestId("workspace-save-status").or(page.getByRole("region", { name: "Saving", exact: true }))).not.toContainText("Restored edits");
   await expect(page.locator('[data-workspace-field="referent"] input')).toHaveValue("Synthetic saved source");
   expect(chartWrites).toBe(writesBeforeReload);
 });
@@ -160,7 +160,7 @@ test("server recovery left after a confirmed save is cleared without another cha
   expect(seeded.ok(), await seeded.text()).toBe(true);
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=intake`);
   await expect(page.getByTestId("packet-workspace")).toHaveAttribute("aria-busy", "false");
-  await expect(page.getByTestId("workspace-save-status")).not.toContainText("Restored edits");
+  await expect(page.getByTestId("workspace-save-status").or(page.getByRole("region", { name: "Saving", exact: true }))).not.toContainText("Restored edits");
   await expect.poll(async () => (await (await page.request.get(`/api/me/referral-drafts/${referral.id}`)).json()).draft).toBeNull();
   expect(chartWrites).toBe(0);
 });

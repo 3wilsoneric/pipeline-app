@@ -2,6 +2,8 @@
 
 Local branch: `design/redesign-switch`. Production/base: `b39c377c21d11ae9e03446171c7d4b5e21aea35f` (remote main rechecked during this pass). No push, PR, merge or deployment is authorized by this report.
 
+Current status is recorded in the follow-up below. The original review and its evidence are retained as historical results, not a claim that the current candidate has passed every hosted check.
+
 ## Integration
 
 The earlier save, navigation, upload and recovery repairs are already included through main's `448a6595` merge of PR #206. They were preserved, not copied again from an older dirty worktree. The unrelated primary checkout and the demo-generated `tsconfig.json` change are excluded.
@@ -43,3 +45,65 @@ A manual prebuilt operational run must build with `NEXT_PUBLIC_PIPELINE_DESKTOP_
 ## Deliberate limits
 
 Notes recover while the browser/device retains its encryption key and storage; clearing site data can remove unsynced recovery. True conflicting text requires a choice for that heading. Retry work cannot run while a browser is closed. Finish & send still leaves the rail only after admission/closure, not merely after sending; no workflow rule was changed to conceal that distinction.
+
+## Saving and non-blocking carry-over — 2026-09-27 (2026-09-28 UTC)
+
+Eric requested that the previous saving and non-blocking repairs carry into the redesign. Work continues locally on top of `95aa40c1fd72d482c4bce858b9100d284fb9edf5`; this follow-up has not been committed, pushed, merged or deployed. The automatic merge heartbeat is paused. The local demo changes in `DemoAssessmentLabButton.tsx`, `scripts/persona-demo.mjs` and `tsconfig.json` remain excluded from this work.
+
+### Regression coverage and repairs
+
+- Reused the existing desktop recovery tests instead of replacing them. `npm run test:e2e:save-recovery` covers out-of-order writes, newer edits during pending recovery, separate browser-tab recovery copies, offline reconciliation, navigation during save failures, late cleanup, lost acknowledgments, queued file bytes and labels, and non-blocking Decision edits. Layout-specific navigation now uses the existing assessment helpers; persisted-value, isolation and byte-identity assertions remain intact.
+- Added this command to both existing operational CI matrix jobs (`PIPELINE_DESIGN_V2=false/true`), reusing their production build. Both test configurations now isolate and clean up the Client Notes store too.
+- Fixed a redesign regression where keeping the assessment mounted skipped its exit recovery checkpoint. Leaving the visible questions now invokes the existing recovery/save owner in the background, without awaiting it to change tabs.
+- Fixed a kept-mounted handoff dialog remaining in the browser's modal layer after opening Files or Assessment. The dialog closes on those actions and does not render for an inactive workspace step; the test asserts no open dialog remains.
+- Preserved handoff review progress after confirming an admission date: its already-validated summary is marked current rather than reloaded as an external revision when the dialog closes.
+- Kept an unsaved admission-date/decision error visible across a background workflow refresh. A successful read is not a successful write. The lost-response test now checks the actual conflict alert instead of accepting Next's unrelated route announcer.
+
+### Local evidence
+
+- Final production build with desktop recovery enabled passed. On that same artifact, the focused browser command passed **40 tests with design off and 40 with design on**, zero failures. Each run retains one existing skip for a session-storage-only cleanup case that belongs to the non-desktop run; it was not removed or newly disabled. Logs: `/tmp/pipeline-carryover-reviewed-false.log` and `/tmp/pipeline-carryover-reviewed-true.log`.
+- Existing save unit tests: **38/38**. Notes recovery/local-store tests: **10/10**, with their real-PostgreSQL case not enabled in this follow-up. The earlier PostgreSQL evidence above is not a new run.
+- Additional focused operational tests: **24/24**, covering blur-only saves, uploads, phone Notes recovery, assessor navigation, acceptance recovery and workflow interaction. After the final workflow-refresh adjustment, all **3/3 acceptance recovery cases** were rerun successfully. Logs: `/tmp/pipeline-carryover-operational.log` and `/tmp/pipeline-carryover-reviewed-acceptance.log`.
+- The cloned-tab recovery scenario also passed three repetitions. Focused ESLint, TypeScript/build, workflow YAML validation and `git diff --check` passed. No baselines, thresholds, authorization or clinical workflow rules were weakened.
+- Local browser runs must be sequential when sharing a standalone build: `start-standalone.mjs` restages its static directory at startup. An earlier overlapping run served transient missing chunks; it is not counted as passing evidence. The final runs above were sequential.
+
+### Remaining blocker, not a green release
+
+PR #193 remains open at the original approved head and base. Its original [GitHub browser job](https://github.com/3wilsoneric/pipeline-app/actions/runs/36370519902/job/108766154743) failed: **33 failed, 9 flaky, 712 passed, 161 skipped** in the primary browser journeys. Examples include late assessment recovery/section restoration, sign-review-decision separation, workspace resume, chart keyboard editing and Home/Reports expectations. These require root-cause investigation; they have not been established as all stale tests or all application regressions. The focused local passes do not supersede that failure. Verify, security, PostgreSQL and both original operational jobs passed; later browser-job steps were not reached.
+
+Two additional local broad diagnostics were not green: `check:code-quality` stopped on missing registered temporary worktree directories, and `complexity:check` reported violations against the historical ratchet. Neither diagnostic, its baseline nor worktree registration was modified to obtain a pass; neither is included in the successful focused evidence above.
+
+Next: resolve the concrete hosted failures, obtain approval before pushing a revised candidate, and require passing hosted checks on that exact head before a newly approved merge. No production deployment or redesign activation is authorized by this follow-up. All browser data in this pass was synthetic/local; this is not production acceptance or a guarantee against every future failure.
+
+## Hosted browser failure repair — 2026-09-28 UTC
+
+The owner authorized repairing the failed browser checks locally. This section supersedes the investigation status above, not the original hosted result. PR #193 is still open at `95aa40c1`, with main/base `b39c377c`; no follow-up push, merge, deployment or production flag change has occurred.
+
+### Causes and narrow repairs
+
+- The hosted primary browser build/runtime omitted desktop workspace state even though its Home, resume, draft and handoff journeys require it. CI now enables the compile-time **and** server flags for that artifact/run, matching the production app's workspace-state capability. The browser-only recovery paths are retained in a separate non-desktop run; no skip condition, assertion or threshold was weakened to hide the mismatch.
+- The chart's successful supporting-records render introduced a different fragment nesting than its loading/error render. React remounted the intake controls when the response arrived, losing keyboard focus. The sibling slots now remain stable. A deterministic browser regression holds the supporting response until a chart pencil has focus, releases it, verifies the original element stayed mounted/focused, and edits/saves through it.
+- The existing `editPreparedAnswer` helper returned without clicking when a field was already visible. It now performs the edit-focus action its callers request.
+- The supervisor queue silently truncated the entire canonical snapshot at 250 entries. A failed downstream EHR handoff could therefore disappear from both the queue and its report. The canonical internal snapshot is complete; API/dashboard responses remain bounded to 250 entries per page. `Show all` follows the pages, retains the last successful view on failure, allows navigation/retry, and fences superseded requests. Portfolio severity totals no longer count only the first page. The EHR journey follows pagination and still requires its actual failed referral to be present.
+- Added route tests with 501 exceptions, including a failed EHR handoff on the final page, invalid-offset rejection before storage reads, and authentication on subsequent pages. These run in the existing non-browser contract gate. Added a 251-entry browser scenario for expansion, page failure, retry, collapse and opening the final recovery item.
+
+These are shared bug fixes, including with the design switch off; they do not change clinical writes, permissions, intake requirements or the visual redesign. No migration was changed.
+
+### Pagination limit
+
+Queue reads remain live, not a transaction spanning several browser requests. Stable tie-breaking and ID deduplication handle overlaps; a fresh read from page one reconciles entries whose priority changed between pages. The existing focus/minute refresh remains. Large, rapidly changing queues or measured slow expansion are the concrete trigger for server-side snapshot/keyset pagination and windowed rendering; this repair does not promise an immutable cross-page snapshot or unlimited rendering capacity.
+
+### Startup race investigation
+
+A later switch-on repetition exposed three test assumptions rather than new server-write failures. The retained failure trace showed `fill` completing while `packet-workspace` was still `inert` with `aria-busy=true`; no focus or input event reached the textarea, so there was no edit to save. The test now waits for the **existing bounded workspace restore**, without waiting on or changing saves. The duplicate-tab test waits for the first tab's recovery-session ID before cloning it; typing in the two tabs remains concurrent. The navigation helper moves the pointer outside an open hover preview before clicking the underlying record-rail control, without forced clicks or overlay bypasses. Temporary diagnostic instrumentation was removed. These changes add no application lock, debounce, artificial typing delay, or looser assertion.
+
+### Local repair evidence
+
+- After the runtime/focus repairs, **125/125 affected and adjacent browser scenarios passed** (`/tmp/pipeline-browser-repair-verified.log`). This includes Chromium/WebKit chart controls at desktop, tablet and phone sizes, Home/Reports, scheduling/resume, assessment sections and full-questionnaire behavior. This run preceded the queue-pagination change.
+- On the final application artifact, the expanded switch-off run passed **73 scenarios**, including all **40 save/recovery scenarios**, with the existing one mode-specific skip. Its sole failure was the newly added queue test using a synthetic name that the real first/last-name formatter shortened. The fixture was corrected; the focused rerun passed **4/4**, including queue failure/retry/final-item navigation, deterministic late-profile focus, and both previously failing chart/EHR end-to-end journeys. Logs: `/tmp/pipeline-final-off.log`, `/tmp/pipeline-final-browser-corrected.log`.
+- The separate non-desktop build passed **11/11 browser-only recovery scenarios**, with eight existing desktop-only cases skipped (`/tmp/pipeline-browser-recovery.log`). The lab-only access boundary passed **1/1** against the newly desktop-enabled browser artifact (`/tmp/pipeline-final-access.log`).
+- With startup/readiness assumptions corrected, the final switch-on save/recovery run passed **40/40**, with the same single non-desktop-only skip (`/tmp/pipeline-final-on-stable.log`). The cloned assessment-tab recovery case also passed **3/3 consecutive repetitions** with both editors interactive before concurrent typing (`/tmp/pipeline-clone-ready.log`). Earlier intermittent runs are retained as diagnostic evidence, not counted as passes.
+- The final switch-on chart focus, desktop/phone keyboard editing and queue expansion/retry checks passed **4/4** (`/tmp/pipeline-final-on-browser-ready.log`). The revised cross-tab save/isolation tests passed **10/10** again with the switch off (`/tmp/pipeline-final-off-updated-tests.log`), and the strengthened delayed-profile focus test passed there too (`/tmp/pipeline-final-off-focus-ready.log`). That focus test now verifies the workspace is interactive and the original control actually has focus before releasing the held response.
+- Save unit tests **38/38**; report/access and new pagination route tests **28/28**. Production build, TypeScript, focused ESLint, the unchanged design-token ratchet, workflow YAML parsing, API authorization-policy audit, supply-chain workflow checks and diff whitespace checks passed. No PostgreSQL migration or write owner was changed in this repair; prior PostgreSQL evidence is not represented as a new run.
+
+Hosted verification still requires an approved push of the revised candidate. The original failed GitHub run has not been restarted or bypassed, and its result remains failed. Local evidence is not a full hosted CI pass or production acceptance.

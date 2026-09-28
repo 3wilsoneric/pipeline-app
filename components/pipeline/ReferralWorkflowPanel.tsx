@@ -177,7 +177,9 @@ export default function ReferralWorkflowPanel({
       confirmedRecommendation.current = null;
     }
     setWorkflow(latest);
-    setError("");
+    // A refresh after a conflict is not a successful save of the open decision
+    // or admit-date draft. Keep its failure visible until the user retries.
+    if (!recommendationDirty.current && !admissionDateDirty.current) setError("");
     if (!recommendationDirty.current) {
       setRecommendationDraft({
         outcome: latest.decision ? (latest.decision.outcome === "accepted" ? "accept" : "decline") : latest.recommendation?.outcome ?? "",

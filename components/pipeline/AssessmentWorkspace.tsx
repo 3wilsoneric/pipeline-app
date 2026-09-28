@@ -1766,13 +1766,19 @@ export default function AssessmentWorkspace({
     };
   }, [beforeNavigationRef, beforeWorkspaceNavigationRef, contentRef, embeddedFolder, isFocused, phoneInterview, setAssessmentFocused, workspaceActive]);
 
-  const saveOnUnmount = useEffectEvent(() => {
+  const preserveWorkingDraft = useEffectEvent(() => {
     if (dirtySectionsRef.current.size > 0) void saveBeforeExit().catch(() => undefined);
   });
 
+  // The redesign keeps the editor mounted between steps. Preserve the same recovery
+  // checkpoint as an exit, without making navigation wait for either save path.
+  useEffect(() => {
+    if (designV2 && embeddedFolder && (!workspaceActive || !questionsOnScreen)) preserveWorkingDraft();
+  }, [designV2, embeddedFolder, workspaceActive, questionsOnScreen]);
+
   useEffect(() => () => {
     initializedAssessmentIdRef.current = null;
-    saveOnUnmount();
+    preserveWorkingDraft();
   }, []);
 
   const canLeaveRecommendationReview = () => {

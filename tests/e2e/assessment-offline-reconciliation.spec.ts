@@ -2,6 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { createOperationalAssessment, createOperationalReferral, startOperationalAssessment } from "./support/operational-api";
 import { pickAssessmentToolData } from "../../lib/assessment/assessment-tool-schema";
+import { openAssessmentChart, returnToAssessmentQuestions } from "./support/assessment-navigation";
 
 test("a delayed offline reconciliation cannot delete another open assessment's recovery draft", async ({ page }) => {
   test.skip(process.env.PIPELINE_DESKTOP_E2E !== "true", "Requires encrypted assessment recovery.");
@@ -31,10 +32,10 @@ test("a delayed offline reconciliation cannot delete another open assessment's r
   await input.blur();
   await expect(page.locator('[data-guide-target="assessment-save-status"]')).toContainText(/Offline|queued/i);
   // A real folder-tab navigation persists the complete encrypted recovery copy.
-  await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: "Chart", exact: true }).click();
+  await openAssessmentChart(page);
   await expect.poll(() => encryptedDraftExists(page)).toBe(true);
-  await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: "Assessment", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Edit Prior AWOL / failed placements", exact: true })).toContainText(localAnswer);
+  await returnToAssessmentQuestions(page);
+  await expectRecoveredAnswer(page, localAnswer);
 
   const remote = await page.request.patch(first.api, { data: {
     if_match: firstBefore.version, client_mutation_id: randomUUID(),
@@ -73,13 +74,21 @@ test("a delayed offline reconciliation cannot delete another open assessment's r
     expect(pickAssessmentToolData(await second.read())).toEqual(secondBefore);
     expect((await first.read()).prior_awol_failed_placements).toBe(remoteAnswer);
     await page.goto(first.href);
-    await expect(page.getByRole("button", { name: "Edit Prior AWOL / failed placements", exact: true })).toContainText(localAnswer);
+    await expectRecoveredAnswer(page, localAnswer);
     await expect(page.getByRole("button", { name: "Keep mine", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Keep mine", exact: true }).click();
     await expect.poll(async () => (await first.read()).prior_awol_failed_placements).toBe(localAnswer);
     expect(pickAssessmentToolData(await second.read())).toEqual(secondBefore);
   } finally { release(); await page.context().setOffline(false); }
 });
+
+async function expectRecoveredAnswer(page: Page, answer: string) {
+  if (process.env.PIPELINE_DESIGN_V2 === "true") {
+    await expect(page.getByRole("textbox", { name: "Prior AWOL / failed placements", exact: true })).toHaveValue(answer);
+  } else {
+    await expect(page.getByRole("button", { name: "Edit Prior AWOL / failed placements", exact: true })).toContainText(answer);
+  }
+}
 
 async function createFixture(page: Page, name: string) {
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name, owner: "", tags: [] });

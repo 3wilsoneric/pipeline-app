@@ -91,6 +91,8 @@ function WorkspaceClientChartLoader({ referral, headerActions, contactActions, a
       : <p role="status" className="py-4 text-[12px] text-[#68716d]">{intakeReferral ? "Loading supporting records..." : "Loading client chart..."}</p>}
     {assessment && !designV2 ? <ClientAssessmentRecord assessment={assessment} onEditField={onEditAssessmentField} /> : homeChart ? null : answers}
   </>;
-  return <>{homeChart ? <>{intakeChart}{process}</> : <>{standing}{intakeChart}</>}{standing ? null : checklist}<ClientChartRecord profile={profile} sourceReferralId={referral!.id} headerActions={headerActions} assessment={assessment} onEditReferralField={onEditReferralField} onEditAssessmentField={onEditAssessmentField}
+  // Keep the same sibling slots as the loading/error view. An extra fragment
+  // here remounts the intake chart when supporting records arrive, losing focus.
+  return <>{homeChart ? intakeChart : standing}{homeChart ? process : intakeChart}{standing ? null : checklist}<ClientChartRecord profile={profile} sourceReferralId={referral!.id} headerActions={headerActions} assessment={assessment} onEditReferralField={onEditReferralField} onEditAssessmentField={onEditAssessmentField}
     intakeReferral={intakeReferral} excludeReferralAssessments={designV2} />{homeChart ? null : answers}</>;
 }

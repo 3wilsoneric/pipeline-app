@@ -2524,13 +2524,20 @@ test.describe("Referral home and packet canvas", () => {
     await handoffFailureDialog.getByLabel("Failure reason").fill("Synthetic downstream rejection");
     await handoffFailureDialog.getByRole("button", { name: "Record failure" }).click();
     await expect(workflowPanel.getByText("EHR handoff failure recorded", { exact: true })).toBeVisible();
-    const supervisorQueue = await page.request.get("/api/operations/supervisor-queue");
-    expect(supervisorQueue.ok()).toBeTruthy();
-    await expect(supervisorQueue.json()).resolves.toMatchObject({
-      items: expect.arrayContaining([
-        expect.objectContaining({ kind: "ehr_handoff_failed", referral_id: referral.id }),
-      ]),
-    });
+    const exceptions: SupervisorExceptionSnapshot["items"] = [];
+    let queueOffset: number | null = 0;
+    while (queueOffset !== null) {
+      const response = await page.request.get(`/api/operations/supervisor-queue?offset=${queueOffset}`);
+      expect(response.ok()).toBeTruthy();
+      const queue = await response.json() as SupervisorExceptionSnapshot;
+      expect(queue.items.length).toBeLessThanOrEqual(250);
+      exceptions.push(...queue.items);
+      if (queue.next_offset != null) expect(queue.next_offset).toBeGreaterThan(queueOffset);
+      queueOffset = queue.next_offset ?? null;
+    }
+    expect(exceptions).toEqual(expect.arrayContaining([
+      expect.objectContaining({ kind: "ehr_handoff_failed", referral_id: referral.id }),
+    ]));
     await workflowPanel.getByRole("button", { name: "Retry handoff" }).click();
     await expect(workflowPanel.getByText("EHR handoff queued", { exact: true })).toBeVisible();
     await workflowPanel.getByRole("button", { name: "Record sent" }).click();

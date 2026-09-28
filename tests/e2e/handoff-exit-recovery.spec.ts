@@ -13,6 +13,11 @@ async function chooseWorkspaceView(page: Page, label: "Files" | "Decision" | "Fi
   await expect(page.getByRole("navigation", { name: "Workspace stages", exact: true })).toBeVisible();
   const phonePicker = page.getByRole("combobox", { name: "Workspace view", exact: true });
   if (await phonePicker.isVisible()) await phonePicker.selectOption({ label });
+  else if (label === "Decision" && process.env.PIPELINE_DESIGN_V2 === "true") {
+    // Completed decisions are filed in the Chart, not left as an active rail step.
+    await page.getByRole("navigation", { name: "Workspace stages", exact: true }).getByRole("button", { name: "Chart", exact: true }).click();
+    await page.getByRole("button", { name: "Open decision", exact: true }).click();
+  }
   else await page.getByRole("button", { name: label === "Files" ? "Workspace files" : label, exact: true }).click();
 }
 
@@ -97,6 +102,7 @@ for (const exit of ["Workspace files", "Change packet files"]) test(`a failed ha
   else await page.getByRole("button", { name: exit, exact: true }).click();
   await expect(page.locator("#packet-files")).toBeVisible();
   await expect(page).toHaveURL(/workspaceView=files/);
+  await expect(page.locator("dialog[open]")).toHaveCount(0);
   await chooseWorkspaceView(page, "Finish & send");
   await expect(page.getByRole("region", { name: "Email and referral packet", exact: true }).getByRole("alert")).toContainText("Synthetic recipient save interrupted");
   const recoveredDialog = await openRecipients(page);
@@ -219,7 +225,7 @@ test("changing the admit date after a lost response never replays the older date
   await expect.poll(() => mutations.length).toBe(2);
   expect(mutations[1]).not.toBe(mutations[0]);
   await expect(date).toHaveValue("2026-10-05");
-  await expect(page.getByRole("alert")).toBeVisible();
+  await expect(page.getByRole("alert").filter({ hasText: "This referral changed in another session." })).toBeVisible();
   await review.click();
   await expect(page.getByRole("button", { name: "Review handoff", exact: true })).toBeVisible();
   expect((await (await page.request.get(`/api/referrals/${referral.id}`)).json()).referral.plannedAdmissionDate).toBe("2026-10-05");

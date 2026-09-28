@@ -163,6 +163,8 @@ jobs:
       - name: Validate ALLO browser-capture migration tooling
         run: node scripts/allo-canvas-content-browser-contracts.mjs
       - name: Build the browser-test artifact
+        env:
+          NEXT_PUBLIC_PIPELINE_DESKTOP_ENABLED: "true"
         run: npm run build
       - name: Run primary browser journeys
         shell: bash
@@ -184,6 +186,10 @@ jobs:
           PIPELINE_ALLOW_LOCAL_REFERRAL_STORE: "true"
           PIPELINE_REFERRAL_STORE_PATH: ${{ github.workspace }}/.data/playwright/referrals-3000.json
           PIPELINE_CONTACT_STORE_PATH: ${{ github.workspace }}/.data/playwright/contacts-3000.json
+          NEXT_PUBLIC_PIPELINE_DESKTOP_ENABLED: "true"
+          PIPELINE_DESKTOP_E2E: "true"
+          PIPELINE_DESKTOP_STATE_ENABLED: "true"
+          PIPELINE_ALLOW_LOCAL_DESKTOP_STATE_STORE: "true"
           PIPELINE_DESKTOP_STATE_STORE_PATH: ${{ github.workspace }}/.data/playwright/desktop-state-3000.json
           PIPELINE_ASSESSMENT_STORE_PATH: ${{ github.workspace }}/.data/playwright/assessments-3000.json
           PIPELINE_RESIDENT_LINK_STORE_PATH: ${{ github.workspace }}/.data/playwright/resident-links-3000.json
@@ -195,6 +201,7 @@ jobs:
           PIPELINE_NOTE_LAB_ENABLED: "true"
           PIPELINE_ALLOW_LOCAL_NOTE_LAB_STORE: "true"
           PIPELINE_NOTE_LAB_STORE_PATH: ${{ github.workspace }}/.data/playwright/note-lab-3000.json
+          PIPELINE_CLIENT_NOTES_STORE_PATH: ${{ github.workspace }}/.data/playwright/client-notes-3000.json
           PIPELINE_WORKER_SHARED_SECRET: playwright-worker-secret
         run: |
           set -euo pipefail
@@ -231,6 +238,11 @@ jobs:
       - name: Enforce Pipeline McMaster certification budget
         run: npm run check:mcmaster && npm run certify:mcmaster:performance
       - run: npm run test:e2e:desktop
+      - name: Preserve browser-only recovery fallbacks
+        env:
+          PIPELINE_NEXT_DIST_DIR: .next-browser-recovery
+          PIPELINE_DESKTOP_E2E: "false"
+        run: npx playwright test tests/e2e/direct-link-referral-create-recovery.spec.ts tests/e2e/intake-exit-recovery.spec.ts tests/e2e/intake-exit-guard.spec.ts --project=chromium
       - run: npm run test:e2e:cross-browser
       - name: Enforce Linux visual baselines
         run: npm run test:e2e:visual
@@ -268,6 +280,10 @@ jobs:
         run: npm run check:assurance
       - name: Run role-separated golden thread and 100-user product rehearsal
         run: npm run test:e2e:operational:high
+      - name: Preserve saving and non-blocking recovery in both designs
+        env:
+          PIPELINE_E2E_PREBUILT: "true"
+        run: npm run test:e2e:save-recovery
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: failure()
         with:
