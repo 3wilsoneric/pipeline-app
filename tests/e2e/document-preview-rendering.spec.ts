@@ -1,3 +1,4 @@
+import { closeTestBrowser } from "./support/browser-lifecycle";
 import { test, expect, chromium, webkit } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
 import { createCanvas } from '@napi-rs/canvas';
@@ -63,6 +64,6 @@ for (const [engine, browserType] of [['chromium', chromium], ['webkit', webkit]]
         return content?.locator('img').evaluateAll((images) => images.some((image) => (image as HTMLImageElement).complete && (image as HTMLImageElement).naturalWidth > 0));
       }).toBe(true);
       await page.screenshot({ path: info.outputPath(`loaded-preview-${engine}.png`) });
-    } finally { await browser.close(); }
+    } finally { await closeTestBrowser(browser); }
   });
 }

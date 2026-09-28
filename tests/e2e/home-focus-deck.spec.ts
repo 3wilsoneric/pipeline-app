@@ -4,6 +4,9 @@ import { getReferralBoardState } from "@/lib/pipeline/referral-flow";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import type { WorkspaceStateProjection } from "@/lib/pipeline/workspace-state";
 
+// These UI tests supply the Home payload through request routes. A service worker
+// can bypass those routes and show unrelated server fixtures instead.
+test.use({ serviceWorkers: "block" });
 test("accepted board cards show the highest-priority open admission items", () => {
   const requirement = {
     id: "tb-result",
@@ -108,7 +111,7 @@ async function homeFixture(page: Page, moduleIds = ["current-work", "new-assignm
       for (const [index, workflow_status] of ["ready_to_schedule", "assessment_in_progress", "decision_pending", "admitted"].entries()) {
         payload.workflow.all_board_items.push({ ...item, referral_id: 940000 + index, client_name: `Team ${["Rivera", "Brooks", "Chen", "Patel"][index]}`, workflow_status,
           owner: "Another Assessor", outcome_state: workflow_status === "admitted" ? "accepted" : "pending",
-          board: { stage: ["received", "in_progress", "decision", "awaiting_admit"][index], detail: ["Referral received", "Assessment underway", "Under review", "Email not sent"][index], next_action: "Open workspace", location: { view: "workflow" } } });
+          board: { stage: ["received", "in_progress", "decision", "decision"][index], detail: ["Referral received", "Assessment underway", "Under review", "Email not sent"][index], next_action: "Open workspace", location: { view: "workflow" } } });
       }
       if (scope === "team-only") Object.assign(payload.workflow, { active_items: [], board_items: [], active_total: 0 });
     }
@@ -131,8 +134,8 @@ for (const width of [1440, 390]) test(`folder All and Mine switch instantly with
   await page.setViewportSize({ width, height: 900 });
   await homeFixture(page, undefined, 2, true, false, "mixed");
   await page.goto("/");
-  for (const [index, title] of ["Referral received", "In progress", "Decision", "Awaiting admit"].entries()) {
-    if (width < 1024) await page.getByRole("combobox", { name: "Referral stage", exact: true }).selectOption(["received", "in_progress", "decision", "awaiting_admit"][index]);
+  for (const [index, title] of ["Referral received", "In progress", "Decision"].entries()) {
+    if (width < 1024) await page.getByRole("combobox", { name: "Referral stage", exact: true }).selectOption(["received", "in_progress", "decision", "decision"][index]);
     const opener = page.getByRole("button", { name: `Open ${title.toLowerCase()} folder`, exact: true });
     await opener.click();
     const folder = page.getByRole("dialog", { name: `${title} folder`, exact: true });
@@ -143,9 +146,9 @@ for (const width of [1440, 390]) test(`folder All and Mine switch instantly with
     // All data is already present. Even a disconnected browser can switch scopes.
     await page.context().setOffline(true);
     await toggle.getByRole("button", { name: "All", exact: true }).click();
-    await expect(folder.locator("[data-board-card]")).toHaveCount(mineCount + 1);
+    await expect(folder.locator("[data-board-card]")).toHaveCount(mineCount + (index === 2 ? 2 : 1));
     await expect(folder.getByRole("button", { name: `Open Team ${["Rivera", "Brooks", "Chen", "Patel"][index]}`, exact: true })).toBeVisible();
-    await expect(folder.locator("h2")).toContainText(`${mineCount + 1} files`);
+    await expect(folder.locator("h2")).toContainText(`${mineCount + (index === 2 ? 2 : 1)} files`);
     expect(await folder.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
     const box = await toggle.getByRole("button", { name: "All", exact: true }).boundingBox();
     expect(box!.height).toBeGreaterThanOrEqual(44);
@@ -163,7 +166,7 @@ for (const width of [1440, 390]) test(`folder All and Mine switch instantly with
 test("All is reachable when Mine is empty, including admitted referrals awaiting email", async ({ page }) => {
   await homeFixture(page, undefined, 0, false, false, "team-only");
   await page.goto("/");
-  for (const title of ["Referral received", "Awaiting admit"]) {
+  for (const title of ["Referral received", "Decision"]) {
     await page.getByRole("button", { name: `Open ${title.toLowerCase()} folder`, exact: true }).click();
     const folder = page.getByRole("dialog", { name: `${title} folder`, exact: true });
     await expect(folder).toContainText("None assigned to you here.");
@@ -192,7 +195,7 @@ for (const width of [1440, 834, 390, 320]) test(`focus deck keeps the foreground
   if (width < 640) {
     const appointment = deck.getByRole("button", { name: /Jordan Appointment/ });
     const name = appointment.locator("strong");
-    const action = appointment.getByText("Begin assessment", { exact: true });
+    const action = appointment.getByText("Prepare assessment", { exact: true });
     expect((await name.boundingBox())!.width).toBeGreaterThan(200);
     expect((await action.boundingBox())!.y).toBeGreaterThan((await name.boundingBox())!.y + (await name.boundingBox())!.height);
     // The deck scales into place; measure its settled touch target, not an animation frame.
@@ -266,12 +269,12 @@ for (const { width, count } of [{ width: 1440, count: 5 }, { width: 1440, count:
     if (width >= 1024) {
       expect(collapsed).toBeLessThan(350 + count * 110);
       await folders.first().locator("[data-folder-name]").hover();
-      await expect(folders.first()).toHaveCSS("margin-bottom", "-130px");
+      await expect(folders.first()).toHaveCSS("height", "174px");
       await expect.poll(async () => (await received.boundingBox())!.height).toBeGreaterThan(collapsed + 70);
       await page.screenshot({ path: info.outputPath(`stack-${count}-${width}.png`), animations: "disabled" });
       await page.getByRole("tab", { name: "Board", exact: true }).hover();
       await folders.first().focus();
-      await expect(folders.first()).toHaveCSS("margin-bottom", "-130px");
+      await expect(folders.first()).toHaveCSS("height", "174px");
     }
     for (const key of width >= 1024 ? ["received", "in_progress", "decision"] : ["received"]) {
       const last = board.locator(`[data-board-stage="${key}"] [data-board-card]`).last();
@@ -423,6 +426,23 @@ test("decision tabs use distinct colors and admitted files await email without a
   await dialog.screenshot({ path: info.outputPath("decision-tabs.png"), animations: "disabled" });
 });
 
+test("Board action opens its named file tab even when the last visit was Chart", async ({ page }) => {
+  await homeFixture(page, undefined, 0, true);
+  await page.route("**/api/me/work-continuity", async (route) => {
+    if (route.request().method() !== "GET") return route.continue();
+    await route.fulfill({ json: { state: {
+      schema: 1,
+      acknowledgedAssignmentIds: [],
+      recentWorkspaces: [{ referralId: 930001, location: { view: "chart" }, visitedAt: new Date().toISOString() }],
+    } } });
+  });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Open Accepted Client", exact: true }).click();
+  await expect(page).toHaveURL(/referralId=930001/);
+  await expect(page).toHaveURL(/workspaceView=files/);
+  await expect(page).not.toHaveURL(/workspaceEntry=resume/);
+});
+
 test("folder expansion respects reduced motion and empty stages", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await homeFixture(page);
@@ -502,14 +522,16 @@ test("expanded folders retain stage accents and long file labels stay readable",
 
 test("iPad folder scrolling does not turn the Home deck", async ({ baseURL }) => {
   const browser = await webkit.launch();
+  const context = await browser.newContext({ baseURL, viewport: { width: 834, height: 1194 }, hasTouch: true, isMobile: true, serviceWorkers: "block" });
   try {
-    const page = await browser.newPage({ baseURL, viewport: { width: 834, height: 1194 }, hasTouch: true, isMobile: true });
+    const page = await context.newPage();
     await homeFixture(page, undefined, 10);
     await page.goto("/");
     const open = page.getByRole("button", { name: "Open referral received folder", exact: true });
     await open.tap();
     const dialog = page.getByRole("dialog", { name: "Referral received folder", exact: true });
     await expect(dialog).toBeVisible();
+    await expect(dialog.locator("[data-board-card]")).toHaveCount(10);
     const grid = dialog.locator("[data-expanded-folder]");
     await grid.dispatchEvent("pointerdown", { pointerId: 8, isPrimary: true, pointerType: "touch", button: 0, clientX: 200, clientY: 300 });
     await grid.dispatchEvent("pointermove", { pointerId: 8, clientX: 80, clientY: 304 });
@@ -520,5 +542,5 @@ test("iPad folder scrolling does not turn the Home deck", async ({ baseURL }) =>
     await expect(dialog).toHaveCount(0);
     await expect(page.getByRole("tab", { name: "Board", exact: true })).toHaveAttribute("aria-selected", "true");
     await expect(open).toBeFocused();
-  } finally { await browser.close(); }
+  } finally { try { await context.close(); } finally { await browser.close(); } }
 });

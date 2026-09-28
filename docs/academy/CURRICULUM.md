@@ -84,4 +84,8 @@ The capstone must include intent and non-goals, current behavior characterizatio
 
 ## Maintenance
 
-When source changes, use the repository atlas and reviewed fingerprints to identify affected material. Update the curriculum only after verifying current behavior. Run `npm run academy:certify` before merging Academy changes and as part of the weekly engineering-quality cycle.
+For an explicitly requested course update, use the repository atlas and reviewed
+fingerprints to identify affected material, verify current behavior, then run
+`npm run academy:certify`. Routine application changes and deployments do not
+require course certification or regenerated learning artifacts; see the
+September 26 policy in [AGENTS.md](../../AGENTS.md).

@@ -1,3 +1,4 @@
+import { closeTestBrowser } from "./support/browser-lifecycle";
 import { openRecipients } from "./support/handoff-review";
 import { expect, test, webkit } from "@playwright/test";
 import { mkdir, unlink, writeFile } from "node:fs/promises";
@@ -207,7 +208,7 @@ test("Safari: dense lists remain usable on phone and iPad; accessible chip edito
       return (await axe.run(document.querySelector('form[aria-label="San Pablo contact list"]')!, { runOnly: ['wcag2a', 'wcag2aa'] })).violations;
     });
     expect(violations).toEqual([]);
-  } finally { await browser.close(); }
+  } finally { await closeTestBrowser(browser); }
 });
 
 test("a fresh preview opens contact settings and saves its first recipient list", async ({ page }) => {

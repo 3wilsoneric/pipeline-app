@@ -7,6 +7,26 @@ const skipBuild = args.has("--skip-build");
 
 const checks = [
   {
+    name: "Deployment migration order and runtime flag preservation",
+    command: "node",
+    args: ["--test", "scripts/deployment-migration-order.test.mjs"],
+  },
+  {
+    name: "Client notes recovery and durable store boundaries",
+    command: "node",
+    args: ["--test", "scripts/client-notes-recovery.test.mjs", "scripts/client-notes-store.test.mjs"],
+  },
+  {
+    name: "Platform admissions summary is aggregate-only behind its own secret",
+    command: "node",
+    args: ["--test", "scripts/platform-admissions-summary.test.mjs"],
+  },
+  {
+    name: "Owner-only application activity and nonblocking sign-in audit",
+    command: "node",
+    args: ["--test", "scripts/application-activity.test.mjs"],
+  },
+  {
     name: "Private server entry and bounded instant navigation",
     command: "node",
     args: ["scripts/instant-navigation-contracts.mjs"],
@@ -32,14 +52,19 @@ const checks = [
     args: ["scripts/code-quality-readiness.mjs"],
   },
   {
-    name: "Developer Academy freshness",
+    name: "Design token ratchet",
     command: "node",
-    args: ["scripts/academy-readiness.mjs"],
+    args: ["scripts/design-token-ratchet.mjs"],
   },
   {
-    name: "Private Developer Academy route",
+    name: "Tutorial navigation, permissions, and isolated sample workflows",
+    command: "npm",
+    args: ["run", "check:tutorials"],
+  },
+  {
+    name: "Private learning route access and progress safety",
     command: "node",
-    args: ["scripts/academy-route-contracts.mjs"],
+    args: ["scripts/academy-route-contracts.mjs", "--runtime-only"],
   },
   {
     name: "Alamo Admissions zone contracts",
@@ -54,7 +79,7 @@ const checks = [
   {
     name: "Admission dates and packet delivery boundaries",
     command: "node",
-    args: ["--test", "scripts/admission-lifecycle.test.mjs", "scripts/meet-client-delivery-fixtures.test.mjs", "scripts/assessor-email-handoff.test.mjs", "scripts/client-data-reports.test.mjs"],
+    args: ["--test", "scripts/admission-lifecycle.test.mjs", "scripts/meet-client-delivery-fixtures.test.mjs", "scripts/assessor-email-handoff.test.mjs", "scripts/client-data-reports.test.mjs", "scripts/supervisor-queue-pagination.test.mjs"],
   },
   {
     name: "Hosted workshop isolation and session boundaries",

@@ -191,6 +191,10 @@ export function getPipelineUserFromHeaders(headers: Headers): PipelineUser | nul
   };
 }
 
+export async function hasPipelineSessionForUser(request: Request, userId: string) {
+  return (await readSessionUser(request.headers.get("cookie")))?.id === userId;
+}
+
 export async function createPipelineSessionCookie(request: Request, authenticatedUser?: PipelineUser) {
   const user = authenticatedUser ?? await authenticatedUserFromBearer(request.headers);
   const secret = getSessionSecret();

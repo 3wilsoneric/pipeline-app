@@ -71,6 +71,7 @@ const legacyDefaultDraftFieldKeys = new Set<ReferralCanvasFieldKey>([
 export type PipelineReferralDraft = {
   schema: 1;
   savedAt: string;
+  recoverySessionId?: string;
   baseVersion?: number;
   baseValues?: Partial<Record<ReferralDraftDirtyKey, string>>;
   dirtyKeys: ReferralDraftDirtyKey[];
@@ -102,6 +103,7 @@ export type PipelineAssessmentDraft = {
   assessmentId: string;
   referralId?: number;
   savedAt: string;
+  recoverySessionId?: string;
   baseVersion: number;
   sectionVersions: AssessmentSectionVersions;
   dirtySections: AssessmentToolSection[];
@@ -151,6 +153,7 @@ export function parsePipelineReferralDraft(value: unknown): PipelineReferralDraf
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const candidate = value as Partial<PipelineReferralDraft>;
   if (candidate.schema !== 1 || !validTimestamp(candidate.savedAt)) return null;
+  if (candidate.recoverySessionId !== undefined && !isRecoverySessionId(candidate.recoverySessionId)) return null;
   if (candidate.baseVersion !== undefined && (!Number.isSafeInteger(candidate.baseVersion) || candidate.baseVersion < 1)) return null;
   if (!Array.isArray(candidate.dirtyKeys) || candidate.dirtyKeys.length > referralCanvasFieldKeys.length + referralDraftExtraKeys.length) return null;
   const hasLegacyCommunity = candidate.fields?.community === undefined
@@ -196,6 +199,7 @@ export function parsePipelineReferralDraft(value: unknown): PipelineReferralDraf
   return {
     schema: 1,
     savedAt: candidate.savedAt,
+    ...(candidate.recoverySessionId ? { recoverySessionId: candidate.recoverySessionId } : {}),
     ...(candidate.baseVersion ? { baseVersion: candidate.baseVersion } : {}),
     ...(baseValues ? { baseValues: baseValues as Partial<Record<ReferralDraftDirtyKey, string>> } : {}),
     dirtyKeys,
@@ -255,10 +259,12 @@ export function parsePipelineAssessmentDraft(value: unknown): PipelineAssessment
   const workbook = parseAssessmentDraftWorkbookSources(candidate.workbookSources);
   const schedule = parseOptionalScheduleDraft(candidate.scheduleDraft);
   if (!identity || !referral || !sections || !values || !workbook || !schedule) return null;
+  if (candidate.recoverySessionId !== undefined && !isRecoverySessionId(candidate.recoverySessionId)) return null;
 
   return {
     schema: 1,
     ...identity,
+    ...(candidate.recoverySessionId ? { recoverySessionId: candidate.recoverySessionId } : {}),
     ...referral,
     sectionVersions: normalizeAssessmentSectionVersions(candidate.sectionVersions),
     ...sections,
@@ -266,6 +272,10 @@ export function parsePipelineAssessmentDraft(value: unknown): PipelineAssessment
     ...workbook,
     ...schedule,
   };
+}
+
+function isRecoverySessionId(value: unknown): value is string {
+  return typeof value === "string" && /^[0-9a-f-]{36}$/i.test(value);
 }
 
 function parseAssessmentDraftWorkbookSources(value: unknown) {

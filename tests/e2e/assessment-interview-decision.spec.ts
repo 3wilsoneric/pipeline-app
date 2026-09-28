@@ -42,13 +42,18 @@ for (const width of [1440, 390]) {
       await expect(page).toHaveURL(/assessmentSection=diagnosis_clinical/);
     }
     let failedMutationId = "";
+    let failedOutcome = "";
     await page.route(`**/api/referrals/${referral.id}/recommendation`, (route) => {
       failedMutationId = route.request().postDataJSON().client_mutation_id;
+      failedOutcome = route.request().postDataJSON().outcome;
       return route.fulfill({ status: 503, json: { error: "Synthetic save unavailable" } });
     });
     await recommendation.selectOption("accept");
     await expect(page.locator("[data-quick-recommendation]").getByRole("alert")).toContainText("Synthetic save unavailable");
-    await expect(recommendation).toHaveValue("decline");
+    expect(failedOutcome).toBe("accept");
+    await expect(recommendation).toHaveValue("accept");
+    await expect(page.locator("[data-quick-recommendation]").getByRole("button", { name: "Retry working decision" })).toBeEnabled();
+    await expect.poll(async () => (await read()).recommendation?.outcome).toBe("decline");
     await page.unroute(`**/api/referrals/${referral.id}/recommendation`);
     const retried = page.waitForRequest((request) => request.url().endsWith(`/api/referrals/${referral.id}/recommendation`) && request.method() === "PUT");
     await recommendation.selectOption("needs_more_information");

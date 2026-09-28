@@ -10,6 +10,9 @@ param environment string
 param location string = resourceGroup().location
 param containerImage string
 param deploymentId string
+
+@description('Unique rollout identity, independent of the immutable application commit. Allows flag on/off redeployments of the same image.')
+param rolloutId string = ''
 param containerAppsEnvironmentId string
 param containerRegistryLoginServer string
 param runtimeIdentityResourceId string
@@ -49,6 +52,8 @@ param alamoApiScope string = ''
 
 @description('Enable Microsoft 365 Meet the Client delivery after Graph application permissions and the Key Vault client secret are configured.')
 param enableMeetClientMail bool = false
+@description('Expose the read-only referral board summary to Alamo Platform. Requires Key Vault secret pipeline-platform-summary-secret.')
+param enablePlatformSummary bool = false
 
 @secure()
 @description('Existing mail configuration and credential bindings, captured by deployment. Preserves the dedicated mail tenant and live-send hold across releases.')
@@ -77,8 +82,14 @@ param enableRetentionJob bool = false
 @description('Expose the Assessment Language Lab to authenticated supervisors only.')
 param enableNoteLab bool = false
 
+@description('Enable the Pipeline redesign globally. Off preserves the current design.')
+param enableDesignV2 bool = false
+
 @description('Expose the authenticated Demo Center without enabling synthetic writes to the production data store.')
 param enableDemoCenter bool = false
+
+@description('Enable the installed desktop experience and its per-user workspace state store together.')
+param enableDesktop bool = false
 
 @description('Create the privileged one-time database bootstrap job. Enable only for the first deployment, then remove it and its administrator secret.')
 param initialDatabaseBootstrap bool = false
@@ -94,7 +105,7 @@ var webName = take('${namePrefix}-${environment}-web', 32)
 var databaseBootstrapJobName = take('${namePrefix}-${environment}-database-bootstrap', 32)
 var databaseBackupJobName = take('${namePrefix}-${environment}-database-backup', 32)
 var databaseMigrationJobName = take('${namePrefix}-${environment}-database-migrate', 32)
-var revisionSuffix = take(toLower(replace(deploymentId, '-', '')), 16)
+var revisionSuffix = empty(rolloutId) ? take(toLower(replace(deploymentId, '-', '')), 16) : '${take(toLower(deploymentId), 10)}-${rolloutId}'
 // The app registration requests v2 access tokens. Their aud claim is the API
 // client ID GUID, while the delegated scope retains the api:// URI prefix.
 var pipelineApiAudience = pipelineEntraClientId
@@ -174,6 +185,19 @@ var graphMailSecrets = !empty(preservedMail.secrets) ? preservedMail.secrets : e
   }
 ] : []
 
+// Alamo Platform's own secret for /api/integrations/platform/*, never the worker secret.
+var platformSummarySecrets = enablePlatformSummary ? [
+  {
+    name: 'platform-summary-secret'
+    keyVaultUrl: '${keyVaultBaseUri}secrets/pipeline-platform-summary-secret'
+    identity: keyVaultSecretIdentity
+  }
+] : []
+
+var platformSummaryEnvironment = enablePlatformSummary ? [
+  { name: 'PIPELINE_PLATFORM_SUMMARY_SECRET', secretRef: 'platform-summary-secret' }
+] : []
+
 var baseEnvironment = [
   { name: 'PIPELINE_DEPLOYMENT_ENV', value: environment }
   { name: 'PIPELINE_MAINTENANCE_MODE', value: 'false' }
@@ -187,9 +211,10 @@ var baseEnvironment = [
   { name: 'PIPELINE_REFERRAL_STORE_MODE', value: 'postgres' }
   { name: 'PIPELINE_ASSESSMENT_STORE_MODE', value: 'postgres' }
   { name: 'PIPELINE_RESIDENT_LINK_STORE_MODE', value: 'postgres' }
-  { name: 'PIPELINE_DESKTOP_STATE_ENABLED', value: 'true' }
-  { name: 'NEXT_PUBLIC_PIPELINE_DESKTOP_ENABLED', value: 'true' }
+  { name: 'PIPELINE_DESKTOP_STATE_ENABLED', value: enableDesktop ? 'true' : 'false' }
+  { name: 'NEXT_PUBLIC_PIPELINE_DESKTOP_ENABLED', value: enableDesktop ? 'true' : 'false' }
   { name: 'PIPELINE_NOTE_LAB_ENABLED', value: enableNoteLab ? 'true' : 'false' }
+  { name: 'PIPELINE_DESIGN_V2', value: enableDesignV2 ? 'true' : 'false' }
   { name: 'PIPELINE_DEMO_MODE', value: enableDemoCenter ? 'true' : 'false' }
   { name: 'PIPELINE_DEMO_DATA_ISOLATED', value: 'false' }
   { name: 'PIPELINE_ALLOW_LOCAL_DESKTOP_STATE_STORE', value: 'false' }
@@ -302,7 +327,7 @@ resource web 'Microsoft.App/containerApps@2025-01-01' = {
           identity: runtimeIdentityResourceId
         }
       ]
-      secrets: concat(requiredSecrets, databricksSecrets, clinicalSecrets, graphMailSecrets)
+      secrets: concat(requiredSecrets, databricksSecrets, clinicalSecrets, graphMailSecrets, platformSummarySecrets)
     }
     template: {
       revisionSuffix: revisionSuffix
@@ -311,7 +336,7 @@ resource web 'Microsoft.App/containerApps@2025-01-01' = {
         {
           name: 'pipeline-web'
           image: containerImage
-          env: concat(baseEnvironment, databricksEnvironment, clinicalEnvironment, graphMailEnvironment)
+          env: concat(baseEnvironment, databricksEnvironment, clinicalEnvironment, graphMailEnvironment, platformSummaryEnvironment)
           resources: {
             cpu: json('1.0')
             memory: '2Gi'

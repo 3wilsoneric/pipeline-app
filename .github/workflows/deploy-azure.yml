@@ -34,11 +34,25 @@ on:
         required: true
         default: true
         type: boolean
+      enable_design_v2:
+        description: Enable the owner-approved Pipeline redesign globally
+        required: true
+        default: false
+        type: boolean
       enable_demo_center:
         description: Expose the read-only Demo Center (synthetic database writes remain locked)
         required: true
         default: true
         type: boolean
+      desktop_activation:
+        description: Preserve the current installed desktop experience, enable it, or disable it
+        required: true
+        default: preserve
+        type: choice
+        options:
+          - preserve
+          - enabled
+          - disabled
       meet_client_activation:
         description: Meet the Client production activation (assessors send from Outlook)
         required: true
@@ -137,6 +151,42 @@ jobs:
           fi
           echo "json=$custom_domains" >> "$GITHUB_OUTPUT"
 
+      - name: Preserve or change desktop activation
+        id: desktop
+        shell: bash
+        env:
+          RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+          NAME_PREFIX: ${{ steps.foundation.outputs.name_prefix }}
+          ENVIRONMENT: ${{ steps.foundation.outputs.environment }}
+          DESKTOP_ACTIVATION: ${{ inputs.desktop_activation }}
+          INITIAL_BOOTSTRAP: ${{ inputs.initial_database_bootstrap }}
+        run: |
+          set -euo pipefail
+          case "$DESKTOP_ACTIVATION" in
+            enabled) enabled=true ;;
+            disabled) enabled=false ;;
+            preserve)
+              web_name="$(printf '%s-%s-web' "$NAME_PREFIX" "$ENVIRONMENT" | cut -c1-32)"
+              if current_app="$(az containerapp show --resource-group "$RESOURCE_GROUP" --name "$web_name" --output json 2>/dev/null)"; then
+                current_env="$(jq -c '.properties.template.containers[0].env // []' <<<"$current_app")"
+                public="$(jq -r '[.[] | select(.name == "NEXT_PUBLIC_PIPELINE_DESKTOP_ENABLED") | .value] | first // empty' <<<"$current_env")"
+                server="$(jq -r '[.[] | select(.name == "PIPELINE_DESKTOP_STATE_ENABLED") | .value] | first // empty' <<<"$current_env")"
+                [[ "$public" == "$server" && "$public" =~ ^(true|false)$ ]] || {
+                  echo 'Desktop flags are missing or inconsistent in the current revision. Choose enabled or disabled explicitly.' >&2
+                  exit 1
+                }
+                enabled="$public"
+              elif [[ "$INITIAL_BOOTSTRAP" == "true" ]]; then
+                enabled=false
+              else
+                echo 'Current desktop activation could not be read. Choose enabled or disabled explicitly, or fix the Azure read.' >&2
+                exit 1
+              fi
+              ;;
+            *) echo "Invalid desktop activation: $DESKTOP_ACTIVATION" >&2; exit 1 ;;
+          esac
+          echo "enabled=$enabled" >> "$GITHUB_OUTPUT"
+
       - name: Preserve mail credentials and apply requested Meet the Client activation
         shell: bash
         env:
@@ -184,7 +234,7 @@ jobs:
             NEXT_PUBLIC_ENTRA_CLIENT_ID=${{ vars.PIPELINE_ENTRA_CLIENT_ID }}
             NEXT_PUBLIC_PIPELINE_API_SCOPE=api://${{ vars.PIPELINE_ENTRA_CLIENT_ID }}/access_as_user
             NEXT_PUBLIC_PIPELINE_AUTH_REQUIRED=true
-            NEXT_PUBLIC_PIPELINE_DESKTOP_ENABLED=true
+            NEXT_PUBLIC_PIPELINE_DESKTOP_ENABLED=${{ steps.desktop.outputs.enabled }}
             PIPELINE_DEPLOYMENT_ID=${{ github.sha }}
           secrets: |
             next_server_actions_encryption_key=${{ steps.build-key.outputs.value }}
@@ -203,6 +253,7 @@ jobs:
               location='${{ steps.foundation.outputs.location }}' \
               containerImage='${{ steps.foundation.outputs.registry_server }}/${{ env.IMAGE_NAME }}:${{ github.sha }}' \
               deploymentId='${{ github.sha }}' \
+              rolloutId='r${{ github.run_id }}-${{ github.run_attempt }}' \
               containerAppsEnvironmentId='${{ steps.foundation.outputs.container_environment_id }}' \
               containerRegistryLoginServer='${{ steps.foundation.outputs.registry_server }}' \
               runtimeIdentityResourceId='${{ steps.foundation.outputs.runtime_identity_id }}' \
@@ -224,6 +275,7 @@ jobs:
               alamoClientId='${{ vars.PIPELINE_ALAMO_CLIENT_ID }}' \
               alamoApiScope='${{ vars.PIPELINE_ALAMO_API_SCOPE }}' \
               enableMeetClientMail='${{ inputs.enable_meet_client_mail }}' \
+              enablePlatformSummary='${{ vars.PIPELINE_PLATFORM_SUMMARY_ENABLED || 'false' }}' \
               graphMailClientId='${{ vars.PIPELINE_GRAPH_MAIL_CLIENT_ID }}' \
               meetClientSender='${{ vars.PIPELINE_MEET_CLIENT_SENDER }}' \
               meetClientAllowedEmailDomains='${{ vars.PIPELINE_MEET_CLIENT_ALLOWED_EMAIL_DOMAINS }}' \
@@ -231,7 +283,9 @@ jobs:
               enableClinicalReconcileJob='${{ inputs.enable_clinical_reconcile_job }}' \
               enableRetentionJob='${{ inputs.enable_retention_job }}' \
               enableNoteLab='${{ inputs.enable_note_lab }}' \
+              enableDesignV2='${{ inputs.enable_design_v2 }}' \
               enableDemoCenter='${{ inputs.enable_demo_center }}' \
+              enableDesktop='${{ steps.desktop.outputs.enabled }}' \
               initialDatabaseBootstrap='${{ inputs.initial_database_bootstrap }}'
 
       - name: Back up and migrate before application rollout
@@ -297,6 +351,7 @@ jobs:
               location='${{ steps.foundation.outputs.location }}' \
               containerImage='${{ steps.foundation.outputs.registry_server }}/${{ env.IMAGE_NAME }}:${{ github.sha }}' \
               deploymentId='${{ github.sha }}' \
+              rolloutId='r${{ github.run_id }}-${{ github.run_attempt }}' \
               containerAppsEnvironmentId='${{ steps.foundation.outputs.container_environment_id }}' \
               containerRegistryLoginServer='${{ steps.foundation.outputs.registry_server }}' \
               runtimeIdentityResourceId='${{ steps.foundation.outputs.runtime_identity_id }}' \
@@ -318,6 +373,7 @@ jobs:
               alamoClientId='${{ vars.PIPELINE_ALAMO_CLIENT_ID }}' \
               alamoApiScope='${{ vars.PIPELINE_ALAMO_API_SCOPE }}' \
               enableMeetClientMail='${{ inputs.enable_meet_client_mail }}' \
+              enablePlatformSummary='${{ vars.PIPELINE_PLATFORM_SUMMARY_ENABLED || 'false' }}' \
               graphMailClientId='${{ vars.PIPELINE_GRAPH_MAIL_CLIENT_ID }}' \
               meetClientSender='${{ vars.PIPELINE_MEET_CLIENT_SENDER }}' \
               meetClientAllowedEmailDomains='${{ vars.PIPELINE_MEET_CLIENT_ALLOWED_EMAIL_DOMAINS }}' \
@@ -325,7 +381,9 @@ jobs:
               enableClinicalReconcileJob='${{ inputs.enable_clinical_reconcile_job }}' \
               enableRetentionJob='${{ inputs.enable_retention_job }}' \
               enableNoteLab='${{ inputs.enable_note_lab }}' \
+              enableDesignV2='${{ inputs.enable_design_v2 }}' \
               enableDemoCenter='${{ inputs.enable_demo_center }}' \
+              enableDesktop='${{ steps.desktop.outputs.enabled }}' \
               initialDatabaseBootstrap='${{ inputs.initial_database_bootstrap }}' \
             --query properties.outputs \
             --output json > runtime-outputs.json

@@ -1,6 +1,33 @@
 import { expect, test, type Page } from "@playwright/test";
 
 import { clientDirectoryFixture } from "./support/pipeline-clinical-fixtures";
+import type { HomeBriefingSnapshot } from "@/lib/pipeline/home-briefing-types";
+
+const generatedAt = "2026-09-20T12:00:00.000Z";
+const viewer = { id: "visual-assessor", name: "Example Assessor" };
+const homeFixture: HomeBriefingSnapshot = {
+  generated_at: generatedAt,
+  scope: "personal",
+  viewer,
+  current_work: { total: 0, items: [] },
+  workflow: {
+    generated_at: generatedAt,
+    active_total: 0,
+    unassigned_total: 0,
+    overall_completion_pct: null,
+    flow_counts: { ready_to_schedule: 0, scheduled: 0, assessment: 0, complete_chart: 0 },
+    active_items: [], board_items: [], all_board_items: [],
+    ready_to_schedule: { total: 0, items: [] },
+    data_completion: { total: 0, items: [] },
+    current_work: { generated_at: generatedAt, owner: viewer, total: 0, items: [] },
+  },
+  upcoming: [], unscheduled: [], unscheduled_total: 0,
+  continuity: {
+    resume_items: [], new_assignments: [], assignment_tracking_started_at: generatedAt,
+    needs_assignment_tracking_initialization: false, unavailable: false,
+  },
+  unavailable_sections: [],
+};
 
 test.describe("Stable visual surfaces", () => {
   test.skip(process.env.PIPELINE_VISUAL_REGRESSION !== "true", "Visual baselines run in the isolated visual gate.");
@@ -13,18 +40,18 @@ test.describe("Stable visual surfaces", () => {
       contentType: "application/json",
       body: JSON.stringify(clientDirectoryFixture),
     }));
-    await page.route("**/api/operations/home", async (route) => {
-      const response = await route.fetch();
-      const payload = await response.json();
-      payload.continuity = {
-        ...payload.continuity,
-        resume_items: [],
-        new_assignments: [],
-        assignment_tracking_started_at: "2026-09-04T12:00:00.000Z",
-        needs_assignment_tracking_initialization: false,
-        unavailable: false,
-      };
-      await route.fulfill({ response, json: payload });
+    // Screenshots must not inherit records or saved layouts from another spec.
+    await page.route("**/api/me/home-layout", (route) => route.fulfill({ json: { layout: null } }));
+    await page.route("**/api/operations/home", (route) => route.fulfill({ json: homeFixture }));
+    await page.route(/\/api\/referrals(?:\/directory|\/changes)?(?:\?|$)/, (route) => {
+      if (route.request().method() !== "GET") return route.continue();
+      if (new URL(route.request().url()).pathname.endsWith("/changes")) {
+        return route.fulfill({ json: { changed: false, sequence: 1 } });
+      }
+      return route.fulfill({ json: {
+        referrals: [], total: 0, revision: 1, next_cursor: null, progress: {}, file_total: 0,
+        facets: { communities: [], counties: [], stages: [], owners: [], priorities: [], tags: [], months: [] },
+      } });
     });
   });
 
@@ -77,6 +104,9 @@ test.describe("Stable visual surfaces", () => {
     await page.getByRole("button", { name: "Create new referral" }).click();
     await expect(page.getByRole("region", { name: "Intake", exact: true })).toBeVisible();
     await settleStable(page);
+    const create = page.getByRole("button", { name: "Create referral", exact: true });
+    await expect(create.locator("svg")).toBeVisible();
+    expect(await create.evaluate((button) => getComputedStyle(button, "::before").content)).toBe("none");
     await expect(page).toHaveScreenshot("mobile-new-packet.png", screenshotOptions());
   });
 });

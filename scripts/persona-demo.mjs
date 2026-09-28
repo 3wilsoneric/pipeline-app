@@ -50,6 +50,8 @@ Object.assign(env, personaDemoRequiredEnvironment, {
   PIPELINE_ENABLE_SYNTHETIC_PROFILES: "false",
   PIPELINE_CLINICAL_DATA_REQUIRED: "false",
   NEXT_TELEMETRY_DISABLED: "1",
+  // Local rehearsal of the staged redesign (docs/design/DECISIONS.md, "Rollout").
+  PIPELINE_DESIGN_V2: process.env.PIPELINE_DESIGN_V2 === "true" ? "true" : "false",
 });
 for (const [key, filename] of Object.entries(personaDemoStoreFiles)) env[key] = resolve(root, filename);
 assertPersonaDemoIsolation(env);

@@ -144,3 +144,55 @@
   .header .headerScope { display: none; }
   .filters .filterScope { display: flex; }
 }
+
+/* Redesign (docs/design/DECISIONS.md, "Calendar"): the Home board's language. The calendar is one
+   card on the warm page; its header is a plain row; Mine/Team and Week/Month are the Home tabs'
+   segmented control; grid lines are paper rules; today takes the soft green tint. */
+:where(html[data-design="v2"]) {
+  .desktop { background: var(--color-page); }
+  .board { padding: 0; overflow: hidden; border: 1px solid var(--color-card-border); border-radius: var(--radius-folder); background: var(--color-paper); box-shadow: var(--shadow-card); }
+  .header { margin: 0; padding: 12px 16px; border: 0; border-bottom: 1px solid var(--color-paper-rule); border-radius: 0; background: var(--color-paper); box-shadow: none; }
+  .rangeTitle { color: var(--color-ink); font-size: var(--text-title); letter-spacing: -0.01em; }
+  .summary { color: var(--color-ink-muted); font-size: var(--text-meta); }
+  .dateNavigation > button, .headerActions > button, .header select { border: 1px solid var(--color-control-border); border-radius: var(--radius-input); background: var(--color-paper); color: var(--color-ink-2); box-shadow: none; }
+  .dateNavigation > button:not(.today) { border-color: transparent; background: transparent; }
+  .header button:hover { border-color: var(--color-control-border); background: var(--color-segment); color: var(--color-ink); }
+  .header button:active { box-shadow: none; }
+  .header button:focus-visible, .header select:focus-visible { outline: 2px solid var(--color-focus); }
+  .header .queueButton { color: var(--color-ink-2); font-weight: 600; }
+  .queueButton > span:last-child { border-radius: var(--radius-chip); background: var(--color-segment-count); color: var(--color-ink); }
+  .filterToggle[aria-expanded="true"] { border-color: var(--color-link); background: var(--color-primary-soft); }
+  .viewSwitch, .scopeSwitch { gap: 2px; padding: 3px; border: 0; border-radius: var(--radius-paper); background: var(--color-segment); box-shadow: none; }
+  .viewSwitch button, .scopeSwitch button { min-height: 38px; border: 0; border-radius: var(--radius-input); color: var(--color-ink-2); font-weight: 600; }
+  .viewSwitch button[aria-pressed="true"], .scopeSwitch button[aria-pressed="true"] { border: 0; background: var(--color-paper); color: var(--color-ink); box-shadow: var(--shadow-card); }
+  .filters { border-top-color: var(--color-paper-rule); }
+  .statusStrip { color: var(--color-ink-muted); }
+  .paper { padding: 16px; border: 0; border-radius: 0; background: var(--color-paper); box-shadow: none; }
+  .weekGrid, .teamGrid, .monthGrid { border-color: var(--color-paper-rule); border-radius: var(--radius-paper); }
+  .weekHeading, .timeCorner { border-color: var(--color-paper-rule); background: var(--color-sheet); color: var(--color-ink-muted); }
+  .weekGrid > div > div:last-child > div:first-child { border-color: var(--color-paper-rule); background: var(--color-paper); }
+  .dateHeading { border-color: var(--color-paper-rule); }
+  .dateHeading > span { color: var(--color-ink-muted); font-size: var(--text-meta); font-weight: 600; text-transform: none; }
+  .dateHeading > strong { color: var(--color-ink); }
+  .dateHeading[data-today="true"], .monthDate[data-today="true"] { background: var(--color-primary-soft); color: var(--color-link); }
+  .dateHeading:hover, .monthDate:hover, .listDate:hover { background: var(--color-segment); }
+  .monthDate { border-radius: var(--radius-chip); color: var(--color-ink-2); }
+  .monthCount { color: var(--color-stage-blue); font-size: var(--text-meta); }
+  .work { border-color: var(--color-card-border); border-radius: var(--radius-paper); background: var(--color-paper); box-shadow: var(--shadow-card); }
+  .identity strong { color: var(--color-ink); }
+  .identity span { color: var(--color-ink-muted); }
+  .action { border-radius: var(--radius-input); color: var(--color-link); }
+  .action:hover { background: var(--color-primary-soft); }
+  .continuing { border-color: var(--color-card-border); border-radius: var(--radius-paper); background: var(--color-sheet); }
+  .continuing summary { color: var(--color-ink); }
+  .dateDetails { border-color: var(--color-card-border); border-radius: var(--radius-paper); background: var(--color-paper); box-shadow: var(--shadow-card); }
+  .dateDetails h2 { color: var(--color-ink); }
+  :is(.dateHeading, .monthDate, .listDate, .dateDetails, .dateDetails button, .continuing button, .continuing summary):focus-visible { outline-color: var(--color-focus); }
+  .paper [data-calendar-empty] { border-color: var(--color-card-border); border-radius: var(--radius-paper); background: var(--color-sheet); }
+  @media (max-width: 620px) {
+    .desktop { padding: 8px; }
+    .board { border-radius: var(--radius-paper); box-shadow: var(--shadow-card); }
+    .header { padding: 10px 12px; }
+    .paper { padding: 10px; }
+  }
+}

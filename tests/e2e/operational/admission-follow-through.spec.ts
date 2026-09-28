@@ -63,16 +63,32 @@ test.describe("admission follow-through", () => {
       expect(planned.stage).not.toBe("Accepted / Admitted");
       await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=workflow`);
       await expect(admission.getByLabel("Planned admission date", { exact: true })).toHaveValue("2026-10-12");
-      await expect(admission.getByLabel("Actual admission date", { exact: true })).toHaveCount(0);
-      await expect(admission.getByRole("button", { name: "Confirm admitted" })).toHaveCount(0);
+      const actualDate = admission.getByLabel("Actual admission date", { exact: true });
+      const markAdmitted = admission.getByRole("button", { name: "Mark admitted" });
+      await expect(actualDate).toBeVisible();
+      await expect(markAdmitted).toBeEnabled();
       expect((await readOperationalReferral(api, referral.id)).version).toBe(planned.version);
       await page.screenshot({ path: info.outputPath(`admission-${width}.png`) });
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-      // The arrival UI is withdrawn; the existing explicit transition contract remains protected.
-      const confirmation = { if_match: planned.version, if_match_section: planned.sectionVersions.workflow, target_stage: "Accepted / Admitted", actual_admission_date: calendarToday(), client_mutation_id: randomUUID() };
-      const response = await api.post(`/api/referrals/${referral.id}/transition`, { data: confirmation });
-      expect(response.status()).toBe(200);
-      const confirmed = (await response.json()).referral;
+      await markAdmitted.click();
+      await expect(admission).toContainText("Enter the client's actual arrival date");
+      expect((await readOperationalReferral(api, referral.id)).version).toBe(planned.version);
+      await actualDate.fill(calendarToday());
+      await markAdmitted.click();
+      const confirmationRequest = page.waitForRequest((request) => request.method() === "POST"
+        && request.url().endsWith(`/api/referrals/${referral.id}/transition`)
+        && request.postDataJSON()?.target_stage === "Accepted / Admitted");
+      await page.getByRole("alertdialog").getByRole("button", { name: "Mark admitted", exact: true }).click();
+      const confirmation = (await confirmationRequest).postDataJSON() as {
+        if_match: number;
+        if_match_section: number;
+        target_stage: string;
+        actual_admission_date: string;
+        client_mutation_id: string;
+      };
+      expect(confirmation).toMatchObject({ if_match: planned.version, target_stage: "Accepted / Admitted", actual_admission_date: calendarToday() });
+      await expect(admission).toContainText("Admission confirmed");
+      const confirmed = (await (await api.get(`/api/referrals/${referral.id}`)).json()).referral;
       expect(confirmed.actualAdmissionDate).toBe(calendarToday());
       expect(confirmed.plannedAdmissionDate).toBe("2026-10-12");
       expect(confirmed.workflowStatus).toBe("admitted");

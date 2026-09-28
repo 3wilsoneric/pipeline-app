@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef, useState } from "react";
 import { formatProfileDate } from "@/lib/pipeline/client-profile-presentation";
 import type { Referral } from "@/lib/pipeline/referral-types";
 
@@ -10,10 +11,14 @@ type Props = {
   disabled: boolean;
   onAdmissionDateChange: (value: string) => void;
   onSaveAdmissionDate: () => void;
+  onMarkAdmitted?: (actualAdmissionDate: string) => void;
 };
 
-export default function ReferralAdmissionPanel({ referral, packetSentAt, admissionDate, disabled, onAdmissionDateChange, onSaveAdmissionDate }: Props) {
+export default function ReferralAdmissionPanel({ referral, packetSentAt, admissionDate, disabled, onAdmissionDateChange, onSaveAdmissionDate, onMarkAdmitted }: Props) {
   const admitted = referral.stage === "Accepted / Admitted";
+  const [actualAdmissionDate, setActualAdmissionDate] = useState(referral.actualAdmissionDate ?? "");
+  const [dateNeeded, setDateNeeded] = useState(false);
+  const actualDateInput = useRef<HTMLInputElement>(null);
   const inputClass = "mt-1 block h-10 w-full border border-[#c9ceca] bg-white px-3 text-[12px] text-[#202320] focus-visible:outline-[#0f8b73] disabled:bg-[#f4f6f5]";
   // After acceptance the packet review is this page's one main action until it has been sent.
   const buttonClass = packetSentAt
@@ -28,6 +33,19 @@ export default function ReferralAdmissionPanel({ referral, packetSentAt, admissi
       <span data-guide-target="workspace-finish-send"><button type="button" disabled={disabled} onClick={onSaveAdmissionDate} className={buttonClass}>Review email &amp; packet</button></span>
     </div>
     <p id="planned-admission-help" className="text-[11px] text-[#68716c]">{packetSentAt ? "The packet has been sent. Reviewing it or changing the planned date does not send another email." : "You can review the email and packet now. Add a planned admit date before sending; it will populate the email automatically."}</p>
+    {!admitted && onMarkAdmitted ? <div className="border-t border-[#e3e6e4] pt-4">
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="block min-w-[180px] flex-1 text-[11px] font-bold text-[#303b34]" htmlFor="workflow-actual-admit-date">
+          Actual admission date
+          <input ref={actualDateInput} id="workflow-actual-admit-date" type="date" value={actualAdmissionDate} onChange={(event) => { setActualAdmissionDate(event.target.value); setDateNeeded(false); }} disabled={disabled} className={inputClass} aria-describedby="actual-admission-help" />
+        </label>
+        <button type="button" disabled={disabled} onClick={() => {
+          if (!actualAdmissionDate) { setDateNeeded(true); actualDateInput.current?.focus(); return; }
+          onMarkAdmitted(actualAdmissionDate);
+        }} className="min-h-10 border border-[#0f8b73] px-3 py-2 text-[12px] font-semibold text-[#0f6f5e] disabled:opacity-50">Mark admitted</button>
+      </div>
+      <p id="actual-admission-help" role={dateNeeded ? "status" : undefined} className="mt-2 text-[11px] text-[#68716c]">{dateNeeded ? "Enter the client's actual arrival date before recording admission." : "Record admission when the client arrives. Open paperwork can still be completed afterward."}</p>
+    </div> : null}
     {packetSentAt ? <p role="status" className="text-[12px] font-semibold text-[#0f6f5e]">Packet sent {formatProfileDate(packetSentAt)}{admitted ? "" : " · Awaiting admission"}</p> : null}
     {admitted ? <p role="status" className="text-[12px] text-[#303b34]">Admission confirmed{referral.actualAdmissionDate ? ` · ${formatProfileDate(referral.actualAdmissionDate)}` : " · Actual date not recorded"}. This workspace remains available in Finished referrals and All Workspaces.</p> : null}
   </section>;

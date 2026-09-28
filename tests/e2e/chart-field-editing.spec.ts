@@ -1,8 +1,42 @@
+import { closeTestBrowser } from "./support/browser-lifecycle";
 import { chromium, expect, test, webkit } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { createOperationalReferral, createOperationalAssessment, startOperationalAssessment } from "./support/operational-api";
 import { openAssessmentChart } from "./support/assessment-navigation";
 import { unifiedProfileFixture } from "./support/pipeline-clinical-fixtures";
+
+test("late supporting records preserve chart focus and leave intake editing usable", async ({ page }) => {
+  const referral = await createOperationalReferral(page.request, "assessmentCoordinator", {
+    name: `Synthetic Focus ${randomUUID()}`, owner: "Annette Everhart",
+  }, { assigneeId: "provisional:allo:annette" });
+  let releaseProfile!: () => void;
+  const profileGate = new Promise<void>((resolve) => { releaseProfile = resolve; });
+  await page.route("**/api/profiles/**", async (route) => {
+    await profileGate;
+    await route.fulfill({ json: unifiedProfileFixture });
+  });
+  try {
+    await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=chart`);
+    await expect(page.getByTestId("packet-workspace")).toHaveAttribute("aria-busy", "false");
+    await expect(page.getByText("Loading supporting records...", { exact: true })).toBeVisible();
+    const pencil = page.getByRole("article", { name: "Referral chart", exact: true }).getByRole("button", { name: "Edit Phone", exact: true });
+    await pencil.focus();
+    await expect(pencil).toBeFocused();
+    const originalButton = await pencil.elementHandle();
+    releaseProfile();
+    await expect(page.getByText("Loading supporting records...", { exact: true })).toHaveCount(0);
+    expect(await originalButton!.evaluate((element) => element.isConnected)).toBe(true);
+    await expect(pencil).toBeFocused();
+    await pencil.press("Enter");
+    const phone = page.locator('[data-workspace-field="phone"] input');
+    await expect(phone).toBeFocused();
+    await phone.fill("555-0182");
+    await page.getByRole("button", { name: "Done", exact: true }).click();
+    await expect.poll(async () => (await (await page.request.get(`/api/referrals/${referral.id}`)).json()).referral.phone).toBe("555-0182");
+  } finally {
+    releaseProfile();
+  }
+});
 
 for (const [browserName, browserType] of [["chromium", chromium], ["webkit", webkit]] as const) {
   for (const width of [1440, 834, 390]) {
@@ -69,7 +103,7 @@ for (const [browserName, browserType] of [["chromium", chromium], ["webkit", web
         expect(saved.email).toBe("after@example.invalid");
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
         await page.screenshot({ path: info.outputPath(`chart-edit-${width}.png`) });
-      } finally { await browser.close(); }
+      } finally { await closeTestBrowser(browser); }
     });
   }
 }
@@ -217,6 +251,63 @@ test("an account without workspace edit permission has no field edit affordances
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=chart`);
   await expect(page.getByRole("article", { name: "Referral chart", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: /^Edit / })).toHaveCount(0);
+});
+
+test("Done leaves intake while a field save is slow and keeps the edit", async ({ page }) => {
+  const referral = await createOperationalReferral(page.request, "assessmentCoordinator", {
+    name: `Example Slow Save ${randomUUID()}`, email: "before@example.invalid", owner: "Annette Everhart",
+  }, { assigneeId: "provisional:allo:annette" });
+  let releaseSave = () => {};
+  const saveGate = new Promise<void>((resolve) => { releaseSave = resolve; });
+  let heldSave = false;
+  await page.route(`**/api/referrals/${referral.id}`, async (route) => {
+    if (route.request().method() === "PATCH" && !heldSave) {
+      heldSave = true;
+      await saveGate;
+    }
+    await route.continue();
+  });
+  try {
+    await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=chart`);
+    const chart = page.getByRole("article", { name: "Referral chart", exact: true });
+    await chart.getByRole("button", { name: "Edit Email", exact: true }).click();
+    await page.locator('[data-workspace-field="email"] input').fill("after@example.invalid");
+    await page.getByRole("button", { name: "Done", exact: true }).click();
+    await expect.poll(() => heldSave).toBe(true);
+    await expect(chart).toBeVisible();
+    await expect(page.getByTestId("workspace-save-status")).toContainText(/Saving|Saved on this device/);
+  } finally {
+    releaseSave();
+  }
+  const chart = page.getByRole("article", { name: "Referral chart", exact: true });
+  await expect(chart.locator('[data-chart-field="Email"]')).toContainText("after@example.invalid");
+  await page.reload();
+  await expect(chart.locator('[data-chart-field="Email"]')).toContainText("after@example.invalid");
+});
+
+test("a failed intake field save remains visible and retryable after Done", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const referral = await createOperationalReferral(page.request, "assessmentCoordinator", {
+    name: `Example Retry Save ${randomUUID()}`, email: "before@example.invalid", owner: "Annette Everhart",
+  }, { assigneeId: "provisional:allo:annette" });
+  let failOnce = true;
+  await page.route(`**/api/referrals/${referral.id}`, async (route) => {
+    if (route.request().method() === "PATCH" && failOnce) {
+      failOnce = false;
+      await route.fulfill({ status: 500, json: { error: "Synthetic save failure" } });
+    } else await route.continue();
+  });
+  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=chart`);
+  const chart = page.getByRole("article", { name: "Referral chart", exact: true });
+  await chart.getByRole("button", { name: "Edit Email", exact: true }).click();
+  await page.locator('[data-workspace-field="email"] input').fill("after@example.invalid");
+  await page.getByRole("button", { name: "Done", exact: true }).click();
+  await expect(chart).toBeVisible();
+  await expect(page.getByTestId("workspace-save-status")).toContainText("Not saved to Pipeline");
+  await page.getByRole("button", { name: "Retry saving" }).click();
+  await expect(chart.locator('[data-chart-field="Email"]')).toContainText("after@example.invalid");
+  await page.reload();
+  await expect(chart.locator('[data-chart-field="Email"]')).toContainText("after@example.invalid");
 });
 
 test("a chart visit that changes nothing writes nothing, and signing stays in assessment review", async ({ page }) => {

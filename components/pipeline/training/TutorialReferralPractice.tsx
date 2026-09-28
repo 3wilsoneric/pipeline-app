@@ -2,6 +2,7 @@
 
 import { ArrowLeft, ArrowRight, Check, FileText, LocateFixed, RotateCcw, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import AssessmentWorkspace from "@/components/pipeline/AssessmentWorkspace";
 import { ChartSection, EditablePacketField, initialFields } from "@/components/pipeline/ReferralPacketCanvas";
 import { ReferralLifecycleBoard } from "@/components/pipeline/ReferralWorkflowTracker";
@@ -22,6 +23,7 @@ import { createTutorialReferral, prepareTutorialStep, tutorialBoardItem, tutoria
 import styles from "./TutorialReferralPractice.module.css";
 
 export default function TutorialReferralPractice({ initialStep, returnTo }: { initialStep: number; returnTo?: string }) {
+  const router = useRouter();
   const [step, setStep] = useState(initialStep);
   const [state, setState] = useState(() => prepareTutorialStep(createTutorialReferral(), initialStep));
   const current = useRef(state);
@@ -78,7 +80,7 @@ export default function TutorialReferralPractice({ initialStep, returnTo }: { in
   function close() {
     // Only return to this application's main workspace, never an external URL.
     const destination = returnTo?.startsWith("/?") || returnTo === "/" ? returnTo : "/";
-    window.location.assign(toPipelinePath(destination));
+    router.push(toPipelinePath(destination));
   }
 
   async function restart() {

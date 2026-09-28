@@ -1,3 +1,4 @@
+import { closeTestBrowser } from "./support/browser-lifecycle";
 import { expect, test, webkit } from "@playwright/test";
 import type { AxeResults } from "axe-core";
 import { createServer, request as httpRequest } from "node:http";
@@ -51,7 +52,7 @@ test("iPad WebKit loads the app manifest and recovers from an offline launch", a
     await page.goto("/");
     await expect(page.getByRole("button", { name: "Open referrals", exact: true })).toBeVisible();
   } finally {
-    await browser.close();
+    await closeTestBrowser(browser);
     server.closeAllConnections();
     await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
   }
@@ -68,7 +69,7 @@ for (const size of [
     const page = await browser.newPage({ baseURL, viewport: size, hasTouch: true, isMobile: true });
     try {
       await page.goto("/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=schedule");
-      const dialog = page.getByRole("dialog", { name: "Schedule assessment", exact: true });
+      const dialog = page.getByRole("dialog", { name: "Schedule interview", exact: true });
       await dialog.getByLabel("Assessment method", { exact: true }).selectOption("phone");
       const phone = dialog.getByLabel("Phone number to call", { exact: true });
       await phone.fill("555-010-2026");
@@ -87,7 +88,7 @@ for (const size of [
       const footer = (await dialog.locator("footer").boundingBox())!;
       expect(field.y).toBeGreaterThanOrEqual(header.y + header.height - 1);
       expect(field.y + field.height).toBeLessThanOrEqual(footer.y + 1);
-      for (const label of ["Cancel", "Schedule assessment"]) {
+      for (const label of ["Back to assessment", "Schedule interview"]) {
         const button = dialog.getByRole("button", { name: label, exact: true });
         const bounds = (await button.boundingBox())!;
         expect(bounds.height).toBeGreaterThanOrEqual(44);
@@ -105,11 +106,11 @@ for (const size of [
         window.visualViewport!.dispatchEvent(new Event("resize"));
       });
       await expect(phone).toHaveValue("555-010-2026");
-      await dialog.getByRole("button", { name: "Cancel", exact: true }).tap();
+      await dialog.getByRole("button", { name: "Back to assessment", exact: true }).tap();
       await expect(dialog).toHaveCount(0);
       await expect(page.locator("body")).not.toHaveCSS("overflow", "hidden");
     } finally {
-      await browser.close();
+      await closeTestBrowser(browser);
     }
   });
 }

@@ -101,6 +101,12 @@ function invalidatesPipelineData(input: string, init: RequestInit) {
     }
     return false;
   }
+  // Notes save while someone types: refresh only the latest-notes summary, never the whole app.
+  if (method === "PUT" && /^\/api\/referrals\/\d+\/notes\/[a-z0-9_:%-]+$/i.test(input)) {
+    for (const key of [...jsonResponseCache.keys()]) if (key.startsWith("/api/client-notes/latest")) jsonResponseCache.delete(key);
+    for (const key of [...pendingJsonRequests.keys()]) if (key.startsWith("/api/client-notes/latest")) pendingJsonRequests.delete(key);
+    return false;
+  }
   return method !== "GET" && !isNavigationBookkeeping(input);
 }
 
@@ -239,9 +245,17 @@ export function fetchCurrentPipelineUser() {
   });
 }
 
+const sessionClearedListeners = new Set<() => void>();
+// State held outside the JSON cache (the latest client notes) must drop on sign-out or account switch.
+export function onPipelineSessionCleared(listener: () => void) {
+  sessionClearedListeners.add(listener);
+  return () => { sessionClearedListeners.delete(listener); };
+}
+
 export function clearPipelineClientSessionCache() {
   clearPipelineBrowserSessionCache();
   invalidatePipelineDataCache(false);
+  sessionClearedListeners.forEach((listener) => listener());
 }
 
 function publishSavedDataChange(input: string, init: RequestInit) {

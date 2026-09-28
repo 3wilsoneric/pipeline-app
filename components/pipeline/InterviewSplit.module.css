@@ -1,0 +1,58 @@
+/* Split interview (docs/design/DECISIONS.md, "Split interview"). Redesign only.
+   Left: the information already filled in for the topic being asked (labels over values, no cards), that topic's
+   notes docked below. One vertical line between the halves; it widens and darkens when it can be dragged. */
+
+.pane { position: sticky; top: 84px; display: flex; flex-direction: column; align-self: start; min-width: 0; min-height: 0; padding-right: 28px; }
+
+.text { display: flex; flex: 1; flex-direction: column; min-height: 0; padding: 0 8px 0 4px; overflow: hidden; }
+/* Like a clinical progress-notes form (owner, 2026-09-27: "a bit more medical chart"): a boxed sheet with a narrow
+   label column, a vertical rule, answers in the right column on tight blue-green ruling; the notes continue in the
+   same columns below. The section is named by the picker above, not repeated here. */
+.text { --rule: 26px; --chart-rule: color-mix(in srgb, var(--color-link) 14%, var(--color-paper)); --chart-edge: color-mix(in srgb, var(--color-link) 32%, var(--color-card-border)); }
+/* The sheet is only as tall as its content; when the answers run long they scroll inside it and the notes stay in
+   view below them (owner, 2026-09-27: "what if a section has a lot of answers with text and notes"). Each part
+   carries its own ruling so text and lines scroll together. */
+.page { display: flex; flex-direction: column; min-height: 0; max-height: 100%; border: 1px solid var(--chart-edge); border-top-width: 3px; background: var(--color-paper); }
+.page > :is(.topic, .notes) { background: repeating-linear-gradient(to bottom, transparent 0 calc(var(--rule) - 1px), var(--chart-rule) calc(var(--rule) - 1px) var(--rule)) local; }
+.topic { flex: 0 1 auto; min-height: calc(var(--rule) * 2); overflow-y: auto; overscroll-behavior: contain; }
+.page:has(textarea:focus) { border-color: var(--color-link); }
+.topic dl { display: grid; grid-template-columns: fit-content(40%) minmax(0, 1fr); margin: 0; }
+.topic dl > div { display: contents; }
+.topic dl > div[data-long] > dt { grid-column: 1 / -1; border-right: 0; }
+.topic dl > div[data-long] > dd { grid-column: 1 / -1; padding-left: 10px; }
+.text dt { padding: 0 12px 0 10px; border-right: 1px solid var(--chart-edge); color: var(--color-ink-muted); font-size: var(--text-meta); line-height: var(--rule); font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; overflow-wrap: anywhere; }
+.text dd { margin: 0; padding: 0 10px 0 12px; color: var(--color-ink); font-size: var(--text-value); line-height: var(--rule); white-space: pre-line; overflow-wrap: anywhere; }
+.text dd > span { display: block; color: var(--color-ink-muted); font-size: var(--text-meta); line-height: var(--rule); }
+
+/* The topic's notes continue the form below what is known (owner, 2026-09-27: "as if you are notating it below"):
+   "Notes" in the label column with the save status beside it, then the writing in the answer column, no box. */
+.notes { flex: 0 0 auto; max-height: 55%; overflow-y: auto; overscroll-behavior: contain; border-top: 1px solid var(--chart-edge); }
+.notes [data-client-notes] { position: static; max-height: none; min-height: 0; overflow: visible; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.notes [data-client-notes] > header { gap: 10px; min-height: var(--rule); height: var(--rule); padding: 0 10px 0 0; border: 0; background: transparent; }
+.notes [data-client-notes] > header h3 { flex: 0 0 auto; padding: 0 10px; color: var(--color-ink-muted); font-size: var(--text-meta); line-height: var(--rule); font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+.notes [data-client-notes] > header h3 svg { display: none; }
+.notes [data-client-notes] > header :is(span, button) { font-size: var(--text-meta); line-height: var(--rule); }
+.notes [data-client-notes] > header [role="status"] { margin-left: auto; }
+.notes [data-client-notes] > header button { min-height: 0; height: var(--rule); padding: 0 4px; }
+.notes [data-client-notes] > div { padding: 0; overflow: visible; }
+.notes [data-client-notes] [data-note-heading] { padding: 0; border: 0; }
+.notes [data-client-notes] [data-note-heading] > p { display: none; }
+.notes [data-client-notes] [data-note-heading] textarea { width: 100%; min-height: calc(var(--rule) * 4); margin: 0; padding: 0 10px; border: 0; border-radius: 0; background: transparent; box-shadow: none; color: var(--color-ink); font-size: var(--text-value); line-height: var(--rule); }
+.notes [data-client-notes] [data-note-heading] textarea:focus { outline: none; }
+
+/* The line between the halves. The hit area is wider than the line. */
+.divider { position: absolute; top: 0; right: 0; bottom: 0; width: 13px; margin-right: -7px; cursor: col-resize; touch-action: none; }
+.divider::before { content: ""; position: absolute; top: 0; bottom: 0; left: 6px; width: 1px; background: var(--color-card-border); transition: background var(--duration-fade) ease, width var(--duration-fade) ease, left var(--duration-fade) ease; }
+.divider:hover::before, .divider:focus-visible::before, .divider:active::before { left: 5px; width: 3px; background: var(--color-link); }
+.divider:focus-visible { outline: none; }
+
+@media (max-width: 1023px) {
+  .pane { position: static; align-self: stretch; width: 100%; height: auto; margin-bottom: 20px; padding: 0 0 20px; border-bottom: 1px solid var(--color-paper-rule); }
+  .text { overflow: visible; }
+  .notes { max-height: none; }
+  .divider { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .divider::before { transition: none; } }
+@media (forced-colors: active) { .divider::before { background: CanvasText; } .topic[data-current]::before { background: Highlight; } }
+
+.empty { margin: 0; padding: 0 10px; color: var(--color-ink-muted); font-size: var(--text-value); line-height: var(--rule); }

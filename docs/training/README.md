@@ -55,10 +55,14 @@ The interactive environment contract and two-week UAT plan are maintained in
 
 ## Maintenance
 
-Run `npm run training:refresh` after an intentional product or curriculum change. It
-updates the reviewed source fingerprint. Run `npm run training:certify` before release.
-The certification fails when source anchors disappear, role paths break, required
-activities drift, scenarios lose a single safe answer, or the reviewed fingerprint is stale.
+For the current Help/tutorial page, update affected instructions and run
+`npm run check:tutorials` plus `npm run test:e2e:tutorials` when behavior changes.
+These check actual navigation, permissions, progress, and isolated practice.
+Unrelated releases do not require training registry refreshes or certification.
+
+`training:refresh` and `training:certify` remain available for explicitly requested
+maintenance of the legacy curriculum. Its course quotas and reviewed fingerprints
+do not determine whether the application can be released.
 
 Run `npm run test:e2e:training` against the configured Playwright server to exercise the
 Learning Center, full walkthrough, common task interactions, pause/resume persistence,

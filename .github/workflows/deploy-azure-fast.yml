@@ -47,10 +47,16 @@ jobs:
           state="$(az containerapp show \
             --resource-group '${{ vars.AZURE_RESOURCE_GROUP }}' \
             --name "$web_name" \
-            --query '{image:properties.template.containers[0].image,mode:properties.configuration.activeRevisionsMode,latest:properties.latestRevisionName,ready:properties.latestReadyRevisionName,traffic:properties.configuration.ingress.traffic,fqdn:properties.configuration.ingress.fqdn}' \
+            --query '{image:properties.template.containers[0].image,environment:properties.template.containers[0].env,mode:properties.configuration.activeRevisionsMode,latest:properties.latestRevisionName,ready:properties.latestReadyRevisionName,traffic:properties.configuration.ingress.traffic,fqdn:properties.configuration.ingress.fqdn}' \
             --output json)"
           test "$(jq -r '.mode' <<<"$state")" = Single
           test "$(jq -r '.latest' <<<"$state")" = "$(jq -r '.ready' <<<"$state")"
+          desktop_public="$(jq -r '[.environment[]? | select(.name == "NEXT_PUBLIC_PIPELINE_DESKTOP_ENABLED") | .value] | first // empty' <<<"$state")"
+          desktop_server="$(jq -r '[.environment[]? | select(.name == "PIPELINE_DESKTOP_STATE_ENABLED") | .value] | first // empty' <<<"$state")"
+          [[ "$desktop_public" == "true" && "$desktop_server" == "true" ]] || {
+            echo 'Fast-lane images include desktop support, but the current desktop flags are disabled or inconsistent. Use the full Azure deployment.' >&2
+            exit 1
+          }
           jq -e '(.traffic | length) == 1 and .traffic[0].latestRevision == true and .traffic[0].weight == 100' <<<"$state" > /dev/null
           previous_image="$(jq -r '.image' <<<"$state")"
           test "$(jq -r '.fqdn' <<<"$state")" != null
@@ -64,6 +70,7 @@ jobs:
           echo "registry_server=$registry_server" >> "$GITHUB_OUTPUT"
           echo "previous_image=$previous_image" >> "$GITHUB_OUTPUT"
           echo "previous_revision=$(jq -r '.ready' <<<"$state")" >> "$GITHUB_OUTPUT"
+          echo "environment_digest=$(jq -cS '.environment | sort_by(.name)' <<<"$state" | sha256sum | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
           echo "fqdn=$(jq -r '.fqdn' <<<"$state")" >> "$GITHUB_OUTPUT"
           echo "base_sha=$base_sha" >> "$GITHUB_OUTPUT"
 
@@ -108,6 +115,7 @@ jobs:
           REGISTRY_SERVER: ${{ steps.current.outputs.registry_server }}
           PREVIOUS_IMAGE: ${{ steps.current.outputs.previous_image }}
           PREVIOUS_REVISION: ${{ steps.current.outputs.previous_revision }}
+          ENVIRONMENT_DIGEST: ${{ steps.current.outputs.environment_digest }}
           FQDN: ${{ steps.current.outputs.fqdn }}
         run: |
           set -euo pipefail
@@ -116,6 +124,8 @@ jobs:
           test "$current_main" = "$GITHUB_SHA" || { echo 'Main advanced before rollout.' >&2; exit 1; }
           current_image="$(az containerapp show --resource-group "$RESOURCE_GROUP" --name "$WEB_NAME" --query properties.template.containers[0].image --output tsv)"
           test "$current_image" = "$PREVIOUS_IMAGE" || { echo 'Production changed before rollout.' >&2; exit 1; }
+          current_revision="$(az containerapp show --resource-group "$RESOURCE_GROUP" --name "$WEB_NAME" --query properties.latestReadyRevisionName --output tsv)"
+          test "$current_revision" = "$PREVIOUS_REVISION" || { echo 'Production configuration changed before rollout.' >&2; exit 1; }
           suffix="f${GITHUB_SHA:0:10}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           attempted=false
           succeeded=false
@@ -155,13 +165,14 @@ jobs:
           for attempt in {1..30}; do
             state="$(az containerapp show \
               --resource-group "$RESOURCE_GROUP" --name "$WEB_NAME" \
-              --query '{latest:properties.latestRevisionName,ready:properties.latestReadyRevisionName,image:properties.template.containers[0].image}' \
+              --query '{latest:properties.latestRevisionName,ready:properties.latestReadyRevisionName,image:properties.template.containers[0].image,environment:properties.template.containers[0].env}' \
               --output json)"
             if [[ "$(jq -r '.latest' <<<"$state")" == "$expected_revision" \
               && "$(jq -r '.ready' <<<"$state")" == "$expected_revision" \
               && "$(jq -r '.image' <<<"$state")" == "$candidate" ]] \
               && curl --fail --silent --show-error --max-time 10 "https://$FQDN/api/health/live" > /dev/null \
               && curl --fail --silent --show-error --max-time 15 "https://$FQDN/api/health" > /dev/null; then
+              test "$(jq -cS '.environment | sort_by(.name)' <<<"$state" | sha256sum | cut -d' ' -f1)" = "$ENVIRONMENT_DIGEST" || { echo 'Runtime flags changed during the image-only rollout.' >&2; exit 1; }
               succeeded=true
               break
             fi

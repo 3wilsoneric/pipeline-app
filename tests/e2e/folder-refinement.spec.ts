@@ -1,3 +1,4 @@
+import { closeTestBrowser } from "./support/browser-lifecycle";
 import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import type { AxeResults } from "axe-core";
@@ -60,7 +61,7 @@ for (const engine of ["chromium", "webkit"] as const) {
           });
           expect(violations).toEqual([]);
         }
-      } finally { await browser.close(); }
+      } finally { await closeTestBrowser(browser); }
     });
   }
 }
@@ -76,6 +77,7 @@ test("the prominent create action still saves once and opens the same client's c
   await create.click();
   await expect(page).toHaveURL(/referralId=\d+/);
   await expect(create).toHaveCount(0);
+  await page.getByRole("dialog", { name: "Workspace created", exact: true }).getByRole("button", { name: "Close workspace created", exact: true }).click();
   const stages = page.getByRole("navigation", { name: "Workspace stages", exact: true });
   const chart = stages.getByRole("button", { name: /Chart$/ });
   await expect(chart).toHaveAttribute("aria-current", "page");

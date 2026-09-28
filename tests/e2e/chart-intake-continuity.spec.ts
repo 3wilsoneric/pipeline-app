@@ -169,6 +169,85 @@ test("an assessor can create their own intake from an older chart", async ({ pag
   await expect(page.locator("#packet-page-1")).toBeVisible();
 });
 
+test("a missing assessor list does not block the default chart intake", async ({ page }) => {
+  const source = await createSource(page.request, { workspaceOrigin: "import", workspaceStatus: "historical" });
+  await page.addInitScript(() => {
+    const originalSetItem = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (key, value) {
+      if (key.startsWith("pipeline.chart-intake-create.v1:")) throw new DOMException("Storage disabled", "QuotaExceededError");
+      return originalSetItem.call(this, key, value);
+    };
+  });
+  await page.route("**/api/members?scope=assessors", (route) => route.fulfill({ status: 503, json: { error: "Synthetic assessor list outage" } }));
+  let releaseCreate!: () => void;
+  const holdCreate = new Promise<void>((resolve) => { releaseCreate = resolve; });
+  await page.route(`**/api/referrals/${source.id}/new-intake`, async (route) => {
+    await holdCreate;
+    await route.continue();
+  });
+  await page.goto(`/?view=referrals&screen=packet&referralId=${source.id}&workspaceStage=chart`);
+  await page.getByRole("button", { name: "Create intake", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Assign new intake" });
+  await expect(dialog.getByText("Assessor choices are unavailable.", { exact: false })).toBeVisible();
+  await expect(dialog.getByRole("combobox", { name: "Assessor" })).toBeDisabled();
+  const create = dialog.getByRole("button", { name: "Create intake", exact: true });
+  await expect(create).toBeEnabled();
+  const request = page.waitForRequest((value) => value.url().endsWith(`/referrals/${source.id}/new-intake`) && value.method() === "POST");
+  const response = page.waitForResponse((value) => value.url().endsWith(`/referrals/${source.id}/new-intake`) && value.request().method() === "POST");
+  await create.click();
+  await expect(dialog.getByText("Keep this tab open and retry here", { exact: false })).toBeVisible();
+  expect((await request).postDataJSON().assignee_id).toBeUndefined();
+  releaseCreate();
+  const created = await response;
+  expect(created.status(), await created.text()).toBe(201);
+  await expect(page).toHaveURL(/workspaceField=name/);
+});
+
+test("an uncertain chart intake retry survives reload with the original assessor choice", async ({ page }) => {
+  const source = await createSource(page.request, { workspaceOrigin: "import", workspaceStatus: "historical" });
+  const directory = await (await page.request.get("/api/members?scope=assessors")).json() as {
+    members: { principal_id: string }[]; current_principal_id: string;
+  };
+  const selectedAssessor = directory.members.find((member) => member.principal_id !== directory.current_principal_id);
+  expect(selectedAssessor).toBeDefined();
+  const attempts: Array<{ client_mutation_id: string; assignee_id: string }> = [];
+  let createdId: number | null = null;
+  await page.route("**/api/members?scope=assessors", (route) => route.fulfill({ json: directory }));
+  await page.route(`**/api/referrals/${source.id}/new-intake`, async (route) => {
+    attempts.push(route.request().postDataJSON());
+    const response = await route.fetch();
+    if (attempts.length === 1) {
+      expect(response.status(), await response.text()).toBe(201);
+      createdId = ((await response.json()) as { referral: Referral }).referral.id;
+      await route.fulfill({ status: 503, json: { error: "Synthetic intake response lost" } });
+    } else {
+      await route.fulfill({ response });
+    }
+  });
+  await page.goto(`/?view=referrals&screen=packet&referralId=${source.id}&workspaceStage=chart`);
+  await page.getByRole("button", { name: "Create intake", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Assign new intake" });
+  const assignee = dialog.getByRole("combobox", { name: "Assessor" });
+  await assignee.selectOption(selectedAssessor!.principal_id);
+  await dialog.getByRole("button", { name: "Create intake", exact: true }).click();
+  await expect(dialog.getByText("The request may have created an intake.", { exact: false })).toBeVisible();
+  await expect(assignee).toBeDisabled();
+  await expect(assignee).toHaveValue(selectedAssessor!.principal_id);
+  await page.reload();
+  await page.getByRole("button", { name: "Create intake", exact: true }).click();
+  const retryDialog = page.getByRole("dialog", { name: "Assign new intake" });
+  await expect(retryDialog.getByText("The request may have created an intake.", { exact: false })).toBeVisible();
+  await expect(retryDialog.getByRole("combobox", { name: "Assessor" })).toBeDisabled();
+  await expect(retryDialog.getByRole("combobox", { name: "Assessor" })).toHaveValue(selectedAssessor!.principal_id);
+  await retryDialog.getByRole("button", { name: "Retry create intake" }).click();
+  await expect(page).toHaveURL(/workspaceField=name/);
+  expect(attempts).toHaveLength(2);
+  expect(attempts[1]).toEqual(attempts[0]);
+  expect(createdId).not.toBeNull();
+  const referral = (await (await page.request.get(`/api/referrals/${createdId}`)).json()).referral as Referral;
+  expect(referral.ownerId).toBe(selectedAssessor!.principal_id);
+});
+
 test("saved client workspaces offer a new intake with carried chart details", async ({ page }, testInfo) => {
   const ordinary = await createSource(page.request, { workspaceOrigin: "pipeline" });
   await page.goto(`/?view=referrals&screen=packet&referralId=${ordinary.id}&workspaceStage=chart`);

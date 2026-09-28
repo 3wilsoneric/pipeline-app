@@ -149,7 +149,8 @@ After deployment:
 1. Sign in through Microsoft Entra and open a protected deep link.
 2. In Edge DevTools, confirm `/sw.js` controls the page and the manifest reports
    the expected icons, `start_url`, and standalone display.
-3. Inspect Cache Storage. Only `pipeline-static-v3` may exist, and it may contain
+3. Inspect Cache Storage. Only the current `pipeline-static-v*` cache named in
+   `public/sw.js` may exist, and it may contain
    only the Pipeline-scoped generic page, static offline-assessment shell/runtime,
    `/pwa/*`, and `/_next/static/*` URLs.
    When Pipeline uses a base path, confirm every cached URL, the manifest
@@ -162,7 +163,8 @@ After deployment:
    Close and relaunch the installed app: the same active interview remains
    editable through the static shell. Drafts and section-save mutations are
    encrypted in IndexedDB, expire after seven days, and return to the authenticated
-   conflict-aware save flow when connectivity returns. With no valid working set,
+   conflict-aware save flow after reconnecting and choosing **Return to Pipeline
+   and sync**. With no valid working set,
    the shell shows only the generic connection-required state. Protected HTML,
    uploaded documents, OCR text, and API responses are never written to Cache
    Storage.
@@ -218,7 +220,14 @@ reconnect-sync, conflict, and rollback checks pass.
 
 ## Rollback and kill switch
 
-Set both desktop flags to `false` and redeploy. On the next web visit, Pipeline
+Run the full Azure deployment with `desktop_activation=disabled`. The workflow
+builds with `NEXT_PUBLIC_PIPELINE_DESKTOP_ENABLED=false` and deploys both
+desktop flags as `false`. Ordinary full deployments use `preserve`, so they keep
+the current production setting; an initial database bootstrap with no existing
+app defaults to disabled.
+The fast deployment lane cannot promote a web image while the desktop off switch
+is active; use the full lane to re-enable it.
+On the next web visit, Pipeline
 unregisters its worker and deletes only Pipeline static caches. Existing MSIX/PWA
 installations continue to load the hosted application and therefore receive the
 disabled build. Do not roll back migration `0006` during an application incident;

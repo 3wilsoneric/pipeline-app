@@ -19,6 +19,7 @@ test.describe("assessment preparation", () => {
         await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}`);
         const stages = page.getByRole("navigation", { name: "Workspace stages", exact: true });
         await stages.getByRole("button", { name: "Assessment", exact: true }).click();
+        if (process.env.PIPELINE_DESIGN_V2 === "true") await page.getByRole("button", { name: "Prepare assessment", exact: true }).click();
         const editor = page.locator("[data-assessment-view]");
         await expect(editor).toBeVisible();
         await expect(stages.getByRole("button", { name: "Assessment", exact: true })).toHaveAttribute("aria-current", "page");
@@ -51,12 +52,21 @@ test.describe("assessment preparation", () => {
 
         const scheduledAnswer = `${answer} Prepared before scheduling.`;
         await field.fill(scheduledAnswer);
-        await editor.locator('summary[aria-label="Assessment details"]').click();
+        if (process.env.PIPELINE_DESIGN_V2 !== "true") await editor.locator('summary[aria-label="Assessment details"]').click();
         await editor.getByRole("button", { name: "Schedule interview", exact: true }).click();
         const schedule = page.getByRole("dialog", { name: "Schedule interview", exact: true });
         const future = new Date(Date.now() + (30 + referral.id) * 86_400_000).toISOString().slice(0, 16);
         await schedule.getByLabel("Assessment date and time").fill(future);
         await schedule.getByLabel("Assessment method").selectOption("record_review");
+        const openSchedule = await schedule.elementHandle();
+        for (const viewport of [{ width: 390, height: 844 }, { width: 1440, height: 900 }]) {
+          await page.setViewportSize(viewport);
+          await expect(schedule).toBeVisible();
+          await expect(schedule.getByLabel("Assessment date and time")).toHaveValue(future);
+          await expect(schedule.getByLabel("Assessment method")).toHaveValue("record_review");
+          // The existing dialog must survive, not be re-created from a partially saved draft.
+          expect(await openSchedule!.evaluate((element) => element.isConnected)).toBe(true);
+        }
         await schedule.getByRole("button", { name: "Schedule record review", exact: true }).click();
         await expect(schedule).toHaveCount(0);
         await expect(page.getByRole("dialog", { name: "Begin assessment", exact: true })).toHaveCount(0);

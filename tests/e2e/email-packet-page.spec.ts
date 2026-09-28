@@ -102,6 +102,37 @@ test("admit date retries a lost save response without duplicating the change", a
   await expect(page.getByLabel("Planned admit date", { exact: true })).toHaveValue("2026-10-02");
 });
 
+test("a saved admit date can continue after the handoff summary refresh fails", async ({ page }) => {
+  const { referral } = await referralWithAssessment(page);
+  let dateSaved = false;
+  let patchCount = 0;
+  let blockSummary = true;
+  await page.route(`**/api/referrals/${referral.id}`, async route => {
+    if (route.request().method() !== "PATCH") return route.continue();
+    patchCount += 1;
+    const response = await route.fetch();
+    dateSaved = response.ok();
+    return route.fulfill({ response });
+  });
+  await page.route(`**/api/referrals/${referral.id}/admission-summary`, route => {
+    if (dateSaved && blockSummary) {
+      return route.fulfill({ status: 503, json: { error: "Synthetic summary refresh unavailable" } });
+    }
+    return route.continue();
+  });
+
+  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
+  const dialog = await openAdmitDate(page);
+  await dialog.getByLabel("Planned admit date", { exact: true }).fill("2026-10-12");
+  await dialog.getByRole("button", { name: "Confirm admit date", exact: true }).click();
+  await expect(dialog.getByRole("alert")).toContainText("admit date was saved");
+  expect((await (await page.request.get(`/api/referrals/${referral.id}`)).json()).referral.plannedAdmissionDate).toBe("2026-10-12");
+  blockSummary = false;
+  await dialog.getByRole("button", { name: "Confirm admit date", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Check client summary", exact: true })).toBeVisible();
+  expect(patchCount).toBe(1);
+});
+
 test("a changed admit date must be reloaded and the confirmed date populates the email", async ({ page }) => {
   const { referral } = await referralWithAssessment(page);
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);

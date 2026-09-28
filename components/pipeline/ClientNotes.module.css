@@ -1,0 +1,89 @@
+/* Client notes (docs/design/DECISIONS.md, "Notes"). Redesign only: a paper column beside the questions,
+   pinned while the page scrolls, with the current topic's heading open and marked; the same notes open from a
+   floating button on the other steps; the latest note shows on Home and Workspaces. */
+
+.notes { position: sticky; top: 16px; display: flex; flex-direction: column; max-height: calc(100dvh - 140px); min-height: 280px; overflow: hidden; border: 1px solid var(--color-card-border); border-radius: var(--radius-paper); background: var(--color-paper); box-shadow: var(--shadow-card); }
+
+.head { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 8px 0 14px; border-bottom: 1px solid var(--color-paper-rule); background: var(--color-sheet); }
+.head h3 { display: inline-flex; align-items: center; gap: 8px; margin: 0; color: var(--color-ink); font-size: var(--text-value); line-height: var(--text-value--line-height); font-weight: 700; white-space: nowrap; }
+.head h3 svg { color: var(--color-link); }
+.status { display: inline-flex; align-items: center; gap: 5px; margin-left: auto; color: var(--color-ink-muted); font-size: var(--text-meta); line-height: var(--text-meta--line-height); white-space: nowrap; }
+.notes[data-status="saved"] .status svg { color: var(--color-status-done); }
+.notes[data-status="waiting"] .status { color: var(--color-warning); }
+.notes[data-status="failed"] .status { color: var(--color-danger); font-weight: 600; }
+.iconButton { display: grid; place-items: center; width: 32px; height: 32px; border-radius: var(--radius-input); color: var(--color-ink-muted); }
+.iconButton:hover { background: var(--color-segment); color: var(--color-ink); }
+.iconButton:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 1px; }
+
+.viewAll { min-height: 32px; padding: 0 8px; border-radius: var(--radius-input); color: var(--color-link); font-size: var(--text-meta); font-weight: 600; white-space: nowrap; }
+.viewAll:hover { background: var(--color-segment); }
+.viewAll[aria-pressed="true"] { background: var(--color-segment); color: var(--color-ink); }
+.viewAll:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 1px; }
+/* Only the topic in view: no marker bar, the note box gets the room. */
+.blocks[data-focused] .block[data-current]::before { display: none; }
+.blocks[data-focused] .blockHead { margin: 0; }
+.blocks[data-focused] .field { min-height: 160px; }
+
+.notice { margin: 0; padding: 8px 14px; border-bottom: 1px solid var(--color-paper-rule); background: var(--color-warning-soft); color: var(--color-warning); font-size: var(--text-meta); line-height: var(--text-meta--line-height); }
+
+.blocks { flex: 1; min-height: 0; padding: 6px 0 12px; overflow-y: auto; overscroll-behavior: contain; }
+.block { position: relative; padding: 0 14px; }
+.block + .block { border-top: 1px solid var(--color-paper-rule); }
+.block[data-current]::before { content: ""; position: absolute; top: 10px; bottom: 10px; left: 4px; width: 3px; border-radius: var(--radius-chip); background: var(--color-link); }
+
+.blockHead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; width: 100%; min-height: 40px; padding: 10px 2px 8px; color: var(--color-ink-2); text-align: left; }
+.blockHead:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -2px; border-radius: var(--radius-input); }
+.chevron { flex-shrink: 0; align-self: center; color: var(--color-ink-muted); transition: transform var(--duration-fade) ease; }
+.block:not([data-open]) .chevron { transform: rotate(-90deg); }
+.blockLabel { font-size: var(--text-label); line-height: var(--text-label--line-height); font-weight: 600; }
+.block[data-current] .blockLabel { color: var(--color-ink); }
+.preview { flex-basis: 100%; min-width: 0; padding-left: 22px; overflow: hidden; color: var(--color-ink-muted); font-size: var(--text-meta); line-height: var(--text-meta--line-height); text-overflow: ellipsis; white-space: nowrap; }
+
+.field { display: block; width: 100%; min-height: 88px; margin: 0 0 12px; padding: 10px 12px; resize: none; overflow: hidden; border: 1px solid var(--color-control-border); border-radius: var(--radius-input); background: var(--color-paper); color: var(--color-ink); font: inherit; font-size: var(--text-value); line-height: 22px; }
+.field::placeholder { color: var(--color-ink-muted); }
+.field:focus { border-color: var(--color-link); outline: 2px solid var(--color-primary-soft); outline-offset: 0; }
+.field:disabled { background: var(--color-sheet); color: var(--color-ink-2); }
+
+.conflict { margin: 0 0 12px; padding: 8px 10px; border: 1px solid var(--color-stage-amber-border); border-radius: var(--radius-input); background: var(--color-warning-soft); color: var(--color-warning); font-size: var(--text-meta); line-height: var(--text-meta--line-height); }
+.conflict p { margin: 0 0 6px; }
+.conflict div { display: flex; gap: 8px; }
+.conflict button { min-height: 28px; padding: 0 10px; border: 1px solid var(--color-card-border); border-radius: var(--radius-chip); background: var(--color-paper); color: var(--color-link); font-weight: 600; }
+.conflict button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 1px; }
+.error { margin: -6px 0 12px; color: var(--color-danger); font-size: var(--text-meta); line-height: var(--text-meta--line-height); }
+
+/* Hidden notebook: a slim tab on the right edge that brings it back. */
+.reopen { position: sticky; top: 16px; display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 12px; border: 1px solid var(--color-card-border); border-radius: var(--radius-input); background: var(--color-paper); box-shadow: var(--shadow-card); color: var(--color-ink-2); font-size: var(--text-label); font-weight: 600; white-space: nowrap; }
+.reopen svg { color: var(--color-link); }
+.reopen:hover { border-color: var(--color-ink-muted); }
+.reopen:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) { .chevron { transition: none; } }
+@media (forced-colors: active) { .notes, .field, .reopen, .fab, .line { border-color: CanvasText; } .block[data-current]::before { background: Highlight; } }
+
+/* Floating button on steps without the column; the notes open upward from it. */
+.floating { position: fixed; right: 24px; bottom: 88px; z-index: 60; display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+.fab { display: grid; place-items: center; width: 48px; height: 48px; border: 1px solid var(--color-card-border); border-radius: var(--radius-pill); background: var(--color-paper); box-shadow: var(--shadow-popover); color: var(--color-ink-2); }
+.fab:hover { color: var(--color-ink); box-shadow: var(--shadow-folder-lift); }
+.fab:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.fab[data-has-note] { color: var(--color-link); }
+.fab[aria-expanded="true"] { background: var(--color-segment); }
+.panel { width: min(420px, calc(100vw - 48px)); }
+.panel .notes { position: static; height: min(620px, calc(100dvh - 200px)); max-height: none; box-shadow: var(--shadow-popover); animation: notes-open var(--duration-fade) var(--ease-open); }
+@keyframes notes-open { from { opacity: 0; transform: translateY(8px) scale(0.98); transform-origin: 100% 100%; } }
+
+/* The latest note on a card or row. */
+.line { display: flex; align-items: flex-start; gap: 6px; min-width: 0; padding: 6px 8px; border-radius: var(--radius-chip); background: var(--color-sheet); color: var(--color-ink-2); font-size: var(--text-meta); line-height: var(--text-meta--line-height); text-align: left; }
+.lineIcon { flex-shrink: 0; margin-top: 1px; color: var(--color-link); }
+.lineText { display: -webkit-box; min-width: 0; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow-wrap: anywhere; }
+.compact { padding: 3px 6px; }
+.compact .lineText { -webkit-line-clamp: 1; }
+.srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+@media print { .floating { display: none; } }
+@media (max-width: 767px) {
+  .floating { right: 12px; bottom: max(88px, env(safe-area-inset-bottom)); }
+  .panel { position: fixed; top: calc(var(--mobile-viewport-top, 0px) + 12px); right: 12px; left: 12px; width: auto; }
+  .panel .notes { height: calc(var(--mobile-viewport-height, 100dvh) - 112px); min-height: 0; }
+  .iconButton, .viewAll, .conflict button { min-width: 44px; min-height: 44px; }
+  .field { font-size: 16px; }
+}
+@media (prefers-reduced-motion: reduce) { .panel .notes { animation: none; } }

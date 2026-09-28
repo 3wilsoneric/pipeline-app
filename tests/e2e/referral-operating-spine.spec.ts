@@ -1,7 +1,52 @@
 import { expect, test } from "@playwright/test";
 import { randomUUID } from "node:crypto";
+import { createOperationalReferral } from "./support/operational-api";
 
 test.describe("Referral-to-decision operating spine", () => {
+  test("keeps a new contact visible when the saved list cannot refresh", async ({ page }) => {
+    const referral = await createOperationalReferral(page.request, "assessmentCoordinator", {
+      name: `Contact refresh ${randomUUID().slice(0, 8)}`,
+      owner: "Annette Everhart",
+    }, { assigneeId: "provisional:allo:annette" });
+    let attached = false;
+    let linkWrites = 0;
+    let failedReads = 0;
+    await page.route(`**/api/referrals/${referral.id}/contacts`, async (route) => {
+      if (route.request().method() === "POST") {
+        linkWrites += 1;
+        const response = await route.fetch();
+        attached = response.ok();
+        await route.fulfill({ response });
+      } else if (route.request().method() === "GET" && attached) {
+        failedReads += 1;
+        await route.fulfill({ status: 503, json: { error: "Synthetic contact refresh unavailable" } });
+      } else {
+        await route.continue();
+      }
+    });
+
+    await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=intake`);
+    await page.getByRole("button", { name: "Edit referral details", exact: true }).click();
+    const contacts = page.getByRole("region", { name: "Contact and coordination", exact: true });
+    await contacts.getByRole("button", { name: "Add new contact" }).click();
+    await contacts.getByLabel("First name").fill("Maya");
+    await contacts.getByLabel("Last name").fill("Scheduler");
+    await contacts.getByRole("textbox", { name: "Phone", exact: true }).fill("555-010-2028");
+    await contacts.getByRole("button", { name: "Save and add" }).click();
+
+    await expect.poll(() => failedReads).toBeGreaterThanOrEqual(1);
+    await expect(contacts.getByText("Maya Scheduler", { exact: true })).toBeVisible();
+    await expect(contacts.getByRole("alert")).toContainText("Contact attached. The latest contact list could not refresh.");
+    expect(linkWrites).toBe(1);
+    const readback = await page.request.get(`/api/referrals/${referral.id}/contacts`);
+    expect(readback.ok()).toBe(true);
+    expect((await readback.json()).contacts).toHaveLength(1);
+
+    await page.unroute(`**/api/referrals/${referral.id}/contacts`);
+    await page.reload();
+    await expect(page.getByRole("region", { name: "Contact and coordination", exact: true }).getByText("Maya Scheduler", { exact: true })).toBeVisible();
+  });
+
   test("saves, edits, unlinks, and reuses scheduling contacts from Intake", async ({ page }) => {
     const clientName = `Contact ${randomUUID().replaceAll("-", "").slice(0, 10).replace(/[0-9]/gu, "a")}`;
     await page.goto("/?view=referrals");

@@ -4,8 +4,9 @@ import { randomUUID } from "node:crypto";
 for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]] as const) {
   test(`${engine} intake remains usable through touch, rotation and keyboard resizing`, async ({ baseURL }, info) => {
     const browser = await browserType.launch();
+    const context = await browser.newContext({ baseURL, hasTouch: true, isMobile: true, viewport: { width: 390, height: 844 } });
     try {
-      const page = await browser.newPage({ baseURL, hasTouch: true, isMobile: true, viewport: { width: 390, height: 844 } });
+      const page = await context.newPage();
       await page.goto(`/?view=referrals&screen=packet&draftId=${randomUUID()}`);
       const workspace = page.getByTestId("packet-workspace");
       await expect(workspace).toHaveAttribute("aria-busy", "false");
@@ -18,7 +19,8 @@ for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]]
         // Document review stays collapsed; short landscape screens can scroll to the field.
         const review = page.getByRole("region", { name: "Extraction review", exact: true });
         await expect(review).toBeHidden();
-        expect((await name.boundingBox())!.y).toBeLessThan(340);
+        // The current attachment-first intake places identity below the upload
+        // area; assert reachability, not the retired fixed vertical offset.
         await name.scrollIntoViewIfNeeded();
         await expect(name).toBeInViewport();
         await expect(name).toHaveCSS("font-size", "16px");
@@ -73,13 +75,14 @@ for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]]
       await expect(page).toHaveURL(/referralId=\d+/);
       const savedReferralId = new URL(page.url()).searchParams.get("referralId");
       await expect(header.getByRole("button", { name: "Create referral", exact: true })).toHaveCount(0);
+      await page.getByRole("dialog", { name: "Workspace created", exact: true }).getByRole("button", { name: "Close workspace created", exact: true }).tap();
       await header.getByLabel("Workspace view", { exact: true }).selectOption({ label: "Assessment" });
-      await expect(page.locator("[data-phone-interview]")).toBeVisible();
+      await expect(page.locator('[data-assessment-phase="preparation"]')).toBeVisible();
       await page.screenshot({ path: info.outputPath(`preparation-${engine}-phone.png`) });
       for (const width of [768, 1024, 1194]) {
         await page.setViewportSize({ width, height: 900 });
-        const preparedName = page.getByRole("button", { name: "Edit Resident name", exact: true });
-        await expect(preparedName).toContainText(clientName);
+        const preparedName = page.getByRole("textbox", { name: "Resident name", exact: true });
+        await expect(preparedName).toHaveValue(clientName);
         expect((await preparedName.boundingBox())!.height).toBeGreaterThanOrEqual(44);
         expect((await page.getByRole("button", { name: "Next section", exact: true }).boundingBox())!.height).toBeGreaterThanOrEqual(44);
         const preparation = page.getByTestId("assessment-client-folder");
@@ -111,7 +114,7 @@ for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]]
       await expect(page.getByRole("dialog", { name: "Profile settings", exact: true })).toBeInViewport();
       expect(await page.locator('meta[name="viewport"]').getAttribute("content")).not.toMatch(/user-scalable=no|maximum-scale=1/);
     } finally {
-      await browser.close();
+      try { await context.close(); } finally { await browser.close(); }
     }
   });
 }

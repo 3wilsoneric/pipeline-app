@@ -9,10 +9,15 @@ test.skip(process.env.PIPELINE_DESKTOP_E2E !== "true", "Requires the isolated ha
 // Installed-app behavior remains covered by the regular workflow suites.
 test.use({ serviceWorkers: "block" });
 
-async function chooseWorkspaceView(page: Page, label: "Files" | "Decision") {
+async function chooseWorkspaceView(page: Page, label: "Files" | "Decision" | "Finish & send") {
   await expect(page.getByRole("navigation", { name: "Workspace stages", exact: true })).toBeVisible();
   const phonePicker = page.getByRole("combobox", { name: "Workspace view", exact: true });
   if (await phonePicker.isVisible()) await phonePicker.selectOption({ label });
+  else if (label === "Decision" && process.env.PIPELINE_DESIGN_V2 === "true") {
+    // Exercise the Chart's Decision shortcut, distinct from admission requirements.
+    await page.getByRole("navigation", { name: "Workspace stages", exact: true }).getByRole("button", { name: "Chart", exact: true }).click();
+    await page.locator('[data-chart-stage="Decision"]').getByRole("button", { name: "Open decision", exact: true }).click();
+  }
   else await page.getByRole("button", { name: label === "Files" ? "Workspace files" : label, exact: true }).click();
 }
 
@@ -41,6 +46,10 @@ test("failed message saves remain visible and can be retried from the email prev
   await message.blur();
   await expect(preview.getByRole("alert")).toContainText("Synthetic message save interrupted");
   await expect(message).toHaveValue("Synthetic message must survive a failed save.");
+  await message.fill("Corrected while the save was unavailable.");
+  await message.blur();
+  await expect(message).toHaveValue("Corrected while the save was unavailable.");
+  await expect(preview.getByRole("status").filter({ hasText: "Changes not saved. Retry saving." })).toBeVisible();
   await expect(preview.getByRole("button", { name: "Finish demo review", exact: true })).toBeDisabled();
   await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
   const violations = await page.evaluate(async () => {
@@ -53,13 +62,35 @@ test("failed message saves remain visible and can be retried from the email prev
   await preview.getByRole("button", { name: "Retry saving", exact: true }).click();
   await expect(preview.getByRole("alert")).toHaveCount(0);
   await expect.poll(async () => (await (await page.request.get(`/api/referrals/${referral.id}/handoff-recipients`)).json()).draft.message.body)
-    .toBe("Synthetic message must survive a failed save.");
+    .toBe("Corrected while the save was unavailable.");
   await preview.getByRole("button", { name: "Back to email preview", exact: true }).click();
-  await expect(page.frameLocator('iframe[title="Meet the Client email preview"]').locator("body")).toContainText("Synthetic message must survive a failed save.");
+  await expect(page.frameLocator('iframe[title="Meet the Client email preview"]').locator("body")).toContainText("Corrected while the save was unavailable.");
 });
 
-for (const exit of ["Workspace files", "Change packet files"]) test(`a failed handoff save stays recoverable when leaving through ${exit}`, async ({ page }) => {
-  const { dialog, endpoint } = await openHandoff(page);
+test("retry recognizes a handoff draft saved before its response was lost", async ({ page }) => {
+  const { referral, dialog, endpoint } = await openHandoff(page);
+  let writes = 0;
+  await page.route(endpoint, async (route) => {
+    if (route.request().method() !== "PUT") return route.continue();
+    writes += 1;
+    const response = await route.fetch();
+    expect(response.status()).toBe(200);
+    return route.fulfill({ status: 503, json: { error: "Synthetic handoff response lost" } });
+  });
+  await dialog.getByRole("combobox", { name: /^Cc/ }).fill("saved-despite-reply@example.invalid");
+  await dialog.getByRole("combobox", { name: /^Cc/ }).press("Enter");
+  await expect(dialog.getByRole("alert")).toContainText("Synthetic handoff response lost");
+  await expect.poll(async () => (await (await page.request.get(`/api/referrals/${referral.id}/handoff-recipients`)).json()).draft?.cc?.[0]?.email)
+    .toBe("saved-despite-reply@example.invalid");
+  await page.unroute(endpoint);
+  await dialog.getByRole("button", { name: "Retry saving", exact: true }).click();
+  await expect(dialog.getByRole("alert")).toHaveCount(0);
+  await expect(dialog.getByRole("status").filter({ hasText: "Handoff draft saved" })).toBeVisible();
+  expect(writes).toBe(1);
+});
+
+for (const exit of ["Workspace files", "Change packet files"]) test(`a failed handoff save allows internal tabs and remains recoverable through ${exit}`, async ({ page }) => {
+  const { referral, dialog, endpoint } = await openHandoff(page);
   await page.route(endpoint, route => route.request().method() === "PUT"
     ? route.fulfill({ status: 503, json: { error: "Synthetic recipient save interrupted" } }) : route.continue());
   await dialog.getByRole("combobox", { name: /^Cc/ }).fill("unsaved@example.invalid");
@@ -69,16 +100,62 @@ for (const exit of ["Workspace files", "Change packet files"]) test(`a failed ha
   else await dialog.getByRole("button", { name: "Back", exact: true }).click();
   if (exit === "Workspace files") await chooseWorkspaceView(page, "Files");
   else await page.getByRole("button", { name: exit, exact: true }).click();
-  await expect(page.getByRole("region", { name: "Email and referral packet", exact: true })).toBeVisible();
-  await expect(page).toHaveURL(/workspaceView=email/);
+  await expect(page.locator("#packet-files")).toBeVisible();
+  await expect(page).toHaveURL(/workspaceView=files/);
+  await expect(page.locator("dialog[open]")).toHaveCount(0);
+  await chooseWorkspaceView(page, "Finish & send");
+  await expect(page.getByRole("region", { name: "Email and referral packet", exact: true }).getByRole("alert")).toContainText("Synthetic recipient save interrupted");
+  const recoveredDialog = await openRecipients(page);
+  await expect(recoveredDialog.getByRole("list", { name: "Cc recipients", exact: true })).toContainText("unsaved@example.invalid");
   await page.unroute(endpoint);
-  if (exit === "Workspace files") await page.getByRole("button", { name: "Continue review", exact: true }).click();
-  else await page.getByRole("button", { name: "Confirm packet", exact: true }).click();
-  await dialog.getByRole("button", { name: "Retry saving", exact: true }).click();
+  await recoveredDialog.getByRole("button", { name: "Retry saving", exact: true }).click();
   await expect(page.getByRole("status").filter({ hasText: "Handoff draft saved" })).toBeVisible();
-  await page.getByRole("button", { name: "Close handoff review", exact: true }).click();
+  await expect.poll(async () => (await (await page.request.get(`/api/referrals/${referral.id}/handoff-recipients`)).json()).draft.cc[0].email)
+    .toBe("unsaved@example.invalid");
+  await recoveredDialog.getByRole("button", { name: "Close handoff review", exact: true }).click();
   await chooseWorkspaceView(page, "Files");
   await expect(page).toHaveURL(/workspaceView=files/);
+});
+
+test("a failed handoff save does not trap app navigation or disable further recipient edits", async ({ page }) => {
+  const { referral, dialog, endpoint } = await openHandoff(page);
+  await page.route(endpoint, route => route.request().method() === "PUT"
+    ? route.fulfill({ status: 503, json: { error: "Synthetic recipient outage" } }) : route.continue());
+  await dialog.getByRole("combobox", { name: /^Cc/ }).fill("unsaved@example.invalid");
+  await dialog.getByRole("combobox", { name: /^Cc/ }).press("Enter");
+  await expect(dialog.getByRole("alert")).toContainText("Synthetic recipient outage");
+  await dialog.getByRole("combobox", { name: /^Cc/ }).fill("second@example.invalid");
+  await dialog.getByRole("combobox", { name: /^Cc/ }).press("Enter");
+  await expect(dialog.getByRole("list", { name: "Cc recipients", exact: true })).toContainText("second@example.invalid");
+  await dialog.getByRole("button", { name: "Close handoff review", exact: true }).click();
+  await page.getByRole("button", { name: "Open calendar", exact: true }).click();
+  await expect(page).toHaveURL(/screen=calendar/);
+  await expect(page.getByText("Some edits are only in this open tab.")).toBeVisible();
+  await page.goBack();
+  await expect(page).toHaveURL(new RegExp(`referralId=${referral.id}`));
+  const restored = await openRecipients(page);
+  await expect(restored.getByRole("list", { name: "Cc recipients", exact: true })).toContainText("unsaved@example.invalid");
+  await expect(restored.getByRole("list", { name: "Cc recipients", exact: true })).toContainText("second@example.invalid");
+  await page.unroute(endpoint);
+  await restored.getByRole("button", { name: "Retry saving", exact: true }).click();
+  await expect.poll(async () => (await (await page.request.get(`/api/referrals/${referral.id}/handoff-recipients`)).json()).draft.cc.length).toBe(2);
+});
+
+test("a failed handoff draft syncs automatically after leaving when the server recovers", async ({ page }) => {
+  const { referral, dialog, endpoint } = await openHandoff(page);
+  await page.route(endpoint, route => route.request().method() === "PUT"
+    ? route.fulfill({ status: 503, json: { error: "Synthetic recipient outage" } }) : route.continue());
+  await dialog.getByRole("combobox", { name: /^Cc/ }).fill("auto-sync@example.invalid");
+  await dialog.getByRole("combobox", { name: /^Cc/ }).press("Enter");
+  await expect(dialog.getByRole("alert")).toContainText("Synthetic recipient outage");
+  await dialog.getByRole("button", { name: "Close handoff review", exact: true }).click();
+  await page.getByRole("button", { name: "Open calendar", exact: true }).click();
+  await expect(page.getByText("Some edits are only in this open tab.")).toBeVisible();
+  await page.unroute(endpoint);
+  await page.evaluate(() => window.dispatchEvent(new Event("online")));
+  await expect.poll(async () => (await (await page.request.get(`/api/referrals/${referral.id}/handoff-recipients`)).json()).draft?.cc?.[0]?.email)
+    .toBe("auto-sync@example.invalid");
+  await expect(page.getByText("Some edits are only in this open tab.")).toHaveCount(0);
 });
 
 test("unfinished recipient text survives closing review and cannot be skipped in Preview", async ({ page }) => {
@@ -98,7 +175,7 @@ test("unfinished recipient text survives closing review and cannot be skipped in
 });
 
 for (const steps of [1, 2]) test(`browser Back by ${steps} entries preserves unrecorded decisions and Forward history`, async ({ page }, info) => {
-  const name = `Synthetic ${steps === 1 ? "Browserback" : "Historyjump"}${info.project.name.replace(/[^a-z]/g, "")}`;
+  const name = `Synthetic ${steps === 1 ? "Browserback" : "Historyjump"}${info.project.name.replace(/[^a-z]/g, "")}${randomUUID().replace(/[^a-z]/g, "")}`;
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name, owner: "", tags: [] });
   await createOperationalAssessment(page.request, referral.id);
   await page.goto("/");
@@ -148,7 +225,7 @@ test("changing the admit date after a lost response never replays the older date
   await expect.poll(() => mutations.length).toBe(2);
   expect(mutations[1]).not.toBe(mutations[0]);
   await expect(date).toHaveValue("2026-10-05");
-  await expect(page.getByRole("alert")).toBeVisible();
+  await expect(page.getByRole("alert").filter({ hasText: "This referral changed in another session." })).toBeVisible();
   await review.click();
   await expect(page.getByRole("button", { name: "Review handoff", exact: true })).toBeVisible();
   expect((await (await page.request.get(`/api/referrals/${referral.id}`)).json()).referral.plannedAdmissionDate).toBe("2026-10-05");
@@ -166,6 +243,7 @@ test("browser Back from contact settings saves unfinished addresses and remains 
   });
   await page.goto("/settings");
   await page.getByRole("link", { name: /^Community contact lists/ }).click();
+  await expect(page.getByRole("heading", { name: "Community contact lists", exact: true })).toBeVisible();
   const cc = page.getByRole("combobox", { name: /^Cc/ });
   await cc.fill("retain@example.invalid");
   await page.goBack();
@@ -180,17 +258,19 @@ test("browser Back from contact settings saves unfinished addresses and remains 
   expect(list.cc.map(contact => contact.email)).toEqual(["retain@example.invalid"]);
 });
 
-test("an invalid unfinished address is retained when a stage exit cannot save it", async ({ page }) => {
+test("an invalid unfinished address remains editable across workspace tabs", async ({ page }) => {
   const { referral, dialog } = await openHandoff(page);
   await dialog.getByRole("combobox", { name: /^Cc/ }).fill("unfinished");
   await dialog.getByRole("button", { name: "Close handoff review", exact: true }).click();
   await chooseWorkspaceView(page, "Files");
-  await expect(page.getByRole("region", { name: "Email and referral packet", exact: true }).getByRole("alert")).toContainText("Use an email address");
-  await expect(page).toHaveURL(/workspaceView=email/);
-  await page.getByRole("button", { name: "Continue review", exact: true }).click();
-  await expect(dialog.getByRole("combobox", { name: /^Cc/ })).toHaveValue("unfinished");
-  await dialog.getByRole("combobox", { name: /^Cc/ }).fill("finished@example.invalid");
-  await dialog.getByRole("button", { name: "Close handoff review", exact: true }).click();
+  await expect(page).toHaveURL(/workspaceView=files/);
+  await chooseWorkspaceView(page, "Finish & send");
+  const recoveredDialog = await openRecipients(page);
+  await expect(recoveredDialog.getByRole("combobox", { name: /^Cc/ })).toHaveValue("unfinished");
+  await recoveredDialog.getByRole("combobox", { name: /^Cc/ }).fill("finished@example.invalid");
+  await recoveredDialog.getByRole("combobox", { name: /^Cc/ }).press("Enter");
+  await expect(recoveredDialog.getByRole("status").filter({ hasText: "Handoff draft saved" })).toBeVisible();
+  await recoveredDialog.getByRole("button", { name: "Close handoff review", exact: true }).click();
   await chooseWorkspaceView(page, "Files");
   await expect(page).toHaveURL(/workspaceView=files/);
   expect((await (await page.request.get(`/api/referrals/${referral.id}/handoff-recipients`)).json()).draft.cc[0].email).toBe("finished@example.invalid");

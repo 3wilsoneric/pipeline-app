@@ -27,6 +27,7 @@ Pipeline never connects directly to ElderMark and never exposes database, Blob, 
 ## Verification
 
 ```bash
+npm run test:unit
 npm run check:platform
 npm run check:desktop
 npm run check:route-policy
@@ -38,6 +39,11 @@ npm run test:e2e:visual
 ```
 
 `check:platform` runs release compatibility, generated properties, extraction quality, the 12,000-page orchestration rehearsal, recovery safeguards, contract replays, TypeScript, lint, and a production build.
+
+`test:unit` discovers every native Node test under `scripts/`. The desktop
+browser command includes the current cross-tab, offline/recovery, upload,
+handoff, and assessment suites. See [current test commands and boundaries](docs/CURRENT_TESTING.md)
+for focused development checks and environment-dependent coverage.
 
 ## Documentation
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { clearLocalReferralRecovery, listLocalReferralRecoveries } from "@/lib/pipeline/referral-local-recovery";
+import { currentOfflineRecoverySessionId } from "@/lib/offline/offline-assessment-store";
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import {
   parsePipelineReferralDraft,
@@ -74,9 +75,10 @@ export function saveServerReferralDraft(draftReference: ReferralRecoveryDraftKey
   const key = draftKey(draftReference);
   const previous = saveQueues.get(key) ?? Promise.resolve();
   const next = previous.catch(() => undefined).then(async () => {
+    const recoverySessionId = await currentOfflineRecoverySessionId();
     const payload = await fetchPipelineJson<DraftResponse>(`/api/me/referral-drafts/${encodeURIComponent(key)}`, {
       method: "PUT",
-      body: JSON.stringify({ if_match: versions.get(key) ?? 0, draft }),
+      body: JSON.stringify({ if_match: versions.get(key) ?? 0, draft: { ...draft, recoverySessionId } }),
     }, { maxResponseBytes: 512 * 1024 });
     const version = Number(payload.version);
     if (Number.isSafeInteger(version) && version > 0) versions.set(key, version);

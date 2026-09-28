@@ -366,8 +366,9 @@ test("restore API validates fields, records provenance, and cannot sign or edit 
 
 test("iPad WebKit exports and restores Excel with usable tablet and phone controls", async ({ baseURL }, info) => {
   const browser = await webkit.launch();
+  const context = await browser.newContext({ baseURL, viewport: { width: 834, height: 1194 }, hasTouch: true, isMobile: true });
   try {
-    const page = await browser.newPage({ baseURL, viewport: { width: 834, height: 1194 }, hasTouch: true, isMobile: true });
+    const page = await context.newPage();
     const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: "Synthetic Tablet Excel", owner: "", tags: [] });
     const assessment = await createOperationalAssessment(page.request, referral.id);
     await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=prior_history`);
@@ -382,11 +383,19 @@ test("iPad WebKit exports and restores Excel with usable tablet and phone contro
     await expect(dialog).toHaveCSS("opacity", "1");
     await page.screenshot({ path: info.outputPath("ipad-excel-restore.png") });
     await page.setViewportSize({ width: 390, height: 844 });
+    await expect(dialog.getByRole("button", { name: "Commit 1 change", exact: true })).toBeEnabled();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: info.outputPath("webkit-excel-restore.png") });
+    await page.setViewportSize({ width: 834, height: 1194 });
+    await expect(dialog.getByRole("button", { name: "Commit 1 change", exact: true })).toBeEnabled();
+    await page.setViewportSize({ width: 390, height: 844 });
     await dialog.getByRole("button", { name: "Commit 1 change", exact: true }).tap();
     await expect(dialog).toHaveCount(0);
     expect((await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment.prior_awol_failed_placements).toBe("Synthetic tablet update");
     await expect(page.getByRole("button", { name: "Import workbook", exact: true })).toBeFocused();
-  } finally { await browser.close(); }
+  } finally {
+    // Close the download-owning context before WebKit. Direct browser.close()
+    // hung after every export/restore assertion had passed in Linux CI.
+    try { await context.close(); } finally { await browser.close(); }
+  }
 });

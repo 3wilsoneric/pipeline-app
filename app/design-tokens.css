@@ -1,0 +1,132 @@
+/*
+ * Design tokens. Single source for color, radius, shadow, type, and motion.
+ * Rules: docs/design/PRINCIPLES.md; owner decisions: docs/design/DECISIONS.md.
+ *
+ * @theme values generate Tailwind utilities (bg-stage-blue-tile, rounded-paper,
+ * shadow-folder, text-label, ease-open, ...). Gradients have no Tailwind theme
+ * namespace, so they live on :root and are used as bg-(image:--folder-body).
+ */
+
+@theme static {
+  /* Text */
+  --color-ink: #0f1115;
+  --color-ink-2: #353a43;
+  --color-ink-muted: #5d6470;
+
+  /* Surfaces: page ground, sheet, paper (principle 3). Neutral since the modern pass (DECISIONS.md). */
+  --color-sheet: #fbfbfc;
+  --color-sheet-border: #e6e8ec;
+  --color-control-border: #d9dce2;
+  --color-paper: #ffffff;
+  --color-paper-rule: #eceef1;
+  --color-track: #eceef1;
+  /* Manila: the folder color for record pages with no step color. */
+  --color-manila: #a8864a;
+  --color-folder-edge: #d3d7de;
+  --color-folder: #f0f2f5;
+  --color-column: #f1f3f6;
+  --color-page: #f4f5f7;
+  --color-segment: #eceef2;
+  --color-segment-count: #dde0e6;
+  --color-card-border: #e4e7eb;
+  --color-count: #ffffff;
+
+  /* Brand and primary action: the one filled button per screen, and focus rings */
+  --color-primary: #0f7d62;
+  --color-primary-hover: #0b664f;
+  --color-primary-soft: #ecf7f2;
+  --color-focus: #2563eb;
+  --color-link: #0f6e56;
+  /* Filled action buttons and the text on them. */
+  --color-action: #1d5241;
+  --color-on-fill: #ffffff;
+
+  /* Stage families (principle 1). Mapping to tabs: DECISIONS.md.
+     green = Referral received; blue = In progress, Chart, Assessment;
+     orange = Decision, Finish & send. No stage uses red. */
+  --color-stage-green: #17714f;
+  --color-stage-green-tile: #e8f4ee;
+  --color-stage-green-border: #cfe6da;
+  --color-stage-blue: #2f54c8;
+  --color-stage-blue-tile: #edf1fc;
+  --color-stage-blue-border: #d5defa;
+  --color-stage-orange: #b04a14;
+  --color-stage-orange-tile: #fcefe7;
+  --color-stage-orange-border: #f3d6c4;
+  --color-stage-rose: #b2304c;
+  --color-stage-rose-tile: #fbecef;
+  --color-stage-rose-border: #f1cdd5;
+  --color-stage-amber: #a15c07;
+  --color-stage-amber-tile: #fdf4e3;
+  --color-stage-amber-border: #f1dcb3;
+
+  /* Status icon set (principle 6): non-interactive, same everywhere */
+  --color-status-done: #17714f;
+  --color-status-done-soft: #e8f4ee;
+  --color-status-pending: #616874;
+  --color-status-in-progress: #2f54c8;
+  --color-status-blocked: #b3372b;
+
+  /* Missing or unverified information: amber text, never an error */
+  --color-warning: #8f5a06;
+  --color-warning-soft: #fff8e8;
+
+  /* Destructive actions and errors only */
+  --color-danger: #b3372b;
+  --color-danger-soft: #fef4f2;
+
+  /* Radius steps down as surfaces nest (principle 9) */
+  --radius-sheet: 12px;
+  --radius-folder: 10px;
+  --radius-paper: 8px;
+  --radius-input: 6px;
+  --radius-chip: 4px;
+  --radius-pill: 999px;
+
+  /* Shadows only on things that sit above other things */
+  --shadow-sheet: none;
+  --shadow-card: 0 1px 1px rgb(16 24 40 / 0.04);
+  --shadow-card-hover: 0 2px 8px rgb(16 24 40 / 0.08);
+  --shadow-folder: 0 1px 2px rgb(16 24 40 / 0.06);
+  --shadow-folder-lift: 0 10px 24px rgb(16 24 40 / 0.14);
+  --shadow-popover: 0 10px 30px rgb(16 24 40 / 0.14), 0 0 0 1px rgb(16 24 40 / 0.04);
+
+  /* Five type roles (principle 5). Entered values: font-bold; empty: font-normal text-ink-muted. */
+  --text-title: 22px;
+  --text-title--line-height: 28px;
+  --text-title--font-weight: 600;
+  --text-section: 17px;
+  --text-section--line-height: 24px;
+  --text-section--font-weight: 600;
+  --text-label: 13px;
+  --text-label--line-height: 18px;
+  --text-label--font-weight: 600;
+  --text-value: 14px;
+  --text-value--line-height: 20px;
+  --text-meta: 12px;
+  --text-meta--line-height: 16px;
+
+  /* One motion language (principle 10) */
+  --ease-open: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+:root {
+  --duration-move: 260ms;
+  --duration-fade: 200ms;
+
+  --page-ground: #f4f5f7;
+  --folder-tab: #f0f2f5;
+  --folder-body: #eceef2;
+  --stage-green-column: #dcefe2;
+  --stage-blue-column: #dfe3fa;
+  --stage-orange-column: #fbe4d5;
+  --stage-rose-column: #faf0f2;
+  --stage-amber-column: #fbf5ea;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-move: 0ms;
+    --duration-fade: 0ms;
+  }
+}

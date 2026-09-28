@@ -59,7 +59,7 @@ function meetClientMessageText(summary: MeetClientSummary) {
 }
 function currentMedicationText(summary: MeetClientSummary) {
   if (summary.medicationStatus === "none") return "No current medications reported in this handoff. Verify against the medication administration record.";
-  return summary.medications.join("\n") || "Current medications not confirmed. Verify with the referring team before administration.";
+  return (summary.medications ?? []).join("\n") || "Current medications not confirmed. Verify with the referring team before administration.";
 }
 function admissionIntroduction(summary: MeetClientSummary) {
   const arrival = summary.admissionDate ? `scheduled for admission on ${formatMeetClientDate(summary.admissionDate)}` : "being prepared for admission (date to be confirmed)";

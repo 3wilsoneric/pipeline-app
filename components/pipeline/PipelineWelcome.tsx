@@ -8,6 +8,7 @@ import ReferralWorkflowTracker from "@/components/pipeline/ReferralWorkflowTrack
 import ContinueWorkPanel from "@/components/pipeline/ContinueWorkPanel";
 import HomeModuleDashboard from "@/components/pipeline/HomeModuleDashboard";
 import HomeDialog from "@/components/pipeline/HomeDialog";
+import ApplicationActivityCard from "@/components/pipeline/ApplicationActivityCard";
 import PipelineSearchPanel from "@/components/pipeline/PipelineSearchPanel";
 import { SinceLastVisitAssignments } from "@/components/pipeline/WorkspaceActivityFeed";
 import { usePipelineShell } from "@/components/pipeline/pipeline-shell-context";
@@ -24,6 +25,7 @@ import type { PipelineSiteScreen } from "@/lib/pipeline/site-search";
 import { prefetchPipelineWorkspace, cancelPipelineWarmup } from "@/lib/pipeline/client-navigation";
 import { pipelineSurfaceReady } from "@/lib/observability/browser-performance-contract";
 import deckStyles from "./HomeFocusDeck.module.css";
+import { useDesignV2 } from "@/components/design/DesignSwitch";
 
 export default function PipelineWelcome({
   onOpenPacket,
@@ -37,6 +39,7 @@ export default function PipelineWelcome({
   editHome = false,
   onFinishEditingHome,
   canAccessReports = false,
+  canViewApplicationActivity = false,
   initialBriefing,
   viewerId,
 }: {
@@ -51,6 +54,7 @@ export default function PipelineWelcome({
   editHome?: boolean;
   onFinishEditingHome?: () => void;
   canAccessReports?: boolean;
+  canViewApplicationActivity?: boolean;
   initialBriefing?: HomeBriefingSnapshot | null;
   viewerId?: string;
 }) {
@@ -173,6 +177,7 @@ export default function PipelineWelcome({
       <main data-guide-target="home-workspace" data-performance-ready={pipelineSurfaceReady("home", !briefing, error)} className="h-full overflow-y-auto bg-[#f4f6f5] text-[#202320] outline-none">
         <div className="mx-auto w-full max-w-[1380px] px-4 pb-10 pt-4 sm:px-6 sm:pt-5 lg:px-8">
           <HomeSearchAccess visible={searchVisible} searchProps={searchProps} onClose={() => setSearchOpen(false)} />
+          {canViewApplicationActivity ? <ApplicationActivityCard /> : null}
 
           {error ? (
             <div role="alert" className="mt-4 flex items-center justify-between gap-4 border-l-2 border-[#a9473d] bg-[#fff6f4] px-4 py-3 text-[12px] text-[#723d35]">
@@ -267,15 +272,16 @@ function CurrentWorkSummary({ briefing, onOpen, onOpenPacket }: {
 }
 
 function UpcomingAssessmentsPanel({ briefing, onOpenPacket }: BriefingPanelProps) {
+  const designV2 = useDesignV2();
   return (
-    <section aria-label="Upcoming assessments" className="min-w-0 bg-white">
+    <section aria-label="Upcoming assessments" className={designV2 ? "min-w-0" : "min-w-0 bg-white"}>
       <SectionHeader title="Upcoming assessments" detail={briefing.unavailable_sections.includes("upcoming") ? "Unavailable" : "Next 7 days"} icon={<CalendarClock size={15} />} />
       {briefing.unavailable_sections.includes("upcoming") ? (
         <UnavailableLine />
       ) : briefing.upcoming.length === 0 ? (
         <div className={deckStyles.empty}><CalendarClock aria-hidden="true" /><h3>A little room in your schedule.</h3><p>No assessments are scheduled in the next seven days.</p></div>
       ) : (
-        <div className="divide-y divide-[#e5e9e7]">
+        <div className={designV2 ? "flex flex-col gap-2.5" : "divide-y divide-[#e5e9e7]"}>
           {briefing.upcoming.slice(0, 6).map((event) => <ScheduleRow key={event.id} event={event} onOpenPacket={onOpenPacket} />)}
         </div>
       )}

@@ -78,17 +78,26 @@ const readableChartText = load("components/pipeline/ReadableChartText.tsx", { "r
 const medicalChart = load("components/pipeline/ClientMedicalChart.tsx", {
   "react/jsx-runtime": jsxRuntime, "@/components/pipeline/ReadableChartText": readableChartText,
 });
+const assessmentRecord = load("components/pipeline/ClientAssessmentRecord.tsx", {
+  "react/jsx-runtime": jsxRuntime,
+  "@/lib/assessment/assessment-tool-schema": loadTypeScriptModule(process.cwd(), "lib/assessment/assessment-tool-schema.ts"),
+  "@/lib/assessment/assessment-interview-schema": loadTypeScriptModule(process.cwd(), "lib/assessment/assessment-interview-schema.ts"),
+  "@/lib/pipeline/client-profile-presentation": loadTypeScriptModule(process.cwd(), "lib/pipeline/client-profile-presentation.ts"),
+  "@/components/pipeline/ClientMedicalChart": medicalChart,
+});
 const fixtureCache = new Map();
-const authenticatedFetch = { readPipelineJsonCache: (key) => fixtureCache.get(key) };
+const authenticatedFetch = { readPipelineJsonCache: (key) => fixtureCache.get(key), usePipelineDataGeneration: () => 0 };
 const chartContext = loadTypeScriptModule(process.cwd(), "lib/pipeline/client-chart-context.ts");
 const clientProfile = load("components/pipeline/ClientProfileView.tsx", {
   react: React, "react/jsx-runtime": jsxRuntime, "lucide-react": icons,
+  "next/dynamic": () => () => null,
   "@/lib/auth/authenticated-fetch": authenticatedFetch,
   "@/lib/clinical/clinical-value-presentation": loadTypeScriptModule(process.cwd(), "lib/clinical/clinical-value-presentation.ts"),
   "@/lib/pipeline/client-profile-presentation": loadTypeScriptModule(process.cwd(), "lib/pipeline/client-profile-presentation.ts"),
   "@/lib/pipeline/client-medical-chart": chart,
   "@/lib/pipeline/client-identity-presentation.mjs": loadTypeScriptModule(process.cwd(), "lib/pipeline/client-identity-presentation.mjs"),
   "@/components/pipeline/ClientMedicalChart": medicalChart,
+  "@/components/pipeline/ClientAssessmentRecord": assessmentRecord,
   "@/components/pipeline/ReadableChartText": readableChartText,
   "@/lib/pipeline/client-chart-context": chartContext,
   "@/components/pipeline/StartReferralFromChart": () => null,
@@ -97,6 +106,7 @@ const transferredChart = load("components/pipeline/TransferredWorkspaceChart.tsx
   "react/jsx-runtime": jsxRuntime, react: React,
   "@/lib/auth/authenticated-fetch": authenticatedFetch,
   "@/components/pipeline/ClientProfileView": clientProfile,
+  "@/components/pipeline/ClientMedicalChart": medicalChart,
   "@/lib/pipeline/referral-ownership": loadTypeScriptModule(process.cwd(), "lib/pipeline/referral-ownership.ts"),
   "@/lib/pipeline/workspace-presentation": loadTypeScriptModule(process.cwd(), "lib/pipeline/workspace-presentation.ts"),
 });
@@ -107,7 +117,7 @@ const fields = [
   { label: "Summary", value: "Preserved introduction\n\n## Reason for referral\nRecorded reason\n\n## Current presentation\n<script>untrusted source text</script>" },
 ];
 const source = { facts: [], sections: [], unmappedEvidence: [], sourceSections: [] };
-const referral = { id: 71, clientId: "fixture", name: "Fixture Person", owner: "Original owner", community: "Fixture community", createdAt: "2026-08-20T00:00:00Z",
+const referral = { id: 71, clientId: "fixture", workspaceStatus: "historical", workspaceOrigin: "allo", name: "Fixture Person", owner: "Original owner", community: "Fixture community", createdAt: "2026-08-20T00:00:00Z",
   date: "2026-08-20", dob: "01/02/1990", county: "Source county", phone: "Source contact", email: "", payer: "", source: "", note: fields.find((field) => field.label === "Summary").value };
 const file = { id: "fixture-file", referralId: 71, name: "Actual packet.pdf", category: "Referral packet", status: "received", uploadedAt: "2026-08-20", thumbnailUrl: "/api/files/fixture/thumbnail", previewUrl: "/api/files/fixture/preview" };
 const chartProfile = {
@@ -124,8 +134,8 @@ assert.equal(chartProfile.pipeline.documents.length, 2);
 assert.equal(chartProfile.client.enrichment.date_of_birth, undefined);
 fixtureCache.set("/api/profiles/pipeline%3Afixture", chartProfile);
 const html = renderToStaticMarkup(React.createElement(transferredChart.default, {
-  referral, fields,
-}, React.createElement("button", { "data-testid": "existing-assessment-actions" }, "Existing assessment actions")));
+  referral, headerActions: React.createElement("button", { "data-testid": "existing-chart-actions" }, "Existing chart actions"),
+}));
 assert.match(html, /Client medical chart/i);
 assert.match(html, /lg:grid-cols-6/);
 assert.match(html, /Referral information/);
@@ -138,12 +148,14 @@ assert.match(html, /Other authorized episode.pdf/);
 assert.match(html, /Client files/);
 assert.match(html, /aria-label="Open Actual packet.pdf"/);
 assert.match(html, /src="\/api\/files\/fixture\/thumbnail"/);
-assert.match(html, /href="\/api\/files\/fixture\/preview"/);
-assert.match(html, /existing-assessment-actions/);
+assert.match(html, /<button[^>]*>Open file/);
+assert.doesNotMatch(html, /target="_blank"/);
+assert.match(html, /existing-chart-actions/);
 fixtureCache.set("/api/profiles/pipeline%3Afixture", chartProfile);
 const clientsHtml = renderToStaticMarkup(React.createElement(clientProfile.default, { residentKey: "pipeline:fixture", onBack() {}, onOpenWorkspace() {} }));
 const article = (markup) => markup.match(/<article aria-label="Client medical chart"[\s\S]*?<\/article>/)[0];
-assert.equal(article(html), article(clientsHtml));
+const workspaceRecordHtml = renderToStaticMarkup(React.createElement(transferredChart.default, { referral }));
+assert.equal(article(workspaceRecordHtml), article(clientsHtml));
 const galleryHtml = renderToStaticMarkup(React.createElement(clientProfile.ClientDocumentGallery, { documents: chartProfile.pipeline.documents }));
 assert(html.includes(galleryHtml));
 checks.push("Clients and workspace charts render the same authorized client-wide records and galleries, retaining assessment actions and source data");
@@ -171,11 +183,11 @@ assert.doesNotMatch(importedHtml, /## Original heading|Latest assessment/);
 assert.match(importedHtml, /<details><summary/);
 checks.push("original imported facts and attributed notes remain accessible; uncertain evidence stays in source notes and imported dates never become Pipeline assessment encounters");
 const canvasSource = readFileSync("components/pipeline/ReferralPacketCanvas.tsx", "utf8");
-assert.match(canvasSource, /lg:flex lg:gap-3/);
+assert.match(canvasSource, /workspaceFolderStyles\.tabRow/);
 assert.doesNotMatch(canvasSource, /lg:grid-cols-\[minmax\(120px,1fr\)_minmax\(0,2fr\)_auto\]/);
 assert.equal((canvasSource.match(/<TransferredWorkspaceChart/g) ?? []).length, 2);
 assert.doesNotMatch(canvasSource, /<ImportedWorkspaceProfile/);
-assert.match(canvasSource, /<AssessmentChartWorkspace referralId=\{referralWorkspaceId\}/);
+assert.match(canvasSource, /<AssessmentChartWorkspace key=\{referralWorkspaceId\} referralId=\{referralWorkspaceId\} emailPage/);
 checks.push("both transferred and active workspace Chart paths use the same client renderer, and desktop stages sit beside the name");
 let assessmentState = 0;
 const assessmentChart = load("components/pipeline/AssessmentChartWorkspace.tsx", {
@@ -187,13 +199,15 @@ const assessmentChart = load("components/pipeline/AssessmentChartWorkspace.tsx",
 assert.equal(renderToStaticMarkup(React.createElement(assessmentChart.default, { referralId: 71, embedded: true })), "");
 checks.push("an unsigned active referral does not append a second placeholder chart beneath its client chart");
 const canvasAst = ts.createSourceFile("intake.tsx", canvasSource, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-const intakeNames = new Set(["EditablePacketField", "OwnerPacketField", "ChartSection", "chartGuideTarget"]);
+const intakeNames = new Set(["EditablePacketField", "OwnerPacketField", "ChartSection", "chartGuideTarget", "packetFieldForControl", "PacketFieldControl", "nativePacketInputProps", "GenderFieldDetail"]);
 const intakeSource = [...canvasAst.statements].filter((node) => ts.isFunctionDeclaration(node) && intakeNames.has(node.name?.text))
-  .map((node) => `export ${node.getText(canvasAst)}`).join("\n");
+  .map((node) => node.getText(canvasAst).startsWith("export ") ? node.getText(canvasAst) : `export ${node.getText(canvasAst)}`).join("\n");
 const intake = load("intake-render.tsx", { "react/jsx-runtime": jsxRuntime, chart: medicalChart, icons,
   ownership: loadTypeScriptModule(process.cwd(), "lib/pipeline/referral-ownership.ts") },
   `const ChartBand = require("chart").ChartBand; const CheckCircle2 = require("icons").CheckCircle2; const isUnassignedOwner = require("ownership").isUnassignedOwner; const FeedbackCue = () => null;\n${intakeSource}`);
 function findControl(element, type) {
+  if (!React.isValidElement(element)) return null;
+  if (typeof element.type === "function") return findControl(element.type(element.props), type);
   if (element.type === type) return element;
   for (const child of React.Children.toArray(element.props?.children)) {
     if (!React.isValidElement(child)) continue;
@@ -224,10 +238,9 @@ const intakeHtml = renderToStaticMarkup(React.createElement(medicalChart.ClientC
     React.createElement(medicalChart.ChartHeaderCell, { label: "Details captured", value: "2 / 18" }),
     React.createElement(medicalChart.ChartHeaderCell, { label: "Save status", value: "Unsaved changes" })),
   React.createElement(intake.ChartSection, { title: "Identity", complete: 1, total: 5 }, editable),
-  React.createElement(intake.ChartSection, { title: "Routing and assignment", complete: 1, total: 7 }, owner, select)));
+  React.createElement(intake.ChartSection, { title: "Referral details", complete: 1, total: 7 }, owner, select)));
 assert.match(intakeHtml, /aria-label="Referral intake chart"/);
-assert.match(intakeHtml, /bg-\[#f3f7f5\]/);
-assert.match(intakeHtml, /bg-\[#eaf1ee\]/);
+assert(intakeHtml.includes(renderToStaticMarkup(React.createElement(medicalChart.ChartHeaderCell, { label: "Save status", value: "Unsaved changes" }))));
 assert.match(intakeHtml, /data-guide-target="intake-identity"/);
 assert.match(intakeHtml, /data-guide-target="intake-routing"/);
 assert.match(intakeHtml, /value="Fixture Person"/);

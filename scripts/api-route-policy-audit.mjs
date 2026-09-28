@@ -93,6 +93,7 @@ for (const absoluteFile of routeFiles) {
     const key = `${file}#${method}`;
     const body = resolvedFunctionText(statement, source, declarations);
     const isInternal = route.startsWith("/api/internal/");
+    const isPlatformIntegration = route.startsWith("/api/integrations/platform/");
     const isPublic = publicMethods.has(key);
     const isPacketRecipient = packetRecipientMethods.has(key);
     const isMutation = mutationMethods.has(method);
@@ -100,13 +101,17 @@ for (const absoluteFile of routeFiles) {
     const personalRecovery = /^\/api\/me\/(assessment-drafts|referral-drafts)(\/|$)/.test(route);
     const roleList = pipelineRoles(body);
 
-    methods.push({ key, route, method, boundary: isInternal ? "worker" : isPacketRecipient ? "packet_recipient" : isPublic ? "public" : "user" });
+    methods.push({ key, route, method, boundary: isInternal ? "worker" : isPlatformIntegration ? "platform_integration" : isPacketRecipient ? "packet_recipient" : isPublic ? "public" : "user" });
     check(`${key} uses centralized API logging`, body.includes("withApiLogging("));
     check(`${key} logs the canonical route template`, body.includes(`withApiLogging(request, "${route}"`));
 
     if (isInternal) {
       check(`${key} requires internal-worker authentication`, body.includes("requireInternalWorker("));
       check(`${key} does not accept browser-user authentication`, !body.includes("requirePipelineUser("));
+    } else if (isPlatformIntegration) {
+      check(`${key} requires Platform integration authentication`, body.includes("requirePlatformIntegration("));
+      check(`${key} does not accept browser-user authentication`, !body.includes("requirePipelineUser("));
+      check(`${key} is read-only`, method === "GET");
     } else if (isPacketRecipient) {
       check(`${key} uses the canonical recipient access owner`, sourceText.includes('from "@/lib/notifications/admission-packet-access"'));
       if (method === "GET") {

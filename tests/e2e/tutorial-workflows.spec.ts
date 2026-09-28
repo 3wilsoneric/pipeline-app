@@ -39,6 +39,8 @@ for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto("/");
     const panel = await library(page);
+    const documentStartedAt = await page.evaluate(() => performance.timeOrigin);
+    const writes = observeLiveWrites(page);
     await expect(panel.getByRole("button", { name: "Create a referral & add files", exact: true })).toBeVisible();
     await expect(panel.locator("button:disabled")).toHaveCount(0);
     await expect(panel.getByText(/open a referral|in this workspace|Show control/i)).toHaveCount(0);
@@ -47,12 +49,21 @@ for (const width of [1440, 390]) {
     await panel.getByRole("button", { name: /Walk through a referral/ }).click();
     await expect(page).toHaveURL(/\/tutorials\/referral\?/);
     await expect(page.getByTestId("tutorial-referral-session")).toBeVisible();
+    expect(await page.evaluate(() => performance.timeOrigin)).toBe(documentStartedAt);
     await expect(page.locator('[data-guide-target="home-board-card"]')).toHaveCount(1);
     await expect(page.locator('[data-guide-target="home-board-card"]')).toContainText("Continue preparation");
     expect(new URL(page.url()).searchParams.has("referralId")).toBe(false);
     await page.screenshot({ path: info.outputPath("board.png") });
     await page.locator('[data-guide-target="home-board-card"]').click();
     await expect(page.locator("#tutorial-step")).toHaveValue("3");
+    await page.getByRole("button", { name: "Close tutorial", exact: true }).click();
+    await expect(page.getByTestId("tutorial-referral-session")).toHaveCount(0);
+    expect(await page.evaluate(() => performance.timeOrigin)).toBe(documentStartedAt);
+    const reopened = await library(page);
+    await reopened.getByRole("button", { name: "Fill out the assessment", exact: true }).click();
+    await expect(page.locator("#tutorial-step")).toHaveValue("3");
+    expect(await page.evaluate(() => performance.timeOrigin)).toBe(documentStartedAt);
+    expect(writes).toEqual([]);
   });
 }
 
@@ -238,6 +249,7 @@ test("sticking-point help answers the actual blocker at each referral step", asy
 
 test("Show me where finds the assessment section instead of an unrelated review", async ({ page }) => {
   await page.goto("/tutorials/referral?task=complete-assessment");
+  await expect(page.getByLabel("Assessment section", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Show me where", exact: true }).click();
   await expect(page.getByLabel("Assessment section", { exact: true })).toBeFocused();
 });
@@ -258,7 +270,12 @@ test("packet locator reaches the recipient and locked decisions show relevant he
 test("hidden phone board card points to its stage selector", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/tutorials/referral");
+  await expect(page.getByRole("button", { name: /^Open page menu/ })).toBeVisible();
+  // The guide's highlight effect confirms its server-rendered controls hydrated.
+  await expect(page.locator('[data-guide-target="home-board-card"]')).toHaveAttribute("data-tutorial-highlight", "true");
   await page.getByRole("combobox", { name: "Referral stage", exact: true }).selectOption("received");
+  await expect(page.getByRole("combobox", { name: "Referral stage", exact: true })).toHaveValue("received");
+  await expect(page.locator('[data-guide-target="home-board-card"]')).toBeHidden();
   await page.getByRole("button", { name: "Show me where", exact: true }).click();
   await expect(page.getByRole("combobox", { name: "Referral stage", exact: true })).toBeFocused();
   await expect(page.getByTestId("guided-coach-panel").getByRole("alert")).toContainText("Choose In progress in Referral stage");

@@ -6,6 +6,8 @@ import { join } from "node:path";
 import { createCanvas } from "@napi-rs/canvas";
 import { actorApiContext, operationalActorHeaders, requireOperationalBaseURL, syntheticReferralInput } from "../support/pipeline-actors";
 
+const redesign = process.env.PIPELINE_DESIGN_V2 === "true";
+
 async function actorPage(browser: Browser, actor: "assessorA", baseURL: string) {
   // These tests observe or interrupt requests. A service worker can bypass Playwright's routing/body capture.
   const context = await browser.newContext({ baseURL, extraHTTPHeaders: operationalActorHeaders(actor, baseURL), serviceWorkers: "block" });
@@ -62,17 +64,17 @@ test.describe("field exit saves and single uploads", () => {
         await route.continue();
       });
       await phone.fill("555-0123");
-      await page.waitForTimeout(900); // Longer than both removed autosave timers.
-      expect(writes).toEqual([]);
+      if (redesign) await expect.poll(() => writes.length).toBe(1); // Redesign saves idle typing, too.
+      else { await page.waitForTimeout(900); expect(writes).toEqual([]); }
       await email.fill("synthetic@example.invalid");
       await expect.poll(() => writes.length).toBe(1);
       expect(writes[0].patch).toMatchObject({ phone: "555-0123" });
       expect(writes[0].patch.email).toBeUndefined();
-      await page.waitForTimeout(900);
+      await page.waitForTimeout(redesign ? 100 : 900);
       expect(writes).toHaveLength(1);
       release();
       await expect.poll(async () => (await readReferral(api, referral.id)).phone).toBe("555-0123");
-      expect((await readReferral(api, referral.id)).email).toBe("");
+      if (!redesign) expect((await readReferral(api, referral.id)).email).toBe("");
       await expect(email).toHaveValue("synthetic@example.invalid");
       await email.blur();
       await expect.poll(async () => (await readReferral(api, referral.id)).email).toBe("synthetic@example.invalid");
@@ -94,6 +96,7 @@ test.describe("field exit saves and single uploads", () => {
       const referral = await createReferral(api);
       await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}`);
       await page.getByRole("navigation", { name: "Workspace stages", exact: true }).getByRole("button", { name: "Assessment", exact: true }).click();
+      if (redesign) await page.getByRole("button", { name: "Prepare assessment", exact: true }).click();
       const editor = page.locator('[data-assessment-view]');
       await editor.getByRole("combobox", { name: "Assessment section", exact: true }).selectOption("prior_history");
       const first = editor.getByRole("textbox", { name: /Prior 5150/ });
@@ -109,14 +112,14 @@ test.describe("field exit saves and single uploads", () => {
         await route.continue();
       });
       await first.fill("Synthetic first answer");
-      await page.waitForTimeout(900);
-      expect(writes).toEqual([]);
+      if (redesign) await expect.poll(() => writes.length).toBe(1);
+      else { await page.waitForTimeout(900); expect(writes).toEqual([]); }
       await second.fill("Synthetic second answer still being typed");
       await expect.poll(() => writes.length).toBe(1);
       expect(writes[0].patch.data).toEqual({ prior_5150_5250_holds: "Synthetic first answer" });
       release();
       await expect.poll(async () => (await read()).prior_5150_5250_holds).toBe("Synthetic first answer");
-      await page.waitForTimeout(900);
+      await page.waitForTimeout(redesign ? 100 : 900);
       expect(writes).toHaveLength(1);
       expect((await read()).crisis_er_utilization).toBeNull();
       await expect(second).toHaveValue("Synthetic second answer still being typed");
@@ -131,10 +134,12 @@ test.describe("field exit saves and single uploads", () => {
       const cell = editor.locator('[data-working-field="im_injections"]');
       await cell.getByRole("button", { name: /Unable/ }).click();
       await cell.getByRole("textbox").fill("Synthetic source unavailable");
-      await page.waitForTimeout(900);
+      await page.waitForTimeout(redesign ? 100 : 900);
       expect(writes).toHaveLength(2);
       await page.getByTestId("workspace-folder-header").getByRole("button", { name: "Workspace files", exact: true }).click();
-      await expect(editor).toHaveCount(0);
+      await expect(page.getByRole("region", { name: "Files", exact: true })).toBeVisible();
+      await expect(editor).toBeHidden();
+      await expect(editor.locator("xpath=ancestor::*[@inert][1]")).toHaveAttribute("inert", "");
       await expect.poll(async () => (await read()).im_injections).toBe("unable_to_assess");
       await expect.poll(async () => (await read()).unable_to_assess_reasons.im_injections).toBe("Synthetic source unavailable");
       await page.reload();
@@ -220,10 +225,11 @@ test.describe("field exit saves and single uploads", () => {
       await expect(input).toBeEditable();
       const writes = recordWrites(page);
       await input.fill(name);
-      await page.waitForTimeout(900);
-      expect(writes).toEqual([]);
+      if (redesign) await expect.poll(() => writes.length).toBe(1);
+      else { await page.waitForTimeout(900); expect(writes).toEqual([]); }
       await input.blur();
       await expect.poll(() => writes.length).toBe(1);
+      // Before creation this is still the intake draft, not the mounted record stack.
       await expect(page.getByTestId("workspace-save-status")).toContainText("Draft saved");
       const creations: string[] = [];
       page.on("request", (request) => {
@@ -241,7 +247,7 @@ test.describe("field exit saves and single uploads", () => {
       await page.getByRole("button", { name: "Create referral", exact: true }).click();
       const created = [(await (await creation).json()).referral.id];
       expect(creations).toHaveLength(1);
-      await expect(page.getByTestId("workspace-save-status")).toContainText("Packet uploaded and ready for review", { timeout: 20_000 });
+      await expect(redesign ? page.locator("[data-save-center]") : page.getByTestId("workspace-save-status")).toContainText(redesign ? "All changes saved" : "Packet uploaded and ready for review", { timeout: 20_000 });
       const files = (await (await api.get(`/api/files?referral_id=${created[0]}`)).json()).files;
       expect(files.filter((file: { name: string }) => file.name === packet.name)).toHaveLength(1);
       const download = await api.get(`/api/referrals/${created[0]}/packet`);

@@ -335,7 +335,7 @@
     transaction.objectStore(RECORDS_STORE).put(storedRecord);
     transaction.objectStore(ACTIVE_STORE).put(activeRecord);
     await transactionDone(transaction);
-    elements.saveStatus.textContent = "Saved on this device · syncs after reconnect";
+    elements.saveStatus.textContent = savedOnDeviceStatus();
   }
 
   function renderProgress() {
@@ -391,6 +391,15 @@
       elements.returnOnline.disabled = true;
       elements.returnOnline.textContent = "Offline · reconnect to sync";
     }
+    if (elements.saveStatus.textContent.startsWith("Saved on this device ·")) {
+      elements.saveStatus.textContent = savedOnDeviceStatus();
+    }
+  }
+
+  function savedOnDeviceStatus() {
+    return navigator.onLine
+      ? "Saved on this device · choose Return to Pipeline and sync"
+      : "Saved on this device · reconnect, then choose Return to Pipeline and sync";
   }
 
   function showEmpty(title, detail) {
