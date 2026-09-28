@@ -51,6 +51,7 @@ import { ClientAssessmentRecords } from "@/components/pipeline/ClientAssessmentR
 import folderStyles from "./ClientFolder.module.css";
 import StartReferralFromChart from "@/components/pipeline/StartReferralFromChart";
 import { clientChartRecord, clientChartAssessments, clientReferralSections, clientSourceSections, referralChartEditFields, type ReferralChartEditField } from "@/lib/pipeline/client-chart-context";
+import { useDesignV2 } from "@/components/design/DesignSwitch";
 
 const ReferralFilePreviewDialog = dynamic(() => import("./ReferralFilePreviewDialog"), { ssr: false });
 
@@ -163,18 +164,20 @@ function profileLoadMessage(error: unknown) {
   return error instanceof Error ? error.message : "The admitted-client profile is unavailable.";
 }
 
-export function ClientChartRecord({ profile, sourceReferralId, headerActions, children, assessment, onEditReferralField, onEditAssessmentField, intakeReferral }: {
+export function ClientChartRecord({ profile, sourceReferralId, headerActions, children, assessment, onEditReferralField, onEditAssessmentField, intakeReferral, excludeReferralAssessments = false }: {
   profile: UnifiedClientProfileResponse;
   sourceReferralId: number;
   headerActions?: ReactNode;
   children?: ReactNode;
   assessment?: PipelineAssessmentRecord;
+  /** Redesign Chart home: this referral's assessments live in the Assessment tab; earlier ones stay. */
+  excludeReferralAssessments?: boolean;
   onEditReferralField?: (field: ReferralChartEditField) => void;
   onEditAssessmentField?: (field: AssessmentToolFieldKey) => void;
   intakeReferral?: Referral;
 }) {
   return <ResidentProfile profile={profile} onBack={() => {}} onOpenWorkspace={() => {}} onConnectionChanged={() => {}}
-    assessmentRecords={clientChartAssessments(profile, sourceReferralId, assessment)}
+    assessmentRecords={excludeReferralAssessments ? profile.pipeline.assessments.filter((record) => record.referral_id !== sourceReferralId) : clientChartAssessments(profile, sourceReferralId, assessment)}
     embedded sourceReferralId={sourceReferralId} headerActions={headerActions} additionalContent={children} onEditReferralField={onEditReferralField}
     editableAssessmentId={assessment?.assessment_id} onEditAssessmentField={onEditAssessmentField} intakeReferral={intakeReferral} />;
 }
@@ -239,7 +242,11 @@ function ResidentProfile({
     chart.sections,
     profile.pipeline.assessments,
   );
-  const completedAssessments = profile.pipeline.assessments.filter((assessment) => assessment.status === "complete" && assessment.signed_at);
+  // Redesign Chart home: this referral's files and signed assessment already show above
+  // (Documents, Assessment summary, Assessment), so only other episodes' records repeat here.
+  const homeChart = useDesignV2() && Boolean(intakeReferral);
+  const completedAssessments = profile.pipeline.assessments.filter((assessment) => assessment.status === "complete" && assessment.signed_at && !(homeChart && assessment.referral_id === sourceReferralId));
+  const otherDocuments = homeChart ? profile.pipeline.documents.filter((document) => document.referralId !== sourceReferralId) : profile.pipeline.documents;
   const referralEditActions: ChartEditActions | undefined = onEditReferralField
     ? Object.fromEntries(Object.entries(referralChartEditFields).map(([label, field]) => [label, () => onEditReferralField(field)])) : undefined;
   // The summary may belong to a connected census record or another episode.
@@ -323,11 +330,11 @@ function ResidentProfile({
             ) : null}
           </ProfileSection> : null}
 
-          <ClientFilesSection
+          {!homeChart || client.source_documents.length || otherDocuments.length ? <ClientFilesSection
             canonicalClientId={client.canonical_client_id}
             sourceDocuments={client.source_documents}
-            referralDocuments={profile.pipeline.documents}
-          />
+            referralDocuments={otherDocuments}
+          /> : null}
           <ClientRecordedInformation profile={profile} sourceReferralId={sourceReferralId} editActions={referralEditActions} intakeReferral={intakeReferral} />
 
           {!intakeReferral && !pipelineOnly && client.canonical_client_id ? (
@@ -343,10 +350,12 @@ function ResidentProfile({
 
 function ClientRecordedInformation({ profile, sourceReferralId, editActions, intakeReferral }: { profile: UnifiedClientProfileResponse; sourceReferralId?: number; editActions?: ChartEditActions; intakeReferral?: Referral }) {
   const client = profile.client;
-  const referralSections = clientReferralSections(profile, intakeReferral);
+  // The redesign's Chart already names the referral and shows its summary near the top; don't repeat them here.
+  const quiet = useDesignV2() && Boolean(intakeReferral);
+  const referralSections = clientReferralSections(profile, intakeReferral, quiet ? ["summary", "decision"] : []);
   return <>
-    {referralSections.length > 0 ? <ProfileSection title="Referral information" detail={intakeReferral ? "Other recorded referral details" : undefined}>
-      <CuratedClientRecord sections={referralSections} editActions={editActions} editableSectionKey={`referral:${sourceReferralId}`} />
+    {referralSections.length > 0 ? <ProfileSection title="Referral information" detail={intakeReferral && !quiet ? "Other recorded referral details" : undefined}>
+      <CuratedClientRecord sections={referralSections} editActions={editActions} editableSectionKey={`referral:${sourceReferralId}`} hideSingleLabel={quiet} />
     </ProfileSection> : null}
     <ClientSourceNotes sections={clientSourceSections(profile)} />
     {profile.pipeline.source_warnings?.map((warning) => <p key={warning} role="alert" className="text-[13px] text-[#a4473c]">{warning}</p>)}
@@ -357,6 +366,18 @@ function ClientRecordedInformation({ profile, sourceReferralId, editActions, int
 }
 
 function ClientChartContainer({ embedded, title, onBack, children }: { embedded: boolean; title: string; onBack: () => void; children: ReactNode }) {
+  const designV2 = useDesignV2();
+  // Redesign: the client's chart reads like an open record: name as the page title, the Chart's
+  // blue wash, and white cards on it, instead of a manila folder (docs/design/DECISIONS.md, "Client profile").
+  if (!embedded && designV2) return <main aria-label={`Client profile for ${title}`} className="h-full min-h-0 overflow-y-auto overscroll-y-contain bg-page text-ink [scrollbar-gutter:stable]">
+    <div data-testid="profile-workspace" data-performance-ready="profile" className="mx-auto w-full max-w-[1640px] px-4 pb-[calc(3rem+env(safe-area-inset-bottom))] pt-4 sm:px-6 lg:px-8">
+      <BackButton onClick={onBack} />
+      <h1 className="mt-2 mb-4 text-title text-ink">{title}</h1>
+      <div data-testid="client-profile-folder" data-client-profile-sheet className="rounded-sheet border border-stage-blue-border bg-(image:--stage-blue-column) p-3 sm:p-4">
+        <div className="flex flex-col gap-4">{children}</div>
+      </div>
+    </div>
+  </main>;
   if (embedded) return <div data-testid="profile-workspace" data-performance-ready="profile" className={`${folderStyles.embeddedRecord} bg-white pb-6 text-[#111111]`}>{children}</div>;
   return <main aria-label={`Client profile for ${title}`} className="h-full min-h-0 overflow-y-auto overscroll-y-contain pipeline-page-surface text-[#111111] [scrollbar-gutter:stable]">
     <div data-testid="profile-workspace" data-performance-ready="profile" className="mx-auto w-full max-w-[1800px] px-4 pb-[calc(3rem+env(safe-area-inset-bottom))] pt-4 sm:px-6 sm:pb-[calc(4rem+env(safe-area-inset-bottom))] lg:px-8">
@@ -441,7 +462,7 @@ const UNAVAILABLE_CLIENT_HISTORY: ClientHistoryProjection = {
   episodes: [],
 };
 
-function CuratedClientRecord({ sections, editActions, editableSectionKey }: { sections: ClientProfileSection[]; editActions?: ChartEditActions; editableSectionKey?: string }) {
+function CuratedClientRecord({ sections, editActions, editableSectionKey, hideSingleLabel }: { sections: ClientProfileSection[]; editActions?: ChartEditActions; editableSectionKey?: string; hideSingleLabel?: boolean }) {
   if (sections.length === 0) {
     return <EmptyChartMessage>No additional client information is available in the current clinical record.</EmptyChartMessage>;
   }
@@ -450,7 +471,7 @@ function CuratedClientRecord({ sections, editActions, editableSectionKey }: { se
     <div className="border-y border-[#d9dfdc]">
       {sections.map((section) => (
         <section key={section.key} className="border-b border-[#d9dfdc] last:border-b-0">
-          <h3 className="bg-[#f5f7f6] px-4 py-3 text-[16px] font-bold text-[#244b41] lg:px-5">
+          <h3 className={hideSingleLabel && sections.length === 1 ? "sr-only" : "bg-[#f5f7f6] px-4 py-3 text-[16px] font-bold text-[#244b41] lg:px-5"}>
             {section.label}
           </h3>
           <ChartFacts facts={section.facts} className="px-4 py-4 lg:px-6" editActions={!editableSectionKey || section.key === editableSectionKey ? editActions : undefined} editHint="Edit in intake" />
@@ -1265,8 +1286,9 @@ function BackButton({ onClick }: { onClick: () => void }) {
 }
 
 function ProfileSection({ title, detail, children }: { title: string; detail?: string; children: React.ReactNode }) {
+  const designV2 = useDesignV2();
   return (
-    <section className="border border-[#cfd7d2] bg-white px-5 py-5 md:px-6">
+    <section className={designV2 ? "rounded-paper border border-card-border bg-paper px-5 py-5 shadow-card md:px-6" : "border border-[#cfd7d2] bg-white px-5 py-5 md:px-6"}>
       <div className="flex flex-wrap items-baseline justify-between gap-3 border-b border-[#d9dfdc] pb-3">
         <h2 className="text-[19px] font-bold tracking-[-0.01em]">{title}</h2>
         {detail ? <span className="text-[13px] text-[#59675f]">{detail}</span> : null}

@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { leaveInterviewFullScreen, openAllQuestions } from "../support/assessment-navigation";
 import { actorApiContext, operationalActorHeaders, requireOperationalBaseURL } from "../support/pipeline-actors";
 import { createOperationalAssessment, createOperationalReferral, signOperationalAssessment } from "../support/operational-api";
 import { assessmentToolFieldDefinitions } from "../../../lib/assessment/assessment-tool-schema";
@@ -20,7 +21,7 @@ test.describe("assessor meeting fields", () => {
       const assessmentUrl = `/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment`;
       await page.goto(assessmentUrl);
       const editor = page.locator('[data-assessment-view]');
-      await editor.getByRole("button", { name: "All questions", exact: true }).click();
+      await openAllQuestions(page);
       const find = async (name: string) => {
         const definition = assessmentToolFieldDefinitions.find((field) => field.label === name)!;
         expect(definition, `Canonical question: ${name}`).toBeDefined();
@@ -69,12 +70,16 @@ test.describe("assessor meeting fields", () => {
       await search.fill("");
       await page.keyboard.press("Escape");
       await page.setViewportSize({ width: 1440, height: 900 });
+      await leaveInterviewFullScreen(page);
       const stages = page.getByRole("navigation", { name: "Workspace stages", exact: true });
       await stages.getByRole("button", { name: "Chart", exact: true }).click();
       await expect(stages.getByRole("button", { name: "Chart", exact: true })).toHaveAttribute("aria-current", "page");
       await page.goto(assessmentUrl);
       await expect(editor).toBeVisible();
-      await editor.getByRole("button", { name: "All questions", exact: true }).click();
+      // The redesign reopens the Assessment step where it was left; closing the interview left it in All questions.
+      const preparing = editor.getByRole("button", { name: "Prepare assessment", exact: true });
+      await preparing.or(editor.getByRole("button", { name: "All questions", exact: true })).or(editor.locator('select[aria-label="Assessment section"]:has(option[value="all-questions"])')).first().waitFor();
+      if (!await preparing.isVisible()) await openAllQuestions(page);
       await find("Injection frequency");
       await expect(editor.getByRole("textbox", { name: "Injection frequency", exact: true })).toHaveValue(entries[0][2]);
       const saved = await read();

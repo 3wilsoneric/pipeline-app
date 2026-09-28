@@ -61,6 +61,7 @@ const context = await browser.newContext({
 });
 const page = await context.newPage();
 const apiResponses = new Map();
+const documentInteractions = new Map();
 let documentBytes = 0;
 let assetBytes = 0;
 let requestCount = 0;
@@ -247,31 +248,35 @@ await measureJourney("source_thumbnail_decoded", "asset", async () => {
     return image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0;
   });
 });
+const sourceChartUrl = page.url();
 await measureJourney("source_pdf_complete_body", "asset", async () => {
   const link = page.locator('a[href*="/source-documents/"][href$="/preview"]').first();
   const target = new URL(await link.getAttribute("href"), page.url()).href;
-  const responseReady = context.waitForEvent("response", { predicate: (response) => response.url() === target });
-  const popupReady = page.waitForEvent("popup");
+  if (await link.getAttribute("target") === "_blank") throw new Error("Source files must open in the same tab.");
+  const responseReady = page.waitForResponse((response) => response.url() === target && response.request().isNavigationRequest());
   await link.click();
   const fileResponse = await responseReady;
-  const popup = await popupReady;
-  try {
-    if (!fileResponse.ok() || !fileResponse.headers()["content-type"]?.includes("application/pdf")) {
-      throw new Error("The source PDF did not complete successfully.");
-    }
-    // Chromium's native PDF viewer can leave its navigation request open.
-    // Require a complete real browser fetch of the clicked URL, not just its
-    // popup/headers. This certifies bytes, not native viewer rendering.
-    await page.evaluate(async (url) => {
-      const response = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(10_000) });
-      if (!response.ok || !response.headers.get("content-type")?.includes("application/pdf")) throw new Error("PDF read failed.");
-      const bytes = new Uint8Array(await response.arrayBuffer());
-      if (new TextDecoder().decode(bytes.slice(0, 5)) !== "%PDF-") throw new Error("PDF bytes were invalid.");
-    }, target);
-  } finally {
-    await popup.close();
+  if (fileResponse.request().frame() !== page.mainFrame()) throw new Error("The source file did not navigate the current tab.");
+  if (context.pages().length !== 1) throw new Error("Opening a source file created another tab.");
+  if (!fileResponse.ok() || !fileResponse.headers()["content-type"]?.includes("application/pdf")) {
+    throw new Error("The source PDF did not complete successfully.");
   }
+  // Headless Chromium may download a PDF instead of committing a viewer URL;
+  // its native viewer can also leave the navigation request open.
+  // Require a complete real browser fetch of the clicked URL, not just its
+  // navigation/headers. This certifies bytes, not native viewer rendering.
+  await page.evaluate(async (url) => {
+    const response = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(10_000) });
+    if (!response.ok || !response.headers.get("content-type")?.includes("application/pdf")) throw new Error("PDF read failed.");
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    if (new TextDecoder().decode(bytes.slice(0, 5)) !== "%PDF-") throw new Error("PDF bytes were invalid.");
+  }, target);
 });
+if (page.url() !== sourceChartUrl) {
+  await page.goBack({ waitUntil: "domcontentloaded" });
+  await page.waitForURL(sourceChartUrl);
+}
+await page.getByTestId("client-identity-title").waitFor({ state: "visible" });
 await measureJourney("profile_to_clients", "navigation", async () => {
   await activate(page.getByRole("button", { name: "Open client profiles", exact: true }));
   await page.getByLabel("Search this cabinet", { exact: true }).waitFor({ state: "visible" });
@@ -292,7 +297,8 @@ if (isLocalTarget) {
 }
 await measureJourney("packet_step_change", "tab", async () => {
   await activate(page.getByRole("button", { name: "Workspace files" }));
-  await page.getByText("Signed Medication List", { exact: true }).waitFor({ state: "visible" });
+  await page.getByRole("button", { name: /Drop files or choose files/ }).waitFor({ state: "visible" });
+  await page.getByText("No files added yet.", { exact: true }).waitFor({ state: "visible" });
 });
 await measureJourney("new_referral_to_home", "navigation", async () => {
   await activate(page.getByRole("button", { name: "Pipeline home", exact: true }));
@@ -308,43 +314,47 @@ await measureJourney("profile_menu_close", "overlay", async () => {
   await page.getByRole("dialog", { name: "Profile settings", exact: true }).waitFor({ state: "hidden" });
 });
 
+await page.locator('[data-pipeline-ready="guided-coach"]').waitFor({ state: "attached" });
+const tutorialLibrary = page.getByRole("dialog", { name: "Tutorials", exact: true });
+const reportGuide = page.getByRole("complementary", { name: "View reports tutorial", exact: true });
 await measureJourney("guide_library_open", "guide", async () => {
   await activate(page.getByRole("button", { name: "Open guided tutorials", exact: true }));
-  await page.getByRole("dialog", { name: "Guided tutorial library", exact: true }).waitFor({ state: "visible" });
+  await tutorialLibrary.waitFor({ state: "visible" });
 });
 await measureJourney("guide_walkthrough_start", "guide", async () => {
-  await activate(page.getByRole("button", { name: /^Check team work / }).first());
-  await page.getByRole("dialog", { name: "Check team work guided tutorial", exact: true }).waitFor({ state: "visible" });
-  await page.getByRole("heading", { name: "Check the team queue", exact: true }).waitFor({ state: "visible" });
+  await activate(tutorialLibrary.getByRole("button", { name: "View reports", exact: true }));
+  await reportGuide.getByRole("heading", { name: "Choose a report", exact: true }).waitFor({ state: "visible" });
+  await page.getByRole("main", { name: "Reports", exact: true }).waitFor({ state: "visible" });
 });
 await measureJourney("guide_step_advance", "guide", async () => {
-  await activate(page.getByRole("button", { name: "Continue", exact: true }));
-  await page.getByRole("heading", { name: "Open Workspaces", exact: true }).waitFor({ state: "visible" });
+  await activate(reportGuide.getByRole("button", { name: "Next", exact: true }));
+  await reportGuide.getByRole("heading", { name: "Set the scope", exact: true }).waitFor({ state: "visible" });
 });
 await measureJourney("guide_step_back", "guide", async () => {
-  await activate(page.getByRole("button", { name: "Back", exact: true }));
-  await page.getByRole("heading", { name: "Check the team queue", exact: true }).waitFor({ state: "visible" });
+  await activate(reportGuide.getByRole("button", { name: "Previous tutorial step", exact: true }));
+  await reportGuide.getByRole("heading", { name: "Choose a report", exact: true }).waitFor({ state: "visible" });
 });
 await measureJourney("guide_pause", "guide", async () => {
-  await activate(page.getByRole("button", { name: "Pause tutorial", exact: true }));
-  await page.getByRole("dialog", { name: "Check team work guided tutorial", exact: true }).waitFor({ state: "hidden" });
+  await activate(reportGuide.getByRole("button", { name: "Pause tutorial", exact: true }));
+  await reportGuide.waitFor({ state: "hidden" });
 });
 await measureJourney("guide_library_reopen", "guide", async () => {
   await activate(page.getByRole("button", { name: "Open guided tutorials", exact: true }));
-  await page.getByRole("dialog", { name: "Guided tutorial library", exact: true }).waitFor({ state: "visible" });
+  await tutorialLibrary.waitFor({ state: "visible" });
 });
-await measureJourney("guide_resume", "guide", async () => {
-  await activate(page.getByRole("button", { name: /^Continue where you stopped/ }).first());
-  await page.getByRole("dialog", { name: "Check team work guided tutorial", exact: true }).waitFor({ state: "visible" });
+// The current library restarts the selected task; it no longer offers Resume.
+await measureJourney("guide_restart", "guide", async () => {
+  await activate(tutorialLibrary.getByRole("button", { name: "View reports", exact: true }));
+  await reportGuide.getByRole("heading", { name: "Choose a report", exact: true }).waitFor({ state: "visible" });
 });
-await measureJourney("guide_end", "guide", async () => {
-  await activate(page.getByRole("button", { name: "End tutorial", exact: true }));
-  await page.getByRole("dialog", { name: "Check team work guided tutorial", exact: true }).waitFor({ state: "hidden" });
-  await page.getByRole("dialog", { name: "Guided tutorial library", exact: true }).waitFor({ state: "visible" });
+await measureJourney("guide_return_to_library", "guide", async () => {
+  await activate(reportGuide.getByRole("button", { name: "Tutorials", exact: true }));
+  await reportGuide.waitFor({ state: "hidden" });
+  await tutorialLibrary.waitFor({ state: "visible" });
 });
 await measureJourney("guide_library_close", "guide", async () => {
-  await activate(page.getByRole("button", { name: "Close guided tutorials", exact: true }));
-  await page.getByRole("dialog", { name: "Guided tutorial library", exact: true }).waitFor({ state: "hidden" });
+  await activate(tutorialLibrary.getByRole("button", { name: "Close tutorials", exact: true }));
+  await tutorialLibrary.waitFor({ state: "hidden" });
 });
 
 await measureJourney("home_to_calendar", "navigation", async () => {
@@ -407,41 +417,47 @@ await measureJourney("referrals_to_learning_center", "navigation", async () => {
   const startedAt = performance.now();
   await activate(page.getByRole("button", { name: "Open guided tutorials", exact: true }));
   navigationPhases.learning_help_click_ms = round(performance.now() - startedAt);
-  await page.getByRole("dialog", { name: "Guided tutorial library", exact: true }).waitFor({ state: "visible" });
-  await page.getByRole("button", { name: /^Find a referral / }).first().waitFor({ state: "visible" });
+  await tutorialLibrary.waitFor({ state: "visible" });
+  await tutorialLibrary.getByRole("button", { name: /^Walk through a referral/ }).waitFor({ state: "visible" });
   navigationPhases.learning_action_visible_ms = round(performance.now() - startedAt);
 });
 await measureJourney("learning_workflow_open", "navigation", async () => {
-  await activate(page.getByRole("button", { name: /^Find a referral / }).first());
-  await page.getByRole("dialog", { name: "Find a referral guided tutorial", exact: true }).waitFor({ state: "visible" });
-  await page.getByRole("heading", { name: "Open Workspaces", exact: true }).waitFor({ state: "visible" });
+  const startedAt = performance.now();
+  await activate(tutorialLibrary.getByRole("button", { name: /^Walk through a referral/ }));
+  navigationPhases.learning_open_click_ms = round(performance.now() - startedAt);
+  await page.getByTestId("tutorial-referral-session").waitFor({ state: "visible" });
+  navigationPhases.learning_session_visible_ms = round(performance.now() - startedAt);
+  await page.getByRole("complementary", { name: "Tutorial steps", exact: true })
+    .getByRole("heading", { name: "Home board", exact: true }).waitFor({ state: "visible" });
+  navigationPhases.learning_step_visible_ms = round(performance.now() - startedAt);
 });
 await measureJourney("learning_workflow_step", "guide", async () => {
-  await activate(page.getByRole("button", { name: "Skip step", exact: true }));
-  await page.getByRole("heading", { name: "Search referrals", exact: true }).waitFor({ state: "visible" });
+  await activate(page.getByRole("button", { name: "Next: Referral details", exact: true }));
+  await page.getByRole("textbox", { name: "NAME", exact: true }).waitFor({ state: "visible" });
 });
 await measureJourney("learning_workflow_close", "navigation", async () => {
-  await activate(page.getByRole("button", { name: "End tutorial", exact: true }));
-  await page.getByRole("dialog", { name: "Guided tutorial library", exact: true }).waitFor({ state: "visible" });
+  await activate(page.getByRole("button", { name: "Close tutorial", exact: true }));
+  await page.getByRole("heading", { name: "Referral workspaces", exact: true }).waitFor({ state: "visible" });
 });
+await page.locator('[data-pipeline-ready="guided-coach"]').waitFor({ state: "attached" });
+await activate(page.getByRole("button", { name: "Open guided tutorials", exact: true }));
+await tutorialLibrary.waitFor({ state: "visible" });
 await measureJourney("learning_task_open", "overlay", async () => {
-  await activate(page.getByRole("button", { name: /^Finish an assessment / }).first());
-  await page.getByRole("dialog", { name: "Finish an assessment guided tutorial", exact: true }).waitFor({ state: "visible" });
+  await activate(tutorialLibrary.getByRole("button", { name: "Fill out the assessment", exact: true }));
+  await page.getByRole("complementary", { name: "Tutorial steps", exact: true })
+    .getByRole("heading", { name: "Assessment", exact: true }).waitFor({ state: "visible" });
   await page.getByTestId("assessment-client-folder").waitFor({ state: "visible" });
 });
 await page.waitForLoadState("networkidle");
 await afterNextPaint(page);
 
-const interaction = await page.evaluate(() => {
-  const durations = Object.values(globalThis.__pipelinePerformance?.interactions ?? {})
-    .filter((value) => Number.isFinite(value) && value > 0)
-    .sort((left, right) => left - right);
-  return {
-    count: durations.length,
-    inp_ms: durations.length ? durations[Math.min(durations.length - 1, Math.floor(durations.length * 0.98))] : null,
-    max_ms: durations.at(-1) ?? null,
-  };
-});
+await retainDocumentInteractions();
+const interactionDurations = [...documentInteractions.values()].filter((value) => Number.isFinite(value) && value > 0).sort((left, right) => left - right);
+const interaction = {
+  count: interactionDurations.length,
+  inp_ms: interactionDurations.length ? interactionDurations[Math.min(interactionDurations.length - 1, Math.floor(interactionDurations.length * 0.98))] : null,
+  max_ms: interactionDurations.at(-1) ?? null,
+};
 const apiSummary = summarizeApi([...apiResponses.values()]);
 const result = {
   ok: true,
@@ -500,6 +516,7 @@ console.log(JSON.stringify(result, null, 2));
 if (enforce && !result.ok) process.exitCode = 1;
 
 async function measureJourney(name, kind, action) {
+  await retainDocumentInteractions();
   await page.evaluate(() => {
     globalThis.__pipelinePerformance.journey = { startedAt: performance.now(), inputAt: null };
   });
@@ -508,8 +525,8 @@ async function measureJourney(name, kind, action) {
   await afterNextPaint(page);
   const automationDuration = performance.now() - startedAt;
   const inputTiming = await page.evaluate(() => {
-    const journey = globalThis.__pipelinePerformance.journey;
-    return journey.inputAt === null ? null : {
+    const journey = globalThis.__pipelinePerformance?.journey;
+    return !journey || journey.inputAt === null ? null : {
       input_wait_ms: journey.inputAt - journey.startedAt,
       input_to_content_ms: performance.now() - journey.inputAt,
     };
@@ -522,6 +539,17 @@ async function measureJourney(name, kind, action) {
     automation_duration_ms: round(automationDuration),
   });
   if (inputTiming) navigationPhases[name] = roundObject(inputTiming);
+}
+
+async function retainDocumentInteractions() {
+  const sample = await page.evaluate(() => ({
+    document: performance.timeOrigin,
+    interactions: globalThis.__pipelinePerformance?.interactions ?? {},
+  }));
+  for (const [id, duration] of Object.entries(sample.interactions)) {
+    const key = `${sample.document}:${id}`;
+    documentInteractions.set(key, Math.max(documentInteractions.get(key) ?? 0, duration));
+  }
 }
 
 async function activate(locator) {
@@ -680,7 +708,7 @@ async function installSanitizedClinicalFixtures(page) {
   pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
   pdf += offsets.map((offset) => `${String(offset).padStart(10, "0")} 00000 n \n`).join("");
   pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
-  // Context routing also catches the initial request of the newly opened tab.
+  // Keep source fixtures available to both navigation and browser fetches.
   const sourceAssetRoute = /\/source-documents\/[^/]+\/(thumbnail|preview)$/;
   const fulfillSourceAsset = (route) => route.fulfill({
     status: 200,

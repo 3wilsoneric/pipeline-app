@@ -61,7 +61,7 @@ export const requirementStatuses: RequirementStatus[] = [
   "not_applicable",
 ];
 
-const handoffDescriptions: Record<EhrHandoffStatus, string> = {
+export const handoffDescriptions: Record<EhrHandoffStatus, string> = {
   sent: "Sent and recorded",
   queued: "Queued for transfer",
   failed: "Failed; reason recorded",

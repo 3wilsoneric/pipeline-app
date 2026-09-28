@@ -26,7 +26,11 @@ const profileJourney = scorecard.slice(scorecard.indexOf('measureJourney("open_c
 assert.match(profileJourney, /getByTestId\("client-identity-title"\)/, "Chart timing must wait for loaded identity, not its loading wrapper.");
 assert.doesNotMatch(profileJourney, /getByTestId\("profile-workspace"\)/, "The wrapper must never certify a chart as ready.");
 assert.match(scorecard, /image\.complete && image\.naturalWidth > 0/, "Source thumbnails must decode successfully.");
-assert.match(scorecard, /await response\.arrayBuffer\(\)/, "Opening a popup must not certify a completed PDF transfer.");
+assert.match(scorecard, /await response\.arrayBuffer\(\)/, "Navigation headers alone must not certify a completed PDF transfer.");
+const sourceJourney = scorecard.slice(scorecard.indexOf('measureJourney("source_pdf_complete_body"'), scorecard.indexOf('measureJourney("profile_to_clients"'));
+assert.match(sourceJourney, /isNavigationRequest\(\)[\s\S]+await link\.click\(\)[\s\S]+frame\(\) !== page\.mainFrame\(\)/, "Source reads must follow a real click navigating the current tab.");
+assert.match(sourceJourney, /context\.pages\(\)\.length !== 1/, "Source reads must reject unexpected new tabs.");
+assert.doesNotMatch(sourceJourney, /waitForEvent\("popup"\)/, "Same-tab source reads must not wait for a retired popup interaction.");
 assert.match(scorecard, /AbortSignal\.timeout\(10_000\)/, "A hung source read must be bounded, never an unlimited harness wait.");
 assert.match(scorecard, /source_files: assetJourneys\.length >= 2/, "Both binary source-file journeys must meet their existing heavy-read budget.");
 assert.match(scorecard, /heavy_api: apiSummary\.heavy\.requests > 0/, "At least one heavy API must be measured.");
@@ -44,12 +48,16 @@ assert.match(scorecard, /useful_content_ms: boundedInteger\("PIPELINE_PERF_USEFU
 assert.match(scorecard, /filter_tab_queue_ms: boundedInteger\("PIPELINE_PERF_FILTER_MS", 150/, "Localized interaction goal must remain 150 ms.");
 assert.match(scorecard, /overlay_interaction_ms: boundedInteger\("PIPELINE_PERF_OVERLAY_MS", 150/, "Overlay interaction goal must remain 150 ms.");
 assert.match(scorecard, /guide_interaction_ms: boundedInteger\("PIPELINE_PERF_GUIDE_MS", 150/, "Guide interaction goal must remain 150 ms.");
-assert.match(scorecard, /guideJourneys\.length >= 9/, "The guide certification must exercise the complete open, step, pause, resume, end, and close sequence.");
+assert.match(scorecard, /guideJourneys\.length >= 9/, "The guide certification must retain at least nine current tutorial interactions.");
+for (const journey of ["guide_library_open", "guide_walkthrough_start", "guide_step_advance", "guide_step_back", "guide_pause", "guide_library_reopen", "guide_restart", "guide_return_to_library", "guide_library_close"]) {
+  assert.ok(scorecard.includes(`measureJourney("${journey}", "guide"`), `Current tutorial interaction ${journey} must remain timed.`);
+}
+assert.match(scorecard, /await retainDocumentInteractions\(\);[\s\S]+documentInteractions\.values\(\)/, "Full-document tutorial navigation must retain earlier interaction samples.");
 assert.match(scorecard, /referrals_to_learning_center/, "Learning Center navigation must be timed.");
 assert.match(scorecard, /report_csv_export/, "Report export must be timed.");
 assert.match(scorecard, /history_back_to_operations/, "Back and forward navigation must be timed.");
 assert.match(header, /aria-label="Open guided tutorials"[\s\S]+dispatchOperatorGuide\(\{ type: "open-library" \}\)/, "Help must open the in-app Learning Center without a document navigation.");
-assert.doesNotMatch(scorecard, /Filter profiles by admission date|Open Assessor's Workshop presentation/, "Performance journeys must exercise current controls, not retired filters or presentations.");
+assert.doesNotMatch(scorecard, /Filter profiles by admission date|Open Assessor's Workshop presentation|Guided tutorial library|Check team work guided tutorial|Continue where you stopped|End tutorial/, "Performance journeys must exercise current controls, not retired filters, presentations or tutorial controls.");
 assert.match(completeCertification, /PIPELINE_COLLABORATION_USERS[^\n]+"20"/, "Complete certification must exercise twenty simultaneous collaboration identities.");
 assert.match(completeCertification, /scripts\/http-soak-smoke\.mjs/, "Complete certification must include a bounded soak.");
 assert.match(soak, /172_800/, "The soak runner must support a bounded 48-hour maximum.");
@@ -58,6 +66,9 @@ assert.match(collaboration, /referral_create[\s\S]+presence_write[\s\S]+presence
 assert.match(capacity, /PIPELINE_CAPACITY_INCLUDE_CLINICAL/, "Clinical capacity coverage must be explicit rather than silently omitted.");
 assert.match(certificationRunner, /await runCalibration\(firstPort \+ runCount/, "Certification must discard one host-calibration run before scoring.");
 assert.match(certificationRunner, /calibration_discarded: true/, "Certification output must disclose the discarded calibration run.");
+const calibration = certificationRunner.slice(certificationRunner.indexOf("async function runCalibration("), certificationRunner.indexOf("function certificationEnvironment("));
+assert.match(calibration, /catch \(error\) \{[\s\S]+await stopServer\(server\);\s+fail\(/, "Failed calibration must stop its server before fail() exits the runner.");
+assert.match(certificationRunner, /const deadline = Date\.now\(\) \+ 8_000;[\s\S]+while \(Date\.now\(\) < deadline\)[\s\S]+fetch\([^\n]+AbortSignal\.timeout/, "Readiness must bound both the polling deadline and individual health requests.");
 assert.match(certificationRunner, /runs\.every\(\(run\) => run\.ok\)/, "Every scored certification run must pass.");
 assert.match(certificationRunner, /PIPELINE_DESKTOP_E2E: "false"/, "Certification must keep durable browser workspace state out of the regular production-bundle score.");
 assert.match(
@@ -66,4 +77,4 @@ assert.match(
   "Custom Next dist directories must stage browser assets where the standalone server expects them.",
 );
 
-console.log(JSON.stringify({ ok: true, checks: 42 }, null, 2));
+console.log(JSON.stringify({ ok: true, checks: 57 }, null, 2));

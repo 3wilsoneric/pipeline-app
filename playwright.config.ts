@@ -15,6 +15,8 @@ const desktopStateStorePath = resolve(process.env.PIPELINE_E2E_DESKTOP_STATE_STO
   ?? `.data/playwright/desktop-state-${port}.json`);
 const noteLabStorePath = resolve(process.env.PIPELINE_E2E_NOTE_LAB_STORE_PATH
   ?? `.data/playwright/note-lab-${port}.json`);
+const clientNotesStorePath = resolve(process.env.PIPELINE_E2E_CLIENT_NOTES_STORE_PATH
+  ?? `.data/playwright/client-notes-${port}.json`);
 const contactStorePath = resolve(process.env.PIPELINE_E2E_CONTACT_STORE_PATH
   ?? `.data/playwright/contacts-${port}.json`);
 const communityRecipientListPath = resolve(process.env.PIPELINE_E2E_COMMUNITY_RECIPIENT_LIST_PATH
@@ -31,6 +33,7 @@ process.env.PIPELINE_E2E_RESIDENT_LINK_STORE_PATH = residentLinkStorePath;
 process.env.PIPELINE_E2E_DOCUMENT_STORE_PATH = documentStorePath;
 process.env.PIPELINE_E2E_DESKTOP_STATE_STORE_PATH = desktopStateStorePath;
 process.env.PIPELINE_E2E_NOTE_LAB_STORE_PATH = noteLabStorePath;
+process.env.PIPELINE_E2E_CLIENT_NOTES_STORE_PATH = clientNotesStorePath;
 process.env.PIPELINE_E2E_CONTACT_STORE_PATH = contactStorePath;
 process.env.PIPELINE_E2E_COMMUNITY_RECIPIENT_LIST_PATH = communityRecipientListPath;
 
@@ -84,6 +87,7 @@ export default defineConfig({
       PIPELINE_NOTE_LAB_ENABLED: "true",
       PIPELINE_ALLOW_LOCAL_NOTE_LAB_STORE: "true",
       PIPELINE_NOTE_LAB_STORE_PATH: noteLabStorePath,
+      PIPELINE_CLIENT_NOTES_STORE_PATH: clientNotesStorePath,
       PIPELINE_CONTACT_STORE_PATH: contactStorePath,
       ...(process.env.PIPELINE_PERSONA_DEMO === "true" ? {} : {
         PIPELINE_COMMUNITY_RECIPIENT_LIST_PATH: communityRecipientListPath,

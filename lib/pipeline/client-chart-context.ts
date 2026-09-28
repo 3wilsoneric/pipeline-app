@@ -79,15 +79,16 @@ const referralSummaryFieldKeys = new Set<string>([
  * are omitted below only when the stored canonical value is identical; a
  * differing (for example older) value stays visible with its workspace label.
  */
-export function clientReferralSections(profile: UnifiedClientProfileResponse, summarized?: Referral): ClientProfileSection[] {
+export function clientReferralSections(profile: UnifiedClientProfileResponse, summarized?: Referral, alsoSummarized: readonly string[] = []): ClientProfileSection[] {
   const repeatsSummary = (referral: Referral, key: string, value: string) => summarized?.id === referral.id && (key === "conserved"
     ? (summarized.conserved ?? "") === (referral.conserved ?? "")
-    : referralSummaryFieldKeys.has(key) && referralCanvasValue(summarized, key as PersistedCanvasFieldKey) === value);
+    : (referralSummaryFieldKeys.has(key) || alsoSummarized.includes(key)) && referralCanvasValue(summarized, key as PersistedCanvasFieldKey) === value);
   return profile.pipeline.referrals.map((referral) => ({
     key: `referral:${referral.id}`,
     label: `Workspace #${referral.id} · ${referral.community} · ${referral.date || referral.createdAt.slice(0, 10)}`,
     facts: [
-      ...(referral.admissionDecision ? [
+      // "decision": the Chart's status card already shows this referral's decision and recommendation.
+      ...(summarized?.id === referral.id && alsoSummarized.includes("decision") ? [] : referral.admissionDecision ? [
         { label: "Decision", value: referral.admissionDecision.outcome === "accepted" ? "Accept" : "Deny" },
         { label: "Decision reason", value: referral.admissionDecision.reasonNote },
         { label: "Decision recorded by", value: referral.admissionDecision.decidedByName },

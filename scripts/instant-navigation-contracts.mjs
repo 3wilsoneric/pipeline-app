@@ -188,6 +188,7 @@ let startupUser = null;
 let finishUserRead;
 const startupReads = [];
 const rootStubs = {
+  "@/components/design/DesignSwitch": { useDesignV2: () => false },
   react: { useState: (initial) => {
     const value = typeof initial === "function" ? initial() : initial;
     const index = seededStates.push(value) - 1;

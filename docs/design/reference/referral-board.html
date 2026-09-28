@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Referral board reference</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ---------- Tokens ---------- */
+:root {
+  --font: Figtree, "Helvetica Neue", Helvetica, Arial, sans-serif;
+
+  --ink: #1E2420;
+  --ink-2: #4A524C;
+  --ink-muted: #5E6660;
+  --page-bg: linear-gradient(135deg, #EAEEE7 0%, #F1EEE6 55%, #F3EDE6 100%);
+  --sheet: #FBFAF6;
+  --sheet-border: #E4E0D5;
+  --control-border: #DCD8CC;
+
+  --green: #2E6A4C;   --green-tile: #E1EDE5; --green-border: #CBDFD2;
+  --green-col: linear-gradient(180deg, #DCEBE2 0%, #EEF4EF 100%);
+  --blue: #34539E;    --blue-tile: #E7ECF7;  --blue-border: #D0D9EF;
+  --blue-col: linear-gradient(180deg, #E0E6F6 0%, #EEF1F9 100%);
+  --orange: #9A4A22;  --orange-tile: #F6E9E1; --orange-border: #EAD5C6;
+  --orange-col: linear-gradient(180deg, #F4E5DA 0%, #F9F2EC 100%);
+
+  --folder-tab: linear-gradient(180deg, #F6EEDC 0%, #EFE4CB 100%);
+  --folder-body: linear-gradient(180deg, #EFE4CB 0%, #E7D9B8 100%);
+  --folder-edge: #D9C8A2;
+  --paper: #FFFDF8;
+  --paper-rule: #EFE8D8;
+  --track: #EFE9DA;
+
+  --age-ok-bg: #EEF0EC;   --age-ok-fg: #3D4640;
+  --age-warn-bg: #FBEFD3; --age-warn-fg: #6E4A00;
+  --age-late-bg: #9A4A22; --age-late-fg: #FFFFFF;
+
+  --sub-alert-bg: #F6E9E1; --sub-alert-fg: #8A3F1B; --sub-alert-border: #E6CBBB;
+  --sub-info-bg: #E7ECF7;  --sub-info-fg: #2B447F;  --sub-info-border: #C7D2EC;
+
+  /* Stack behavior */
+  --stack-gap: 16px;        /* space between header and first folder, and between revealed folders */
+  --stack-overlap: 106px;   /* how far each folder slides up under the next */
+  --ease-open: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; font-family: var(--font); color: var(--ink); background: var(--page-bg); min-height: 100vh; }
+button, input { font: inherit; }
+a { color: inherit; text-decoration: none; }
+:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* ---------- Page ---------- */
+.page { padding: 24px 32px 32px; max-width: 1440px; }
+.tabs-row { display: flex; align-items: flex-end; justify-content: space-between; padding-left: 12px; gap: 12px; }
+.tabs { display: flex; gap: 10px; }
+.tab {
+  height: 52px; padding: 0 20px; display: flex; align-items: center; gap: 10px;
+  border: 1px solid var(--sheet-border); border-bottom: 0; border-radius: 14px 14px 0 0;
+  background: #F8F6F0; font-size: 16px; font-weight: 600; color: var(--ink-2); cursor: pointer;
+}
+.tab[aria-selected="true"] { background: var(--green-tile); border-color: #9FC3AE; color: var(--green); }
+.tab .count { font-size: 13px; border-radius: 6px; padding: 2px 8px; background: #E7E4DA; color: var(--ink); }
+.tab[aria-selected="true"] .count { background: #C9DECF; color: var(--green); }
+.btn-primary {
+  height: 44px; margin-bottom: 8px; padding: 0 18px; border: 0; border-radius: 10px;
+  background: var(--green); color: #fff; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; cursor: pointer;
+}
+
+.sheet {
+  background: var(--sheet); border: 1px solid var(--sheet-border); border-radius: 24px;
+  padding: 22px 24px 24px; box-shadow: 0 8px 30px rgba(60, 50, 30, 0.06);
+  display: flex; flex-direction: column; gap: 18px;
+}
+
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.toolbar .spacer { flex-grow: 1; }
+.search {
+  display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px; width: 300px; max-width: 100%;
+  background: #fff; border: 1px solid var(--control-border); border-radius: 10px; color: var(--ink-muted);
+}
+.search input { border: 0; outline: 0; flex-grow: 1; background: transparent; color: var(--ink); font-size: 14px; }
+.control {
+  height: 40px; padding: 0 12px; border: 1px solid var(--control-border); border-radius: 10px; background: #fff;
+  font-size: 14px; color: var(--ink); display: flex; align-items: center; gap: 6px; cursor: pointer;
+}
+.control .label { color: var(--ink-muted); }
+.control[aria-pressed="true"] { background: var(--green-tile); border-color: #9FC3AE; color: var(--green); }
+
+/* ---------- Board ---------- */
+.board { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 300px; gap: 20px; align-items: start; }
+.column { border-radius: 18px; padding: 14px; border: 1px solid; display: flex; flex-direction: column; gap: var(--stack-gap); }
+.column[data-tone="green"]  { background: var(--green-col);  border-color: var(--green-border);  --tone: var(--green);  --tile: var(--green-tile); }
+.column[data-tone="blue"]   { background: var(--blue-col);   border-color: var(--blue-border);   --tone: var(--blue);   --tile: var(--blue-tile); }
+.column[data-tone="orange"] { background: var(--orange-col); border-color: var(--orange-border); --tone: var(--orange); --tile: var(--orange-tile); }
+
+.col-head {
+  display: flex; align-items: center; gap: 12px; padding: 12px 12px 12px 14px;
+  background: rgba(255, 255, 255, 0.82); border: 1px solid; border-color: inherit; border-radius: 14px;
+}
+.col-head .tile { width: 44px; height: 44px; flex-shrink: 0; border-radius: 12px; background: var(--tile); color: var(--tone); display: grid; place-items: center; }
+.col-head .titles { flex-grow: 1; min-width: 0; }
+.col-head h2 { margin: 0; font-size: 18px; font-weight: 700; }
+.col-head .files { font-size: 14px; color: var(--ink-muted); }
+.col-head .view-all { height: 44px; padding: 0 8px; display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; color: var(--tone); }
+
+.empty {
+  padding: 28px 12px; text-align: center; font-size: 14px; color: #6E5A4C;
+  border: 1px dashed #E0C7B4; border-radius: 12px; background: rgba(255, 255, 255, 0.5);
+}
+
+/* ---------- Folder card ---------- */
+.stack { display: flex; flex-direction: column; }
+
+.folder {
+  position: relative; display: flex; flex-direction: column;
+  transition: margin-top 260ms var(--ease-open), transform 200ms ease;
+}
+/* Every folder after the first tucks under the one above it */
+.folder + .folder { margin-top: calc(-1 * var(--stack-overlap)); }
+/* Hover or keyboard focus opens the folder: the next one slides down to reveal it */
+.folder:hover + .folder,
+.folder:focus-within + .folder { margin-top: var(--stack-gap); }
+.folder:hover, .folder:focus-within { transform: translateY(-6px); }
+
+.folder-tabs { display: flex; align-items: flex-end; gap: 8px; padding-left: 16px; position: relative; z-index: 1; margin-bottom: -1px; }
+.name-tab { background: var(--folder-tab); border: 1px solid var(--folder-edge); border-bottom: 0; border-radius: 12px 12px 0 0; padding: 6px 6px 7px; }
+.name-tab span {
+  display: block; background: #fff; border: 1px solid #E4D8BD; border-radius: 6px;
+  padding: 4px 12px; font-size: 17px; font-weight: 700; letter-spacing: -0.005em;
+}
+.sub-tab { margin-bottom: 6px; font-size: 13px; font-weight: 600; padding: 4px 10px; border-radius: 8px 8px 0 0; border: 1px solid; border-bottom: 0; }
+.sub-tab[data-tone="alert"] { background: var(--sub-alert-bg); color: var(--sub-alert-fg); border-color: var(--sub-alert-border); }
+.sub-tab[data-tone="info"]  { background: var(--sub-info-bg);  color: var(--sub-info-fg);  border-color: var(--sub-info-border); }
+
+.folder-body {
+  background: var(--folder-body); border: 1px solid var(--folder-edge); border-radius: 12px; padding: 6px 6px 10px;
+  box-shadow: 0 2px 6px rgba(120, 95, 40, 0.10); transition: box-shadow 200ms ease;
+}
+.folder:hover .folder-body, .folder:focus-within .folder-body { box-shadow: 0 14px 28px rgba(120, 95, 40, 0.22); }
+
+.paper {
+  display: flex; flex-direction: column; gap: 12px; background: var(--paper); border-radius: 8px; padding: 14px 16px;
+  box-shadow: 0 1px 2px rgba(120, 95, 40, 0.10);
+}
+.paper-meta { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 13px; font-weight: 600; color: var(--ink-2); }
+.age { font-size: 12px; font-weight: 600; padding: 3px 8px; border-radius: 6px; white-space: nowrap; }
+.age[data-state="ok"]   { background: var(--age-ok-bg);   color: var(--age-ok-fg); }
+.age[data-state="warn"] { background: var(--age-warn-bg); color: var(--age-warn-fg); }
+.age[data-state="late"] { background: var(--age-late-bg); color: var(--age-late-fg); }
+
+.next-action { display: flex; align-items: center; justify-content: space-between; font-size: 17px; font-weight: 600; color: var(--ink); }
+.next-action:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+/* Details are hidden on covered folders and shown on the open or bottom folder */
+.details { display: flex; flex-direction: column; gap: 12px; opacity: 0; transition: opacity 200ms ease; }
+.folder:last-child .details,
+.folder:hover .details,
+.folder:focus-within .details { opacity: 1; }
+
+.docs-row { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
+.docs-row .count { font-weight: 600; }
+.docs-row .missing { color: var(--ink-muted); text-align: right; }
+.bar { height: 6px; background: var(--track); border-radius: 3px; overflow: hidden; }
+.bar span { display: block; height: 100%; border-radius: 3px; background: var(--tone); }
+
+.assessor { display: flex; align-items: center; gap: 8px; padding-top: 10px; border-top: 1px solid var(--paper-rule); font-size: 13px; color: var(--ink-2); }
+.avatar { width: 24px; height: 24px; border-radius: 50%; background: #DDE6F5; color: #2B447F; font-size: 11px; font-weight: 700; display: grid; place-items: center; }
+
+/* ---------- Touch and small screens: no hover, so no stacking ---------- */
+@media (hover: none) {
+  .folder + .folder { margin-top: var(--stack-gap); }
+  .details { opacity: 1; }
+  .folder:hover, .folder:focus-within { transform: none; }
+}
+@media (max-width: 960px) {
+  .board { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .folder, .folder-body, .details { transition: none; }
+  .folder:hover, .folder:focus-within { transform: none; }
+}
+</style>
+</head>
+<body>
+<main class="page">
+  <div class="tabs-row">
+    <div class="tabs" role="tablist" aria-label="Referral views">
+      <button class="tab" role="tab" aria-selected="true">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 13h18"/></svg>
+        Board <span class="count" id="board-count">0</span>
+      </button>
+      <button class="tab" role="tab" aria-selected="false">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>
+        Upcoming assessments <span class="count">2</span>
+      </button>
+      <button class="tab" role="tab" aria-selected="false">List</button>
+    </div>
+    <button class="btn-primary">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+      New referral
+    </button>
+  </div>
+
+  <div class="sheet">
+    <div class="toolbar">
+      <label class="search">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+        <span class="sr-only">Search referrals</span>
+        <input id="search" type="search" placeholder="Search name or referral #">
+      </label>
+      <button class="control"><span class="label">Community</span> All</button>
+      <button class="control"><span class="label">Assessor</span> All</button>
+      <button class="control" id="mine" aria-pressed="false">Assigned to me</button>
+      <div class="spacer"></div>
+      <button class="control" id="sort"><span class="label">Sort</span> <span id="sort-label">Oldest first</span></button>
+    </div>
+    <div class="board" id="board"></div>
+  </div>
+</main>
+
+<script>
+/* ---------- Config (placeholders: confirm with ops) ---------- */
+const AGE_WARN_DAYS = 3;   // amber at or above
+const AGE_LATE_DAYS = 5;   // filled "over target" at or above
+const MAX_MISSING_SHOWN = 2;
+const CURRENT_USER = "Annette Everhart";
+const TODAY = new Date("2026-09-23T12:00:00");
+
+const STAGES = [
+  { key: "received",    title: "Referral received", tone: "green",  empty: "No new referrals" },
+  { key: "in_progress", title: "In progress",       tone: "blue",   empty: "Nothing in progress" },
+  { key: "decision",    title: "Decision",          tone: "orange", empty: "No referrals awaiting a decision" },
+];
+
+/* ---------- Sample data (shape matters, values are placeholders) ---------- */
+const referrals = [
+  { id: "r2752", number: 2752, name: "Thomas Roberts",  community: "Victoria's House", stage: "received",    enteredStageAt: "2026-09-17", subStatus: { label: "Missing referral info", tone: "alert" }, docsComplete: 0, docsTotal: 7, docsMissing: ["H&P", "Med list", "Consent", "ID", "Insurance card", "Psych eval", "Discharge summary"], nextAction: { label: "Add referral information", href: "#" }, assessor: { name: "Annette Everhart", initials: "AE" } },
+  { id: "r2754", number: 2754, name: "Crystal Prado",   community: "Victoria's House", stage: "received",    enteredStageAt: "2026-09-19", subStatus: null, docsComplete: 2, docsTotal: 7, docsMissing: ["Consent", "ID", "Insurance card", "Psych eval", "Discharge summary"], nextAction: { label: "Request documents", href: "#" }, assessor: { name: "Annette Everhart", initials: "AE" } },
+  { id: "r2755", number: 2755, name: "Kenneth E",       community: "Victoria's House", stage: "received",    enteredStageAt: "2026-09-20", subStatus: { label: "Last name missing", tone: "alert" }, docsComplete: 1, docsTotal: 7, docsMissing: ["H&P", "Consent", "ID", "Insurance card", "Psych eval", "Discharge summary"], nextAction: { label: "Complete intake", href: "#" }, assessor: { name: "Annette Everhart", initials: "AE" } },
+  { id: "r2756", number: 2756, name: "Mae Richardson",  community: "Victoria's House", stage: "received",    enteredStageAt: "2026-09-21", subStatus: null, docsComplete: 0, docsTotal: 7, docsMissing: ["H&P", "Med list", "Consent", "ID", "Insurance card", "Psych eval", "Discharge summary"], nextAction: { label: "Add referral information", href: "#" }, assessor: { name: "Annette Everhart", initials: "AE" } },
+  { id: "r2757", number: 2757, name: "Isaiah Escobedo", community: "Victoria's House", stage: "in_progress", enteredStageAt: "2026-09-21", subStatus: { label: "Preparation", tone: "info" }, docsComplete: 1, docsTotal: 7, docsMissing: ["Consent", "Psych eval", "Discharge summary"], nextAction: { label: "Continue preparation", href: "#" }, assessor: { name: "Annette Everhart", initials: "AE" } },
+];
+
+/* ---------- Helpers ---------- */
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+function daysInStage(r) {
+  return Math.max(0, Math.floor((TODAY - new Date(r.enteredStageAt + "T00:00:00")) / 86400000));
+}
+function ageState(days) {
+  if (days >= AGE_LATE_DAYS) return "late";
+  if (days >= AGE_WARN_DAYS) return "warn";
+  return "ok";
+}
+function missingText(list) {
+  if (!list.length) return "All docs in";
+  const shown = list.slice(0, MAX_MISSING_SHOWN).join(", ");
+  const rest = list.length - MAX_MISSING_SHOWN;
+  return "Needs " + shown + (rest > 0 ? " +" + rest : "");
+}
+
+/* ---------- State ---------- */
+const state = { query: "", mine: false, oldestFirst: true };
+
+function filtered(stageKey) {
+  const q = state.query.trim().toLowerCase();
+  return referrals
+    .filter(r => r.stage === stageKey)
+    .filter(r => !q || r.name.toLowerCase().includes(q) || String(r.number).includes(q))
+    .filter(r => !state.mine || r.assessor.name === CURRENT_USER)
+    .sort((a, b) => {
+      const d = new Date(a.enteredStageAt) - new Date(b.enteredStageAt);
+      return state.oldestFirst ? d : -d;
+    });
+}
+
+/* ---------- Render ---------- */
+function folderHTML(r) {
+  const days = daysInStage(r);
+  const age = ageState(days);
+  const ageLabel = age === "late" ? days + "d · over target" : days + "d in stage";
+  const pct = r.docsTotal ? Math.round((r.docsComplete / r.docsTotal) * 100) : 0;
+  const sub = r.subStatus
+    ? `<span class="sub-tab" data-tone="${esc(r.subStatus.tone)}">${esc(r.subStatus.label)}</span>` : "";
+  return `
+  <article class="folder" aria-labelledby="${r.id}-name">
+    <div class="folder-tabs">
+      <div class="name-tab"><span id="${r.id}-name">${esc(r.name)}</span></div>
+      ${sub}
+    </div>
+    <div class="folder-body">
+      <div class="paper">
+        <div class="paper-meta">
+          <span>#${r.number} · ${esc(r.community)}</span>
+          <span class="age" data-state="${age}">${ageLabel}</span>
+        </div>
+        <a class="next-action" href="${esc(r.nextAction.href)}">
+          ${esc(r.nextAction.label)}
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </a>
+        <div class="details">
+          <div>
+            <div class="docs-row">
+              <span class="count">${r.docsComplete} of ${r.docsTotal} docs</span>
+              <span class="missing">${esc(missingText(r.docsMissing))}</span>
+            </div>
+            <div class="bar" role="progressbar" aria-label="Documents received" aria-valuemin="0" aria-valuemax="${r.docsTotal}" aria-valuenow="${r.docsComplete}" style="margin-top:6px"><span style="width:${Math.max(pct, 2)}%"></span></div>
+          </div>
+          <div class="assessor"><span class="avatar" aria-hidden="true">${esc(r.assessor.initials)}</span>${esc(r.assessor.name)}</div>
+        </div>
+      </div>
+    </div>
+  </article>`;
+}
+
+function render() {
+  const board = document.getElementById("board");
+  let total = 0;
+  board.innerHTML = STAGES.map(s => {
+    const items = filtered(s.key);
+    total += items.length;
+    const files = items.length === 1 ? "1 file" : items.length + " files";
+    const body = items.length
+      ? `<div class="stack">${items.map(folderHTML).join("")}</div>`
+      : `<div class="empty">${esc(s.empty)}</div>`;
+    return `
+    <section class="column" data-tone="${s.tone}" aria-labelledby="col-${s.key}">
+      <header class="col-head">
+        <span class="tile" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v1H7.5a2 2 0 0 0-1.9 1.4L3 19zM3 19l2.6-7.6A2 2 0 0 1 7.5 10H21l-2.4 7.6a2 2 0 0 1-1.9 1.4z"/></svg></span>
+        <div class="titles"><h2 id="col-${s.key}">${s.title}</h2><div class="files">${files}</div></div>
+        <a class="view-all" href="#">View all
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+        </a>
+      </header>
+      ${body}
+    </section>`;
+  }).join("");
+  document.getElementById("board-count").textContent = total;
+}
+
+document.getElementById("search").addEventListener("input", e => { state.query = e.target.value; render(); });
+document.getElementById("mine").addEventListener("click", e => {
+  state.mine = !state.mine; e.currentTarget.setAttribute("aria-pressed", String(state.mine)); render();
+});
+document.getElementById("sort").addEventListener("click", () => {
+  state.oldestFirst = !state.oldestFirst;
+  document.getElementById("sort-label").textContent = state.oldestFirst ? "Oldest first" : "Newest first";
+  render();
+});
+render();
+</script>
+</body>
+</html>

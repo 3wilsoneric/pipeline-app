@@ -62,8 +62,10 @@ type ChartPayload = {
   };
 };
 
-export default function AssessmentChartWorkspace({ referralId, embedded = false, emailPage = false, emailDraft, finishActions, onSendingChange, onReferralChange, onOpenFiles, onOpenIntake, onOpenAssessment, onOpenDecision }: {
+export default function AssessmentChartWorkspace({ referralId, active = true, sourceVersion, embedded = false, emailPage = false, emailDraft, finishActions, onSendingChange, onReferralChange, onOpenFiles, onOpenIntake, onOpenAssessment, onOpenDecision }: {
   referralId?: number;
+  active?: boolean;
+  sourceVersion?: number;
   embedded?: boolean;
   emailPage?: boolean;
   emailDraft?: HandoffRecipients;
@@ -92,6 +94,7 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
   const [acceptedReferralId, setAcceptedReferralId] = useState<number | null>(null);
   const sendRequest = useRef<{ key: string; mutationId: string } | null>(null);
   const sendInFlight = useRef(false);
+  const summaryRequestKey = useRef("");
 
   const load = useCallback(async () => {
     if (!referralId) return;
@@ -116,9 +119,17 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
     }
   }, [referralId]);
 
+  // Kept-mounted redesign steps must not show the summary fetched before the
+  // Decision page saved its admit date. Don't reset an open review, or repeatedly
+  // retry a failed version refresh; the existing Retry action owns that retry.
   useEffect(() => {
+    if (!active) { summaryRequestKey.current = ""; return; }
+    if (composerOpen || savingDate || sending) return;
+    const key = `${referralId}:${sourceVersion ?? "entry"}`;
+    if (summaryRequestKey.current === key) return;
+    summaryRequestKey.current = key;
     void load();
-  }, [load]);
+  }, [active, referralId, sourceVersion, composerOpen, savingDate, sending, load]);
   const recipientKey = JSON.stringify([referralId, recipients, ccRecipients, emailDraft?.recipientInput]);
   useEffect(() => { setConfirmed(false); setReviewedCount((count) => Math.min(count, 3)); }, [recipientKey]);
 
@@ -130,6 +141,9 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
       throw new PipelineApiError("The handoff changed. Reload and check the saved admit date before continuing.", 409);
     }
     setPayload(next);
+    // This date change already fetched and checked the matching summary. Closing
+    // the dialog must not treat it as an external revision and restart the review.
+    summaryRequestKey.current = `${saved.id}:${sourceVersion === undefined ? "entry" : next.referral.version}`;
     setConfirmed(false);
     setExampleReviewed(false);
     setReviewedCount(1);
@@ -231,7 +245,9 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
       onConfirm={confirmAdmissionDate} onReviewWithoutDate={() => { setConfirmed(false); setReviewedCount(1); setReviewStep(1); }}
       onSavingChange={(saving) => { setSavingDate(saving); onSendingChange?.(saving); }} onReload={() => void load()} />;
     return step < 4 ? <HandoffReviewStep step={step} payload={readyPayload} draft={emailDraft} confirmed={confirmed} onConfirmed={setConfirmed}
-          onBack={() => setReviewStep(step - 1)} onOpenFiles={onOpenFiles} onOpenAssessment={onOpenAssessment}
+          onBack={() => setReviewStep(step - 1)}
+          onOpenFiles={onOpenFiles ? () => { setReviewStep(null); onOpenFiles(); } : undefined}
+          onOpenAssessment={onOpenAssessment ? () => { setReviewStep(null); onOpenAssessment(); } : undefined}
           onContinue={() => { setReviewedCount((count) => Math.max(count, step + 1)); setReviewStep(step + 1); }} />
           : <MeetClientEmailPreview email={readyPayload.email} report={readyPayload.report} emailDraft={emailDraft} referral={readyPayload.referral}
             confirmed={confirmed} sending={sending} sent={sent} error={error} message={message} refresh={refresh}
@@ -239,7 +255,7 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
             preparedDraft={existingDraft} onExistingDraft={(draft) => { setExistingDraft(draft); if (!draft && existingDraft) { setConfirmed(false); setReviewedCount(0); setReviewStep(null); } }}
             onPrepareDirect={prepareDirect} onPrepareOutlook={emailMeetClient} onOutlookSent={() => setAcceptedReferralId(readyPayload.referral.id)} />;
   };
-  const renderReviewDialog = () => (reviewStep !== null ? <MeetClientComposeDialog key={reviewStep} step={reviewStep} compact={reviewStep === 4 && existingDraft?.delivery_method === "assessor_email"} sending={sending || savingDate} onClose={() => setReviewStep(null)}>
+  const renderReviewDialog = () => (active && reviewStep !== null ? <MeetClientComposeDialog key={reviewStep} step={reviewStep} compact={reviewStep === 4 && existingDraft?.delivery_method === "assessor_email"} sending={sending || savingDate} onClose={() => setReviewStep(null)}>
     {renderReviewBody(reviewStep)}
   </MeetClientComposeDialog> : null);
 

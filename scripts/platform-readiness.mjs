@@ -7,6 +7,16 @@ const skipBuild = args.has("--skip-build");
 
 const checks = [
   {
+    name: "Deployment migration order and runtime flag preservation",
+    command: "node",
+    args: ["--test", "scripts/deployment-migration-order.test.mjs"],
+  },
+  {
+    name: "Client notes recovery and durable store boundaries",
+    command: "node",
+    args: ["--test", "scripts/client-notes-recovery.test.mjs", "scripts/client-notes-store.test.mjs"],
+  },
+  {
     name: "Platform admissions summary is aggregate-only behind its own secret",
     command: "node",
     args: ["--test", "scripts/platform-admissions-summary.test.mjs"],
@@ -42,6 +52,11 @@ const checks = [
     args: ["scripts/code-quality-readiness.mjs"],
   },
   {
+    name: "Design token ratchet",
+    command: "node",
+    args: ["scripts/design-token-ratchet.mjs"],
+  },
+  {
     name: "Tutorial navigation, permissions, and isolated sample workflows",
     command: "npm",
     args: ["run", "check:tutorials"],
@@ -64,7 +79,7 @@ const checks = [
   {
     name: "Admission dates and packet delivery boundaries",
     command: "node",
-    args: ["--test", "scripts/admission-lifecycle.test.mjs", "scripts/meet-client-delivery-fixtures.test.mjs", "scripts/assessor-email-handoff.test.mjs", "scripts/client-data-reports.test.mjs"],
+    args: ["--test", "scripts/admission-lifecycle.test.mjs", "scripts/meet-client-delivery-fixtures.test.mjs", "scripts/assessor-email-handoff.test.mjs", "scripts/client-data-reports.test.mjs", "scripts/supervisor-queue-pagination.test.mjs"],
   },
   {
     name: "Hosted workshop isolation and session boundaries",

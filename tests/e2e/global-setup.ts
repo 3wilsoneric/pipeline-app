@@ -9,6 +9,7 @@ export default async function prepareIsolatedReferralStore() {
     process.env.PIPELINE_E2E_DOCUMENT_STORE_PATH,
     process.env.PIPELINE_E2E_DESKTOP_STATE_STORE_PATH,
     process.env.PIPELINE_E2E_NOTE_LAB_STORE_PATH,
+    process.env.PIPELINE_E2E_CLIENT_NOTES_STORE_PATH,
     process.env.PIPELINE_E2E_CONTACT_STORE_PATH,
     process.env.PIPELINE_E2E_COMMUNITY_RECIPIENT_LIST_PATH,
   ];

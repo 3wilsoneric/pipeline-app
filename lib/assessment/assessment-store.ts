@@ -1,5 +1,6 @@
 import "server-only";
 
+import { priorAnswerProvenance } from "@/lib/assessment/assessment-prior-answers";
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
@@ -1469,7 +1470,12 @@ function prepareAssessmentPatch(
       .map((review) => review.field),
   );
   for (const key of changedFields) {
-    if (!rejectedWithoutEdit.has(key)) appendManualProvenance(fieldProvenance, key, patch.workbook_restore);
+    if (rejectedWithoutEdit.has(key)) continue;
+    const prior = patch.prior_answer_sources?.[key];
+    const intake = patch.referral_answer_sources?.[key];
+    if (prior) appendProvenance(fieldProvenance, key, priorAnswerProvenance(key, prior));
+    else if (intake) appendProvenance(fieldProvenance, key, intake);
+    else appendManualProvenance(fieldProvenance, key, patch.workbook_restore);
   }
   const acceptedFields = patch.accept_pending
     ? acceptPendingProvenance(fieldProvenance)

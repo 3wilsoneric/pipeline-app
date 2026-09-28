@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { createOperationalAssessment, createOperationalReferral, startOperationalAssessment } from "./support/operational-api";
+import { leaveInterviewFullScreen, openWorkspaceFiles, returnToAssessmentQuestions } from "./support/assessment-navigation";
 
 test("an older assessment save cannot retire a newer failed edit after a tab round-trip", async ({ page }) => {
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", {
@@ -22,15 +23,22 @@ test("an older assessment save cannot retire a newer failed edit after a tab rou
   });
   try {
     await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=prior_history`);
+    // Playwright fill can report success on an inert textarea without delivering
+    // input. Wait for the existing bounded workspace restore, not a save.
+    await expect(page.getByTestId("packet-workspace")).toHaveAttribute("aria-busy", "false");
     const answer = page.locator("#assessment-prior_placements");
     await answer.fill("Synthetic older answer");
-    await page.getByRole("button", { name: "Workspace files", exact: true }).click();
+    await openWorkspaceFiles(page);
     await expect.poll(() => patches).toBe(1);
     await expect(page.getByRole("region", { name: "Files", exact: true })).toBeVisible();
     await expect(page.getByText("Assessment changes not yet saved.")).toBeVisible();
     await expect(page.getByTestId("workspace-save-status")).toHaveCount(0);
-    await expect(page.locator("[data-assessment-working-section]")).toBeHidden();
-    await expect(page.locator("[data-assessment-working-section]").locator("xpath=ancestor::*[@inert][1]")).toHaveAttribute("inert", "");
+    const workingSections = page.locator("[data-assessment-working-section]");
+    expect(await workingSections.count()).toBeGreaterThan(0);
+    for (const section of await workingSections.all()) {
+      await expect(section).toBeHidden();
+      await expect(section.locator("xpath=ancestor::*[@inert][1]")).toHaveAttribute("inert", "");
+    }
     await page.getByRole("button", { name: "Open Assessment", exact: true }).click();
     await expect(answer).toHaveValue("Synthetic older answer");
     await answer.fill("Synthetic newer answer");
@@ -39,10 +47,16 @@ test("an older assessment save cannot retire a newer failed edit after a tab rou
     await expect.poll(() => patches).toBeGreaterThanOrEqual(2);
     await expect.poll(async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment.prior_placements).toBe("Synthetic older answer");
     await expect(page.getByText("1 change waiting to sync")).toBeVisible();
+    await leaveInterviewFullScreen(page);
     await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: "Decision", exact: true }).click();
     await expect(answer).toBeHidden();
-    await expect(page.getByText("1 assessment change waiting to sync.")).toBeVisible();
-    await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: "Assessment", exact: true }).click();
+    if (process.env.PIPELINE_DESIGN_V2 === "true") {
+      await expect(page.getByRole("region", { name: "Saving", exact: true })).toContainText("1 assessment change waiting to sync.");
+      await expect(page.getByRole("region", { name: "Saving", exact: true })).toHaveAttribute("data-state", "waiting");
+    } else {
+      await expect(page.getByText("1 assessment change waiting to sync.")).toBeVisible();
+    }
+    await returnToAssessmentQuestions(page);
     await expect(answer).toHaveValue("Synthetic newer answer");
     // The encrypted working copy is debounced independently of the server PATCH.
     await page.waitForTimeout(350);
@@ -74,6 +88,8 @@ test("two browser tabs retain disjoint answers when their saves arrive out of or
   try {
     await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=diagnosis_clinical`);
     await second.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=prior_history`);
+    await expect(page.getByTestId("packet-workspace")).toHaveAttribute("aria-busy", "false");
+    await expect(second.getByTestId("packet-workspace")).toHaveAttribute("aria-busy", "false");
     await page.locator("#assessment-current_symptoms").fill("Synthetic first-tab symptoms");
     await page.locator("#assessment-current_symptoms").blur();
     await requested;
@@ -104,6 +120,7 @@ test("assessment navigation preserves an answer changed during its first recover
   await startOperationalAssessment(page.request, assessment);
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=prior_history`);
   await expect(page.locator("#assessment-prior_placements")).toBeVisible();
+  await expect(page.getByTestId("packet-workspace")).toHaveAttribute("aria-busy", "false");
   await page.route(`**/api/assessments/${assessment.assessment_id}`, (route) => route.request().method() === "PATCH"
     ? route.fulfill({ status: 503, json: { error: "Synthetic canonical save outage" } }) : route.continue());
   await page.evaluate(() => {
@@ -123,9 +140,19 @@ test("assessment navigation preserves an answer changed during its first recover
   try {
     const answer = page.locator("#assessment-prior_placements");
     await answer.fill("First history");
-    const leaving = page.getByRole("button", { name: "Workspace files", exact: true }).click();
+    const leaving = openWorkspaceFiles(page);
     await entered;
+    if (process.env.PIPELINE_DESIGN_V2 === "true") {
+      // The new kept-mounted steps must remain usable while recovery is in flight.
+      await leaving;
+      await expect(page.getByRole("region", { name: "Files", exact: true })).toBeVisible();
+      await returnToAssessmentQuestions(page);
+    }
     await answer.fill("Second history");
+    if (process.env.PIPELINE_DESIGN_V2 === "true") {
+      await openWorkspaceFiles(page);
+      await expect(page.getByRole("region", { name: "Files", exact: true })).toBeVisible();
+    }
     releaseFirst();
     await leaving;
     await expect(page.getByRole("region", { name: "Files", exact: true })).toBeVisible();
@@ -144,6 +171,7 @@ test("a dual-failed assessment save does not block other pages and restores in t
   const assessment = await createOperationalAssessment(page.request, referral.id);
   await startOperationalAssessment(page.request, assessment);
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=prior_history`);
+  await expect(page.getByTestId("packet-workspace")).toHaveAttribute("aria-busy", "false");
   const answer = page.locator("#assessment-prior_placements");
   await expect(answer).toBeVisible();
   await page.route(`**/api/assessments/${assessment.assessment_id}`, (route) => route.request().method() === "PATCH"
@@ -159,7 +187,7 @@ test("a dual-failed assessment save does not block other pages and restores in t
   await expect(page.getByText("Some edits are only in this open tab.")).toBeVisible();
   await page.goBack();
   await expect(page).toHaveURL(new RegExp(`referralId=${referral.id}`));
-  await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: "Assessment", exact: true }).click();
+  await returnToAssessmentQuestions(page);
   await expect(answer).toHaveValue("Synthetic interview continuity");
 });
 
@@ -170,6 +198,7 @@ test("a queued assessment answer syncs after leaving the workspace", async ({ pa
   const assessment = await createOperationalAssessment(page.request, referral.id);
   await startOperationalAssessment(page.request, assessment);
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=prior_history`);
+  await expect(page.getByTestId("packet-workspace")).toHaveAttribute("aria-busy", "false");
   const answer = page.locator("#assessment-prior_placements");
   await expect(answer).toBeVisible();
   await page.route(`**/api/assessments/${assessment.assessment_id}`, (route) => route.request().method() === "PATCH"
@@ -184,6 +213,6 @@ test("a queued assessment answer syncs after leaving the workspace", async ({ pa
   await expect.poll(async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment.prior_placements).toBe("Synthetic background answer");
   await page.goBack();
   await expect(page).toHaveURL(new RegExp(`referralId=${referral.id}`));
-  await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: "Assessment", exact: true }).click();
+  await returnToAssessmentQuestions(page);
   await expect(answer).toHaveValue("Synthetic background answer");
 });
