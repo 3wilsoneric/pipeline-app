@@ -52,6 +52,9 @@ param alamoApiScope string = ''
 
 @description('Enable Microsoft 365 Meet the Client delivery after Graph application permissions and the Key Vault client secret are configured.')
 param enableMeetClientMail bool = false
+
+@description('Enable assessor Outlook calendar invitations after mailbox-scoped Calendars.ReadWrite consent.')
+param enableAssessmentOutlookCalendar bool = false
 @description('Expose the read-only referral board summary to Alamo Platform. Requires Key Vault secret pipeline-platform-summary-secret.')
 param enablePlatformSummary bool = false
 
@@ -221,6 +224,7 @@ var baseEnvironment = [
   { name: 'PIPELINE_AUTH_MODE', value: 'entra_jwt' }
   { name: 'PIPELINE_ENTRA_TENANT_ID', value: entraTenantId }
   { name: 'PIPELINE_OUTLOOK_CLIENT_ID', value: outlookClientId }
+  { name: 'PIPELINE_ASSESSMENT_OUTLOOK_ENABLED', value: enableAssessmentOutlookCalendar ? 'true' : 'false' }
   { name: 'PIPELINE_ENTRA_API_AUDIENCE', value: pipelineApiAudience }
   { name: 'PIPELINE_ENTRA_API_SCOPE', value: 'access_as_user' }
   { name: 'NEXT_PUBLIC_ENTRA_TENANT_ID', value: entraTenantId }
@@ -606,6 +610,12 @@ resource databaseBackupJob 'Microsoft.App/jobs@2025-01-01' = {
 }
 
 var scheduledJobs = [
+  {
+    name: 'assessment-outlook'
+    schedule: '* * * * *'
+    path: '/api/internal/assessment-outlook/dispatch'
+    enabled: enableAssessmentOutlookCalendar
+  }
   {
     name: 'extraction-dispatch'
     schedule: '* * * * *'

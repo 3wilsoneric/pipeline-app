@@ -5,6 +5,7 @@ import {
   requireAssessmentStore,
 } from "@/lib/assessment/assessment-store";
 import { canWorkAssessment } from "@/lib/assessment/assessment-access";
+import { assessmentOutlookEnabled } from "@/lib/assessment/assessment-outlook-calendar";
 import {
   validateAssessmentScheduleCommand,
   type AssessmentScheduleCommand,
@@ -128,7 +129,9 @@ function mutationResponse(result: Awaited<ReturnType<typeof patchAssessment>>, a
     return Response.json({ error: `This assessment changed before its ${action} could be saved.`, ...result }, { status: 409 });
   }
   if (!result.ok) return Response.json({ error: `The assessment ${action} is blocked.`, ...result }, { status: 422 });
-  return Response.json({ ...result, warnings }, { headers: { "Cache-Control": "private, no-store, max-age=0" } });
+  const calendarWarning = assessmentOutlookEnabled() && ["scheduled", "rescheduled"].includes(result.assessment.schedule_status ?? "")
+    ? ["Outlook invitation queued for the assigned assessor. It is not confirmed in their calendar yet."] : [];
+  return Response.json({ ...result, warnings: [...warnings, ...calendarWarning] }, { headers: { "Cache-Control": "private, no-store, max-age=0" } });
 }
 
 function safeAssessmentId(value: string) {

@@ -109,7 +109,7 @@ check("scheduling preserves incomplete Intake and unavailable contacts as warnin
   && scheduleRoute.includes("return saveAssessmentSchedule(assessmentId, command, actor, canOverride, warnings)")
   && scheduleRoute.includes("getContactSchedulingReadiness")
   && scheduleRoute.includes("The appointment can still be saved.")
-  && scheduleRoute.includes("{ ...result, warnings }")
+  && scheduleRoute.includes("warnings: [...warnings, ...calendarWarning]")
   && !scheduleRoute.includes("assessment_not_ready_to_schedule"));
 check("calendar projection labels contact gaps and keeps the chart reachable",
   calendar.includes('"complete_contact"')
