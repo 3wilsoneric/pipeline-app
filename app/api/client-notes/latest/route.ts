@@ -16,11 +16,12 @@ export async function GET(request: Request) {
     if (!auth.ok) return auth.response;
     const raw = new URL(request.url).searchParams.get("referral_ids") ?? "";
     const ids = [...new Set(raw.split(",").filter(Boolean))];
-    if (ids.length > maxReferrals || ids.some((id) => !/^[1-9]\d{0,15}$/.test(id))) return jsonError("referral_ids must be up to 300 referral numbers.");
+    if (ids.length > maxReferrals || ids.some((id) => !/^[1-9]\d{0,15}$/.test(id) || !Number.isSafeInteger(Number(id)))) return jsonError("referral_ids must be up to 300 referral numbers.");
     const allowed: number[] = [];
-    for (const id of ids.map(Number)) {
-      const referral = await getReferral(id);
-      if (referral && canAccessReferral(auth.user, referral)) allowed.push(id);
+    // Bound database concurrency while preserving the canonical per-referral access check.
+    for (let offset = 0; offset < ids.length; offset += 8) {
+      const referrals = await Promise.all(ids.slice(offset, offset + 8).map((id) => getReferral(Number(id))));
+      for (const referral of referrals) if (referral && canAccessReferral(auth.user, referral)) allowed.push(referral.id);
     }
     return Response.json({ notes: await latestClientNotes(allowed) }, { headers });
   });

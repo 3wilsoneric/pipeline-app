@@ -1,160 +1,62 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import { fetchCurrentPipelineUser, onPipelineSessionCleared } from "@/lib/auth/authenticated-fetch";
+import { ClientNotesController, emptyNotes, type NotesStatus } from "./client-notes-controller";
 
-import { fetchPipelineJson, PipelineApiError } from "@/lib/auth/authenticated-fetch";
-import type { NoteBlock } from "@/lib/pipeline/client-notes";
-import { rememberLatestNote } from "@/components/pipeline/useLatestNotes";
-
-// Client notes state (docs/design/DECISIONS.md, "Notes"). Each heading saves on its own:
-// shortly after typing pauses and when it is left, one request at a time per heading, retried by itself
-// when the connection drops. Nothing here ever blocks the page; a heading edited elsewhere is surfaced as
-// a choice instead of being overwritten.
-
-export type NotesStatus = "loading" | "saved" | "saving" | "waiting" | "failed";
-type Entry = { body: string; version: number; saved: string };
-type Conflict = { theirs: NoteBlock };
-
-const saveDelayMs = 700;
-const retryDelaysMs = [2_000, 5_000, 10_000, 20_000, 30_000];
+export type { NotesStatus } from "./client-notes-controller";
+const controllers = new Map<string, ClientNotesController>();
+let session = 0;
+onPipelineSessionCleared(() => {
+  session += 1;
+  controllers.forEach((controller) => controller.dispose());
+  controllers.clear();
+});
+const emptySubscribe = () => () => undefined;
+const emptySnapshot = () => emptyNotes;
 
 export function useClientNotes(referralId: number, readOnly: boolean) {
-  const [entries, setEntries] = useState<Record<string, Entry>>({});
-  const [loaded, setLoaded] = useState(false);
-  const [loadFailed, setLoadFailed] = useState(false);
-  const [pending, setPending] = useState<Record<string, true>>({});
-  const [waiting, setWaiting] = useState<Record<string, true>>({});
-  const [failed, setFailed] = useState<Record<string, string>>({});
-  const [conflicts, setConflicts] = useState<Record<string, Conflict>>({});
-  const entriesRef = useRef(entries);
-  const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
-  const inFlight = useRef(new Map<string, Promise<void>>());
-  const attempts = useRef(new Map<string, number>());
-
-  useEffect(() => { entriesRef.current = entries; }, [entries]);
-
+  const [binding, setBinding] = useState<{ referralId: number; session: number; retry: number; owner?: ClientNotesController; failed?: boolean }>();
+  const [sessionVersion, setSessionVersion] = useState(session);
+  const [retry, setRetry] = useState(0);
+  const current = binding?.referralId === referralId && binding.session === sessionVersion && binding.retry === retry ? binding : undefined;
+  const controller = current?.owner;
+  const accountFailed = Boolean(current?.failed);
+  useEffect(() => onPipelineSessionCleared(() => { setBinding(undefined); setSessionVersion(session); }), []);
   useEffect(() => {
-    const controller = new AbortController();
-    void fetchPipelineJson<{ blocks: NoteBlock[] }>(`/api/referrals/${referralId}/notes`, { signal: controller.signal, cache: "no-store" })
-      .then((payload) => {
-        if (controller.signal.aborted) return;
-        const next: Record<string, Entry> = {};
-        for (const block of payload.blocks) next[block.block_key] = { body: block.body, version: block.version, saved: block.body };
-        entriesRef.current = next;
-        setEntries(next);
-        setLoaded(true);
-      })
-      .catch(() => { if (!controller.signal.aborted) setLoadFailed(true); });
-    return () => controller.abort();
-  }, [referralId]);
-
-  const clear = (setter: typeof setPending | typeof setWaiting, key: string) => setter((current) => {
-    if (!(key in current)) return current;
-    const next = { ...current };
-    delete next[key];
-    return next;
-  });
-
-  // Sends the heading's latest text; queues behind a save already in flight for the same heading.
-  const send = useCallback((key: string): Promise<void> => {
-    const previous = inFlight.current.get(key) ?? Promise.resolve();
-    const run = previous.then(async () => {
-      const entry = entriesRef.current[key];
-      if (!entry || entry.body === entry.saved) { clear(setPending, key); return; }
-      const body = entry.body;
-      try {
-        const payload = await fetchPipelineJson<{ block: NoteBlock }>(`/api/referrals/${referralId}/notes/${encodeURIComponent(key)}`, {
-          method: "PUT",
-          body: JSON.stringify({ body, if_match: entry.version }),
-        });
-        attempts.current.delete(key);
-        rememberLatestNote(referralId, payload.block.body, payload.block.updated_at);
-        const next = { ...entriesRef.current, [key]: { body: entriesRef.current[key]?.body ?? body, version: payload.block.version, saved: payload.block.body } };
-        entriesRef.current = next;
-        setEntries(next);
-        clear(setWaiting, key);
-        setFailed((current) => { if (!(key in current)) return current; const copy = { ...current }; delete copy[key]; return copy; });
-        if (next[key].body !== next[key].saved) void send(key); else clear(setPending, key);
-      } catch (error) {
-        if (error instanceof PipelineApiError && error.status === 409) {
-          const theirs = (error.payload as { block?: NoteBlock | null } | undefined)?.block ?? null;
-          const current = entriesRef.current[key];
-          // Nothing of ours was lost if the other screen saved exactly what we last saw: continue from it.
-          if (!theirs || theirs.body === current.saved) {
-            const next = { ...entriesRef.current, [key]: { ...current, version: theirs?.version ?? 0 } };
-            entriesRef.current = next;
-            setEntries(next);
-            void send(key);
-            return;
-          }
-          setConflicts((existing) => ({ ...existing, [key]: { theirs } }));
-          clear(setPending, key);
-          return;
-        }
-        if (error instanceof PipelineApiError && error.status >= 400 && error.status < 500) {
-          setFailed((current) => ({ ...current, [key]: error.message }));
-          clear(setPending, key);
-          return;
-        }
-        // Network or server trouble: keep the text here and try again by itself.
-        const attempt = attempts.current.get(key) ?? 0;
-        attempts.current.set(key, attempt + 1);
-        setWaiting((current) => ({ ...current, [key]: true }));
-        clearTimeout(timers.current.get(key));
-        timers.current.set(key, setTimeout(() => void send(key), retryDelaysMs[Math.min(attempt, retryDelaysMs.length - 1)]));
+    let cancelled = false;
+    const generation = session;
+    void fetchCurrentPipelineUser().then(({ user }) => {
+      if (cancelled || generation !== session) return;
+      if (!user.id) throw new Error("Your account could not be confirmed for the pending copy.");
+      const key = `${user.id}:${referralId}`;
+      for (const [cachedKey, cached] of controllers) {
+        if (cachedKey !== key && cached.canRelease()) { cached.dispose(); controllers.delete(cachedKey); }
       }
-    });
-    inFlight.current.set(key, run.catch(() => undefined));
-    return run;
-  }, [referralId]);
-
-  const change = useCallback((key: string, body: string) => {
-    const current = entriesRef.current[key] ?? { body: "", version: 0, saved: "" };
-    const next = { ...entriesRef.current, [key]: { ...current, body } };
-    entriesRef.current = next;
-    setEntries(next);
-    setPending((existing) => ({ ...existing, [key]: true }));
-    clearTimeout(timers.current.get(key));
-    timers.current.set(key, setTimeout(() => void send(key), saveDelayMs));
-  }, [send]);
-
-  const flush = useCallback((key: string) => {
-    clearTimeout(timers.current.get(key));
-    void send(key);
-  }, [send]);
-
-  const resolve = useCallback((key: string, keep: "mine" | "theirs") => {
-    const conflict = conflicts[key];
-    if (!conflict) return;
-    const current = entriesRef.current[key];
-    const next = { ...entriesRef.current, [key]: keep === "theirs"
-      ? { body: conflict.theirs.body, version: conflict.theirs.version, saved: conflict.theirs.body }
-      : { body: current.body, version: conflict.theirs.version, saved: conflict.theirs.body } };
-    entriesRef.current = next;
-    setEntries(next);
-    setConflicts((existing) => { const copy = { ...existing }; delete copy[key]; return copy; });
-    if (keep === "mine") { setPending((existing) => ({ ...existing, [key]: true })); void send(key); }
-  }, [conflicts, send]);
-
-  // Send anything unsent when the page hides or this assessment closes.
+      let owner = controllers.get(key);
+      if (!owner) { owner = new ClientNotesController(user.id, referralId); controllers.set(key, owner); }
+      setBinding({ referralId, session: generation, retry, owner });
+      void owner.load();
+    }).catch(() => { if (!cancelled && generation === session) setBinding({ referralId, session: generation, retry, failed: true }); });
+    return () => { cancelled = true; };
+  }, [referralId, sessionVersion, retry]);
+  const state = useSyncExternalStore(controller?.subscribe ?? emptySubscribe, controller?.snapshot ?? emptySnapshot, emptySnapshot);
   useEffect(() => {
-    const flushAll = () => { for (const [key, entry] of Object.entries(entriesRef.current)) if (entry.body !== entry.saved) void send(key); };
-    const onHide = () => { if (document.visibilityState === "hidden") flushAll(); };
-    const pendingTimers = timers.current;
+    if (!controller) return;
+    const onHide = () => { if (document.visibilityState === "hidden") controller.flushAll(); };
+    const refresh = () => { void controller.load(); };
     document.addEventListener("visibilitychange", onHide);
-    window.addEventListener("online", flushAll);
-    return () => {
-      document.removeEventListener("visibilitychange", onHide);
-      window.removeEventListener("online", flushAll);
-      for (const timer of pendingTimers.values()) clearTimeout(timer);
-      flushAll();
-    };
-  }, [send]);
-
-  const status: NotesStatus = !loaded ? "loading"
-    : Object.keys(failed).length || Object.keys(conflicts).length ? "failed"
-    : Object.keys(waiting).length ? "waiting"
-    : Object.keys(pending).length ? "saving" : "saved";
-
-  return { entries, loaded, loadFailed, status, failed, conflicts, readOnly, change, flush, resolve };
+    window.addEventListener("online", controller.flushAll);
+    window.addEventListener("focus", refresh);
+    return () => { document.removeEventListener("visibilitychange", onHide); window.removeEventListener("online", controller.flushAll); window.removeEventListener("focus", refresh); controller.flushAll(); };
+  }, [controller]);
+  const status: NotesStatus = state.loadFailed || accountFailed ? "failed" : !state.loaded ? "loading"
+    : Object.keys(state.failed).length || Object.keys(state.conflicts).length ? "failed"
+    : Object.keys(state.waiting).length ? "waiting" : Object.keys(state.pending).length ? "saving" : "saved";
+  return { ...state, loadFailed: state.loadFailed || accountFailed, status, readOnly,
+    reload: () => { if (controller) void controller.load(); else setRetry((value) => value + 1); },
+    change: (key: string, body: string) => { if (!readOnly) controller?.change(key, body); },
+    flush: (key: string) => controller?.flush(key),
+    resolve: (key: string, keep: "mine" | "theirs") => { if (!readOnly) controller?.resolve(key, keep); },
+  };
 }

@@ -45,7 +45,8 @@ test.describe("assessment outcome and admission handoff", () => {
       expect(teamDirectory.referrals.map((item: { id: number }) => item.id)).toContain(referral.id);
       const mine = await (await assessor.get("/api/operations/my-queue")).json();
       expect(mine.items.map((item: { referral_id: number }) => item.referral_id)).toContain(referral.id);
-      await page.getByTestId("workspace-folder-header").getByRole("button", { name: "Workspaces", exact: true }).click();
+      await (process.env.PIPELINE_DESIGN_V2 === "true" ? page.getByRole("button", { name: "Open referrals", exact: true })
+        : page.getByTestId("workspace-folder-header").getByRole("button", { name: "Workspaces", exact: true })).click();
       await expect(page.getByRole("region", { name: "Admission decision", exact: true })).toHaveCount(0);
       await page.goto(`${workspace(referral.id)}&workspaceView=workflow`);
       await expect(page.getByRole("radio", { name: "Under review", exact: true })).toBeChecked();

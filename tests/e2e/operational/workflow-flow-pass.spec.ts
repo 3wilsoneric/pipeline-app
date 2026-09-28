@@ -101,7 +101,7 @@ test.describe("uninterrupted workflow", () => {
       const referral = await createOperationalReferral(api, "viewer", { documentName: "", dob: "", owner: "Unassigned" });
       await createOperationalAssessment(api, referral.id);
       await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment`);
-      await page.locator('summary[aria-label="Assessment details"]').click();
+      if (process.env.PIPELINE_DESIGN_V2 !== "true") await page.locator('summary[aria-label="Assessment details"]').click();
       await page.getByRole("button", { name: "Schedule interview", exact: true }).click();
       const schedule = page.getByRole("dialog", { name: "Schedule interview", exact: true });
       await schedule.getByLabel("Assessment date and time").fill("2027-01-15T10:00");
@@ -114,8 +114,15 @@ test.describe("uninterrupted workflow", () => {
       await expect(schedule).toHaveCount(0);
       await expect(page.getByRole("button", { name: "Begin assessment", exact: true })).toHaveCount(0);
       const editor = page.locator("[data-assessment-view]");
-      await expect(editor.getByRole("button", { name: "Next section", exact: true })).toBeEnabled();
-      await editor.getByRole("button", { name: "Next section", exact: true }).click();
+      if (process.env.PIPELINE_DESIGN_V2 === "true") {
+        const section = editor.getByRole("combobox", { name: "Assessment section", exact: true });
+        await expect(section).toBeEnabled();
+        await section.selectOption("prior_history");
+        await expect(editor.locator('[data-assessment-group-heading="prior_history"]')).toBeInViewport();
+      } else {
+        await expect(editor.getByRole("button", { name: "Next section", exact: true })).toBeEnabled();
+        await editor.getByRole("button", { name: "Next section", exact: true }).click();
+      }
       await expect(editor.getByText("Required", { exact: true })).toHaveCount(0);
       await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: "Chart", exact: true }).click();
       await expect(page.getByRole("button", { name: "Edit referral details", exact: true })).toBeEnabled();

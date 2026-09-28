@@ -252,7 +252,8 @@ Cuts only; no new wording. Redesign switch only. Explanations that carry a rule 
 - Where: on the Assessment step, beside the questions (a "Notes | Current information" tab pair in the interview, so the questions keep their width; a column on the right while preparing, which can be hidden, remembered on this device). On every other record step, the same notes open from a round button at the bottom right. Home board cards and Workspaces rows show the latest note (first line of the most recently edited heading).
 - Saving never blocks: each heading saves about 0.7 seconds after typing pauses and when it is left; one request at a time per heading; retried by itself when the connection drops; sent when the page hides. Each heading has its own version and never changes the referral's version, so notes can never make a referral or assessment save conflict. A heading changed on another screen offers "Keep mine" or "Use theirs". A note save refreshes only the latest-notes summary, never the whole app's data.
 - Each heading records who last edited it and when. Notes add no audit rows, because they save as someone types and would flood the referral's Activity; they are not referral activity. They are not locked when the assessment is signed.
-- Storage: pipeline.client_note_blocks (migration 0046, additive, guarded rollback), with a local-file adapter for development; verified against PostgreSQL. Phones and practice: not yet.
+- Storage: pipeline.client_note_blocks (migration 0046, additive, guarded rollback), with a local-file adapter for development. The pre-merge verification exercises the real PostgreSQL adapter, migration/runtime roles, route handlers, concurrent saves and rollback preservation. Unsaved notes reuse the existing encrypted, expiring, account- and tab-scoped recovery store. Practice remains excluded.
+- Phones (owner, 2026-09-27): include the same Notes button and panel without changing the assessment flow. Closing the panel keeps pending saves alive; reopening/reloading restores the draft. True same-heading conflicts preserve both copies; other headings and assessment work remain available.
 - Next: prep and interview tags and time stamps on lines, "Use as answer", custom headings and "/" shortcuts.
 
 - Fewer navigation layers (owner, 2026-09-26, trial: "give it a shot but we may undo"): beside the questions, the notes show only the topic in view, as one box under its name; "View all" opens every heading. The floating Notes panel still lists every heading. In the interview, the All questions / Interview switch and its buttons join the sticky section row, which drops its progress ring (the count stays), so the page has one in-page navigation row. On the record page the bottom bar's save status becomes a spreadsheet icon (still the way into Excel and recovery; its status stays for screen readers), since the rail's save panel is the one save status.
@@ -271,7 +272,12 @@ Nothing is deployed until the owner is sure. The redesign ships behind an off-by
 - **Known ceiling.** While the switch exists, a fix to a redesigned stylesheet belongs in both blocks. The color ratchet counts both, so its totals roughly double until cleanup.
 - **Removal trigger.** After everyone has the redesign and the owner confirms, delete the current-design blocks, the `designV2` branches, `DesignSwitch.tsx`, and the Geist font, then lower the ratchet baseline.
 
-Steps: build the switch; merge with the switch off, with production pixel-identical; iterate behind it; pilot for named users on live; turn it on for everyone; clean up.
+Steps: build the switch; merge with the switch off, with production pixel-identical; iterate behind it; turn it on globally after separate owner approval; clean up. The original named-user pilot is not implemented. Ask before building a per-user pilot.
+
+## Pre-merge owner confirmations (2026-09-27)
+
+- Approved as one set: “Finish & send”, “Open decision”, “Admission date”, “Decision reason”, “Admission requirements”, “All questions”, “All notes saved”, “Waiting to sync”, “Hide notes”, “Close notes”, “Use theirs”, “Appointment not booked”, and “Expand/Collapse navigation”. Notes-load failure: “Notes could not be loaded.” with “Retry”.
+- Approved refreshing only the three stale Linux snapshots from the verified production-main render: desktop Home, desktop new intake and mobile new intake. Main `b39c377c` and the switch-off candidate produced byte-identical actual PNGs; the candidate was not used as the baseline source. Other snapshots and comparison tolerances stay unchanged.
 
 ## Delivery
 

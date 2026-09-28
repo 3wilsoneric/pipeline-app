@@ -2,6 +2,16 @@
 
 The owner is handing the redesign to Codex to merge and deploy. This file tells you what the branch holds, what ships even with the switch off, what must happen before it goes live, and the order to do it in. The owner approves each outward step: the PR merge, each deploy, and turning the switch on. There is no approval gate in GitHub (see "Deploy facts"), so asking the owner is the only gate.
 
+## Pre-merge follow-up (2026-09-27)
+
+The implementation and current evidence are recorded in [PREMERGE_REVIEW.md](PREMERGE_REVIEW.md). The original test state below is historical, not a current failure inventory.
+
+- The prior saving/upload/test repairs were already merged through `448a6595` / PR #206 into `b39c377c`; do not reapply them from an older worktree.
+- Deploy switch plumbing and unique per-run revision identities are now implemented locally. Fast image-only deployment verifies that runtime flags remain unchanged.
+- Eric approved the wording set, Notes on phones, and refreshing only three stale Linux baselines from the independently verified production-main render. See DECISIONS.md. This supersedes the blanket snapshot-update prohibition for exactly those three files.
+- Notes now retain encrypted recovery and survive panel changes, request failure, reload and lost acknowledgments; clean reopening/focus refreshes server notes without replacing newer typing.
+- Push, PR, merge, production deployment and global switch activation still each require Eric's approval. None has occurred in this pre-merge work.
+
 ## Where it is
 
 - Branch `design/redesign-switch`, local only, never pushed. Worktree: `/Users/eric/pipeline-app/.claude/worktrees/design-redesign`.
@@ -82,7 +92,7 @@ These go live with the merge, whatever the switch says. Verify them on PostgreSQ
 3. **Deploy 2, switch on** (`enable_design_v2=true`), once the owner says go.
    - Smoke test as real roles: open a referral, begin an interview, write notes, sign, record a decision, and check that the Chart files each step.
    - Include phone width, which the redesign keeps working (`use-phone-layout.ts`).
-   - To roll back, redeploy with `enable_design_v2=false`, or activate the previous Container Apps revision. Revisions are named `pipeline-prod-web--<sha16>`. Keep the notes table either way.
+   - To roll back, redeploy with `enable_design_v2=false`, or activate the recorded previous Container Apps revision. New full rollouts use `pipeline-prod-web--<sha10>-r<run_id>-<attempt>` so the same image can be deployed with the switch off and then on. Older revisions use `<sha16>`; always record the actual revision. Keep the notes table either way.
 4. **Later: remove the current design** once everyone is on the redesign and the owner confirms. Follow the "Removal trigger" in DECISIONS.md "Rollout".
 
 The switch is global. There is no per-user pilot, even though the original rollout plan lists "pilot for named users". If the owner wants a pilot, that needs new code, such as a per-user flag. Ask before building it.
@@ -94,9 +104,9 @@ The switch is global. There is no per-user pilot, even though the original rollo
 - Runbook: `docs/PRODUCTION_DEPLOYMENT_RUNBOOK.md`. Live site: https://alamo-pipeline.com.
 - Web app: Container App `pipeline-prod-web`, resource group `rg-pipeline-prod`.
 
-## Known rough edges (reported to the owner, not fixed)
+## Current status and remaining workflow limits
 
-- After a reload during an interview, "All questions" can show for an instant before the interview view appears.
+- The interview-mode restoration now runs before paint to avoid the brief "All questions" flash.
 - Finish & send drops off the rail only when the client is admitted or closed, per the existing `workspaceStepProgress`, not as soon as the packet is sent.
 
 ## Test state at handoff

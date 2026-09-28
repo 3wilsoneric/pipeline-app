@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 
 import { assessmentInterviewFieldLabel, getAssessmentUnableReason, hasAssessmentInterviewValue, type AssessmentInterviewQuestion } from "@/lib/assessment/assessment-interview-schema";
 import type { AssessmentToolData, AssessmentToolSection } from "@/lib/assessment/assessment-tool-schema";
@@ -14,6 +14,18 @@ import styles from "./InterviewSplit.module.css";
 
 const widthKey = "pipeline:interview-split";
 const [minWidth, maxWidth, defaultWidth] = [28, 70, 38];
+const serverWidth = () => defaultWidth;
+const readWidth = () => {
+  try {
+    const saved = Number(window.localStorage.getItem(widthKey));
+    return saved >= minWidth && saved <= maxWidth ? saved : defaultWidth;
+  } catch { return defaultWidth; }
+};
+const subscribeWidth = (changed: () => void) => {
+  const storage = (event: StorageEvent) => { if (!event.key || event.key === widthKey) changed(); };
+  window.addEventListener("storage", storage);
+  return () => window.removeEventListener("storage", storage);
+};
 
 type Topic = { key: AssessmentToolSection; label: string; questions: readonly AssessmentInterviewQuestion[] };
 
@@ -26,16 +38,11 @@ export default function InterviewSplit({ topics, data, currentTopic, notes }: {
 }) {
   const pane = useRef<HTMLElement>(null);
   const text = useRef<HTMLDivElement>(null);
-  const [width, setWidth] = useState(defaultWidth);
+  const rememberedWidth = useSyncExternalStore(subscribeWidth, readWidth, serverWidth);
+  const [adjustedWidth, setWidth] = useState<number>();
+  const width = adjustedWidth ?? rememberedWidth;
 
   // The remembered width, and the column it sets on the page grid.
-  useEffect(() => {
-    try {
-      const saved = Number(window.localStorage.getItem(widthKey));
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- a per-device preference read once after mount
-      if (saved >= minWidth && saved <= maxWidth) setWidth(saved);
-    } catch { /* storage unavailable: keep half */ }
-  }, []);
   useLayoutEffect(() => {
     pane.current?.closest<HTMLElement>("[data-assessment-working-section]")?.style.setProperty("--split", `${width}%`);
   }, [width]);

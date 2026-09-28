@@ -2755,7 +2755,7 @@ export default function ReferralPacketCanvas({
               </div>
             ) : null}
             {/* Client notes: beside the questions on the Assessment step; from this button everywhere else. */}
-            {verticalFlow && loadedReferral && displayedPage !== 2 ? <ClientNotesButton key={loadedReferral.id} referralId={loadedReferral.id} readOnly={permissionReadOnly} /> : null}
+            {designV2 && loadedReferral && (phone || displayedPage !== 2) && !trainingAssessmentMode && !trainingIntakeMode ? <ClientNotesButton key={loadedReferral.id} referralId={loadedReferral.id} readOnly={permissionReadOnly || historicalReadOnly} /> : null}
             <WorkspaceStageNavigation steps={railSteps} activePage={displayedPage === 1 && loadedReferral && !navigableWorkspaceSteps.some((step) => step.page === 1) ? chartPage : displayedPage} onOpen={(page) => void navigatePage(page)} progress={designV2 ? workspaceStepProgress(loadedReferral?.workflowStatus) : undefined} />
             {verticalFlow && nextWorkspaceStep ? (
               <div className={workspaceFolderStyles.nextStepBar}>
@@ -2862,6 +2862,7 @@ export default function ReferralPacketCanvas({
             <PacketPage id="packet-email" title="Finish & send" flush>
               <WorkspaceChartFolder>
               <AssessmentChartWorkspace key={referralWorkspaceId} referralId={referralWorkspaceId} emailPage
+                active={displayedPage === "email"} sourceVersion={designV2 ? loadedReferral?.version : undefined}
                 onReferralChange={applyConfirmedWorkflowReferral}
                 onSendingChange={(sending) => { emailSendingRef.current = sending; setEmailSending(sending); }}
                 emailDraft={handoff}

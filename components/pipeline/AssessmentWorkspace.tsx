@@ -516,7 +516,7 @@ export default function AssessmentWorkspace({
   if (designV2 && selectedId && linkedMode && notebookPage?.assessmentId !== selectedId) setNotebookPage({ assessmentId: selectedId, view: linkedMode });
   // Redesign: the Assessment step reopens in the mode last used for this assessment on this device (All questions
   // or the interview), even after a reload; the first open of an unbegun assessment still starts in All questions.
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!designV2 || !selectedId || notebookPage?.assessmentId === selectedId || linkedMode) return;
     try {
       const last = window.localStorage.getItem(`${assessmentModeKey}${selectedId}`);

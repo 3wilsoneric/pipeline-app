@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AlertTriangle, Check, ChevronDown, CloudUpload, LoaderCircle, NotebookPen, PanelRightClose, X } from "lucide-react";
 
@@ -8,6 +8,7 @@ import { noteBlockMaxLength, noteHeadings } from "@/lib/pipeline/client-notes";
 import type { AssessmentToolSection } from "@/lib/assessment/assessment-tool-schema";
 import { useClientNotes, type NotesStatus } from "@/components/pipeline/useClientNotes";
 import { useLatestNotes } from "@/components/pipeline/useLatestNotes";
+import { useMobileViewport } from "./use-mobile-viewport";
 import styles from "./ClientNotes.module.css";
 
 // Client notes (docs/design/DECISIONS.md, "Notes"): the assessor's notes on this client, taken while
@@ -33,6 +34,7 @@ export default function ClientNotes({ referralId, readOnly, currentTopics = [], 
   onClose?: () => void;
 }) {
   const notes = useClientNotes(referralId, readOnly);
+  const instance = useId();
   const headings = noteHeadings();
   const currentKeys = currentTopics.map((topic) => `topic:${topic}`);
   const [opened, setOpened] = useState<Record<string, boolean>>({});
@@ -58,17 +60,18 @@ export default function ClientNotes({ referralId, readOnly, currentTopics = [], 
   }, [current, focused]);
 
   const StatusIcon = notes.status === "failed" ? AlertTriangle : notes.status === "waiting" ? CloudUpload : notes.status === "saved" ? Check : LoaderCircle;
-  return <section aria-labelledby={`notes-title-${referralId}`} className={styles.notes} data-client-notes data-status={notes.status}>
+  return <section aria-labelledby={`notes-title-${instance}`} className={styles.notes} data-client-notes data-status={notes.status}>
     <header className={styles.head}>
-      <h3 id={`notes-title-${referralId}`}><NotebookPen size={16} aria-hidden="true" />Notes</h3>
+      <h3 id={`notes-title-${instance}`}><NotebookPen size={16} aria-hidden="true" />Notes</h3>
       <span role="status" aria-live="polite" className={styles.status}>
         <StatusIcon size={14} aria-hidden="true" className={notes.status === "saving" || notes.status === "loading" ? "motion-safe:animate-spin" : undefined} />{statusText[notes.status]}
       </span>
+      {notes.failed._recovery && !notes.loadFailed ? <button type="button" onClick={notes.reload}>Retry</button> : null}
       {currentKeys.length ? <button type="button" aria-pressed={viewAll} onClick={() => setViewAll(!viewAll)} className={styles.viewAll}>View all</button> : null}
       {onCollapse ? <button type="button" aria-label="Hide notes" title="Hide notes" onClick={onCollapse} className={styles.iconButton}><PanelRightClose size={16} aria-hidden="true" /></button> : null}
       {onClose ? <button type="button" aria-label="Close notes" title="Close notes" onClick={onClose} className={styles.iconButton}><X size={16} aria-hidden="true" /></button> : null}
     </header>
-    {notes.loadFailed ? <p role="alert" className={styles.notice}>Notes could not be loaded. Reload to try again.</p> : null}
+    {notes.loadFailed ? <p role="alert" className={styles.notice}>Notes could not be loaded. <button type="button" onClick={notes.reload}>Retry</button></p> : null}
     <div ref={list} className={styles.blocks} data-focused={focused || undefined}>
       {headings.filter((heading) => !shownKeys || shownKeys.includes(heading.key)).map((heading) => {
         const body = notes.entries[heading.key]?.body ?? "";
@@ -76,7 +79,7 @@ export default function ClientNotes({ referralId, readOnly, currentTopics = [], 
         const open = focused || (opened[heading.key] ?? (isCurrent || (heading.key === "before" && !current)));
         const conflict = notes.conflicts[heading.key];
         const error = notes.failed[heading.key];
-        const fieldId = `notes-${referralId}-${heading.key}`;
+        const fieldId = `notes-${instance}-${heading.key}`;
         return <section key={heading.key} data-note-heading={heading.key} data-current={isCurrent || undefined} data-open={open || undefined} className={styles.block}>
           {focused ? <p className={styles.blockHead}><span className={styles.blockLabel}>{heading.label}</span></p>
           : <button type="button" aria-expanded={open} aria-controls={fieldId} onClick={() => setOpened((existing) => ({ ...existing, [heading.key]: !open }))} className={styles.blockHead}>
@@ -125,12 +128,14 @@ export function ClientNotesReopen({ onOpen }: { onOpen: () => void }) {
 // On steps without notes beside the questions: a round button at the bottom right that opens the same notes
 // upward from it. Rendered after the referral loads, so it portals to <body>.
 export function ClientNotesButton({ referralId, readOnly }: { referralId: number; readOnly: boolean }) {
+  const viewport = useMobileViewport();
   const [open, setOpen] = useState(false);
   const latest = useLatestNotes([referralId]).get(referralId);
   const button = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLDivElement>(null);
+  useEffect(() => { if (open) panel.current?.querySelector<HTMLButtonElement>("button")?.focus(); }, [open]);
   const close = () => { setOpen(false); requestAnimationFrame(() => button.current?.focus()); };
-  return createPortal(<div className={styles.floating}>
+  return createPortal(<div ref={viewport} className={styles.floating}>
     {open ? <div ref={panel} role="dialog" aria-label="Notes" className={styles.panel}
       onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); close(); } }}>
       <ClientNotes referralId={referralId} readOnly={readOnly} onClose={close} />

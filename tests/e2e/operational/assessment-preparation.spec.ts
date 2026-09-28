@@ -19,6 +19,7 @@ test.describe("assessment preparation", () => {
         await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}`);
         const stages = page.getByRole("navigation", { name: "Workspace stages", exact: true });
         await stages.getByRole("button", { name: "Assessment", exact: true }).click();
+        if (process.env.PIPELINE_DESIGN_V2 === "true") await page.getByRole("button", { name: "Prepare assessment", exact: true }).click();
         const editor = page.locator("[data-assessment-view]");
         await expect(editor).toBeVisible();
         await expect(stages.getByRole("button", { name: "Assessment", exact: true })).toHaveAttribute("aria-current", "page");
@@ -51,7 +52,7 @@ test.describe("assessment preparation", () => {
 
         const scheduledAnswer = `${answer} Prepared before scheduling.`;
         await field.fill(scheduledAnswer);
-        await editor.locator('summary[aria-label="Assessment details"]').click();
+        if (process.env.PIPELINE_DESIGN_V2 !== "true") await editor.locator('summary[aria-label="Assessment details"]').click();
         await editor.getByRole("button", { name: "Schedule interview", exact: true }).click();
         const schedule = page.getByRole("dialog", { name: "Schedule interview", exact: true });
         const future = new Date(Date.now() + (30 + referral.id) * 86_400_000).toISOString().slice(0, 16);

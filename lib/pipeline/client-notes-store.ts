@@ -27,9 +27,14 @@ async function loadLocal(): Promise<LocalNotesFile> {
   localState.loaded ??= readFile(/* turbopackIgnore: true */ localPath(), "utf8")
     .then((raw) => {
       const parsed = JSON.parse(raw) as Partial<LocalNotesFile>;
-      return { schema: 1 as const, blocks: Array.isArray(parsed.blocks) ? parsed.blocks : [] };
+      if (parsed.schema !== 1 || !Array.isArray(parsed.blocks)) throw new Error("Invalid client notes store.");
+      return { schema: 1 as const, blocks: parsed.blocks };
     })
-    .catch(() => ({ schema: 1 as const, blocks: [] }));
+    .catch((error: NodeJS.ErrnoException) => {
+      localState.loaded = undefined;
+      if (error.code === "ENOENT") return { schema: 1 as const, blocks: [] };
+      throw error;
+    });
   return localState.loaded;
 }
 
@@ -98,8 +103,10 @@ export async function saveClientNote(referralId: number, headingKey: string, bod
     if ((existing?.version ?? 0) !== expectedVersion) return { ok: false, block: existing ? fromLocal(existing) : null } as const;
     const now = new Date().toISOString();
     const block = { referral_id: referralId, block_key: headingKey, body, version: expectedVersion + 1, updated_at: now, updated_by_name: actor.name };
-    if (index >= 0) file.blocks[index] = block; else file.blocks.push(block);
-    await persistLocal(file);
+    const next = { ...file, blocks: [...file.blocks] };
+    if (index >= 0) next.blocks[index] = block; else next.blocks.push(block);
+    await persistLocal(next);
+    localState.loaded = Promise.resolve(next);
     return { ok: true, block: fromLocal(block) } as const;
   });
 }

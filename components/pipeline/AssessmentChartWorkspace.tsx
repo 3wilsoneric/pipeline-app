@@ -62,8 +62,10 @@ type ChartPayload = {
   };
 };
 
-export default function AssessmentChartWorkspace({ referralId, embedded = false, emailPage = false, emailDraft, finishActions, onSendingChange, onReferralChange, onOpenFiles, onOpenIntake, onOpenAssessment, onOpenDecision }: {
+export default function AssessmentChartWorkspace({ referralId, active = true, sourceVersion, embedded = false, emailPage = false, emailDraft, finishActions, onSendingChange, onReferralChange, onOpenFiles, onOpenIntake, onOpenAssessment, onOpenDecision }: {
   referralId?: number;
+  active?: boolean;
+  sourceVersion?: number;
   embedded?: boolean;
   emailPage?: boolean;
   emailDraft?: HandoffRecipients;
@@ -92,6 +94,7 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
   const [acceptedReferralId, setAcceptedReferralId] = useState<number | null>(null);
   const sendRequest = useRef<{ key: string; mutationId: string } | null>(null);
   const sendInFlight = useRef(false);
+  const summaryRequestKey = useRef("");
 
   const load = useCallback(async () => {
     if (!referralId) return;
@@ -116,9 +119,17 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false,
     }
   }, [referralId]);
 
+  // Kept-mounted redesign steps must not show the summary fetched before the
+  // Decision page saved its admit date. Don't reset an open review, or repeatedly
+  // retry a failed version refresh; the existing Retry action owns that retry.
   useEffect(() => {
+    if (!active) { summaryRequestKey.current = ""; return; }
+    if (composerOpen || savingDate || sending) return;
+    const key = `${referralId}:${sourceVersion ?? "entry"}`;
+    if (summaryRequestKey.current === key) return;
+    summaryRequestKey.current = key;
     void load();
-  }, [load]);
+  }, [active, referralId, sourceVersion, composerOpen, savingDate, sending, load]);
   const recipientKey = JSON.stringify([referralId, recipients, ccRecipients, emailDraft?.recipientInput]);
   useEffect(() => { setConfirmed(false); setReviewedCount((count) => Math.min(count, 3)); }, [recipientKey]);
 

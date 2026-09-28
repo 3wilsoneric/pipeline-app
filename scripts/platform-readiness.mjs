@@ -7,6 +7,16 @@ const skipBuild = args.has("--skip-build");
 
 const checks = [
   {
+    name: "Deployment migration order and runtime flag preservation",
+    command: "node",
+    args: ["--test", "scripts/deployment-migration-order.test.mjs"],
+  },
+  {
+    name: "Client notes recovery and durable store boundaries",
+    command: "node",
+    args: ["--test", "scripts/client-notes-recovery.test.mjs", "scripts/client-notes-store.test.mjs"],
+  },
+  {
     name: "Platform admissions summary is aggregate-only behind its own secret",
     command: "node",
     args: ["--test", "scripts/platform-admissions-summary.test.mjs"],

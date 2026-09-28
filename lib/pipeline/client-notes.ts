@@ -21,6 +21,7 @@ export function isNoteHeadingKey(value: unknown): value is string {
 
 export type NoteBlock = { block_key: string; body: string; version: number; updated_at: string; updated_by_name: string };
 export type LatestNote = { referral_id: number; text: string; updated_at: string };
+export type ClientNoteDraft = { body: string; version: number; saved: string; sent?: string };
 
 // Plain text: newlines and tabs allowed, other control characters rejected. Kept as typed (not trimmed),
 // so saving while someone types never moves their cursor.

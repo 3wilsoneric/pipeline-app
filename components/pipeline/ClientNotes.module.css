@@ -79,4 +79,11 @@
 .compact .lineText { -webkit-line-clamp: 1; }
 .srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 @media print { .floating { display: none; } }
+@media (max-width: 767px) {
+  .floating { right: 12px; bottom: max(88px, env(safe-area-inset-bottom)); }
+  .panel { position: fixed; top: calc(var(--mobile-viewport-top, 0px) + 12px); right: 12px; left: 12px; width: auto; }
+  .panel .notes { height: calc(var(--mobile-viewport-height, 100dvh) - 112px); min-height: 0; }
+  .iconButton, .viewAll, .conflict button { min-width: 44px; min-height: 44px; }
+  .field { font-size: 16px; }
+}
 @media (prefers-reduced-motion: reduce) { .panel .notes { animation: none; } }
