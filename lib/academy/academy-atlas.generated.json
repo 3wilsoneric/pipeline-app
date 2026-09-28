@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:700cb71af18c4366",
-  "fingerprint": "700cb71af18c4366c4f1b9f3cb3c72150a1b940321bdc8a0941a7dd10be80be1",
+  "generatedAt": "source-fingerprint:370c6a940e0e5c81",
+  "fingerprint": "370c6a940e0e5c815e8f35fbf27e410662cc0312acc6bdd68196a9b6f13a88c2",
   "totals": {
-    "files": 1493,
-    "lines": 385549,
-    "coveredFiles": 1493
+    "files": 1499,
+    "lines": 386112,
+    "coveredFiles": 1499
   },
   "entries": [
     {
@@ -434,7 +434,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 137,
+      "lines": 140,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -828,6 +828,18 @@
       "moduleIds": [
         "route-handler-contract",
         "validation-authorization"
+      ]
+    },
+    {
+      "path": "app/api/internal/assessment-outlook/dispatch/route.ts",
+      "subsystem": "API routes",
+      "kind": "route-handler",
+      "runtime": "next-server",
+      "risk": "critical",
+      "lines": 18,
+      "moduleIds": [
+        "assessment-lifecycle",
+        "assessment-schema-ownership"
       ]
     },
     {
@@ -4142,7 +4154,7 @@
       "kind": "configuration",
       "runtime": "postgres",
       "risk": "high",
-      "lines": 53,
+      "lines": 54,
       "moduleIds": [
         "database-foundations",
         "schema-migrations"
@@ -4701,6 +4713,18 @@
       ]
     },
     {
+      "path": "database/migrations/0047_assessment_outlook_calendar.sql",
+      "subsystem": "PostgreSQL schema",
+      "kind": "migration",
+      "runtime": "postgres",
+      "risk": "critical",
+      "lines": 94,
+      "moduleIds": [
+        "database-foundations",
+        "schema-migrations"
+      ]
+    },
+    {
       "path": "database/rollbacks/0005_collaboration.sql",
       "subsystem": "PostgreSQL schema",
       "kind": "rollback",
@@ -5205,6 +5229,18 @@
       ]
     },
     {
+      "path": "database/rollbacks/0047_assessment_outlook_calendar.sql",
+      "subsystem": "PostgreSQL schema",
+      "kind": "rollback",
+      "runtime": "postgres",
+      "risk": "standard",
+      "lines": 19,
+      "moduleIds": [
+        "database-foundations",
+        "schema-migrations"
+      ]
+    },
+    {
       "path": "databricks.yml",
       "subsystem": "Repository configuration",
       "kind": "repository-file",
@@ -5476,6 +5512,18 @@
       "runtime": "documentation",
       "risk": "standard",
       "lines": 34,
+      "moduleIds": [
+        "developer-toolchain",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/ASSESSMENT_OUTLOOK_CALENDAR.md",
+      "subsystem": "Documentation",
+      "kind": "documentation",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 17,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -8715,6 +8763,18 @@
       ]
     },
     {
+      "path": "lib/assessment/assessment-outlook-calendar.ts",
+      "subsystem": "Assessment domain",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 217,
+      "moduleIds": [
+        "assessment-decision-handoff",
+        "authorization-phi"
+      ]
+    },
+    {
       "path": "lib/assessment/assessment-preparation.ts",
       "subsystem": "Assessment domain",
       "kind": "typescript-module",
@@ -11760,7 +11820,7 @@
       "kind": "configuration",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 261,
+      "lines": 262,
       "moduleIds": [
         "developer-toolchain",
         "system-map"
@@ -12724,6 +12784,18 @@
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
+      ]
+    },
+    {
+      "path": "scripts/assessment-outlook-calendar.test.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 179,
+      "moduleIds": [
+        "assessment-decision-handoff",
+        "authorization-phi"
       ]
     },
     {
@@ -13716,7 +13788,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 954,
+      "lines": 968,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
