@@ -99,6 +99,8 @@ export async function getPlatformAdmissionsSummary() {
         decidedAt: decision?.decidedAt ?? null,
         plannedAdmissionDate: getPlannedAdmissionDate(referral) || null,
         actualAdmissionDate: referral.actualAdmissionDate ?? null,
+        assessmentScheduledDate: workflowContext?.assessmentDate ?? referral.assessment?.scheduledDate ?? null,
+        assessmentComplete: Boolean(workflowContext?.assessmentComplete ?? referral.assessment?.completedAt),
         currentWorkspace: (referral.workspaceStatus ?? "active") === "active",
         boardColumn: work?.board.stage ?? null,
         boardStatus: work?.board.detail ?? "",

@@ -5,12 +5,15 @@
 // Platform documents the consumer side in
 // alamo-platform-app/docs/platform/admissions-zone.md.
 
-export const PLATFORM_ADMISSIONS_SUMMARY_VERSION = "3.0";
+export const PLATFORM_ADMISSIONS_SUMMARY_VERSION = "3.1";
 
 const DAY_MS = 86_400_000;
 const TREND_MONTHS = 6;
 const DECISION_TIMING_DAYS = 90;
 const MAX_CARDS = 300;
+const MAX_BRIEFING_REFERRALS = 500;
+const MAX_BRIEFING_SCHEDULE = 100;
+const BRIEFING_TREND_WEEKS = 12;
 // Accepted clients whose planned date passed more than this long ago without a
 // recorded arrival are treated as stale records rather than pending arrivals.
 const PAST_PLANNED_LOOKBACK_DAYS = 30;
@@ -41,6 +44,8 @@ export type PlatformSummaryReferral = {
   decidedAt: string | null;
   plannedAdmissionDate: string | null;
   actualAdmissionDate: string | null;
+  assessmentScheduledDate: string | null;
+  assessmentComplete: boolean;
   /** Current (not historical or archived) workspace. */
   currentWorkspace: boolean;
   /** Pipeline board column; null once the referral has left the board. */
@@ -105,6 +110,33 @@ function recentMonths(today: string, count: number) {
     new Date(Date.UTC(year, month - 1 - (count - 1 - index), 1)).toISOString().slice(0, 7));
 }
 
+function localDay(value: Date) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Los_Angeles",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(value);
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value ?? "";
+  return `${part("year")}-${part("month")}-${part("day")}`;
+}
+
+function mondayFor(day: string) {
+  const date = new Date(`${day}T00:00:00.000Z`);
+  const offset = (date.getUTCDay() + 6) % 7;
+  return addDays(day, -offset);
+}
+
+function recentWeekStarts(today: string, count: number) {
+  const current = mondayFor(today);
+  return Array.from({ length: count }, (_, index) => addDays(current, -7 * (count - 1 - index)));
+}
+
+function inWindow(value: string | null | undefined, start: string, end: string) {
+  const day = dayKey(value);
+  return Boolean(day && day >= start && day <= end);
+}
+
 function median(values: number[]) {
   if (!values.length) return null;
   const sorted = [...values].sort((left, right) => left - right);
@@ -120,7 +152,7 @@ function awaitingArrival(referral: PlatformSummaryReferral, today: string) {
 }
 
 export function buildPlatformAdmissionsSummary(input: PlatformAdmissionsSummaryInput) {
-  const today = input.now.toISOString().slice(0, 10);
+  const today = localDay(input.now);
   const month = today.slice(0, 7);
   const timingStart = addDays(today, -DECISION_TIMING_DAYS);
   const monthly = new Map<string, MonthCounts>(recentMonths(today, TREND_MONTHS)
@@ -193,6 +225,63 @@ export function buildPlatformAdmissionsSummary(input: PlatformAdmissionsSummaryI
     }
   }
 
+  const weekStart = mondayFor(today);
+  const weekEnd = addDays(weekStart, 6);
+  const recentStart = addDays(today, -13);
+  const briefingStatus = (referral: PlatformSummaryReferral) =>
+    (leadershipStatus[referral.boardStatus] ?? referral.boardStatus.trim()) ||
+    (referral.actualAdmissionDate ? "Admitted" : referral.decisionOutcome === "accepted" ? "Accepted" : referral.decisionOutcome === "declined" ? "Declined" : "Closed");
+  const recentReferrals = input.referrals
+    .filter((referral) => inWindow(referral.receivedDate, recentStart, today))
+    .map((referral) => ({
+      referral_id: referral.referralId,
+      client_name: referral.clientName.trim() || "Name not recorded",
+      received_at: referral.receivedDate!,
+      source_name: boundedText(referral.managementProfile.referralSource, 160),
+      source_category: null,
+      referring_county: boundedText(referral.managementProfile.referringCounty, 120),
+      community: referral.community.trim() || "Unassigned",
+      owner: referral.unassigned ? "Unassigned" : referral.owner,
+      status: briefingStatus(referral),
+      pipeline_path: referral.pipelinePath,
+    }))
+    .sort((left, right) => right.received_at.localeCompare(left.received_at) || left.client_name.localeCompare(right.client_name));
+  const upcomingAssessments = input.referrals
+    .filter((referral) =>
+      referral.currentWorkspace &&
+      !referral.assessmentComplete &&
+      inWindow(referral.assessmentScheduledDate, today, weekEnd))
+    .map((referral) => ({
+      referral_id: referral.referralId,
+      client_name: referral.clientName.trim() || "Name not recorded",
+      scheduled_at: referral.assessmentScheduledDate!,
+      community: referral.community.trim() || "Unassigned",
+      owner: referral.unassigned ? "Unassigned" : referral.owner,
+      status: briefingStatus(referral),
+      pipeline_path: referral.pipelinePath,
+    }))
+    .sort((left, right) => left.scheduled_at.localeCompare(right.scheduled_at) || left.client_name.localeCompare(right.client_name));
+  const plannedMoveIns = awaiting
+    .filter((referral) => inWindow(referral.plannedAdmissionDate, weekStart, weekEnd))
+    .map((referral) => ({
+      referral_id: referral.referralId,
+      client_name: referral.clientName.trim() || "Name not recorded",
+      planned_at: referral.plannedAdmissionDate!,
+      community: referral.community.trim() || "Unassigned",
+      owner: referral.unassigned ? "Unassigned" : referral.owner,
+      status: briefingStatus(referral),
+      readiness: referral.managementProfile.blockingRequirements > 0
+        ? "blocked"
+        : referral.managementProfile.openRequirements > 0 ? "watch" : "ready",
+      pipeline_path: referral.pipelinePath,
+    }))
+    .sort((left, right) => left.planned_at.localeCompare(right.planned_at) || left.client_name.localeCompare(right.client_name));
+  const weeklyTrend = recentWeekStarts(today, BRIEFING_TREND_WEEKS).map((start) => ({
+    week_start: start,
+    received: input.referrals.filter((referral) => inWindow(referral.receivedDate, start, addDays(start, 6))).length,
+    accepted: input.referrals.filter((referral) => referral.decisionOutcome === "accepted" && inWindow(referral.decidedAt, start, addDays(start, 6))).length,
+  }));
+
   return {
     contract_version: PLATFORM_ADMISSIONS_SUMMARY_VERSION,
     generated_at: input.now.toISOString(),
@@ -209,6 +298,20 @@ export function buildPlatformAdmissionsSummary(input: PlatformAdmissionsSummaryI
       awaiting_admission: awaiting.length,
     },
     upcoming_admissions: upcoming,
+    briefing: {
+      timezone: "America/Los_Angeles",
+      window_end: today,
+      coverage: {
+        recent_referrals_complete: recentReferrals.length <= MAX_BRIEFING_REFERRALS,
+        assessments_complete: upcomingAssessments.length <= MAX_BRIEFING_SCHEDULE,
+        move_ins_complete: plannedMoveIns.length <= MAX_BRIEFING_SCHEDULE,
+        weekly_trend_complete: true,
+      },
+      recent_referrals: recentReferrals.slice(0, MAX_BRIEFING_REFERRALS),
+      upcoming_assessments: upcomingAssessments.slice(0, MAX_BRIEFING_SCHEDULE),
+      planned_move_ins: plannedMoveIns.slice(0, MAX_BRIEFING_SCHEDULE),
+      weekly_trend: weeklyTrend,
+    },
     history: {
       month_outcomes: { ...monthly.get(month)! },
       monthly: [...monthly.values()],
