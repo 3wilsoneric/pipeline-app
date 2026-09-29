@@ -8,14 +8,14 @@ import type { PipelineAssessmentRecord } from "@/lib/assessment/assessment-recor
 // re-checks that choice before recording where the answer came from.
 export const priorAnswerFields: ReadonlySet<AssessmentToolFieldKey> = new Set<AssessmentToolFieldKey>([
   // Prior history
-  "prior_hospitalizations_count", "prior_5150_5250_holds", "prior_placements", "prior_awol_failed_placements",
+  "prior_hospitalizations_count", "prior_5150_5250_holds", "hospitalization_history", "hospitalization_timeline", "prior_placements", "prior_awol_failed_placements",
   // Diagnosis
   "primary_diagnosis", "secondary_diagnoses", "diagnosis_categories", "diagnosis_other_detail",
   // Behavioral history (not current risk or recent incidents)
   "behavioral_history", "triggers", "si_hi_history", "self_harm_history", "assault_history", "elopement_history",
   "hallucination_treatment_history",
   // Legal and conservatorship
-  "conservatorship_status", "conservatorship_type", "conservator_name", "forensic_involvement", "forensic_involvement_details",
+  "conservatorship_status", "conservatorship_type", "conservator_name", "forensic_involvement", "forensic_involvement_details", "forensic_history", "forensic_timeline",
   "arrest_history", "total_arrests", "pc290_registration", "arson_history",
   // Substance use history
   "substances", "treatment_history", "substance_abuse_history", "longest_sobriety_months", "longest_sobriety_period",

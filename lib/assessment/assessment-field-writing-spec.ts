@@ -47,6 +47,20 @@ const formatLabels: Record<AssessmentAnswerFormat, string> = {
 };
 
 const writingSpecs: Partial<Record<AssessmentToolFieldKey, WritingSpecInput>> = {
+  hospitalization_history: {
+    preferredFormat: "dated_history",
+    lengthGuidance: "Short overview; add timeline events only when known",
+    formatTemplate: "What is known | Approximate timing | Hospital, hold, or ER use | Outcome | Source and gaps",
+    requiredElements: ["Known care history", "Approximate timing when available", "Outcome when available", "Source and uncertainty"],
+    strongExample: "Per the supplied discharge summary, one hospital stay occurred in spring 2025 after a crisis evaluation. The client reports earlier stays but cannot recall dates or facilities; those episodes remain unverified.",
+  },
+  forensic_history: {
+    preferredFormat: "dated_history",
+    lengthGuidance: "Short overview; add timeline events only when known",
+    formatTemplate: "Reported or verified event | Approximate timing | Status or outcome | Source and gaps",
+    requiredElements: ["Reported or verified history", "Approximate timing when available", "Current status when known", "Source and uncertainty"],
+    strongExample: "The client reports one arrest several years ago but does not recall the date or charge. No booking or court record was supplied; current legal status requires confirmation.",
+  },
   prior_placements: {
     preferredFormat: "dated_history",
     lengthGuidance: "One line per placement",

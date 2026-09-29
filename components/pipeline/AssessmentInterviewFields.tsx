@@ -2,6 +2,8 @@ import { Check, ChevronDown, Sparkles } from "lucide-react";
 import { useState } from "react";
 
 import { getAssessmentFieldWritingSpec } from "@/lib/assessment/assessment-field-writing-spec";
+import { isHistoryOverviewField } from "@/lib/assessment/assessment-history";
+import { AssessmentHistoryTimeline } from "@/components/pipeline/AssessmentHistoryTimeline";
 import {
   assessmentInterviewSections,
   type AssessmentInterviewQuestion,
@@ -39,7 +41,7 @@ export function AssessmentField(props: AssessmentFieldProps) {
 
   return (
     <div data-feedback-reveal={Boolean(question.showWhen)} className={question.span === "full" ? "md:col-span-2" : ""}>
-      <AssessmentFieldHeader id={id} definition={definition} value={value} required={required} pending={pending} />
+      <AssessmentFieldHeader id={id} definition={definition} value={value} required={required} pending={pending} timeline={question.control === "timeline"} />
       <PendingAssessmentSuggestion {...props} />
       <PriorAnswerSuggestion {...props} />
       <AssessmentFieldControl {...props} id={id} readOnly={readOnly} />
@@ -48,10 +50,11 @@ export function AssessmentField(props: AssessmentFieldProps) {
   );
 }
 
-function AssessmentFieldHeader({ id, definition, value, pending }: Pick<AssessmentFieldProps, "definition" | "value" | "required" | "pending"> & { id: string }) {
+function AssessmentFieldHeader({ id, definition, value, pending, timeline }: Pick<AssessmentFieldProps, "definition" | "value" | "required" | "pending"> & { id: string; timeline: boolean }) {
   return (
     <div className="mb-1.5 flex items-center justify-between gap-2">
-      <label htmlFor={id} className="text-[11px] font-black text-[#444444]">{definition.label}</label>
+      {timeline ? <span className="text-[11px] font-black text-[#444444]">{definition.label}</span>
+        : <label htmlFor={id} className="text-[11px] font-black text-[#444444]">{definition.label}</label>}
       {pending ? <span className="bg-[#f2f5f3] px-2 py-0.5 text-xs font-semibold text-[#59645e]">Review</span> : hasValue(value) ? <Check size={12} className="text-[#0f8b73]" /> : null}
     </div>
   );
@@ -95,6 +98,7 @@ function AssessmentFieldControl(props: AssessmentFieldProps & { id: string; read
     case "rating": return <RatingAssessmentField {...props} />;
     case "select": return <SelectAssessmentField {...props} />;
     case "multi_select": return <MultiSelectAssessmentField {...props} />;
+    case "timeline": return <AssessmentHistoryTimeline id={props.id} label={props.definition.label} value={Array.isArray(props.value) ? props.value : []} disabled={props.readOnly} onChange={props.onChange} />;
     case "textarea": return <TextareaAssessmentField {...props} />;
     default: return <BasicAssessmentField {...props} />;
   }
@@ -159,7 +163,7 @@ function TextareaAssessmentField({ id, definition, question, value, readOnly, on
   const displayedValue = isList && listEdit?.source === stringValue ? listEdit.text : stringValue;
   return <><textarea data-guide-target="assessment-answer" id={id} value={displayedValue} readOnly={readOnly} rows={isList ? 3 : 4} onChange={(event) => {
     const text = event.target.value;
-    const next = isList ? listFromLines(text) : text || null;
+    const next = isList ? listFromLines(text) : isHistoryOverviewField(definition.key) ? text : text || null;
     if (isList) setListEdit({ source: fieldStringValue(next), text });
     onChange(next);
   }} onBlur={() => setListEdit(null)} placeholder={question.placeholder ?? (isList ? "One item per line" : "Enter assessment detail")} className="w-full resize-y border border-[#c9ceca] bg-white px-3 py-2 text-[12px] leading-5 outline-none placeholder:text-[#a3a3a3] focus:border-[#0f8b73] read-only:bg-[#f4f6f5]" /><AssessmentFieldWritingGuidePanel field={definition.key} /></>;
