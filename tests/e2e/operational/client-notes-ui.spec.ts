@@ -1,11 +1,11 @@
 import { expect, test } from "@playwright/test";
+import { readFileSync } from "node:fs";
 import { openAllQuestions } from "../support/assessment-navigation";
 import { createOperationalAssessment, createOperationalReferral } from "../support/operational-api";
 import { actorApiContext, actorPage, pipelineActors, requireOperationalBaseURL } from "../support/pipeline-actors";
 
-// Client notes in the redesign (docs/design/DECISIONS.md, "Notes"): beside the questions, following the
-// topic, saving while typing, docked under the chart text in the interview and a column while preparing.
-test("client notes follow the topic, saves while typing, and fits beside the questions", async ({ browser, baseURL }) => {
+// The same shared note stays beside preparation and interview questions.
+test("client notes stay together, save while typing, and fit beside the questions", async ({ browser, baseURL }) => {
   test.skip(process.env.PIPELINE_OPERATIONAL_E2E !== "true" || process.env.PIPELINE_DESIGN_V2 !== "true", "Run with the operational configuration and PIPELINE_DESIGN_V2=true.");
   test.setTimeout(120_000);
   const url = requireOperationalBaseURL(baseURL);
@@ -23,21 +23,28 @@ test("client notes follow the topic, saves while typing, and fits beside the que
   const notebook = page.locator("[data-client-notes]");
   await expect(notebook).toBeVisible();
   await expect(notebook).toContainText("All notes saved");
-  await expect(notebook.locator("[data-note-heading][data-current] textarea")).toBeVisible();
-  const firstKey = await notebook.locator("[data-note-heading][data-current]").getAttribute("data-note-heading");
-  // By its heading: once typing starts the note stays put even if the questions scroll to another topic.
-  const first = notebook.locator(`[data-note-heading="${firstKey}"] textarea`);
+  const first = notebook.getByRole("textbox", { name: "Notes", exact: true });
+  await expect(first).toBeVisible();
+  await expect(notebook.locator("[data-note-heading]")).toHaveCount(1);
+  await page.addScriptTag({ content: readFileSync(require.resolve("axe-core/axe.min.js"), "utf8") });
+  const noteViolations = await page.evaluate(async () => {
+    const axe = (window as unknown as { axe: { run: (element: Element) => Promise<{ violations: Array<{ id: string; impact: string | null }> }> } }).axe;
+    return (await axe.run(document.querySelector("[data-client-notes]")!)).violations
+      .filter((violation) => violation.impact === "serious" || violation.impact === "critical")
+      .map((violation) => violation.id);
+  });
+  expect(noteViolations).toEqual([]);
   await first.click();
   await first.pressSequentially("Client prefers to be called Sam. Lives with sister.", { delay: 5 });
   await expect(first).toBeFocused();
-  await expect.poll(async () => ((await (await assessor.get(`/api/referrals/${referral.id}/notes`)).json()).blocks as { block_key: string; body: string }[]).find((block) => block.block_key === firstKey)?.body, { timeout: 8_000 }).toBe("Client prefers to be called Sam. Lives with sister.");
+  await expect.poll(async () => ((await (await assessor.get(`/api/referrals/${referral.id}/notes`)).json()).blocks as { block_key: string; body: string }[]).find((block) => block.block_key === "notes")?.body, { timeout: 8_000 }).toBe("Client prefers to be called Sam. Lives with sister.");
   await expect(notebook).toContainText("All notes saved");
 
-  // Jumping to another topic: the notebook follows once the person leaves the note (a note being typed in stays put).
+  // Jumping to another topic keeps the same note and cursor-ready editor.
   await first.blur();
   const picker = page.getByRole("combobox", { name: "Assessment section" });
   await picker.selectOption("medication");
-  await expect(notebook.locator('[data-note-heading="topic:medication"][data-current] textarea')).toBeVisible();
+  await expect(notebook.getByRole("textbox", { name: "Notes", exact: true })).toHaveValue("Client prefers to be called Sam. Lives with sister.");
 
   // Interview (docs/design/DECISIONS.md, "Split interview"): the information and notes on the left, one line, the
   // questions on the right; the line resizes with the keyboard and resets.
@@ -89,15 +96,15 @@ test("client notes follow the topic, saves while typing, and fits beside the que
   // On other steps the same notes open from the floating button.
   await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: "Chart", exact: true }).click();
   await page.locator('button[aria-label="Notes"][aria-expanded]').click();
-  await expect(page.getByRole("dialog", { name: "Notes" }).locator(`[data-note-heading="${firstKey}"]`)).toContainText("Client prefers");
+  await expect(page.getByRole("dialog", { name: "Notes" }).getByRole("textbox", { name: "Notes", exact: true })).toHaveValue("Client prefers to be called Sam. Lives with sister.");
   await page.keyboard.press("Escape");
   await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: "Assessment", exact: true }).click();
   // Saved notes come back after a reload.
   await page.reload();
-  // Beside the questions only the topic in view shows; View all lists every heading wherever the page reopened.
+  // The same single note returns beside the questions after a reload.
   const reopened = page.locator("[data-client-notes]").first();
-  await reopened.getByRole("button", { name: "View all", exact: true }).click();
-  await expect(reopened.locator(`[data-note-heading="${firstKey}"]`)).toContainText("Client prefers");
+  await expect(reopened.locator("[data-note-heading]")).toHaveCount(1);
+  await expect(reopened.getByRole("textbox", { name: "Notes", exact: true })).toHaveValue("Client prefers to be called Sam. Lives with sister.");
   expect(errors).toEqual([]);
   await context.close();
 });

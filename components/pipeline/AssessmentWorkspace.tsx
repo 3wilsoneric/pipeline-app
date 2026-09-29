@@ -2543,16 +2543,13 @@ export default function AssessmentWorkspace({
         </div>
       </HomeDialog> : null);
 
-  // Interview notebook (docs/design/DECISIONS.md, "Interview notebook"): beside the questions on wide
-  // screens, following the topic in view. Phones and practice keep the questions alone for now.
+  // One shared client note stays beside the questions on wide screens.
   const notebookAvailable = designV2 && !phoneLayout && !trainingAssessmentMode && Boolean(referralId);
-  const notebookTopic = stackedQuestionsView ? spySection : activeSection;
   // Redesign interview on a wide screen: the Chart as text on the left, the interview on the right (owner, 2026-09-26).
   const splitInterview = notebookAvailable && stackedQuestionsView && !preparing && Boolean(referral);
   // Preparing has no side column, so the notebook sits to the right; the interview puts it in a tab
   // beside Current information so the questions keep their width.
-  const renderNotebook = (onCollapse?: () => void) => <ClientNotes key={referralId} referralId={referralId!} readOnly={!canEditClinical}
-    currentTopics={preparing ? preparationGroupForSection(notebookTopic).sections : [notebookTopic]} onCollapse={onCollapse} />;
+  const renderNotebook = (onCollapse?: () => void) => <ClientNotes key={referralId} referralId={referralId!} readOnly={!canEditClinical} onCollapse={onCollapse} />;
   const withNotebook = (content: ReactNode) => notebookAvailable && preparing ? <div className={workingStyles.withNotebook} data-notebook-open={notebookOpen || undefined}>
     {content}
     {notebookOpen ? renderNotebook(() => showNotebook(false)) : <ClientNotesReopen onOpen={() => showNotebook(true)} />}

@@ -1,19 +1,17 @@
 "use client";
 
-import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { AlertTriangle, Check, ChevronDown, CloudUpload, LoaderCircle, NotebookPen, PanelRightClose, X } from "lucide-react";
+import { AlertTriangle, Check, CloudUpload, LoaderCircle, NotebookPen, PanelRightClose, X } from "lucide-react";
 
-import { noteBlockMaxLength, noteHeadings } from "@/lib/pipeline/client-notes";
-import type { AssessmentToolSection } from "@/lib/assessment/assessment-tool-schema";
+import { combinedClientNote, noteHeadings, unifiedNoteKey, unifiedNoteMaxLength } from "@/lib/pipeline/client-notes";
 import { useClientNotes, type NotesStatus } from "@/components/pipeline/useClientNotes";
 import { useLatestNotes } from "@/components/pipeline/useLatestNotes";
 import { useMobileViewport } from "./use-mobile-viewport";
 import styles from "./ClientNotes.module.css";
 
-// Client notes (docs/design/DECISIONS.md, "Notes"): the assessor's notes on this client, taken while
-// preparing for and doing the interview, attached to the referral for anyone who opens it. The heading for
-// the topic in view opens by itself, so what is typed lands in the right place without filing.
+// One shared note follows the client through preparation and interview. Existing
+// topic notes appear together here until the first edit consolidates them.
 
 const statusText: Record<NotesStatus, string> = {
   loading: "Loading…",
@@ -23,11 +21,9 @@ const statusText: Record<NotesStatus, string> = {
   failed: "Not saved",
 };
 
-export default function ClientNotes({ referralId, readOnly, currentTopics = [], onCollapse, onClose }: {
+export default function ClientNotes({ referralId, readOnly, onCollapse, onClose }: {
   referralId: number;
   readOnly: boolean;
-  /** Interview topics in view: one in the interview, a preparation group's topics while preparing. */
-  currentTopics?: readonly AssessmentToolSection[];
   /** Beside the questions while preparing: hide the column. */
   onCollapse?: () => void;
   /** In the floating panel: close it. */
@@ -35,29 +31,9 @@ export default function ClientNotes({ referralId, readOnly, currentTopics = [], 
 }) {
   const notes = useClientNotes(referralId, readOnly);
   const instance = useId();
-  const headings = noteHeadings();
-  const currentKeys = currentTopics.map((topic) => `topic:${topic}`);
-  const [opened, setOpened] = useState<Record<string, boolean>>({});
-  // Beside the questions, only the topic in view shows, so the notes read as a page to write on, not another
-  // list to navigate (owner, 2026-09-26); "View all" opens every heading.
-  const [viewAll, setViewAll] = useState(false);
-  const focused = currentKeys.length > 0 && !viewAll;
-  // The note being typed in stays on screen while the questions scroll to another topic, so it never swaps
-  // out from under the cursor; the new topic's note appears once the person leaves this one.
-  const [typingIn, setTypingIn] = useState<string | null>(null);
-  const shownKeys = focused ? (typingIn && !currentKeys.includes(typingIn) ? [typingIn] : currentKeys) : null;
-  const list = useRef<HTMLDivElement>(null);
-  const current = currentKeys[0];
-
-  // Follow the interview: bring the current topic's heading into view inside the notes, not the page.
-  useLayoutEffect(() => {
-    if (!current || !list.current || focused) return;
-    const heading = list.current.querySelector<HTMLElement>(`[data-note-heading="${current}"]`);
-    if (!heading) return;
-    const top = heading.getBoundingClientRect().top - list.current.getBoundingClientRect().top + list.current.scrollTop;
-    // Instant, so it never cancels the page's own smooth scroll to the chosen topic.
-    list.current.scrollTo({ top: Math.max(0, top - 6) });
-  }, [current, focused]);
+  const body = combinedClientNote(notes.entries);
+  const labels = new Map(noteHeadings().map(({ key, label }) => [key, label]));
+  const fieldId = `notes-${instance}`;
 
   const StatusIcon = notes.status === "failed" ? AlertTriangle : notes.status === "waiting" ? CloudUpload : notes.status === "saved" ? Check : LoaderCircle;
   return <section aria-labelledby={`notes-title-${instance}`} className={styles.notes} data-client-notes data-status={notes.status}>
@@ -67,46 +43,31 @@ export default function ClientNotes({ referralId, readOnly, currentTopics = [], 
         <StatusIcon size={14} aria-hidden="true" className={notes.status === "saving" || notes.status === "loading" ? "motion-safe:animate-spin" : undefined} />{statusText[notes.status]}
       </span>
       {notes.failed._recovery && !notes.loadFailed ? <button type="button" onClick={notes.reload}>Retry</button> : null}
-      {currentKeys.length ? <button type="button" aria-pressed={viewAll} onClick={() => setViewAll(!viewAll)} className={styles.viewAll}>View all</button> : null}
       {onCollapse ? <button type="button" aria-label="Hide notes" title="Hide notes" onClick={onCollapse} className={styles.iconButton}><PanelRightClose size={16} aria-hidden="true" /></button> : null}
       {onClose ? <button type="button" aria-label="Close notes" title="Close notes" onClick={onClose} className={styles.iconButton}><X size={16} aria-hidden="true" /></button> : null}
     </header>
     {notes.loadFailed ? <p role="alert" className={styles.notice}>Notes could not be loaded. <button type="button" onClick={notes.reload}>Retry</button></p> : null}
-    <div ref={list} className={styles.blocks} data-focused={focused || undefined}>
-      {headings.filter((heading) => !shownKeys || shownKeys.includes(heading.key)).map((heading) => {
-        const body = notes.entries[heading.key]?.body ?? "";
-        const isCurrent = currentKeys.includes(heading.key);
-        const open = focused || (opened[heading.key] ?? (isCurrent || (heading.key === "before" && !current)));
-        const conflict = notes.conflicts[heading.key];
-        const error = notes.failed[heading.key];
-        const fieldId = `notes-${instance}-${heading.key}`;
-        return <section key={heading.key} data-note-heading={heading.key} data-current={isCurrent || undefined} data-open={open || undefined} className={styles.block}>
-          {focused ? <p className={styles.blockHead}><span className={styles.blockLabel}>{heading.label}</span></p>
-          : <button type="button" aria-expanded={open} aria-controls={fieldId} onClick={() => setOpened((existing) => ({ ...existing, [heading.key]: !open }))} className={styles.blockHead}>
-            <ChevronDown size={14} aria-hidden="true" className={styles.chevron} />
-            <span className={styles.blockLabel}>{heading.label}</span>
-            {!open && body ? <span className={styles.preview}>{body.split("\n").find((line) => line.trim())}</span> : null}
-          </button>}
-          {open ? <NoteField id={fieldId} label={heading.label} value={body} disabled={notes.readOnly || !notes.loaded}
-            onChange={(value) => notes.change(heading.key, value)} onFocus={() => setTypingIn(heading.key)} onBlur={() => { setTypingIn(null); notes.flush(heading.key); }} /> : null}
-          {conflict ? <div role="alert" className={styles.conflict}>
-            <p>These notes were changed on another screen by {conflict.theirs.updated_by_name}.</p>
-            <div>
-              <button type="button" onClick={() => notes.resolve(heading.key, "mine")}>Keep mine</button>
-              <button type="button" onClick={() => notes.resolve(heading.key, "theirs")}>Use theirs</button>
-            </div>
-          </div> : null}
-          {error ? <p role="alert" className={styles.error}>{error}</p> : null}
-        </section>;
-      })}
+    <div className={styles.blocks}>
+      <div data-note-heading={unifiedNoteKey} className={styles.block}>
+        <NoteField id={fieldId} value={body} disabled={notes.readOnly || !notes.loaded}
+          onChange={(value) => notes.change(unifiedNoteKey, value)} onBlur={() => notes.flush(unifiedNoteKey)} />
+        {Object.entries(notes.conflicts).map(([key, conflict]) => <div key={key} role="alert" className={styles.conflict}>
+          <p>{labels.get(key) ?? "These notes"} changed on another screen by {conflict.theirs.updated_by_name}.</p>
+          <div>
+            <button type="button" onClick={() => notes.resolve(key, "mine")}>Keep mine</button>
+            <button type="button" onClick={() => notes.resolve(key, "theirs")}>Use theirs</button>
+          </div>
+        </div>)}
+        {Object.entries(notes.failed).filter(([key]) => key !== "_recovery").map(([key, error]) => <p key={key} role="alert" className={styles.error}>{labels.get(key) ? `${labels.get(key)}: ` : ""}{error}</p>)}
+      </div>
     </div>
   </section>;
 }
 
 // Grows with its text so a heading's notes read as a page, not a scrolling box.
-function NoteField({ id, label, value, disabled, onChange, onFocus, onBlur }: {
-  id: string; label: string; value: string; disabled: boolean;
-  onChange: (value: string) => void; onFocus?: () => void; onBlur: () => void;
+function NoteField({ id, value, disabled, onChange, onBlur }: {
+  id: string; value: string; disabled: boolean;
+  onChange: (value: string) => void; onBlur: () => void;
 }) {
   const field = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
@@ -115,9 +76,9 @@ function NoteField({ id, label, value, disabled, onChange, onFocus, onBlur }: {
     element.style.height = "auto";
     element.style.height = `${Math.max(88, element.scrollHeight)}px`;
   }, [value]);
-  return <textarea ref={field} id={id} aria-label={`${label} notes`} value={value} disabled={disabled}
-    maxLength={noteBlockMaxLength} placeholder="Type notes" spellCheck className={styles.field}
-    onChange={(event) => onChange(event.target.value)} onFocus={onFocus} onBlur={onBlur} />;
+  return <textarea ref={field} id={id} aria-label="Notes" value={value} disabled={disabled}
+    maxLength={unifiedNoteMaxLength} placeholder="Type notes" spellCheck className={styles.field}
+    onChange={(event) => onChange(event.target.value)} onBlur={onBlur} />;
 }
 
 // Shown in place of the column while it is hidden.
