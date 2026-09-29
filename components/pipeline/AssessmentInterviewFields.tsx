@@ -53,7 +53,7 @@ export function AssessmentField(props: AssessmentFieldProps) {
 function AssessmentFieldHeader({ id, definition, value, pending, timeline }: Pick<AssessmentFieldProps, "definition" | "value" | "required" | "pending"> & { id: string; timeline: boolean }) {
   return (
     <div className="mb-1.5 flex items-center justify-between gap-2">
-      {timeline ? <span className="text-[11px] font-black text-[#444444]">{definition.label}</span>
+      {timeline ? <span className="text-[11px] font-black text-ink">{definition.label}</span>
         : <label htmlFor={id} className="text-[11px] font-black text-[#444444]">{definition.label}</label>}
       {pending ? <span className="bg-[#f2f5f3] px-2 py-0.5 text-xs font-semibold text-[#59645e]">Review</span> : hasValue(value) ? <Check size={12} className="text-[#0f8b73]" /> : null}
     </div>

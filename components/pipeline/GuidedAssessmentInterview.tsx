@@ -377,7 +377,7 @@ function GuidedFieldHeading({ id, question, definition, value, required, primary
   const status = guidedFieldStatus(value, required);
   return (
     <div className="mb-2 flex items-start justify-between gap-3">
-      {question.control === "timeline" ? <span className="text-[12px] font-black leading-5 text-[#303531]">{questionPrompt(question)}</span>
+      {question.control === "timeline" ? <span className="text-[12px] font-black leading-5 text-ink">{questionPrompt(question)}</span>
         : <label htmlFor={id} className="text-[12px] font-black leading-5 text-[#303531]">{questionPrompt(question)}</label>}
       <span className={`shrink-0 text-[9px] font-bold uppercase tracking-[0.06em] ${status.className}`}>{status.label}</span>
     </div>
