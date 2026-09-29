@@ -8,6 +8,8 @@ Evidence: the real owner was exercised read-only against all 541 current residen
 
 Local checks: production build, TypeScript, focused ESLint, clinical contracts, launch projection contracts, and DOB/prior-admission unit tests passed (the optional PostgreSQL unit variant was not selected). Desktop and phone browser tests passed against the production artifact, including reload, no clinical writes, and an unavailable DOB source retaining a usable chart. The browser fixture uses a context-level delegated header for both API and page requests. The older launch renderer fixture explicitly supplies the legacy design context; its existing assertions remain intact.
 
+The first hosted verification found missing dependency injection in two existing profile test harnesses. Both now explicitly reject accidental DOB lookups on their canonical-client/Pipeline-only paths. Instant-navigation, live-loading, workspace, database-readiness and reliability-replay contracts pass with those assertions. The DOB tests also run directly in the required non-browser release gate.
+
 Known ceiling: clients without a unique, consistent source record retain a blank DOB. Revisit those records when Alamo supplies a corrected resident-number link/DOB or staff provide reviewed identity evidence; do not substitute a name-only join. Directory-card DOBs remain census-provided; this change targets the client chart, not a new bulk synchronization system.
 
 Rollback uses the previous application image. No stored data changes need reversal.

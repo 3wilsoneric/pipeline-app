@@ -182,6 +182,11 @@ const checks = [
     args: ["scripts/clinical-data-contracts.mjs"],
   },
   {
+    name: "Current-client DOB identity and nonblocking lookup boundaries",
+    command: "node",
+    args: ["--test", "scripts/client-demographics.test.mjs"],
+  },
+  {
     name: "One-time clinical snapshot contracts",
     command: "node",
     args: ["scripts/demo-clinical-snapshot-contracts.mjs"],
