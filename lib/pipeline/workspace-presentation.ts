@@ -2,6 +2,7 @@ import type { Referral } from "./referral-types";
 import { extractImportedClientMetadata } from "./client-identity-presentation.mjs";
 import { resolveReferralWorkflowStatus, workflowStatusLabels } from "./workflow-status";
 import { normalizeWorkspaceMonth } from "./workspace-month.mjs";
+import { historicalAdmissionSource } from "./historical-admission";
 
 export type WorkspaceAdmissionOutcome = {
   status: "admitted" | "accepted" | "denied" | "pending" | "unknown";
@@ -279,6 +280,9 @@ export function presentWorkspaceNote(note: string) {
 }
 
 function recordedAdmissionOutcome(referral: Referral): WorkspaceAdmissionOutcome | null {
+  if (referral.admissionDate?.trim() && referral.workspaceStatus === "historical" && referral.fieldSources?.admissionDate === historicalAdmissionSource) {
+    return { status: "admitted", label: "Admitted", evidence: "recorded", explanation: "An operator confirmed this prior admission. This does not assert current residency." };
+  }
   if (referral.actualAdmissionDate && referral.stage === "Accepted / Admitted") {
     return { status: "admitted", label: "Admitted", evidence: "recorded", explanation: "The actual arrival date was explicitly confirmed in this workspace." };
   }

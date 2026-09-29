@@ -1,5 +1,7 @@
 "use client";
 
+import HistoricalAdmissionPanel from "./HistoricalAdmissionPanel";
+
 import { usePersonaSwitchSave } from "@/lib/demo/persona-switch-save";
 import ReferralHandoffContacts from "./ReferralHandoffContacts";
 import { useHandoffRecipients } from "./useHandoffRecipients";
@@ -3246,6 +3248,7 @@ export default function ReferralPacketCanvas({
           {displayedPage === 1 && historicalReadOnly && loadedReferral ? (
             <PacketPage id="transferred-chart" title="Chart" flush>
               <WorkspaceChartFolder>
+              <HistoricalAdmissionPanel key={`admission-${loadedReferral.id}`} referral={loadedReferral} readOnly={permissionReadOnly} onSaved={(saved) => setLoadedReferral((current) => current?.id === saved.id && (current.version ?? 1) <= (saved.version ?? 1) ? saved : current)} />
               <TransferredWorkspaceChart key={loadedReferral.id} referral={loadedReferral} />
               </WorkspaceChartFolder>
             </PacketPage>

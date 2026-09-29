@@ -16,6 +16,7 @@ import {
 import { decodeKeysetCursor, encodeKeysetCursor, isAfterDescendingCursor } from "@/lib/pipeline/keyset-cursor";
 import { normalizeClientName } from "@/lib/pipeline/client-identity-presentation.mjs";
 import { normalizeCalendarDate } from "@/lib/pipeline/calendar-date";
+import { historicalAdmissionSource, isHistoricalAdmissionPatch } from "@/lib/pipeline/historical-admission";
 import { toPipelinePath } from "@/lib/pipeline/base-path";
 import { referralAuditValues } from "@/lib/pipeline/referral-activity-presentation";
 import { isUnassignedOwner, normalizeOwnerName, normalizeReferralOwners } from "@/lib/pipeline/referral-ownership";
@@ -238,6 +239,8 @@ export type ReferralStoreReadiness = {
 export type ReferralActor = { id: string; name: string };
 
 export type ReferralMutationMetadata = {
+  /** Internal, exact two-field command; never grants ordinary historical editing. */
+  historicalAdmissionConfirmed?: boolean;
   auditAction?: string;
   auditReason?: string;
   /** Internal workflow commands may atomically persist a transition they already validated. */
@@ -302,7 +305,11 @@ export class HistoricalWorkspaceReadOnlyError extends Error {
   }
 }
 
-function assertMutableWorkspace(referral: Referral) {
+function assertMutableWorkspace(referral: Referral, patch?: ReferralPatch, metadata?: ReferralMutationMetadata) {
+  if (metadata?.historicalAdmissionConfirmed) {
+    if (patch && isHistoricalAdmissionPatch(referral, patch)) return;
+    throw new HistoricalWorkspaceReadOnlyError(referral.id);
+  }
   if (referral.workspaceStatus === "historical") {
     throw new HistoricalWorkspaceReadOnlyError(referral.id);
   }
@@ -638,6 +645,24 @@ export async function patchReferral(
   metadata?: ReferralMutationMetadata,
 ) {
   return getReferralStore().patch(id, patch, actor, expectedVersion, expectedSectionVersions, metadata);
+}
+
+export async function recordHistoricalAdmission(
+  id: number,
+  admission: Pick<Referral, "admissionDate" | "community">,
+  expectedVersion: number,
+  actor: ReferralActor,
+  mutationId: string,
+) {
+  const current = await getReferral(id);
+  if (!current || !isHistoricalAdmissionPatch(current, admission)) return null;
+  return patchReferral(id, admission, expectedVersion, actor, undefined, {
+    historicalAdmissionConfirmed: true,
+    auditAction: "historical_admission_recorded",
+    auditReason: "Operator confirmed a prior admission. Historical workspace retained; no new intake or clinical identity link created.",
+    mutationId,
+    mutationScope: "historical_admission",
+  });
 }
 
 export async function renameReferralFromAssessment(
@@ -1000,12 +1025,13 @@ async function patchLocalReferral(
   if (index < 0) return null;
 
   const current = state.referrals[index];
-  assertMutableWorkspace(current);
+  assertMutableWorkspace(current, patch, metadata);
   const idempotencyKey = referralPatchIdempotencyKey(metadata);
   if (idempotencyKey && state.patchMutations.get(idempotencyKey) === id) {
     return { ok: true, referral: current, revision: state.revision, idempotentReplay: true };
   }
   const safePatch = sanitizePatch(patch);
+  if (metadata?.historicalAdmissionConfirmed) safePatch.fieldSources = { ...current.fieldSources, admissionDate: historicalAdmissionSource, community: historicalAdmissionSource };
   const assignmentChanged = assignmentHasChanged(current, safePatch);
   const now = new Date().toISOString();
   const nextOwner = {
@@ -1016,7 +1042,7 @@ async function patchLocalReferral(
     ? synchronizeRequirementAssignment(safePatch.requirements ?? current.requirements, nextOwner, now)
     : safePatch.requirements ?? current.requirements;
   const statusCandidate = { ...current, ...safePatch, ...nextOwner, requirements: nextRequirements } as Referral;
-  const nextWorkflowStatus = resolveReferralWorkflowStatusAfterReferralChange(
+  const nextWorkflowStatus = metadata?.historicalAdmissionConfirmed ? current.workflowStatus : resolveReferralWorkflowStatusAfterReferralChange(
     current,
     statusCandidate,
     safePatch.workflowStatus,
@@ -1973,11 +1999,12 @@ async function patchPostgresReferral(
     if (replay !== undefined) return replay;
     const current = await getReferralInTransaction(tx, id, true);
     if (!current) return null;
-    assertMutableWorkspace(current);
+    assertMutableWorkspace(current, patch, metadata);
     const preparePatch = () => {
       const currentVersion = current.version ?? 1;
       const clientId = current.clientId ?? buildLocalClientId(current.id);
       const safePatch = sanitizePatch(patch);
+      if (metadata?.historicalAdmissionConfirmed) safePatch.fieldSources = { ...current.fieldSources, admissionDate: historicalAdmissionSource, community: historicalAdmissionSource };
       const assignmentChanged = assignmentHasChanged(current, safePatch);
       const now = new Date().toISOString();
       const nextOwner = {
@@ -2041,7 +2068,7 @@ async function patchPostgresReferral(
       ownerId: nextOwner.ownerId,
       requirements: nextRequirements,
     } as Referral;
-    const nextWorkflowStatus = resolveReferralWorkflowStatusAfterReferralChange(
+    const nextWorkflowStatus = metadata?.historicalAdmissionConfirmed ? current.workflowStatus : resolveReferralWorkflowStatusAfterReferralChange(
       current,
       statusCandidate,
       safePatch.workflowStatus,
