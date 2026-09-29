@@ -72,14 +72,14 @@ export class ClientNotesController {
     const entries: Snapshot["entries"] = {};
     const conflicts: Snapshot["conflicts"] = {};
     const remote = new Map(payload.blocks.map((block) => [block.block_key, block]));
-    for (const block of payload.blocks) entries[block.block_key] = { body: block.body, saved: block.body, version: block.version };
+    for (const block of payload.blocks) entries[block.block_key] = { body: block.body, saved: block.body, version: block.version, updated_at: block.updated_at };
     // An in-memory edit is newer than a recovery read, including when Retry is clicked.
     for (const [key, draft] of Object.entries({ ...recovered?.entries, ...this.state.entries })) {
       if (draft.body === draft.saved) continue;
       const theirs = remote.get(key);
       const saved = theirs?.body ?? "";
-      if (saved === draft.body) entries[key] = { body: saved, saved, version: theirs?.version ?? 0 };
-      else if (saved === draft.saved || saved === draft.sent) entries[key] = { ...draft, saved, version: theirs?.version ?? 0 };
+      if (saved === draft.body) entries[key] = { body: saved, saved, version: theirs?.version ?? 0, updated_at: theirs?.updated_at };
+      else if (saved === draft.saved || saved === draft.sent) entries[key] = { ...draft, saved, version: theirs?.version ?? 0, updated_at: theirs?.updated_at };
       else { entries[key] = draft; if (theirs) conflicts[key] = { theirs }; }
     }
     this.recoveredId = recovered?.recoveredId;
@@ -159,7 +159,7 @@ export class ClientNotesController {
   }
 
   private accept(key: string, block: NoteBlock) {
-    this.put(key, { body: this.state.entries[key].body, saved: block.body, version: block.version });
+    this.put(key, { body: this.state.entries[key].body, saved: block.body, version: block.version, updated_at: block.updated_at });
     this.attempts.delete(key);
     this.clear("waiting", key); this.clear("failed", key);
     if (this.state.entries[key].body === block.body) this.clear("pending", key);

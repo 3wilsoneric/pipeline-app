@@ -12,13 +12,13 @@ test("phone notes survive closing, reload and failed saves, then sync once witho
   try {
     const referral = await createOperationalReferral(api, "assessorA");
     await createOperationalAssessment(api, referral.id);
-    const endpoint = `**/api/referrals/${referral.id}/notes/before`;
+    const endpoint = `**/api/referrals/${referral.id}/notes/notes`;
     await page.route(endpoint, (route) => route.fulfill({ status: 503, json: { error: "Synthetic notes outage" } }));
     await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment`);
     const toggle = page.getByRole("button", { name: "Notes", exact: true });
     await toggle.click();
     const panel = page.getByRole("dialog", { name: "Notes", exact: true });
-    const text = panel.getByRole("textbox", { name: "Before the interview notes", exact: true });
+    const text = panel.getByRole("textbox", { name: "Notes", exact: true });
     await expect(text).toBeEditable();
     await text.fill("Synthetic phone note — keep through reload");
     await text.blur();

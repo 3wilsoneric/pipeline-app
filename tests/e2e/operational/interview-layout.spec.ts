@@ -142,9 +142,9 @@ test.describe("interview layout", () => {
       const begin = page.getByRole("button", { name: "Begin interview", exact: true });
       await expect(begin).toHaveCount(1);
       await expect(begin).toBeInViewport();
-      const notes = page.locator('[data-client-notes] [data-note-heading="topic:identity"] textarea');
+      const notes = page.locator('[data-client-notes] [data-note-heading="notes"] textarea');
       await notes.fill("Synthetic preparation note stays with this client.");
-      await expect.poll(async () => (await (await assessor.get(`/api/referrals/${referral.id}/notes`)).json()).blocks.find((block: { block_key: string }) => block.block_key === "topic:identity")?.body).toBe("Synthetic preparation note stays with this client.");
+      await expect.poll(async () => (await (await assessor.get(`/api/referrals/${referral.id}/notes`)).json()).blocks.find((block: { block_key: string }) => block.block_key === "notes")?.body).toBe("Synthetic preparation note stays with this client.");
 
       // A slow ordinary save must not block opening or cancelling the start dialog.
       await page.route(`**/api/assessments/${assessment.assessment_id}`, async (route) => {

@@ -11,7 +11,6 @@ test.beforeEach(() => {
 
 async function openNote(panel: Locator, key: string) {
   const block = panel.locator(`[data-note-heading="${key}"]`);
-  if (!await block.locator("textarea").count()) await block.getByRole("button").first().click();
   const field = block.locator("textarea");
   await expect(field).toBeEditable();
   return field;
@@ -44,7 +43,7 @@ test("creating a workspace then editing preparation keeps the saved referral add
   } finally { await context.close(); }
 });
 
-test("many long notes survive panel closing, Chart round-trips and reload; clearing all never resurrects text", async ({ browser, baseURL }) => {
+test("existing topic notes become one editable note without losing their saved originals", async ({ browser, baseURL }) => {
   test.setTimeout(120_000);
   const url = requireOperationalBaseURL(baseURL);
   const api = await actorApiContext("assessorA", url);
@@ -55,19 +54,25 @@ test("many long notes survive panel closing, Chart round-trips and reload; clear
     const referral = await createOperationalReferral(api, "assessorA");
     const assessment = await createOperationalAssessment(api, referral.id);
     const read = async () => (await (await api.get(`/api/referrals/${referral.id}/notes`)).json()).blocks as { block_key: string; body: string }[];
+    const expected = new Map(noteHeadings().map(({ key }, index) => [key,
+      `Synthetic heading ${index}: café — 中文 🙂\n` + "Line of plain text <strong>not markup</strong>.\n".repeat(25)]));
+    for (const [key, body] of expected) {
+      expect((await api.put(`/api/referrals/${referral.id}/notes/${encodeURIComponent(key)}`, { data: { body, if_match: 0 } })).status()).toBe(200);
+    }
+    const combined = noteHeadings().map(({ key, label }) => `${label}\n${expected.get(key)}`).join("\n\n");
     await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=chart`);
     const toggle = page.locator('button[aria-label="Notes"][aria-expanded]');
     await toggle.click();
     const panel = page.getByRole("dialog", { name: "Notes", exact: true });
-    const expected = new Map(noteHeadings().map(({ key }, index) => [key,
-      `Synthetic heading ${index}: café — 中文 🙂\n` + "Line of plain text <strong>not markup</strong>.\n".repeat(25)]));
-    for (const [key, body] of expected) {
-      await (await openNote(panel, key)).fill(body);
-      // Close immediately, without waiting for the debounce or an explicit save.
-      await panel.getByRole("button", { name: "Close notes" }).click();
-      await toggle.click();
-      await expect(await openNote(panel, key)).toHaveValue(body);
-    }
+    const field = await openNote(panel, "notes");
+    await expect(field).toHaveValue(combined);
+    await expect(panel.locator("[data-note-heading]")).toHaveCount(1);
+    const edited = `${combined}\n\nNew note after consolidation.`;
+    await field.fill(edited);
+    // Close immediately, without waiting for the debounce or an explicit save.
+    await panel.getByRole("button", { name: "Close notes" }).click();
+    await toggle.click();
+    await expect(await openNote(panel, "notes")).toHaveValue(edited);
     await panel.getByRole("button", { name: "Close notes" }).click();
     await returnToAssessmentQuestions(page);
     await openAllQuestions(page);
@@ -82,20 +87,23 @@ test("many long notes survive panel closing, Chart round-trips and reload; clear
     await openAssessmentChart(page);
     await page.reload();
     await toggle.click();
-    for (const [key, body] of expected) await expect(await openNote(panel, key)).toHaveValue(body);
-    expect(Object.fromEntries((await read()).map(block => [block.block_key, block.body]))).toEqual(Object.fromEntries(expected));
-    const keys = [...expected.keys()];
-    await (await openNote(panel, keys.at(-1)!)).fill("");
-    await panel.getByRole("button", { name: "Close notes" }).click();
-    await expect(toggle).toHaveAttribute("title", expected.get(keys.at(-2)!)!.split("\n")[0]);
+    await expect(await openNote(panel, "notes")).toHaveValue(edited);
+    await expect.poll(async () => Object.fromEntries((await read()).map(block => [block.block_key, block.body])).notes).toBe(edited);
+    for (const [key, body] of expected) expect(Object.fromEntries((await read()).map(block => [block.block_key, block.body]))[key]).toBe(body);
+    const olderTabKey = noteHeadings()[0].key;
+    expect((await api.put(`/api/referrals/${referral.id}/notes/${encodeURIComponent(olderTabKey)}`, {
+      data: { body: "Synthetic note from an older open tab", if_match: 1 },
+    })).status()).toBe(200);
+    await page.reload();
     await toggle.click();
-    for (const key of expected.keys()) await (await openNote(panel, key)).fill("");
+    await expect(await openNote(panel, "notes")).toHaveValue(/Synthetic note from an older open tab/);
+    await (await openNote(panel, "notes")).fill("");
     await panel.getByRole("button", { name: "Close notes" }).click();
-    await expect.poll(async () => (await read()).every(block => block.body === "")).toBe(true);
+    await expect.poll(async () => Object.fromEntries((await read()).map(block => [block.block_key, block.body])).notes).toBe("");
     await expect(toggle).not.toHaveAttribute("data-has-note", "true");
     await page.reload();
     await toggle.click();
-    for (const key of expected.keys()) await expect(await openNote(panel, key)).toHaveValue("");
+    await expect(await openNote(panel, "notes")).toHaveValue("");
     expect(errors).toEqual([]);
   } finally { await context.close(); await api.dispose(); }
 });
@@ -116,7 +124,7 @@ test("a delayed summary cannot put a deleted note back into the preview", async 
     const toggle = page.locator('button[aria-label="Notes"][aria-expanded]');
     await toggle.click();
     const panel = page.getByRole("dialog", { name: "Notes", exact: true });
-    const field = await openNote(panel, "before");
+    const field = await openNote(panel, "notes");
     let holdNext = true;
     await page.route("**/api/client-notes/latest?*", async route => {
       if (!holdNext) return route.continue();
@@ -137,7 +145,7 @@ test("a delayed summary cannot put a deleted note back into the preview", async 
     release();
     await delivered;
     await toggle.click();
-    await expect(await openNote(panel, "before")).toHaveValue("");
+    await expect(await openNote(panel, "notes")).toHaveValue("");
     await expect(toggle).not.toHaveAttribute("data-has-note", "true");
   } finally { release(); await context.close(); await api.dispose(); }
 });
@@ -153,7 +161,7 @@ test("a slow notes reply cannot restore deleted text or prevent editing another 
   try {
     const first = await createOperationalReferral(api, "assessorA");
     const second = await createOperationalReferral(api, "assessorA");
-    const endpoint = `**/api/referrals/${first.id}/notes/before`;
+    const endpoint = `**/api/referrals/${first.id}/notes/notes`;
     let requests = 0;
     await page.route(endpoint, async route => {
       requests++;
@@ -164,7 +172,7 @@ test("a slow notes reply cannot restore deleted text or prevent editing another 
     const toggle = page.locator('button[aria-label="Notes"][aria-expanded]');
     const panel = page.getByRole("dialog", { name: "Notes", exact: true });
     await toggle.click();
-    const field = await openNote(panel, "before");
+    const field = await openNote(panel, "notes");
     await field.fill("Synthetic text that will be deleted while its reply is delayed");
     await field.blur();
     await saving;
@@ -177,14 +185,14 @@ test("a slow notes reply cannot restore deleted text or prevent editing another 
     expect(requests).toBe(2);
     await page.goto(`/?view=referrals&screen=packet&referralId=${second.id}&workspaceStage=chart`);
     await toggle.click();
-    await expect(await openNote(panel, "before")).toHaveValue("");
-    await (await openNote(panel, "before")).fill("Synthetic second client only");
+    await expect(await openNote(panel, "notes")).toHaveValue("");
+    await (await openNote(panel, "notes")).fill("Synthetic second client only");
     await page.keyboard.press("Escape");
     await expect(panel).toHaveCount(0);
     await expect.poll(async () => (await (await api.get(`/api/referrals/${second.id}/notes`)).json()).blocks[0]?.body).toBe("Synthetic second client only");
     await page.goto(`/?view=referrals&screen=packet&referralId=${first.id}&workspaceStage=chart`);
     await toggle.click();
-    await expect(await openNote(panel, "before")).toHaveValue("");
+    await expect(await openNote(panel, "notes")).toHaveValue("");
   } finally { release(); await context.close(); await api.dispose(); }
 });
 
@@ -196,12 +204,12 @@ test("another person's note conflict preserves local typing and allows Chart nav
   try {
     const referral = await createOperationalReferral(api, "assessorA");
     await createOperationalAssessment(api, referral.id);
-    const endpoint = `/api/referrals/${referral.id}/notes/before`;
+    const endpoint = `/api/referrals/${referral.id}/notes/notes`;
     await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=chart`);
     const toggle = page.locator('button[aria-label="Notes"][aria-expanded]');
     const panel = page.getByRole("dialog", { name: "Notes", exact: true });
     await toggle.click();
-    const field = await openNote(panel, "before");
+    const field = await openNote(panel, "notes");
     expect((await other.put(endpoint, { data: { body: "Synthetic other person's saved version", if_match: 0 } })).status()).toBe(200);
     await field.fill("Synthetic local draft must remain visible");
     await field.blur();
@@ -213,7 +221,7 @@ test("another person's note conflict preserves local typing and allows Chart nav
     await page.getByRole("textbox", { name: "Current location", exact: true }).fill("Synthetic work continues during note conflict");
     await openAssessmentChart(page);
     await toggle.click();
-    await expect(await openNote(panel, "before")).toHaveValue("Synthetic local draft must remain visible");
+    await expect(await openNote(panel, "notes")).toHaveValue("Synthetic local draft must remain visible");
     await panel.getByRole("button", { name: "Use theirs", exact: true }).click();
     await expect(field).toHaveValue("Synthetic other person's saved version");
     await expect(panel.getByRole("alert")).toHaveCount(0);
@@ -227,6 +235,6 @@ test("another person's note conflict preserves local typing and allows Chart nav
     expect(blocks).toEqual([expect.objectContaining({ body: "Synthetic explicit local choice", version: 3 })]);
     await page.reload();
     await toggle.click();
-    await expect(await openNote(panel, "before")).toHaveValue("Synthetic explicit local choice");
+    await expect(await openNote(panel, "notes")).toHaveValue("Synthetic explicit local choice");
   } finally { await context.close(); await api.dispose(); await other.dispose(); }
 });

@@ -3,7 +3,7 @@
 import { useEffect, useSyncExternalStore } from "react";
 
 import { fetchPipelineJson, onPipelineSessionCleared, usePipelineDataGeneration } from "@/lib/auth/authenticated-fetch";
-import type { LatestNote } from "@/lib/pipeline/client-notes";
+import { clientNotePreview, type LatestNote } from "@/lib/pipeline/client-notes";
 
 // The latest client note per referral, shared by the Home board and Workspaces, and updated at once when a
 // note is saved on this device (docs/design/DECISIONS.md, "Notes").
@@ -19,7 +19,7 @@ onPipelineSessionCleared(() => {
 });
 
 export function rememberLatestNote(referralId: number, body: string, updatedAt: string) {
-  const text = body.split("\n").map((line) => line.trim()).find(Boolean);
+  const text = clientNotePreview(body);
   const next = new Map(state.notes);
   if (text && (!next.has(referralId) || next.get(referralId)!.updated_at <= updatedAt)) {
     next.set(referralId, { referral_id: referralId, text: text.slice(0, 300), updated_at: updatedAt });

@@ -7,6 +7,30 @@ import test from "node:test";
 import postgres from "postgres";
 import { actor, clean, loadEntry, root } from "./contact-import-fixtures.mjs";
 
+const noteModel = loadEntry("lib/pipeline/client-notes.ts");
+
+test("one editor carries every existing topic note and picks up later legacy edits", () => {
+  const [first, second] = noteModel.noteHeadings();
+  const entries = {
+    [first.key]: { body: "First saved note", saved: "First saved note", updated_at: "2026-09-28T10:00:00Z" },
+    [second.key]: { body: "Second saved note", saved: "Second saved note", updated_at: "2026-09-28T11:00:00Z" },
+  };
+  const merged = noteModel.combinedClientNote(entries);
+  assert.equal(merged, `${first.label}\nFirst saved note\n\n${second.label}\nSecond saved note`);
+  entries.notes = { body: merged, saved: merged, updated_at: "2026-09-28T12:00:00Z" };
+  assert.equal(noteModel.combinedClientNote(entries), merged);
+  entries[second.key] = { ...entries[second.key], body: "Later saved note", saved: "Later saved note", updated_at: "2026-09-28T13:00:00Z" };
+  assert.equal(noteModel.combinedClientNote(entries), `${merged}\n\n${second.label}\nLater saved note`);
+  entries.notes = { ...entries.notes, body: `${merged}\n\n${second.label}\nLater saved note`, saved: merged };
+  assert.equal(noteModel.combinedClientNote(entries), entries.notes.body, "typing must not duplicate the carried note");
+  entries.notes = { ...entries.notes, body: merged, saved: merged };
+  entries[second.key] = { ...entries[second.key], body: "Recovered unsaved note", saved: "Second saved note", updated_at: "2026-09-28T11:00:00Z" };
+  assert.equal(noteModel.combinedClientNote(entries), `${merged}\n\n${second.label}\nRecovered unsaved note`, "older offline drafts remain visible");
+  entries.notes = { body: `${merged}\n\n${second.label}\nRecovered unsaved note`, saved: `${merged}\n\n${second.label}\nRecovered unsaved note`, updated_at: "2026-09-28T14:00:00Z" };
+  entries[second.key] = { ...entries[second.key], saved: "Recovered unsaved note", updated_at: "2026-09-28T15:00:00Z" };
+  assert.equal(noteModel.combinedClientNote(entries), entries.notes.body, "a recovered draft saved after consolidation is not repeated");
+});
+
 function store({ sql, fs } = {}) {
   return loadEntry("lib/pipeline/client-notes-store.ts", {
     "@/lib/database/pipeline-database": { getPipelineSql: () => sql },
@@ -105,10 +129,15 @@ test("real PostgreSQL notes migration, runtime permissions, routes, races and ro
     assert.equal((await put.PUT(request("x".repeat(20001), 3), context)).status, 400);
     const read = await get.GET(new Request("http://localhost"), context);
     assert.equal((await read.json()).blocks.find((block) => block.block_key === "before").body, "Route write");
+    const combined = "Before the interview\nRoute write\n\nCollateral and calls\nIndependent heading";
+    assert.equal((await notes.saveClientNote(id, "notes", combined, 0, actor)).ok, true);
+    assert.equal((await notes.latestClientNotes([id]))[0].text, "Route write");
+    assert.equal((await notes.saveClientNote(id, "notes", "", 1, actor)).ok, true);
+    assert.deepEqual(clean(await notes.latestClientNotes([id])), [], "clearing the unified note must not resurrect archived topic text");
     const rollback = await readFile(join(root, "database/rollbacks/0046_client_notes.sql"), "utf8");
     await assert.rejects(migration.unsafe(rollback), /notes|rows|empty/i);
     await migration.unsafe("rollback");
-    assert.equal((await notes.listClientNotes(id)).length, 2, "app rollback keeps notes");
+    assert.equal((await notes.listClientNotes(id)).length, 3, "app rollback keeps every original note and the unified note");
     t.diagnostic("Migration and note routes exercised on real PostgreSQL through a non-owner runtime role.");
   } finally {
     await runtime?.end({ timeout: 5 }); await migration?.end({ timeout: 5 });
