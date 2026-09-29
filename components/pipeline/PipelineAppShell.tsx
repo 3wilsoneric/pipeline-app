@@ -4,6 +4,7 @@ import { ReactNode, Suspense, useCallback, useEffect, useRef, useState } from "r
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import PipelineHeader from "@/components/pipeline/PipelineHeader";
+import { useDesignV2 } from "@/components/design/DesignSwitch";
 import DemoEnvironmentBanner from "@/components/pipeline/training/DemoEnvironmentBanner";
 import PipelineGuidedCoach from "@/components/pipeline/training/PipelineGuidedCoach";
 import { PipelineShellProvider } from "@/components/pipeline/pipeline-shell-context";
@@ -77,6 +78,7 @@ export default function PipelineAppShell({
 }
 
 function AppNavigation() {
+  const designV2 = useDesignV2();
   const phone = usePhoneAssessment();
   const navigationRef = useRef<HTMLElement>(null);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -104,7 +106,7 @@ function AppNavigation() {
         }, 140);
       }}
       onFocusCapture={(event) => {
-        if (event.target.matches(":focus-visible:not([data-navigation-toggle])")) setPreview(true);
+        if (!designV2 && event.target.matches(":focus-visible:not([data-navigation-toggle])")) setPreview(true);
       }}
       onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) closeOnDestination(); }}
       onKeyDown={(event) => {
@@ -116,7 +118,7 @@ function AppNavigation() {
       {expanded ? <button type="button" aria-label="Close navigation" tabIndex={-1} onClick={close} className={mobileStyles.backdrop} /> : null}
       <div id="pipeline-app-navigation" className={mobileStyles.navigationPanel}>
         <div className={mobileStyles.navigationContent} onPointerOver={(event) => {
-          if (event.pointerType === "mouse" && window.matchMedia("(any-hover: hover)").matches) setPreview(true);
+          if (!designV2 && event.pointerType === "mouse" && window.matchMedia("(any-hover: hover)").matches) setPreview(true);
         }}>
           <Suspense fallback={<div aria-hidden="true" className={mobileStyles.sidebar} />}>
             <PipelineHeader onDestinationChange={closeOnDestination} />
