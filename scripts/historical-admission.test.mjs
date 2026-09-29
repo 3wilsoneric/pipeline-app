@@ -29,14 +29,34 @@ test("historical confirmation admits only the two authorized fields, valid date,
   for (const value of [null, [], "bad", {}, { ...admission, admissionDate: 1 }]) assert.equal(policy.historicalAdmissionInput(value), null);
 });
 
-test("roster suggestions are unique, non-conflicting human-review evidence, never identity merges", () => {
-  const resident = { display_name: fixture.name, date_of_birth: null, community_name: "Turlock", admit_date: "2025-02-03" };
-  assert.deepEqual(clean(policy.historicalAdmissionSuggestion(fixture, [resident])), { name: fixture.name, ...admission });
-  assert.equal(policy.historicalAdmissionSuggestion(fixture, [resident, resident]), null);
-  assert.equal(policy.historicalAdmissionSuggestion(fixture, [{ ...resident, date_of_birth: "1990-01-01" }]), null);
-  assert.equal(policy.historicalAdmissionSuggestion(fixture, [{ ...resident, admit_date: null }]), null);
-  assert.equal(policy.historicalAdmissionSuggestion(fixture, [{ ...resident, community_name: "Not a community" }]), null);
-  assert.equal(policy.historicalAdmissionSuggestion(fixture, [{ ...resident, display_name: "Different Person" }]), null);
+const client = { canonical_client_id: "fixture-clinical", display_name: fixture.name, current_community: "Turlock", community_names: ["Turlock"], admit_date: "2025-02-03",
+  enrichment: { date_of_birth: "1980-01-02T00:00:00" }, resident_profile: null, resident_profiles: [], resident_episode_history: [] };
+
+test("full client suggestions require a unique name and withhold conflicting or ambiguous DOBs", () => {
+  assert.equal(policy.historicalAdmissionClient(fixture, [client]), client);
+  assert.equal(policy.historicalAdmissionClient(fixture, [client, client]), null);
+  assert.equal(policy.historicalAdmissionClient({ ...fixture, name: "Synthetic" }, [{ ...client, display_name: "Synthetic" }]), null);
+  assert.deepEqual(clean(policy.historicalAdmissionSuggestion(fixture, client)), { name: fixture.name, dob: fixture.dob, identityMatched: true, admissions: [admission] });
+  for (const dob of ["1990-01-01", "1980-02-30T00:00:00", ["1980-01-02", "1990-01-01"], "nonsense"]) {
+    assert.equal(policy.historicalAdmissionSuggestion(fixture, { ...client, enrichment: { date_of_birth: dob } }), null);
+  }
+  assert.equal(policy.historicalAdmissionSuggestion(fixture, { ...client, resident_profiles: [{ date_of_birth: "1990-01-01" }] }), null);
+  assert.equal(policy.historicalAdmissionSuggestion(fixture, { ...client, display_name: "Different Person" }), null);
+  assert.equal(policy.historicalAdmissionSuggestion({ ...fixture, dob: "malformed" }, client), null);
+  assert.equal(policy.historicalAdmissionSuggestion({ ...fixture, dob: "" }, client).identityMatched, false);
+  assert.equal(policy.historicalAdmissionSuggestion(fixture, { ...client, enrichment: {} }).identityMatched, false);
+  assert.equal(policy.historicalAdmissionSuggestion(fixture, { ...client, enrichment: { date_of_birth: { value: "01/02/1980" } } }).identityMatched, true);
+  assert.equal(policy.historicalAdmissionSuggestion(fixture, { ...client, enrichment: { date_of_birth: "1980-01-02T23:00:00-08:00" } }).dob, "1980-01-02", "DOB is a calendar date, not a time-zone-shifted instant");
+});
+
+test("each recorded stay keeps its own date/community; no first-admission/latest-community guessing", () => {
+  const details = { ...client, enrichment: { ...client.enrichment, first_admit_date: "2020-01-01", latest_admit_date: "2025-02-03T00:00:00", facility_canonical: "Turlock" },
+    resident_episode_history: [ { admit_date: "2023-01-02T00:00:00", facility_name: "San Pablo", discharge_date: "2024-01-01" },
+      { admission_date: "2025-02-03", community_name: "Turlock" }, { admit_date: "2099-01-01", community: "Turlock" },
+      { admit_date: "2021-01-01", community: "Unknown" }, { admit_date: "2022-01-01" } ] };
+  assert.deepEqual(clean(policy.historicalAdmissionSuggestion(fixture, details).admissions), [admission, { admissionDate: "2023-01-02", community: "San Pablo" }]);
+  assert.deepEqual(clean(policy.historicalAdmissionSuggestion(fixture, { ...client, current_community: null, community_names: ["San Pablo", "Turlock"] }).admissions), []);
+  assert.deepEqual(clean(policy.historicalAdmissionSuggestion(fixture, { ...client, current_community: null, community_names: ["Turlock"] }).admissions), [admission]);
 });
 
 function storeGlobals(directory, sql) {
@@ -126,7 +146,8 @@ test("historical admission API requires access, origin, explicit confirmation, v
     "@/lib/observability/api-logging": { withApiLogging: (_request, _route, fn) => fn() },
     "@/lib/pipeline/referral-access": { requireReferralAccess: async (_user, id) => id === 1 ? { ok: true, referral: current } : { ok: false, response: Response.json({}, { status: 404 }) }, canRecordAdmissionDecision: () => true },
     "@/lib/pipeline/referral-store": { requireReferralStore: () => ({ ok: true }), recordHistoricalAdmission: async (_id, value, version, who) => { writes++; assert.deepEqual(clean(who), actor); assert.equal(version, 1); return { ok: true, referral: { ...fixture, ...value } }; } },
-    "@/lib/clinical/clinical-data": { getClinicalRoster: async () => { throw new Error("synthetic unavailable"); } },
+    "@/lib/pipeline/historical-admission": policy,
+    "@/lib/clinical/clinical-data": { getClinicalClients: async () => { throw new Error("synthetic unavailable"); } },
   });
   const context = { params: Promise.resolve({ referralId: "1" }) };
   const request = (value, origin = "http://localhost") => new Request("http://localhost/api/referrals/1/historical-admission", { method: "POST", headers: { Origin: origin, "Content-Type": "application/json" }, body: JSON.stringify(value) });
@@ -138,5 +159,26 @@ test("historical admission API requires access, origin, explicit confirmation, v
   assert.equal((await routes.POST(request(valid), context)).status, 422);
   current = fixture; assert.equal(writes, 0);
   assert.deepEqual(await (await routes.GET(new Request("http://localhost/api/referrals/1/historical-admission"), context)).json(), { suggestion: null, available: false });
-  assert.equal((await routes.POST(request(valid), context)).status, 200); assert.equal(writes, 1, "manual confirmation is independent of the failed roster lookup");
+  assert.equal((await routes.POST(request(valid), context)).status, 200); assert.equal(writes, 1, "manual confirmation is independent of the failed client lookup");
+});
+
+test("lookup reads full clinical records only after a complete fresh unique directory match", async () => {
+  let directory = { clients: [client], next_cursor: null, freshness: { status: "fresh" } };
+  let profile = { client, freshness: { status: "fresh" } }; let reads = 0;
+  const route = loadEntry("app/api/referrals/[referralId]/historical-admission/route.ts", {
+    "@/lib/auth/pipeline-auth": { requirePipelineUser: () => ({ ok: true, user: actor }) },
+    "@/lib/pipeline/referral-access": { requireReferralAccess: () => ({ ok: true, referral: fixture }) },
+    "@/lib/pipeline/referral-store": { requireReferralStore: () => ({ ok: true }) },
+    "@/lib/pipeline/historical-admission": policy,
+    "@/lib/observability/api-logging": { withApiLogging: (_request, _route, fn) => fn() },
+    "@/lib/clinical/clinical-data": { getClinicalClients: async (_request, options) => { assert.equal(options.query, fixture.name); return directory; }, getClinicalClient: async (_request, id) => { reads++; assert.equal(id, client.canonical_client_id); return profile; } },
+  });
+  const get = async () => { const response = await route.GET(new Request("http://localhost/api/referrals/1/historical-admission"), { params: Promise.resolve({ referralId: "1" }) });
+    assert.equal(response.headers.get("Cache-Control"), "private, no-store, max-age=0"); return response.json(); };
+  assert.equal((await get()).suggestion.dob, fixture.dob); assert.equal(reads, 1);
+  directory = { ...directory, next_cursor: "more" }; assert.deepEqual(await get(), { suggestion: null, available: false });
+  directory = { ...directory, next_cursor: null, freshness: { status: "stale" } }; assert.deepEqual(await get(), { suggestion: null, available: false });
+  directory = { ...directory, freshness: { status: "fresh" }, clients: [client, client] }; assert.deepEqual(await get(), { suggestion: null, available: true }); assert.equal(reads, 1);
+  directory = { ...directory, clients: [client] }; profile = { ...profile, freshness: { status: "stale" } }; assert.deepEqual(await get(), { suggestion: null, available: false });
+  profile = { client: { ...client, canonical_client_id: "wrong-identity" }, freshness: { status: "fresh" } }; assert.deepEqual(await get(), { suggestion: null, available: false });
 });

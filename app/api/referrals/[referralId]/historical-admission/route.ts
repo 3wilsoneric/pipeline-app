@@ -1,13 +1,13 @@
 import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
 import { pipelineAuditActor } from "@/lib/auth/assessor-session-policy";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
-import { getClinicalRoster } from "@/lib/clinical/clinical-data";
+import { getClinicalClient, getClinicalClients } from "@/lib/clinical/clinical-data";
 import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
 import { withApiLogging } from "@/lib/observability/api-logging";
 import { canRecordAdmissionDecision, requireReferralAccess } from "@/lib/pipeline/referral-access";
 import { HistoricalWorkspaceReadOnlyError, recordHistoricalAdmission, requireReferralStore } from "@/lib/pipeline/referral-store";
 import { validateClientMutationId } from "@/lib/pipeline/client-mutation-id";
-import { canRecordHistoricalAdmission, historicalAdmissionInput, historicalAdmissionSuggestion } from "@/lib/pipeline/historical-admission";
+import { canRecordHistoricalAdmission, historicalAdmissionClient, historicalAdmissionInput, historicalAdmissionSuggestion } from "@/lib/pipeline/historical-admission";
 
 export const runtime = "nodejs";
 const headers = { "Cache-Control": "private, no-store, max-age=0", Vary: "Authorization" };
@@ -32,9 +32,13 @@ export async function GET(request: Request, context: Context) {
     if (!result.ok) return result.response;
     // Optional lookup: manual confirmation must still work during an upstream outage.
     try {
-      const roster = await getClinicalRoster(request, { query: result.referral.name, limit: 100 });
-      const usable = roster.freshness.status === "fresh" && !roster.next_cursor;
-      return Response.json({ suggestion: usable ? historicalAdmissionSuggestion(result.referral, roster.residents) : null, available: usable }, { headers });
+      const directory = await getClinicalClients(request, { query: result.referral.name, limit: 100 });
+      const usable = directory.freshness.status === "fresh" && !directory.next_cursor;
+      const candidate = usable ? historicalAdmissionClient(result.referral, directory.clients) : null;
+      if (!candidate) return Response.json({ suggestion: null, available: usable }, { headers });
+      const profile = await getClinicalClient(request, candidate.canonical_client_id);
+      const fresh = profile.freshness.status === "fresh" && profile.client.canonical_client_id === candidate.canonical_client_id;
+      return Response.json({ suggestion: fresh ? historicalAdmissionSuggestion(result.referral, profile.client) : null, available: fresh }, { headers });
     } catch {
       return Response.json({ suggestion: null, available: false }, { headers });
     }

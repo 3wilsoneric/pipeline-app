@@ -207,6 +207,9 @@ function firstSourceValues(profile: Record<string, unknown>, sources: string[]) 
   return [];
 }
 
+// Keep structured clinical values consistent between chart display and reviewed matching.
+export { firstSourceValues as clientProfileSourceValues };
+
 function buildFact(profile: Record<string, unknown>, definition: FieldDefinition): ClientProfileFact | null {
   const community = firstSourceValues(profile, ["community_name", "facility_name", "facility_canonical", "community"])[0];
   const cleanValue = (value: string) => definition.format === "name"
