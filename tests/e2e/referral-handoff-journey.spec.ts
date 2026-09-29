@@ -1,3 +1,4 @@
+import { closeTestBrowser } from "./support/browser-lifecycle";
 import { openRecipients, confirmRecipients } from "./support/handoff-review";
 import { expect, test, webkit } from "@playwright/test";
 import { randomUUID } from "node:crypto";
@@ -345,5 +346,5 @@ test("iPad WebKit keeps signing and finishing in the same folder", async ({ base
     await page.screenshot({ path: info.outputPath("ipad-finish-webkit.png"), animations: "disabled" });
     await page.getByRole("button", { name: "Close email preview", exact: true }).tap();
     await expect(page.getByRole("button", { name: "Preview email", exact: true })).toBeFocused();
-  } finally { await browser.close(); }
+  } finally { await closeTestBrowser(browser); }
 });

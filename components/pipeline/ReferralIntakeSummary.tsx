@@ -7,6 +7,7 @@ import { formatProfileDate } from "@/lib/pipeline/client-profile-presentation";
 import { presentClientName } from "@/lib/pipeline/client-identity-presentation.mjs";
 import type { ClientChartFact } from "@/lib/pipeline/client-medical-chart";
 import { referralChartEditFields, type ReferralChartEditField } from "@/lib/pipeline/client-chart-context";
+import { useDesignV2 } from "@/components/design/DesignSwitch";
 import { ClientChartFrame, ClientChartHeader, ChartHeaderCell, ChartBand, ChartGrid, ChartCell } from "./ClientMedicalChart";
 
 // Reuse the client chart's presentation, not its resident/census data model.
@@ -22,13 +23,16 @@ export default function ReferralIntakeSummary({ referral, assessment, headerActi
     const value = referralCanvasValue(referral, key);
     return { label, value: (key === "name" ? presentClientName(value, referral.id) : key === "dob" || key === "referralReceived" ? formatProfileDate(value) : value)?.trim() || "Not documented", ...(wide ? { span: "wide" } : {}) };
   };
+  // Redesign: the referral's summary paragraph sits near the top of the Chart, the client's home page.
+  const designV2 = useDesignV2();
+  const summary = designV2 ? referralCanvasValue(referral, "summary")?.trim() : "";
   const cell = (value: ClientChartFact) => {
     const field = referralChartEditFields[value.label as keyof typeof referralChartEditFields];
     return <ChartCell key={value.label} fact={value} onEdit={onEditField && field ? () => onEditField(field) : undefined} editHint="Edit in intake" multiline />;
   };
 
   return <ClientChartFrame label="Referral chart">
-    <ClientChartHeader title="Referral chart" actions={headerActions}>
+    <ClientChartHeader title="Referral chart" hideTitle={designV2} actions={headerActions}>
       <ChartHeaderCell label="Referral updated" value={formatProfileDate(referral.updatedAt || referral.createdAt) || "Not documented"} />
     </ClientChartHeader>
     <ChartGrid ariaLabel="Referral identity" columns="identity">
@@ -37,6 +41,11 @@ export default function ReferralIntakeSummary({ referral, assessment, headerActi
         fact("Gender", "gender"), fact("SSN", "ssn", true),
       ].map(cell)}
     </ChartGrid>
+    {summary ? <ChartBand title="Referral summary">
+      <ChartGrid ariaLabel="Referral summary" columns="priorities">
+        {cell({ label: "Referral summary", value: summary, span: "wide" })}
+      </ChartGrid>
+    </ChartBand> : null}
     <ChartBand title="Referral details">
       <ChartGrid ariaLabel="Referral details" columns="care">
         {[
@@ -59,7 +68,7 @@ export default function ReferralIntakeSummary({ referral, assessment, headerActi
     </ChartBand>
     <ChartBand title="Intake information">
       <ChartGrid ariaLabel="Intake information" columns="care">
-        {cell(fact("Medications on record", "currentMedications"))}
+        {cell(fact("Medication history", "currentMedications"))}
         {cell({ label: "Conserved status", value: referral.conserved === "yes" ? "Yes" : referral.conserved === "no" ? "No" : "Not documented" })}
       </ChartGrid>
     </ChartBand>

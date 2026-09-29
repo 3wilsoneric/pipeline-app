@@ -1,3 +1,4 @@
+import { closeTestBrowser } from "./support/browser-lifecycle";
 import { chromium, webkit, expect, test, type Page } from "@playwright/test";
 import { createOperationalReferral } from "./support/operational-api";
 import { randomUUID } from "node:crypto";
@@ -82,7 +83,7 @@ for (const [name, engine] of [["Chromium", chromium], ["WebKit", webkit]] as con
         await expect(page.getByRole("region", { name: "Current work", exact: true })).toBeVisible();
         await expect(page.getByRole("dialog", { name: "All workspaces", exact: true })).toHaveCount(0);
         expect(errors).toEqual([]);
-      } finally { await browser.close(); }
+      } finally { await closeTestBrowser(browser); }
     });
   }
 }

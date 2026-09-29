@@ -34,6 +34,11 @@ on:
         required: true
         default: true
         type: boolean
+      enable_design_v2:
+        description: Enable the owner-approved Pipeline redesign globally
+        required: true
+        default: false
+        type: boolean
       enable_demo_center:
         description: Expose the read-only Demo Center (synthetic database writes remain locked)
         required: true
@@ -248,6 +253,7 @@ jobs:
               location='${{ steps.foundation.outputs.location }}' \
               containerImage='${{ steps.foundation.outputs.registry_server }}/${{ env.IMAGE_NAME }}:${{ github.sha }}' \
               deploymentId='${{ github.sha }}' \
+              rolloutId='r${{ github.run_id }}-${{ github.run_attempt }}' \
               containerAppsEnvironmentId='${{ steps.foundation.outputs.container_environment_id }}' \
               containerRegistryLoginServer='${{ steps.foundation.outputs.registry_server }}' \
               runtimeIdentityResourceId='${{ steps.foundation.outputs.runtime_identity_id }}' \
@@ -269,6 +275,7 @@ jobs:
               alamoClientId='${{ vars.PIPELINE_ALAMO_CLIENT_ID }}' \
               alamoApiScope='${{ vars.PIPELINE_ALAMO_API_SCOPE }}' \
               enableMeetClientMail='${{ inputs.enable_meet_client_mail }}' \
+              enableAssessmentOutlookCalendar='${{ vars.PIPELINE_ASSESSMENT_OUTLOOK_ENABLED || 'false' }}' \
               enablePlatformSummary='${{ vars.PIPELINE_PLATFORM_SUMMARY_ENABLED || 'false' }}' \
               graphMailClientId='${{ vars.PIPELINE_GRAPH_MAIL_CLIENT_ID }}' \
               meetClientSender='${{ vars.PIPELINE_MEET_CLIENT_SENDER }}' \
@@ -277,6 +284,7 @@ jobs:
               enableClinicalReconcileJob='${{ inputs.enable_clinical_reconcile_job }}' \
               enableRetentionJob='${{ inputs.enable_retention_job }}' \
               enableNoteLab='${{ inputs.enable_note_lab }}' \
+              enableDesignV2='${{ inputs.enable_design_v2 }}' \
               enableDemoCenter='${{ inputs.enable_demo_center }}' \
               enableDesktop='${{ steps.desktop.outputs.enabled }}' \
               initialDatabaseBootstrap='${{ inputs.initial_database_bootstrap }}'
@@ -344,6 +352,7 @@ jobs:
               location='${{ steps.foundation.outputs.location }}' \
               containerImage='${{ steps.foundation.outputs.registry_server }}/${{ env.IMAGE_NAME }}:${{ github.sha }}' \
               deploymentId='${{ github.sha }}' \
+              rolloutId='r${{ github.run_id }}-${{ github.run_attempt }}' \
               containerAppsEnvironmentId='${{ steps.foundation.outputs.container_environment_id }}' \
               containerRegistryLoginServer='${{ steps.foundation.outputs.registry_server }}' \
               runtimeIdentityResourceId='${{ steps.foundation.outputs.runtime_identity_id }}' \
@@ -365,6 +374,7 @@ jobs:
               alamoClientId='${{ vars.PIPELINE_ALAMO_CLIENT_ID }}' \
               alamoApiScope='${{ vars.PIPELINE_ALAMO_API_SCOPE }}' \
               enableMeetClientMail='${{ inputs.enable_meet_client_mail }}' \
+              enableAssessmentOutlookCalendar='${{ vars.PIPELINE_ASSESSMENT_OUTLOOK_ENABLED || 'false' }}' \
               enablePlatformSummary='${{ vars.PIPELINE_PLATFORM_SUMMARY_ENABLED || 'false' }}' \
               graphMailClientId='${{ vars.PIPELINE_GRAPH_MAIL_CLIENT_ID }}' \
               meetClientSender='${{ vars.PIPELINE_MEET_CLIENT_SENDER }}' \
@@ -373,6 +383,7 @@ jobs:
               enableClinicalReconcileJob='${{ inputs.enable_clinical_reconcile_job }}' \
               enableRetentionJob='${{ inputs.enable_retention_job }}' \
               enableNoteLab='${{ inputs.enable_note_lab }}' \
+              enableDesignV2='${{ inputs.enable_design_v2 }}' \
               enableDemoCenter='${{ inputs.enable_demo_center }}' \
               enableDesktop='${{ steps.desktop.outputs.enabled }}' \
               initialDatabaseBootstrap='${{ inputs.initial_database_bootstrap }}' \

@@ -177,7 +177,9 @@ export default function ReferralWorkflowPanel({
       confirmedRecommendation.current = null;
     }
     setWorkflow(latest);
-    setError("");
+    // A refresh after a conflict is not a successful save of the open decision
+    // or admit-date draft. Keep its failure visible until the user retries.
+    if (!recommendationDirty.current && !admissionDateDirty.current) setError("");
     if (!recommendationDirty.current) {
       setRecommendationDraft({
         outcome: latest.decision ? (latest.decision.outcome === "accepted" ? "accept" : "decline") : latest.recommendation?.outcome ?? "",
@@ -400,7 +402,7 @@ export default function ReferralWorkflowPanel({
       setEmailError(failure instanceof Error ? failure.message : "The email could not be sent.");
     } finally { setEmailSending(false); }
   };
-  const emailDialog = emailRecommendation ? <UnderReviewEmailDialog key={`${emailRecommendation.recommendationId}:${emailRecommendation.version}`} referralId={currentReferral.id} initialMessage={defaultUnderReviewMessage(currentReferral.id, emailRecommendation.reasonNote)} sending={emailSending} error={emailError} onSend={(content) => void sendUnderReviewEmail(content)} onClose={() => setEmailRecommendation(null)} /> : null;
+  const emailDialog = emailRecommendation ? <UnderReviewEmailDialog key={`${emailRecommendation.recommendationId}:${emailRecommendation.version}`} initialMessage={defaultUnderReviewMessage(currentReferral.id, emailRecommendation.reasonNote)} sending={emailSending} error={emailError} onSend={(content) => void sendUnderReviewEmail(content)} onClose={() => setEmailRecommendation(null)} /> : null;
   const submitDecision = async () => {
     if (!recommendationDraft.outcome) return;
     if (recommendationDraft.outcome === "needs_more_information") {

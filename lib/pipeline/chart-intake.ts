@@ -27,7 +27,7 @@ export function buildChartIntake(profile: UnifiedClientProfileResponse, source: 
   };
   // Carry identity/contact/medication fields, not old encounter dates, decisions,
   // signatures, assignment, packet IDs or document approvals.
-  const provenance = `Chart from workspace #${source.id}, as of ${profile.data_as_of}; verify for this referral`;
+  const provenance = `Chart from prior workspace, as of ${profile.data_as_of}; verify for this referral`;
   referral.fieldSources = Object.fromEntries(persistedCanvasFieldKeys
     .filter((key) => !["owner", "referralReceived", "admissionDate", "referent", "summary"].includes(key))
     .filter((key) => referralCanvasValue(referral as Referral, key).trim())

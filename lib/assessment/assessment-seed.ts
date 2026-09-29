@@ -58,20 +58,9 @@ export function buildAssessmentSeedFromReferral(
   });
   const provenance = cloneProvenance(mapped.field_provenance);
 
-  for (const definition of canonicalReferralFields) {
-    const value = definition.value(referral, assessorName);
-    if (!value) continue;
-    (data as Record<AssessmentToolFieldKey, unknown>)[definition.target] = value;
-    appendProvenance(provenance, definition.target, {
-      source_field_key: typeof definition.source === "function" ? definition.source(referral) : definition.source,
-      source_file: definition.canvasSource
-        ? referral.fieldSources?.[typeof definition.canvasSource === "function" ? definition.canvasSource(referral) : definition.canvasSource] ?? null
-        : null,
-      confidence: 1,
-      review_status: "accepted",
-      source_page_no: null,
-      evidence_url: null,
-    });
+  for (const [target, answer] of referralIntakeAnswers(referral, assessorName)) {
+    (data as Record<AssessmentToolFieldKey, unknown>)[target] = answer.value;
+    appendProvenance(provenance, target, answer.provenance);
   }
 
   return {
@@ -80,6 +69,28 @@ export function buildAssessmentSeedFromReferral(
     unmapped_fields: mapped.unmapped_fields,
     status: hasPendingEvidence(provenance) ? "needs_review" : "draft",
   };
+}
+
+// The intake's current answer for each assessment question it covers, with the provenance a seeded
+// answer gets. Also offered in the interview when intake data arrives after the assessment starts
+// (docs/design/DECISIONS.md, "Interview context"); the assessor field is never offered there.
+export function referralIntakeAnswers(referral: Referral, assessorName = "") {
+  const answers = new Map<AssessmentToolFieldKey, { value: string | string[]; provenance: AssessmentFieldProvenance }>();
+  for (const definition of canonicalReferralFields) {
+    const value = definition.value(referral, assessorName);
+    if (!value) continue;
+    answers.set(definition.target, { value, provenance: {
+      source_field_key: typeof definition.source === "function" ? definition.source(referral) : definition.source,
+      source_file: definition.canvasSource
+        ? referral.fieldSources?.[typeof definition.canvasSource === "function" ? definition.canvasSource(referral) : definition.canvasSource] ?? null
+        : null,
+      confidence: 1,
+      review_status: "accepted",
+      source_page_no: null,
+      evidence_url: null,
+    } });
+  }
+  return answers;
 }
 
 function isoDateOrNull(value: string) {

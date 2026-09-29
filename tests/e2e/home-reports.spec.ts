@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { defaultPipelineHomeDashboardLayout } from "../../lib/pipeline/home-dashboard-layout";
+import type { SupervisorExceptionItem } from "../../lib/pipeline/operations-types";
 
 // Home customization is persisted on the server in desktop mode, not just in
 // this test context. Reset it so ordering and previous specs cannot change Home.
@@ -621,6 +622,48 @@ test.describe("role-scoped home and reports", () => {
     await expect(commandCenter).toBeVisible();
     await commandCenter.getByRole("button", { name: "Review match for Taylor Morgan" }).click();
     await expect.poll(() => new URL(page.url()).searchParams.get("clientId")).toBe("resident-42");
+  });
+
+  test("shows and retries exceptions beyond the first queue page without blocking Reports", async ({ page }) => {
+    const items: SupervisorExceptionItem[] = Array.from({ length: 251 }, (_, index) => ({
+      id: `ehr_handoff_failed:${index}`, kind: "ehr_handoff_failed", severity: "critical",
+      label: "EHR handoff failed", detail: "Synthetic downstream rejection",
+      referral_id: 424242 + index, resident_link_id: null,
+      client_name: index === 0 ? "Synthetic First" : index === 250 ? "Synthetic Last" : "Synthetic Client",
+      community: "San Pablo", owner: "Annette Everhart", due_at: null, age_hours: 1, profile_id: null,
+    }));
+    let failNextPage = true;
+    const offsets: number[] = [];
+    await page.route("**/api/operations/supervisor-queue*", async (route) => {
+      const offset = Number(new URL(route.request().url()).searchParams.get("offset") ?? 0);
+      offsets.push(offset);
+      if (offset && failNextPage) {
+        await route.fulfill({ status: 503, json: { error: "Supervisor queue is temporarily unavailable." } });
+        return;
+      }
+      await route.fulfill({ json: {
+        generated_at: "2026-09-28T00:00:00Z", total: items.length,
+        counts: { ehr_handoff_failed: 251 }, severity_counts: { critical: 251, attention: 0, review: 0 },
+        items: items.slice(offset, offset + 250), next_offset: offset === 0 ? 250 : null,
+      } });
+    });
+    await page.goto("/?screen=operations");
+    await page.getByRole("button", { name: "Exceptions", exact: true }).click();
+    const center = page.getByRole("region", { name: "Supervisor command center" });
+    await expect(center.locator("article")).toHaveCount(8);
+    expect(offsets).not.toContain(250);
+    await center.getByRole("button", { name: "Show all 251 exceptions" }).click();
+    await expect(center.getByRole("alert")).toContainText("Supervisor queue is temporarily unavailable.");
+    await expect(center.getByRole("button", { name: "Review handoff for Synthetic First", exact: true })).toBeEnabled();
+    failNextPage = false;
+    await center.getByRole("button", { name: "Retry", exact: true }).click();
+    await expect(center.locator("article")).toHaveCount(251);
+    await expect(center.getByRole("alert")).toHaveCount(0);
+    await center.getByRole("button", { name: "Show priority exceptions" }).click();
+    await expect(center.locator("article")).toHaveCount(8);
+    await center.getByRole("button", { name: "Show all 251 exceptions" }).click();
+    await center.getByRole("button", { name: "Review handoff for Synthetic Last", exact: true }).click();
+    await expect.poll(() => new URL(page.url()).searchParams.get("referralId")).toBe("424492");
   });
 
   test("keeps experimental assessment patterns out of Reports", async ({ page }) => {

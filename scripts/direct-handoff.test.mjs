@@ -9,6 +9,7 @@ const template = loadEntry("lib/notifications/meet-client-email-template.ts");
 const realMail = loadTypeScriptModule(process.cwd(), "lib/notifications/microsoft-graph-mail.ts");
 const schema = loadTypeScriptModule(process.cwd(), "lib/assessment/assessment-tool-schema.ts");
 const summary = loadTypeScriptModule(process.cwd(), "lib/assessment/assessment-summary.ts");
+const medications = loadTypeScriptModule(process.cwd(), "lib/notifications/meet-client-medications.ts");
 
 function fixture(t, options = {}) {
   const dir = mkdtempSync("/tmp/direct-handoff-");
@@ -19,8 +20,8 @@ function fixture(t, options = {}) {
   const audit = loadEntry("lib/pipeline/meet-client-delivery-audit.ts", { "@/lib/database/pipeline-database": db }, globals);
   const user = { id: "admin", name: "Synthetic Coordinator", email: "admin@example.invalid", roles: ["admin"] };
   let authUser = user, access = true, originalAvailable = true, originalEtag = "original-1", savedInput;
-  let assessment = { ...schema.createEmptyAssessmentToolData(), assessment_id: "assessment", assessor_id: "assessor", version: 7, signed_at: "2026-09-23T10:00:00Z", updated_by: user, signed_by: { id: "assessor", name: "Synthetic Assessor" } };
-  let referral = { id: 6, version: 4, name: "Synthetic Client", community: "San Pablo", plannedAdmissionDate: "2026-10-01", requirements: [] };
+  let assessment = { ...schema.createEmptyAssessmentToolData(), assessment_id: "assessment", assessor_id: "assessor", version: 7, signed_at: "2026-09-23T10:00:00Z", updated_by: user, signed_by: { id: "assessor", name: "Synthetic Assessor" }, medications_at_intake: options.assessmentMedications ?? [] };
+  let referral = { id: 6, version: 4, name: "Synthetic Client", community: "San Pablo", currentMedications: options.intakeHistory ?? "", plannedAdmissionDate: "2026-10-01", requirements: [] };
   const bytes = Buffer.from([80, 75, 3, 4, 0, 255, 128]);
   const blobs = new Map([["raw/original", { bytes, etag: originalEtag }]]);
   const signer = {
@@ -59,6 +60,7 @@ function fixture(t, options = {}) {
     "@/lib/assessment/assessment-summary": summary, "@/lib/notifications/direct-handoff": direct,
     "@/lib/notifications/admission-packet-store": store, "@/lib/notifications/admission-packet-files": files,
     "@/lib/notifications/microsoft-graph-mail": mail, "@/lib/notifications/meet-client-email-template": template,
+    "@/lib/notifications/meet-client-medications": medications,
     "@/lib/notifications/outlook-mail": {}, "@/lib/notifications/outlook-handoff": {}, "@/lib/notifications/assessor-email-handoff": {},
     "@/lib/notifications/meet-client-attachments": { getMeetClientAttachmentInventory: async () => inventory },
     "@/lib/pipeline/meet-client-delivery-audit": audit, "@/lib/pipeline/workflow-store": { getReferralWorkflowSnapshot: async () => ({ referral, work_items: [], decision: { outcome: "accepted", decisionId: "decision", assessmentId: "assessment" } }) },
@@ -68,7 +70,8 @@ function fixture(t, options = {}) {
   const history = loadEntry("app/api/communications/route.ts", dependencies, { ...globals, fetch: async url => { const b = blobs.get(url.replace("https://storage.invalid/", "")); return b ? new Response(new Uint8Array(b.bytes)) : new Response(null, { status: 404 }); } });
   const body = { recipients: ["care@outlook.com"], cc_recipients: ["team@example.invalid"], confirmed: true,
     if_match: 4, assessment_id: "assessment", if_match_assessment: 7, client_mutation_id: randomUUID(), packet_revision: inventory.revision,
-    message: { subject: "Reviewed subject", body: "Exact reviewed text <literal>" } };
+    message: { subject: "Reviewed subject", body: "Exact reviewed text <literal>" },
+    medication_review: { assessmentId: "assessment", assessmentVersion: 7, inventory: medications.medicationInventory(assessment.medications_at_intake, referral.currentMedications), selected: [], status: "unconfirmed" } };
   const post = (patch = {}, origin) => route.POST(new Request("http://localhost/api/referrals/6/meet-client-email?delivery=direct", { method: "POST", headers: origin ? { origin } : {}, body: JSON.stringify({ ...body, ...patch }) }), { params: Promise.resolve({ referralId: "6" }) });
   return { store, direct, inventory, body, blobs, bytes, post, get: query => history.GET(new Request(`http://localhost/api/communications?${query}`)),
     prepare: async () => { const response = await post(); assert.equal(response.status, 200, JSON.stringify(await response.clone().json())); return (await response.json()).communication; },
@@ -101,6 +104,29 @@ test("exact prepared snapshot supplies the actual email, assigned assessor Cc/Re
   assert.equal(restored.html, preview.html); assert.equal(restored.status, "submitted");
   const list = await (await f.get("scope=mine")).json(); assert.equal(list.items.length, 1); assert.equal(list.items[0].html, undefined);
   assert.equal((await f.store.listAdmissionPacketLinks(6)).length, 0);
+});
+
+test("changing current-medication choices invalidates a prepared direct email", async t => {
+  const f = fixture(t, { assessmentMedications: ["Medication A", "Medication B"] });
+  const selectedA = { ...f.body.medication_review, selected: ["Medication A"], status: "confirmed" };
+  const previewResponse = await f.post({ medication_review: selectedA });
+  assert.equal(previewResponse.status, 200);
+  const preview = (await previewResponse.json()).communication;
+  assert.match(preview.html, /Medication A/);
+  assert.doesNotMatch(preview.html, /Medication B/);
+  const selectedB = { ...selectedA, selected: ["Medication B"] };
+  const stale = await f.post({ medication_review: selectedB, snapshot_id: preview.id });
+  assert.equal(stale.status, 409);
+  assert.equal(f.sent, 0);
+});
+
+test("confirming no medications cannot reuse an unconfirmed-medication preview", async t => {
+  const f = fixture(t);
+  const preview = await f.prepare();
+  const none = { ...f.body.medication_review, status: "none" };
+  const stale = await f.post({ medication_review: none, snapshot_id: preview.id });
+  assert.equal(stale.status, 409);
+  assert.equal(f.sent, 0);
 });
 
 test("unseen changes to message, recipients, date, same-size original bytes or ownership never send", async t => {

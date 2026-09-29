@@ -1,3 +1,4 @@
+import { closeTestBrowser } from "./support/browser-lifecycle";
 import { confirmReferralFileLabels } from "./support/referral-upload";
 import { referralDocumentAutofillEnabled } from "../../lib/extraction/contracts";
 import { chromium, expect, test, webkit, type Locator } from "@playwright/test";
@@ -70,7 +71,7 @@ for (const [browserName, browserType, width] of [["chromium", chromium, 1440], [
       // Merely displaying a suggestion never turns it into a confirmed chart fact.
       expect(saved.gender ?? "").toBe("");
       expect(saved.packetFields.find((field: { field_key: string }) => field.field_key === "referral.gender").review_status).toBe("pending");
-    } finally { await browser.close(); }
+    } finally { await closeTestBrowser(browser); }
   });
 }
 

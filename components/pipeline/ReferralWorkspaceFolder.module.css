@@ -1,357 +1,979 @@
-.header, .connectedFolder.connectedFolder {
-  --folder-edge: #c7c9be;
-  --folder-fill: #eeeee7;
+/* Design switch (docs/design/DECISIONS.md, "Rollout"). Two blocks until the switch is removed:
+   the first is the current design; the second applies only under html[data-design="v2"].
+   :where() adds no specificity, so each block cascades exactly as it would alone.
+   While both exist, a fix to shared behavior belongs in both blocks. */
+@keyframes paper-in { from { opacity: .75; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+:where(html:not([data-design="v2"])) {
+  .header, .connectedFolder.connectedFolder {
+    --folder-edge: #c7c9be;
+    --folder-fill: #eeeee7;
+  }
+
+  .header {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: var(--pipeline-canvas);
+  }
+
+  .tabRow {
+    display: flex;
+    align-items: flex-end;
+    gap: 0;
+    min-width: 0;
+    padding-top: 8px;
+    border-bottom: 1px solid var(--folder-edge);
+  }
+
+  .identity {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    flex: 0 1 290px;
+    min-width: 110px;
+    min-height: 58px;
+    margin: 0 0 -1px;
+    padding: 7px 10px 8px;
+    border: 1px solid var(--folder-edge);
+    border-bottom-color: var(--folder-fill);
+    border-radius: 10px 20px 0 0;
+    background: linear-gradient(180deg, #fafaf6, var(--folder-fill) 85%);
+    box-shadow: inset 0 1px 0 #fff9, inset 1px 0 0 #fff5, 2px -1px 2px #5945231c;
+  }
+
+  .nameLabel {
+    overflow: hidden;
+    width: 100%;
+    padding: 5px 10px;
+    border: 1px solid #cdd0c6;
+    border-radius: 2px;
+    background: linear-gradient(#fff, #fffdf8);
+    box-shadow: inset 0 1px 2px #5945230d, 0 1px 0 #fff9;
+    color: #252a25;
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 24px;
+    letter-spacing: -.018em;
+    text-align: center;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .stages, .actions {
+    display: flex;
+    align-items: flex-end;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  .stages {
+    isolation: isolate;
+    flex-shrink: 0;
+    gap: 0;
+    padding: 5px 0 0;
+  }
+  .phoneStagePicker { display: none; }
+  .actions { margin-left: auto; flex-shrink: 0; }
+  .assessmentTools { flex-shrink: 0; margin: 0 0 4px 12px; }
+  .assessmentTools:empty { display: none; }
+  .actions > button { min-height: 44px; }
+
+  .syncStatus { display: inline-flex; align-items: center; align-self: center; flex-shrink: 0; padding-inline: 4px; color: #176c51; }
+
+  .stageTab, .utilityTab, .createTab {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    gap: 7px;
+    min-height: 44px;
+    padding: 0 14px;
+    border: 1px solid #d6dad9;
+    border-bottom: 0;
+    border-radius: 8px 10px 0 0;
+    background: #f3f5f4;
+    color: #4b5652;
+    font-size: 15px;
+    font-weight: 650;
+    text-align: center;
+    letter-spacing: -.015em;
+    white-space: nowrap;
+    box-shadow: inset 0 1px 0 #fff9;
+    transition: background-color 120ms ease;
+  }
+
+  .stageTab {
+    --tab-ink: #176c51;
+    --tab-fill: #e6f1e9;
+    --tab-edge: #b2cdbc;
+    --tab-active: #d1e9db;
+    position: relative;
+    z-index: 1;
+    min-height: 50px;
+    padding-inline: 24px;
+    font-size: 17px;
+    border-color: var(--tab-edge);
+    border-top: 2px solid var(--tab-ink);
+    border-radius: 10px 20px 0 0;
+    background: linear-gradient(180deg, #ffffff80, #ffffff00 36%, #5945230d), var(--tab-fill);
+    box-shadow: inset 0 1px 0 #ffffffbf, inset 1px 0 0 #ffffff60, 2px -1px 2px #43341824;
+    color: var(--tab-ink);
+    transition: transform 120ms ease, background-color 120ms ease, box-shadow 120ms ease;
+  }
+
+  .stageTab + .stageTab { margin-left: -14px; }
+
+  .stageTab[data-folder-stage="2"] {
+    --tab-ink: #a44249;
+    --tab-fill: #faebeb;
+    --tab-edge: #e2bcc0;
+    --tab-active: #f4dadd;
+  }
+
+  .stageTab[data-folder-stage="workflow"] {
+    --tab-ink: #875620;
+    --tab-fill: #faf0e1;
+    --tab-edge: #dfc9a7;
+    --tab-active: #f3e4c9;
+  }
+
+  .stageTab[data-folder-stage="3"] {
+    --tab-ink: #386483;
+    --tab-fill: #e9f1f7;
+    --tab-edge: #b7ccdc;
+    --tab-active: #d9e8f1;
+  }
+
+  .stageTab[data-folder-stage="email"] {
+    --tab-ink: #176c51;
+    --tab-fill: #e6f1e9;
+    --tab-edge: #b2cdbc;
+    --tab-active: #cfe7d8;
+  }
+
+  .stageTab[aria-current="page"] {
+    z-index: 3;
+    background: linear-gradient(180deg, var(--tab-active), #f6f7f4 66%, var(--folder-fill, #eeeee7));
+    font-weight: 700;
+    transform: translateY(-3px);
+    box-shadow: inset 0 1px 0 #ffffffd9, inset 1px 0 0 #ffffff80, 3px -1px 3px #43341826;
+  }
+
+  /* Carry the raised tab back to the folder edge without scaling its lettering. */
+  .stageTab[aria-current="page"]::after {
+    content: "";
+    position: absolute;
+    inset: auto 0 -4px;
+    height: 4px;
+    border-inline: 1px solid var(--tab-edge);
+    background: var(--folder-fill, #eeeee7);
+    pointer-events: none;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .stageTab:hover:not(:disabled):not([aria-current="page"]) { background-color: var(--tab-active); transform: translateY(-1px); }
+    .stageTab:active:not(:disabled) { transform: none; }
+  }
+
+  .stageTab:focus-visible { z-index: 4; }
+  .utilityTab:hover, .utilityTab[aria-current="page"] { background: #e5ebe8; color: #253d32; }
+  .trashTab { color: #8d382f; }
+  .trashTab:hover:not(:disabled) { background: #fdf2f0; color: #8d382f; }
+  .trashTab:disabled { color: #6d7571; }
+
+  .createTab.createTab {
+    min-width: 184px;
+    min-height: 56px;
+    padding-inline: 20px;
+    border: 1px solid #16634f;
+    border-bottom: 3px solid #075641;
+    border-radius: 10px 14px 0 0;
+    background: linear-gradient(135deg, #10866b, #08715a);
+    color: #fff;
+    font-size: 17px;
+    font-weight: 700;
+    box-shadow: inset 0 1px 0 #ffffff40, 0 -2px 6px #15483518;
+  }
+
+  .createTab svg { flex-shrink: 0; width: 20px; height: 20px; }
+  .createTab:hover:not(:disabled) { background: linear-gradient(135deg, #0c785f, #065e4b); }
+  .createTab:active:not(:disabled) { box-shadow: inset 0 2px 4px #043a3038; }
+  .createTab:disabled { cursor: not-allowed; background: #e0e7e3; border-color: #c4cfc9; color: #56645b; }
+  .tabRow .createTab:focus-visible { outline-color: #fff; }
+
+  .tabRow button:focus-visible {
+    outline: 2px solid #193d32;
+    outline-offset: -4px;
+  }
+
+  .saveNotice {
+    display: inline-flex;
+    max-width: calc(100% - 20px);
+    align-items: center;
+    gap: 6px;
+    margin: 3px 10px;
+    padding: 3px 7px;
+    border-radius: 4px;
+    background: #f4f7f5;
+    font-size: 14px;
+    line-height: 20px;
+    font-weight: 600;
+  }
+
+  .connectedFolder.connectedFolder { margin-top: 0; }
+  .connectedFolder > div { border-top: 0; border-radius: 0 0 6px 6px; }
+
+  @media (min-width: 1251px) {
+    .identity + .stages { margin-left: -10px; }
+  }
+
+  .readingWorkspace { display: flex; flex-direction: column; height: 100%; min-height: 0; padding-bottom: 4px; }
+  .readingWorkspace > .header { flex-shrink: 0; }
+  .readingPages, .readingPages > section, .readingPages > section > div { display: flex; flex: 1; flex-direction: column; min-height: 0; }
+  .readingPages { overflow: hidden; }
+
+  /* The workspace owns desktop scrolling; phone interviews keep their one-question viewport. */
+  @media (min-width: 640px) {
+    .readingWorkspace { height: auto; min-height: 100%; }
+    .readingPages, .readingPages > section, .readingPages > section > div { flex: 1 0 auto; min-height: auto; overflow: visible; }
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .readingPages [data-assessment-question-content], .readingPages [aria-label="Assessment chart review"] { animation: paper-in 150ms ease-out; }
+
+  }
+
+  @media (max-width: 1250px) {
+    .tabRow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 6px; padding-top: 0; }
+    .identity { min-width: 0; max-width: 340px; }
+    .actions { grid-column: 2; grid-row: 1; }
+    .stages { grid-column: 1 / -1; overflow-x: auto; }
+    .stageTab { flex: 1 0 auto; }
+  }
+
+  .tabRow:has(.assessmentTools) .utilityTab { width: 44px; padding-inline: 0; }
+  .tabRow:has(.assessmentTools) .utilityTab span { display: none; }
+
+  @media (max-width: 1250px) {
+    /* Keep creation attached to the folder edge, with utilities beside the name. */
+    .tabRow:has([data-guide-target="create-workspace"]) { grid-template-columns: minmax(0, 1fr) 96px 44px 44px; gap: 0 3px; }
+    .tabRow:has([data-guide-target="create-workspace"]) .identity { grid-column: 1 / 3; grid-row: 1; }
+    .tabRow:has([data-guide-target="create-workspace"]) .actions { display: contents; }
+    .tabRow:has([data-guide-target="create-workspace"]) .utilityTab { grid-column: 3; grid-row: 1; width: 44px; padding-inline: 0; }
+    .tabRow:has([data-guide-target="create-workspace"]) .utilityTab span { display: none; }
+    .tabRow:has([data-guide-target="create-workspace"]) .utilityTab + .utilityTab { grid-column: 4; }
+    .tabRow:has([data-guide-target="create-workspace"]) .stages { grid-column: 1; grid-row: 2; padding-inline: 1px 4px; max-width: 180px; }
+    .tabRow:has([data-guide-target="create-workspace"]) .createTab { grid-column: 2 / -1; grid-row: 2; align-self: end; }
+  }
+
+  @media (max-width: 639px) {
+    .header { background: var(--pipeline-canvas); }
+    .tabRow { padding-top: 0; gap: 0 4px; }
+    .nameLabel { padding: 3px 6px; font-size: 17px; line-height: 22px; }
+    .identity { padding: 5px 7px 7px; min-height: 48px; }
+    .stageTab, .utilityTab, .createTab { gap: 5px; padding-inline: 10px; font-size: 15px; }
+    .stageTab { padding-inline: 18px; font-size: 16px; min-height: 46px; }
+    .stageTab + .stageTab { margin-left: -8px; }
+    .stageTab[aria-current="page"] { transform: none; }
+    .stageTab[aria-current="page"]::after { display: none; }
+    .utilityTab { width: 44px; padding-inline: 0; }
+    .utilityTab span { display: none; }
+    .utilityTab { border: 1px solid #d6dad9; border-radius: 5px; }
+    .utilityTab { background: transparent; border-color: transparent; }
+    .createTab.createTab { min-width: 0; min-height: 50px; padding-inline: 10px; font-size: 16px; }
+    .actions { align-items: center; align-self: center; gap: 0; }
+    .actions > button { min-width: 44px; min-height: 44px; }
+    .stages { overflow: visible; }
+    .stageTab { flex: 1 1 0; min-width: 0; padding-inline: 8px; font-size: 14px; }
+    .stageTab > span:last-child { white-space: normal; line-height: 1.15; }
+
+    .tabRow:has([data-guide-target="create-workspace"]) { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 44px 44px; gap: 0 2px; }
+  }
+
+  @media (max-width: 379px) {
+    .stageTab { padding-inline: 9px; }
+    .connectedFolder [data-testid="document-checklist-toggle"] > div:first-child { flex-wrap: wrap; gap: 2px 6px; }
+  }
+
+  @media (max-width: 1100px) {
+    .connectedFolder > div { padding: 4px; }
+    .connectedFolder > div > div { padding: 0; border: 0; box-shadow: none; }
+    .connectedFolder [aria-label="Document checklist"] { margin-bottom: 4px; }
+    .connectedFolder [data-testid="document-checklist-toggle"] { min-height: 44px; padding: 6px 10px; gap: 8px; }
+    .connectedFolder [data-testid="document-checklist-toggle"] > div:last-child { gap: 8px; }
+    .connectedFolder [data-testid="document-checklist-toggle"] h2 { font-size: 13px; }
+    .connectedFolder article[aria-label="Referral intake chart"] > header { display: flex; align-items: center; justify-content: space-between; }
+    .connectedFolder article[aria-label="Referral intake chart"] > header > div { padding: 8px 10px; border: 0; }
+    .connectedFolder article[aria-label="Referral intake chart"] > header h1 { font-size: 15px; }
+    .connectedFolder [data-guide-target="intake-identity"] h2 { padding: 8px 10px; font-size: 11px; }
+    .connectedFolder [data-workspace-field] { padding: 8px 10px; min-height: 76px; }
+    .connectedFolder [data-workspace-field] label { font-size: 11px; }
+  }
+
+  @media (max-width: 1100px), (hover: none) and (pointer: coarse) {
+    .actions > button { min-width: 44px; min-height: 44px; }
+    .connectedFolder [data-workspace-field] :is(input:not([type="checkbox"]), select, textarea) { min-height: 44px; font-size: 16px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .stageTab, .utilityTab, .createTab { transition: none; }
+  }
+
+  /* Phones keep the file identity, not the desktop folder's decorative chrome. */
+  .phoneWorkspace > [data-testid="packet-workspace"] { padding-inline: 0; }
+  .phoneWorkspace .header { background: #fff; }
+  .phoneWorkspace .tabRow { grid-template-columns: minmax(0, 1fr) minmax(108px, 140px) auto; align-items: center; gap: 4px; padding: 4px 12px; border-bottom: 1px solid #dce5df; }
+  .phoneWorkspace .identity { grid-column: 1; grid-row: 1; min-width: 0; min-height: 44px; margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+  .phoneWorkspace .nameLabel { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; padding: 0 6px 0 0; border: 0; background: transparent; box-shadow: none; color: #263c32; font-size: 18px; line-height: 1.25; font-weight: 650; text-align: left; white-space: normal; overflow-wrap: anywhere; }
+  .phoneWorkspace .stages { grid-column: 2; grid-row: 1; padding: 0; overflow: visible; }
+  .phoneWorkspace .stageTab { display: none; }
+  .phoneWorkspace .phoneStagePicker { display: inline-flex; width: 100%; min-height: 44px; padding: 8px; border: 1px solid #dce6e0; border-radius: 7px; background: #f5f8f6; color: #1f664d; font-size: 16px; font-weight: 600; }
+  .phoneWorkspace .actions { grid-column: 3; grid-row: 1; gap: 0; }
+  .phoneWorkspace .actions > .createTab { flex-direction: column; gap: 0; width: 44px; min-width: 44px; padding: 0; overflow: hidden; font-size: 0; }
+  .phoneWorkspace .actions > .createTab > svg { width: 20px; height: 20px; }
+  .phoneWorkspace .actions > .createTab::after { content: "Intake"; font-size: 10px; line-height: 1.1; }
+  .phoneWorkspace .header[data-reading-assessment] .createTab { display: none; }
+  .phoneWorkspace .assessmentTools { margin: 0; }
+  .phoneWorkspace .actions:has(.assessmentTools:not(:empty)) { grid-column: 1 / -1; grid-row: 2; justify-self: end; }
+  .phoneWorkspace .actions .utilityTab:not(.trashTab), .phoneWorkspace .actions [aria-label="Workspaces"] { display: none; }
+  .phoneWorkspace .readingWorkspace { height: 100%; min-height: 0; padding-bottom: 0; }
+  .phoneWorkspace :is(.readingPages, .readingPages > section, .readingPages > section > div) { flex: 1; min-height: 0; overflow: hidden; }
+  .phoneWorkspace .tabRow:has([data-guide-target="create-workspace"]) { grid-template-columns: minmax(0, 1fr) auto; }
+  .phoneWorkspace .tabRow:has([data-guide-target="create-workspace"]) .identity { grid-column: 1 / -1; grid-row: 1; }
+  .phoneWorkspace .tabRow:has([data-guide-target="create-workspace"]) .stages { grid-column: 1; grid-row: 2; max-width: none; padding: 0; }
+  .phoneWorkspace .tabRow:has([data-guide-target="create-workspace"]) .createTab { grid-column: 2; grid-row: 2; min-height: 44px; border-radius: 7px; }
+  .phoneWorkspace :is(.phoneStagePicker, .actions button):focus-visible { outline: 2px solid #087e64; outline-offset: -2px; }
+
+  @media (min-width: 640px) {
+    .phoneWorkspace .actions:has(.assessmentTools:not(:empty)) { grid-column: 3; grid-row: 1; margin-left: 8px; }
+  }
+
+  @media (forced-colors: active) {
+    .header, .connectedFolder.connectedFolder { --folder-fill: Canvas; --folder-edge: ButtonText; }
+    .identity, .stageTab, .utilityTab, .createTab.createTab, .nameLabel {
+      background: Canvas;
+      border-color: ButtonText;
+      color: ButtonText;
+      box-shadow: none;
+    }
+    .stageTab[aria-current="page"], .utilityTab[aria-current="page"] { border-bottom: 3px solid Highlight; }
+    .stageTab[aria-current="page"]::after { display: none; }
+    .tabRow .createTab:focus-visible { outline-color: Highlight; }
+  }
 }
 
-.header {
-  position: sticky;
-  top: 0;
-  z-index: 20;
-  background: var(--pipeline-canvas);
-}
+:where(html[data-design="v2"]) {
+  .header, .connectedFolder.connectedFolder {
+    --folder-edge: var(--color-folder-edge);
+    --folder-fill: var(--color-folder);
+  }
 
-.tabRow {
-  display: flex;
-  align-items: flex-end;
-  gap: 0;
-  min-width: 0;
-  padding-top: 8px;
-  border-bottom: 1px solid var(--folder-edge);
-}
+  .header {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: var(--pipeline-canvas);
+  }
 
-.identity {
-  position: relative;
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  flex: 0 1 290px;
-  min-width: 110px;
-  min-height: 58px;
-  margin: 0 0 -1px;
-  padding: 7px 10px 8px;
-  border: 1px solid var(--folder-edge);
-  border-bottom-color: var(--folder-fill);
-  border-radius: 10px 20px 0 0;
-  background: linear-gradient(180deg, #fafaf6, var(--folder-fill) 85%);
-  box-shadow: inset 0 1px 0 #fff9, inset 1px 0 0 #fff5, 2px -1px 2px #5945231c;
-}
+  .tabRow {
+    display: flex;
+    align-items: flex-end;
+    gap: 0;
+    min-width: 0;
+    padding-top: 8px;
+    border-bottom: 1px solid var(--folder-edge);
+  }
 
-.nameLabel {
-  overflow: hidden;
-  width: 100%;
-  padding: 5px 10px;
-  border: 1px solid #cdd0c6;
-  border-radius: 2px;
-  background: linear-gradient(#fff, #fffdf8);
-  box-shadow: inset 0 1px 2px #5945230d, 0 1px 0 #fff9;
-  color: #252a25;
-  font-size: 18px;
-  font-weight: 700;
-  line-height: 24px;
-  letter-spacing: -.018em;
-  text-align: center;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.stages, .actions {
-  display: flex;
-  align-items: flex-end;
-  gap: 4px;
-  min-width: 0;
-}
-
-.stages {
-  isolation: isolate;
-  flex-shrink: 0;
-  gap: 0;
-  padding: 5px 0 0;
-}
-.phoneStagePicker { display: none; }
-.actions { margin-left: auto; flex-shrink: 0; }
-.assessmentTools { flex-shrink: 0; margin: 0 0 4px 12px; }
-.assessmentTools:empty { display: none; }
-.actions > button { min-height: 44px; }
-
-.syncStatus { display: inline-flex; align-items: center; align-self: center; flex-shrink: 0; padding-inline: 4px; color: #176c51; }
-
-.stageTab, .utilityTab, .createTab {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  gap: 7px;
-  min-height: 44px;
-  padding: 0 14px;
-  border: 1px solid #d6dad9;
-  border-bottom: 0;
-  border-radius: 8px 10px 0 0;
-  background: #f3f5f4;
-  color: #4b5652;
-  font-size: 15px;
-  font-weight: 650;
-  text-align: center;
-  letter-spacing: -.015em;
-  white-space: nowrap;
-  box-shadow: inset 0 1px 0 #fff9;
-  transition: background-color 120ms ease;
-}
-
-.stageTab {
-  --tab-ink: #176c51;
-  --tab-fill: #e6f1e9;
-  --tab-edge: #b2cdbc;
-  --tab-active: #d1e9db;
-  position: relative;
-  z-index: 1;
-  min-height: 50px;
-  padding-inline: 24px;
-  font-size: 17px;
-  border-color: var(--tab-edge);
-  border-top: 2px solid var(--tab-ink);
-  border-radius: 10px 20px 0 0;
-  background: linear-gradient(180deg, #ffffff80, #ffffff00 36%, #5945230d), var(--tab-fill);
-  box-shadow: inset 0 1px 0 #ffffffbf, inset 1px 0 0 #ffffff60, 2px -1px 2px #43341824;
-  color: var(--tab-ink);
-  transition: transform 120ms ease, background-color 120ms ease, box-shadow 120ms ease;
-}
-
-.stageTab + .stageTab { margin-left: -14px; }
-
-.stageTab[data-folder-stage="2"] {
-  --tab-ink: #a44249;
-  --tab-fill: #faebeb;
-  --tab-edge: #e2bcc0;
-  --tab-active: #f4dadd;
-}
-
-.stageTab[data-folder-stage="workflow"] {
-  --tab-ink: #875620;
-  --tab-fill: #faf0e1;
-  --tab-edge: #dfc9a7;
-  --tab-active: #f3e4c9;
-}
-
-.stageTab[data-folder-stage="3"] {
-  --tab-ink: #386483;
-  --tab-fill: #e9f1f7;
-  --tab-edge: #b7ccdc;
-  --tab-active: #d9e8f1;
-}
-
-.stageTab[data-folder-stage="email"] {
-  --tab-ink: #176c51;
-  --tab-fill: #e6f1e9;
-  --tab-edge: #b2cdbc;
-  --tab-active: #cfe7d8;
-}
-
-.stageTab[aria-current="page"] {
-  z-index: 3;
-  background: linear-gradient(180deg, var(--tab-active), #f6f7f4 66%, var(--folder-fill, #eeeee7));
-  font-weight: 700;
-  transform: translateY(-3px);
-  box-shadow: inset 0 1px 0 #ffffffd9, inset 1px 0 0 #ffffff80, 3px -1px 3px #43341826;
-}
-
-/* Carry the raised tab back to the folder edge without scaling its lettering. */
-.stageTab[aria-current="page"]::after {
-  content: "";
-  position: absolute;
-  inset: auto 0 -4px;
-  height: 4px;
-  border-inline: 1px solid var(--tab-edge);
-  background: var(--folder-fill, #eeeee7);
-  pointer-events: none;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .stageTab:hover:not(:disabled):not([aria-current="page"]) { background-color: var(--tab-active); transform: translateY(-1px); }
-  .stageTab:active:not(:disabled) { transform: none; }
-}
-
-.stageTab:focus-visible { z-index: 4; }
-.utilityTab:hover, .utilityTab[aria-current="page"] { background: #e5ebe8; color: #253d32; }
-.trashTab { color: #8d382f; }
-.trashTab:hover:not(:disabled) { background: #fdf2f0; color: #8d382f; }
-.trashTab:disabled { color: #6d7571; }
-
-.createTab.createTab {
-  min-width: 184px;
-  min-height: 56px;
-  padding-inline: 20px;
-  border: 1px solid #16634f;
-  border-bottom: 3px solid #075641;
-  border-radius: 10px 14px 0 0;
-  background: linear-gradient(135deg, #10866b, #08715a);
-  color: #fff;
-  font-size: 17px;
-  font-weight: 700;
-  box-shadow: inset 0 1px 0 #ffffff40, 0 -2px 6px #15483518;
-}
-
-.createTab svg { flex-shrink: 0; width: 20px; height: 20px; }
-.createTab:hover:not(:disabled) { background: linear-gradient(135deg, #0c785f, #065e4b); }
-.createTab:active:not(:disabled) { box-shadow: inset 0 2px 4px #043a3038; }
-.createTab:disabled { cursor: not-allowed; background: #e0e7e3; border-color: #c4cfc9; color: #56645b; }
-.tabRow .createTab:focus-visible { outline-color: #fff; }
-
-.tabRow button:focus-visible {
-  outline: 2px solid #193d32;
-  outline-offset: -4px;
-}
-
-.saveNotice {
-  display: inline-flex;
-  max-width: calc(100% - 20px);
-  align-items: center;
-  gap: 6px;
-  margin: 3px 10px;
-  padding: 3px 7px;
-  border-radius: 4px;
-  background: #f4f7f5;
-  font-size: 14px;
-  line-height: 20px;
-  font-weight: 600;
-}
-
-.connectedFolder.connectedFolder { margin-top: 0; }
-.connectedFolder > div { border-top: 0; border-radius: 0 0 6px 6px; }
-
-@media (min-width: 1251px) {
-  .identity + .stages { margin-left: -10px; }
-}
-
-.readingWorkspace { display: flex; flex-direction: column; height: 100%; min-height: 0; padding-bottom: 4px; }
-.readingWorkspace > .header { flex-shrink: 0; }
-.readingPages, .readingPages > section, .readingPages > section > div { display: flex; flex: 1; flex-direction: column; min-height: 0; }
-.readingPages { overflow: hidden; }
-
-/* The workspace owns desktop scrolling; phone interviews keep their one-question viewport. */
-@media (min-width: 640px) {
-  .readingWorkspace { height: auto; min-height: 100%; }
-  .readingPages, .readingPages > section, .readingPages > section > div { flex: 1 0 auto; min-height: auto; overflow: visible; }
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .readingPages [data-assessment-question-content], .readingPages [aria-label="Assessment chart review"] { animation: paper-in 150ms ease-out; }
-  @keyframes paper-in { from { opacity: .75; transform: translateY(4px); } to { opacity: 1; transform: none; } }
-}
-
-@media (max-width: 1250px) {
-  .tabRow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 6px; padding-top: 0; }
-  .identity { min-width: 0; max-width: 340px; }
-  .actions { grid-column: 2; grid-row: 1; }
-  .stages { grid-column: 1 / -1; overflow-x: auto; }
-  .stageTab { flex: 1 0 auto; }
-}
-
-.tabRow:has(.assessmentTools) .utilityTab { width: 44px; padding-inline: 0; }
-.tabRow:has(.assessmentTools) .utilityTab span { display: none; }
-
-@media (max-width: 1250px) {
-  /* Keep creation attached to the folder edge, with utilities beside the name. */
-  .tabRow:has([data-guide-target="create-workspace"]) { grid-template-columns: minmax(0, 1fr) 96px 44px 44px; gap: 0 3px; }
-  .tabRow:has([data-guide-target="create-workspace"]) .identity { grid-column: 1 / 3; grid-row: 1; }
-  .tabRow:has([data-guide-target="create-workspace"]) .actions { display: contents; }
-  .tabRow:has([data-guide-target="create-workspace"]) .utilityTab { grid-column: 3; grid-row: 1; width: 44px; padding-inline: 0; }
-  .tabRow:has([data-guide-target="create-workspace"]) .utilityTab span { display: none; }
-  .tabRow:has([data-guide-target="create-workspace"]) .utilityTab + .utilityTab { grid-column: 4; }
-  .tabRow:has([data-guide-target="create-workspace"]) .stages { grid-column: 1; grid-row: 2; padding-inline: 1px 4px; max-width: 180px; }
-  .tabRow:has([data-guide-target="create-workspace"]) .createTab { grid-column: 2 / -1; grid-row: 2; align-self: end; }
-}
-
-@media (max-width: 639px) {
-  .header { background: var(--pipeline-canvas); }
-  .tabRow { padding-top: 0; gap: 0 4px; }
-  .nameLabel { padding: 3px 6px; font-size: 17px; line-height: 22px; }
-  .identity { padding: 5px 7px 7px; min-height: 48px; }
-  .stageTab, .utilityTab, .createTab { gap: 5px; padding-inline: 10px; font-size: 15px; }
-  .stageTab { padding-inline: 18px; font-size: 16px; min-height: 46px; }
-  .stageTab + .stageTab { margin-left: -8px; }
-  .stageTab[aria-current="page"] { transform: none; }
-  .stageTab[aria-current="page"]::after { display: none; }
-  .utilityTab { width: 44px; padding-inline: 0; }
-  .utilityTab span { display: none; }
-  .utilityTab { border: 1px solid #d6dad9; border-radius: 5px; }
-  .utilityTab { background: transparent; border-color: transparent; }
-  .createTab.createTab { min-width: 0; min-height: 50px; padding-inline: 10px; font-size: 16px; }
-  .actions { align-items: center; align-self: center; gap: 0; }
-  .actions > button { min-width: 44px; min-height: 44px; }
-  .stages { overflow: visible; }
-  .stageTab { flex: 1 1 0; min-width: 0; padding-inline: 8px; font-size: 14px; }
-  .stageTab > span:last-child { white-space: normal; line-height: 1.15; }
-
-  .tabRow:has([data-guide-target="create-workspace"]) { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 44px 44px; gap: 0 2px; }
-}
-
-@media (max-width: 379px) {
-  .stageTab { padding-inline: 9px; }
-  .connectedFolder [data-testid="document-checklist-toggle"] > div:first-child { flex-wrap: wrap; gap: 2px 6px; }
-}
-
-@media (max-width: 1100px) {
-  .connectedFolder > div { padding: 4px; }
-  .connectedFolder > div > div { padding: 0; border: 0; box-shadow: none; }
-  .connectedFolder [aria-label="Document checklist"] { margin-bottom: 4px; }
-  .connectedFolder [data-testid="document-checklist-toggle"] { min-height: 44px; padding: 6px 10px; gap: 8px; }
-  .connectedFolder [data-testid="document-checklist-toggle"] > div:last-child { gap: 8px; }
-  .connectedFolder [data-testid="document-checklist-toggle"] h2 { font-size: 13px; }
-  .connectedFolder article[aria-label="Referral intake chart"] > header { display: flex; align-items: center; justify-content: space-between; }
-  .connectedFolder article[aria-label="Referral intake chart"] > header > div { padding: 8px 10px; border: 0; }
-  .connectedFolder article[aria-label="Referral intake chart"] > header h1 { font-size: 15px; }
-  .connectedFolder [data-guide-target="intake-identity"] h2 { padding: 8px 10px; font-size: 11px; }
-  .connectedFolder [data-workspace-field] { padding: 8px 10px; min-height: 76px; }
-  .connectedFolder [data-workspace-field] label { font-size: 11px; }
-}
-
-@media (max-width: 1100px), (hover: none) and (pointer: coarse) {
-  .actions > button { min-width: 44px; min-height: 44px; }
-  .connectedFolder [data-workspace-field] :is(input:not([type="checkbox"]), select, textarea) { min-height: 44px; font-size: 16px; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .stageTab, .utilityTab, .createTab { transition: none; }
-}
-
-/* Phones keep the file identity, not the desktop folder's decorative chrome. */
-.phoneWorkspace > [data-testid="packet-workspace"] { padding-inline: 0; }
-.phoneWorkspace .header { background: #fff; }
-.phoneWorkspace .tabRow { grid-template-columns: minmax(0, 1fr) minmax(108px, 140px) auto; align-items: center; gap: 4px; padding: 4px 12px; border-bottom: 1px solid #dce5df; }
-.phoneWorkspace .identity { grid-column: 1; grid-row: 1; min-width: 0; min-height: 44px; margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
-.phoneWorkspace .nameLabel { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; padding: 0 6px 0 0; border: 0; background: transparent; box-shadow: none; color: #263c32; font-size: 18px; line-height: 1.25; font-weight: 650; text-align: left; white-space: normal; overflow-wrap: anywhere; }
-.phoneWorkspace .stages { grid-column: 2; grid-row: 1; padding: 0; overflow: visible; }
-.phoneWorkspace .stageTab { display: none; }
-.phoneWorkspace .phoneStagePicker { display: inline-flex; width: 100%; min-height: 44px; padding: 8px; border: 1px solid #dce6e0; border-radius: 7px; background: #f5f8f6; color: #1f664d; font-size: 16px; font-weight: 600; }
-.phoneWorkspace .actions { grid-column: 3; grid-row: 1; gap: 0; }
-.phoneWorkspace .actions > .createTab { flex-direction: column; gap: 0; width: 44px; min-width: 44px; padding: 0; overflow: hidden; font-size: 0; }
-.phoneWorkspace .actions > .createTab > svg { width: 20px; height: 20px; }
-.phoneWorkspace .actions > .createTab::after { content: "Intake"; font-size: 10px; line-height: 1.1; }
-.phoneWorkspace .header[data-reading-assessment] .createTab { display: none; }
-.phoneWorkspace .assessmentTools { margin: 0; }
-.phoneWorkspace .actions:has(.assessmentTools:not(:empty)) { grid-column: 1 / -1; grid-row: 2; justify-self: end; }
-.phoneWorkspace .actions .utilityTab:not(.trashTab), .phoneWorkspace .actions [aria-label="Workspaces"] { display: none; }
-.phoneWorkspace .readingWorkspace { height: 100%; min-height: 0; padding-bottom: 0; }
-.phoneWorkspace :is(.readingPages, .readingPages > section, .readingPages > section > div) { flex: 1; min-height: 0; overflow: hidden; }
-.phoneWorkspace .tabRow:has([data-guide-target="create-workspace"]) { grid-template-columns: minmax(0, 1fr) auto; }
-.phoneWorkspace .tabRow:has([data-guide-target="create-workspace"]) .identity { grid-column: 1 / -1; grid-row: 1; }
-.phoneWorkspace .tabRow:has([data-guide-target="create-workspace"]) .stages { grid-column: 1; grid-row: 2; max-width: none; padding: 0; }
-.phoneWorkspace .tabRow:has([data-guide-target="create-workspace"]) .createTab { grid-column: 2; grid-row: 2; min-height: 44px; border-radius: 7px; }
-.phoneWorkspace :is(.phoneStagePicker, .actions button):focus-visible { outline: 2px solid #087e64; outline-offset: -2px; }
-
-@media (min-width: 640px) {
-  .phoneWorkspace .actions:has(.assessmentTools:not(:empty)) { grid-column: 3; grid-row: 1; margin-left: 8px; }
-}
-
-@media (forced-colors: active) {
-  .header, .connectedFolder.connectedFolder { --folder-fill: Canvas; --folder-edge: ButtonText; }
-  .identity, .stageTab, .utilityTab, .createTab.createTab, .nameLabel {
-    background: Canvas;
-    border-color: ButtonText;
-    color: ButtonText;
+  .identity {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    /* The name tab hugs the name and shares the folder's fill, so tab and folder read as one piece. */
+    flex: 0 1 auto;
+    max-width: 360px;
+    min-width: 110px;
+    min-height: 54px;
+    margin: 0 0 -1px;
+    padding: 7px 7px 9px;
+    border: 1px solid var(--folder-edge);
+    border-bottom-color: var(--folder-fill);
+    border-radius: var(--radius-paper) var(--radius-paper) 0 0;
+    background: var(--folder-fill);
     box-shadow: none;
   }
-  .stageTab[aria-current="page"], .utilityTab[aria-current="page"] { border-bottom: 3px solid Highlight; }
-  .stageTab[aria-current="page"]::after { display: none; }
-  .tabRow .createTab:focus-visible { outline-color: Highlight; }
+
+  .nameLabel {
+    overflow: hidden;
+    width: auto;
+    padding: 7px 18px;
+    border: 1px solid var(--color-paper-rule);
+    border-radius: var(--radius-input);
+    background: var(--color-paper);
+    box-shadow: var(--shadow-card);
+    color: var(--color-ink);
+    font-size: 17px;
+    font-weight: 700;
+    line-height: 22px;
+    letter-spacing: 0;
+    text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .stages, .actions {
+    display: flex;
+    align-items: flex-end;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  .stages {
+    isolation: isolate;
+    flex-shrink: 0;
+    gap: 0;
+    /* Tabs are 44px; the row stays 56px so it centers with the 56px create action. */
+    padding: 12px 0 0;
+  }
+  .phoneStagePicker { display: none; }
+  .actions { margin-left: auto; flex-shrink: 0; }
+  .assessmentTools { flex-shrink: 0; margin: 0 0 4px 12px; }
+  .assessmentTools:empty { display: none; }
+  .actions > button { min-height: 44px; }
+
+  .syncStatus { display: inline-flex; align-items: center; align-self: center; flex-shrink: 0; padding-inline: 4px; color: #176c51; }
+
+  .stageTab, .utilityTab, .createTab {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    gap: 7px;
+    min-height: 44px;
+    padding: 0 14px;
+    border: 1px solid var(--color-control-border);
+    border-bottom: 0;
+    border-radius: var(--radius-input) var(--radius-input) 0 0;
+    background: transparent;
+    color: var(--color-ink-2);
+    font-size: 15px;
+    font-weight: 500;
+    text-align: center;
+    white-space: nowrap;
+    box-shadow: none;
+    transition: background-color var(--duration-fade) ease;
+  }
+
+  .stageTab {
+    --tab-ink: var(--color-stage-blue);
+    --tab-fill: var(--color-stage-blue-tile);
+    --tab-edge: var(--color-stage-blue-border);
+    --tab-active: var(--color-stage-blue-tile);
+    position: relative;
+    z-index: 1;
+    min-height: 44px;
+    padding-inline: 20px;
+    font-size: 15px;
+    font-weight: 600;
+    border-color: var(--tab-edge);
+    border-top: 1px solid var(--tab-edge);
+    border-radius: var(--radius-paper) var(--radius-paper) 0 0;
+    background: var(--tab-fill);
+    box-shadow: none;
+    color: var(--tab-ink);
+    transition: transform var(--duration-fade) ease, background-color var(--duration-fade) ease;
+  }
+
+  .stageTab + .stageTab { margin-left: 6px; }
+
+  /* Stage families (docs/design/DECISIONS.md): Chart and Assessment blue; Decision and Finish & send orange. */
+  /* Assessment, Decision, and Finish & send are manila until a decision: then Decision and
+     Finish & send are green for Accept or red for Deny (owner, 2026-09-26). */
+  .stageTab:is([data-folder-stage="2"], [data-folder-stage="workflow"], [data-folder-stage="email"]) {
+    --tab-ink: color-mix(in srgb, var(--color-manila) 70%, black);
+    --tab-fill: color-mix(in srgb, var(--color-manila) 14%, var(--color-paper));
+    --tab-edge: color-mix(in srgb, var(--color-manila) 40%, var(--color-paper));
+    --tab-active: color-mix(in srgb, var(--color-manila) 14%, var(--color-paper));
+  }
+  [data-decision-outcome="accepted"] .stageTab:is([data-folder-stage="workflow"], [data-folder-stage="email"]) {
+    --tab-ink: var(--color-stage-green);
+    --tab-fill: var(--color-stage-green-tile);
+    --tab-edge: var(--color-stage-green-border);
+    --tab-active: var(--color-stage-green-tile);
+  }
+  [data-decision-outcome="declined"] .stageTab:is([data-folder-stage="workflow"], [data-folder-stage="email"]) {
+    --tab-ink: var(--color-danger);
+    --tab-fill: color-mix(in srgb, var(--color-danger) 10%, var(--color-paper));
+    --tab-edge: color-mix(in srgb, var(--color-danger) 35%, var(--color-paper));
+    --tab-active: color-mix(in srgb, var(--color-danger) 10%, var(--color-paper));
+  }
+
+  .stageTab[aria-current="page"] {
+    z-index: 3;
+    border-color: var(--color-folder-edge);
+    border-top: 3px solid var(--tab-ink);
+    background: var(--folder-fill);
+    font-weight: 700;
+    transform: translateY(-3px);
+    box-shadow: none;
+  }
+
+  /* Carry the raised tab back to the folder edge without scaling its lettering. */
+  .stageTab[aria-current="page"]::after {
+    content: "";
+    position: absolute;
+    inset: auto 0 -4px;
+    height: 4px;
+    border-inline: 1px solid var(--color-folder-edge);
+    background: var(--folder-fill);
+    pointer-events: none;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .stageTab:hover:not(:disabled):not([aria-current="page"]) { background-color: var(--tab-active); transform: translateY(-1px); }
+    .stageTab:active:not(:disabled) { transform: none; }
+  }
+
+  .stageTab:focus-visible { z-index: 4; }
+  .utilityTab { min-height: 44px; padding: 0 10px; border: 0; border-radius: var(--radius-input); align-self: center; }
+  .utilityTab:hover, .utilityTab[aria-current="page"] { background: var(--color-segment); color: var(--color-ink); }
+  .presence { display: flex; flex-wrap: wrap; align-items: center; align-self: center; gap: 6px; margin-left: auto; }
+  .presence + .actions { margin-left: 12px; }
+  .presence > span { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid var(--color-card-border); border-radius: var(--radius-pill); background: var(--color-paper); color: var(--color-ink-2); font-size: var(--text-meta); line-height: var(--text-meta--line-height); font-weight: 600; }
+  .presence > span > span { width: 8px; height: 8px; border-radius: 50%; background: var(--color-status-done); }
+  .trashTab { color: #8d382f; }
+  .trashTab:hover:not(:disabled) { background: #fdf2f0; color: #8d382f; }
+  .trashTab:disabled { color: #6d7571; }
+
+  .createTab.createTab {
+    min-width: 184px;
+    min-height: 56px;
+    padding-inline: 20px;
+    border: 1px solid #16634f;
+    border-bottom: 3px solid #075641;
+    border-radius: 10px 14px 0 0;
+    background: linear-gradient(135deg, #10866b, #08715a);
+    color: #fff;
+    font-size: 17px;
+    font-weight: 700;
+    box-shadow: inset 0 1px 0 #ffffff40, 0 -2px 6px #15483518;
+  }
+
+  .createTab svg { flex-shrink: 0; width: 20px; height: 20px; }
+  .createTab:hover:not(:disabled) { background: linear-gradient(135deg, #0c785f, #065e4b); }
+  .createTab:active:not(:disabled) { box-shadow: inset 0 2px 4px #043a3038; }
+  .createTab:disabled { cursor: not-allowed; background: #e0e7e3; border-color: #c4cfc9; color: #56645b; }
+  .tabRow .createTab:focus-visible { outline-color: #fff; }
+
+  .tabRow button:focus-visible {
+    outline: 2px solid #193d32;
+    outline-offset: -4px;
+  }
+
+  .saveNotice {
+    display: inline-flex;
+    max-width: calc(100% - 20px);
+    align-items: center;
+    gap: 6px;
+    margin: 3px 10px;
+    padding: 3px 7px;
+    border-radius: 4px;
+    background: var(--color-sheet);
+    font-size: 14px;
+    line-height: 20px;
+    font-weight: 600;
+  }
+
+  .connectedFolder.connectedFolder { margin-top: 0; }
+  .connectedFolder > div { border-top: 0; border-radius: 0 var(--radius-folder) var(--radius-folder) var(--radius-folder); }
+
+  @media (min-width: 1251px) {
+    .identity + .stages { margin-left: 8px; }
+  }
+
+  .readingWorkspace { display: flex; flex-direction: column; height: 100%; min-height: 0; padding-bottom: 4px; }
+  .readingWorkspace > .header { flex-shrink: 0; }
+  .readingPages, .readingPages > section, .readingPages > section > div { display: flex; flex: 1; flex-direction: column; min-height: 0; }
+  .readingPages { overflow: hidden; }
+
+  /* The workspace owns desktop scrolling; phone interviews keep their one-question viewport. */
+  @media (min-width: 640px) {
+    .readingWorkspace { height: auto; min-height: 100%; }
+    .readingPages, .readingPages > section, .readingPages > section > div { flex: 1 0 auto; min-height: auto; overflow: visible; }
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .readingPages [data-assessment-question-content], .readingPages [aria-label="Assessment chart review"] { animation: paper-in 150ms ease-out; }
+
+  }
+
+  @media (max-width: 1250px) {
+    .tabRow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 6px; padding-top: 0; }
+    .identity { min-width: 0; max-width: 340px; }
+    .actions { grid-column: 2; grid-row: 1; }
+    .stages { grid-column: 1 / -1; overflow-x: auto; }
+    .stageTab { flex: 1 0 auto; }
+  }
+
+
+  @media (max-width: 1250px) {
+    /* Keep creation attached to the folder edge, with utilities beside the name. */
+    .tabRow:has([data-guide-target="create-workspace"]) { grid-template-columns: minmax(0, 1fr) 96px 44px 44px; gap: 0 3px; }
+    .tabRow:has([data-guide-target="create-workspace"]) .identity { grid-column: 1 / 3; grid-row: 1; }
+    .tabRow:has([data-guide-target="create-workspace"]) .actions { display: contents; }
+    .tabRow:has([data-guide-target="create-workspace"]) .utilityTab { grid-column: 3; grid-row: 1; width: 44px; padding-inline: 0; }
+    .tabRow:has([data-guide-target="create-workspace"]) .utilityTab span { display: none; }
+    .tabRow:has([data-guide-target="create-workspace"]) .utilityTab + .utilityTab { grid-column: 4; }
+    .tabRow:has([data-guide-target="create-workspace"]) .stages { grid-column: 1; grid-row: 2; padding-inline: 1px 4px; max-width: 180px; }
+    .tabRow:has([data-guide-target="create-workspace"]) .createTab { grid-column: 2 / -1; grid-row: 2; align-self: end; }
+  }
+
+  @media (max-width: 639px) {
+    .header { background: var(--pipeline-canvas); }
+    .tabRow { padding-top: 0; gap: 0 4px; }
+    .nameLabel { padding: 3px 6px; font-size: 17px; line-height: 22px; }
+    .identity { padding: 5px 7px 7px; min-height: 48px; }
+    .stageTab, .utilityTab, .createTab { gap: 5px; padding-inline: 10px; font-size: 15px; }
+    .stageTab { padding-inline: 18px; font-size: 16px; min-height: 46px; }
+    .stageTab + .stageTab { margin-left: -8px; }
+    .stageTab[aria-current="page"] { transform: none; }
+    .stageTab[aria-current="page"]::after { display: none; }
+    .utilityTab { width: 44px; padding-inline: 0; }
+    .utilityTab span { display: none; }
+    .utilityTab { border: 1px solid var(--color-control-border); border-radius: 5px; }
+    .utilityTab { background: transparent; border-color: transparent; }
+    .createTab.createTab { min-width: 0; min-height: 50px; padding-inline: 10px; font-size: 16px; }
+    .actions { align-items: center; align-self: center; gap: 0; }
+    .actions > button { min-width: 44px; min-height: 44px; }
+    .stages { overflow: visible; }
+    .stageTab { flex: 1 1 0; min-width: 0; padding-inline: 8px; font-size: 14px; }
+    .stageTab > span:last-child { white-space: normal; line-height: 1.15; }
+
+    .tabRow:has([data-guide-target="create-workspace"]) { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 44px 44px; gap: 0 2px; }
+  }
+
+  @media (max-width: 379px) {
+    .stageTab { padding-inline: 9px; }
+    .connectedFolder [data-testid="document-checklist-toggle"] > div:first-child { flex-wrap: wrap; gap: 2px 6px; }
+  }
+
+  @media (max-width: 1100px) {
+    .connectedFolder > div { padding: 4px; }
+    .connectedFolder > div > div { padding: 0; border: 0; box-shadow: none; }
+    .connectedFolder [aria-label="Document checklist"] { margin-bottom: 4px; }
+    .connectedFolder [data-testid="document-checklist-toggle"] { min-height: 44px; padding: 6px 10px; gap: 8px; }
+    .connectedFolder [data-testid="document-checklist-toggle"] > div:last-child { gap: 8px; }
+    .connectedFolder [data-testid="document-checklist-toggle"] h2 { font-size: 13px; }
+    .connectedFolder article[aria-label="Referral intake chart"] > header { display: flex; align-items: center; justify-content: space-between; }
+    .connectedFolder article[aria-label="Referral intake chart"] > header > div { padding: 8px 10px; border: 0; }
+    .connectedFolder article[aria-label="Referral intake chart"] > header h1 { font-size: 15px; }
+    .connectedFolder [data-guide-target="intake-identity"] h2 { padding: 8px 10px; font-size: 11px; }
+    .connectedFolder [data-workspace-field] { padding: 8px 10px; min-height: 76px; }
+    .connectedFolder [data-workspace-field] label { font-size: 11px; }
+  }
+
+  @media (max-width: 1100px), (hover: none) and (pointer: coarse) {
+    .actions > button { min-width: 44px; min-height: 44px; }
+    .connectedFolder [data-workspace-field] :is(input:not([type="checkbox"]), select, textarea) { min-height: 44px; font-size: 16px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .stageTab, .utilityTab, .createTab { transition: none; }
+  }
+
+  /* Phones keep the file identity, not the desktop folder's decorative chrome. */
+  .phoneWorkspace > [data-testid="packet-workspace"] { padding-inline: 0; }
+  .phoneWorkspace .header { background: #fff; }
+  .phoneWorkspace .tabRow { grid-template-columns: minmax(0, 1fr) minmax(108px, 140px) auto; align-items: center; gap: 4px; padding: 4px 12px; border-bottom: 1px solid #dce5df; }
+  .phoneWorkspace .identity { grid-column: 1; grid-row: 1; min-width: 0; min-height: 44px; margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+  .phoneWorkspace .nameLabel { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; padding: 0 6px 0 0; border: 0; background: transparent; box-shadow: none; color: var(--color-ink); font-size: 18px; line-height: 1.25; font-weight: 650; text-align: left; white-space: normal; overflow-wrap: anywhere; }
+  .phoneWorkspace .stages { grid-column: 2; grid-row: 1; padding: 0; overflow: visible; }
+  .phoneWorkspace .stageTab { display: none; }
+  .phoneWorkspace .phoneStagePicker { display: inline-flex; width: 100%; min-height: 44px; padding: 8px; border: 1px solid var(--color-paper-rule); border-radius: 7px; background: #f5f8f6; color: #1f664d; font-size: 16px; font-weight: 600; }
+  .phoneWorkspace .actions { grid-column: 3; grid-row: 1; gap: 0; }
+  .phoneWorkspace .actions > .createTab { flex-direction: column; gap: 0; width: 44px; min-width: 44px; padding: 0; overflow: hidden; font-size: 0; }
+  .phoneWorkspace .actions > .createTab > svg { width: 20px; height: 20px; }
+  .phoneWorkspace .actions > .createTab::after { content: "Intake"; font-size: 10px; line-height: 1.1; }
+  .phoneWorkspace .header[data-reading-assessment] .createTab { display: none; }
+  .phoneWorkspace .assessmentTools { margin: 0; }
+  .phoneWorkspace .actions:has(.assessmentTools:not(:empty)) { grid-column: 1 / -1; grid-row: 2; justify-self: end; }
+  .phoneWorkspace .actions .utilityTab:not(.trashTab), .phoneWorkspace .actions [aria-label="Workspaces"] { display: none; }
+  .phoneWorkspace .readingWorkspace { height: 100%; min-height: 0; padding-bottom: 0; }
+  .phoneWorkspace :is(.readingPages, .readingPages > section, .readingPages > section > div) { flex: 1; min-height: 0; overflow: hidden; }
+  .phoneWorkspace .tabRow:has([data-guide-target="create-workspace"]) { grid-template-columns: minmax(0, 1fr) auto; }
+  .phoneWorkspace .tabRow:has([data-guide-target="create-workspace"]) .identity { grid-column: 1 / -1; grid-row: 1; }
+  .phoneWorkspace .tabRow:has([data-guide-target="create-workspace"]) .stages { grid-column: 1; grid-row: 2; max-width: none; padding: 0; }
+  .phoneWorkspace .tabRow:has([data-guide-target="create-workspace"]) .createTab { grid-column: 2; grid-row: 2; min-height: 44px; border-radius: 7px; }
+  .phoneWorkspace :is(.phoneStagePicker, .actions button):focus-visible { outline: 2px solid var(--color-focus); outline-offset: -2px; }
+
+  @media (min-width: 640px) {
+    .phoneWorkspace .actions:has(.assessmentTools:not(:empty)) { grid-column: 3; grid-row: 1; margin-left: 8px; }
+  }
+
+  @media (forced-colors: active) {
+    .header, .connectedFolder.connectedFolder { --folder-fill: Canvas; --folder-edge: ButtonText; }
+    .identity, .stageTab, .utilityTab, .createTab.createTab, .nameLabel {
+      background: Canvas;
+      border-color: ButtonText;
+      color: ButtonText;
+      box-shadow: none;
+    }
+    .stageTab[aria-current="page"], .utilityTab[aria-current="page"] { border-bottom: 3px solid Highlight; }
+    .stageTab[aria-current="page"]::after { display: none; }
+    .tabRow .createTab:focus-visible { outline-color: Highlight; }
+  }
+
+  /* Vertical flow (docs/design/DECISIONS.md, "Record layout"): a progress rail on the left,
+     the step's page on the right. Chart is the record's home at the top of the rail. */
+  @media (min-width: 1024px) {
+    /* The rail sits directly on the page (no card, owner 2026-09-26) and gives its width to the work area. */
+    .verticalFlow { display: grid; grid-template-columns: 188px minmax(0, 1fr); column-gap: 20px; align-items: start; max-width: 1640px; padding-top: 20px; }
+    /* A gutter for the floating Notes button, so it never covers the page's right edge. */
+    .verticalFlow { padding-right: 84px; }
+    .verticalFlow > * { grid-column: 2; min-width: 0; }
+    .verticalFlow > .header { grid-column: 1; grid-row: 1 / span 20; position: sticky; top: 20px; z-index: 20; padding: 4px 0 10px; border: 0; background: transparent; box-shadow: none; }
+    .verticalFlow .tabRow { display: flex; flex-direction: column; align-items: stretch; gap: 10px; padding: 0; border: 0; }
+    .verticalFlow .identity { flex: none; width: 100%; max-width: none; min-width: 0; min-height: 0; margin: 0; padding: 0; border: 0; background: transparent; }
+    .verticalFlow .nameLabel { width: 100%; padding: 2px 8px 0; border: 0; background: transparent; box-shadow: none; font-size: 16px; line-height: 22px; white-space: normal; overflow-wrap: anywhere; }
+    .verticalFlow .identity + .stages { margin-left: 0; }
+    .verticalFlow .stages { display: flex; flex-direction: column; align-items: stretch; gap: 2px; padding: 0; overflow: visible; }
+    .verticalFlow .stageTab, .verticalFlow .stageTab + .stageTab { position: relative; justify-content: flex-start; gap: 10px; width: 100%; min-height: 44px; margin: 0; padding: 0 8px; border: 1px solid transparent; border-radius: var(--radius-input); background: transparent; color: var(--color-ink-2); font-size: var(--text-value); font-weight: 600; transform: none; text-align: left; }
+    .verticalFlow .stageTab:hover:not(:disabled):not([aria-current="page"]) { background: var(--color-segment); transform: none; }
+    .verticalFlow .stageTab[aria-current="page"] { border-color: var(--tab-edge); background: var(--tab-fill); color: var(--tab-ink); transform: none; }
+    .verticalFlow .stageTab[aria-current="page"]::after { display: none; }
+    .verticalFlow .stageTab[data-step-home="true"] { margin-bottom: 8px; }
+    .verticalFlow .stageTab[data-step-home="true"]::before { content: ""; position: absolute; right: 8px; bottom: -6px; left: 8px; height: 1px; background: var(--color-sheet-border); }
+    .stepMarker { position: relative; display: grid; place-items: center; flex-shrink: 0; width: 22px; height: 22px; border: 2px dashed var(--color-folder-edge); border-radius: 50%; background: var(--color-paper); color: var(--color-paper); }
+    .stageTab[data-step-home="true"] .stepMarker { border: 0; background: transparent; color: var(--tab-ink); }
+    .stageTab[data-step-state="active"] .stepMarker { border-style: solid; border-color: var(--tab-ink); }
+    .stageTab[data-step-state="active"] .stepMarker::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--tab-ink); }
+    .stageTab[data-step-state="done"] .stepMarker { border: 0; background: var(--tab-ink); }
+    /* Connector between progress steps. */
+    .stageTab[data-step-state]:not(:last-child) .stepMarker::after { content: ""; position: absolute; top: calc(100% + 2px); left: calc(50% - 1px); width: 2px; height: 22px; background: var(--color-folder-edge); }
+    .stageTab[data-step-state="done"]:not(:last-child) .stepMarker::after { background: var(--tab-ink); }
+    .verticalFlow .presence { margin-left: 0; flex-direction: column; align-items: stretch; }
+    /* Create referral: a plain filled button, not the current design's green folder tab. */
+    .verticalFlow .createTab.createTab { width: 100%; min-width: 0; min-height: 40px; justify-content: flex-start; gap: 8px; padding: 0 12px; border: 1px solid var(--color-action); border-radius: var(--radius-input); background: var(--color-action); color: var(--color-on-fill); font-size: var(--text-label); font-weight: 600; box-shadow: var(--shadow-card); }
+    .verticalFlow .createTab svg { width: 16px; height: 16px; }
+    .verticalFlow .createTab:hover:not(:disabled) { background: color-mix(in srgb, var(--color-action) 85%, black); }
+    .verticalFlow .createTab:active:not(:disabled) { box-shadow: none; }
+    .verticalFlow .tabRow .createTab:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+    /* Steps hang under Chart: smaller markers on one line down from the Chart icon, no divider between. */
+    .verticalFlow .stageTab[data-step-home="true"] { margin-bottom: 0; }
+    .verticalFlow .stageTab[data-step-home="true"]::before { display: none; }
+    .verticalFlow .stageTab[data-step-home="true"] .stepMarker::after { content: ""; position: absolute; top: calc(100% + 3px); left: calc(50% - 1px); width: 2px; height: 18px; background: var(--color-folder-edge); }
+    .verticalFlow .stageTab[data-step-state], .verticalFlow .stageTab + .stageTab[data-step-state] { min-height: 36px; font-size: var(--text-label); }
+    .verticalFlow .stageTab[data-step-state] .stepMarker { width: 14px; height: 14px; margin-inline: 4px; border-width: 1.5px; }
+    .verticalFlow .stageTab[data-step-state="active"] .stepMarker::before { width: 6px; height: 6px; }
+    .verticalFlow .stageTab[data-step-state="done"] .stepMarker svg { width: 9px; height: 9px; }
+    .verticalFlow .stageTab[data-step-state]:not(:last-child) .stepMarker::after { top: calc(100% + 3px); height: 18px; left: calc(50% - 1px); }
+    .verticalFlow .presence + .actions { margin-left: 0; }
+    .verticalFlow .actions { flex-direction: column; align-items: stretch; gap: 0; margin: 0; padding-top: 8px; border-top: 1px solid var(--color-sheet-border); }
+    .verticalFlow .actions > * { width: 100%; min-height: 40px; justify-content: flex-start; padding-inline: 8px; font-size: var(--text-label); text-align: left; }
+    .verticalFlow .utilityTab { width: 100%; justify-content: flex-start; gap: 10px; padding: 0 12px; border: 0; }
+    .verticalFlow .utilityTab span { display: inline; }
+    /* Files, Activity, Workspaces are secondary: smaller, muted, tighter than the steps above them. */
+    .verticalFlow .actions > .utilityTab { min-height: 32px; gap: 8px; padding: 0 8px; border-radius: var(--radius-input); background: transparent; box-shadow: none; color: var(--color-ink-muted); font-size: var(--text-meta); font-weight: 500; }
+    .verticalFlow .actions > .utilityTab svg { width: 14px; height: 14px; }
+    .verticalFlow .actions > .utilityTab:hover:not(:disabled) { background: var(--color-segment); color: var(--color-ink); }
+    .verticalFlow .actions > .utilityTab[aria-current="page"] { background: var(--color-segment); color: var(--color-ink); font-weight: 600; }
+    .verticalFlow .actions > .createTab.createTab { margin: 4px 0 10px; }
+    /* Set well apart from the step above: a divider, then a large button (owner: "bigger, more separation"). */
+    /* The record's saving, in one place in the rail: one short line when saved; compact rows when not. */
+    .verticalFlow .saveCenter { margin: 4px 0 2px; border: 1px solid var(--color-card-border); border-radius: var(--radius-input); background: var(--color-paper); overflow: hidden; }
+    .verticalFlow .saveCenter[data-state="waiting"] { border-color: var(--color-stage-amber-border); }
+    .verticalFlow .saveCenter[data-state="failed"] { border-color: color-mix(in srgb, var(--color-danger) 45%, var(--color-paper)); }
+    .verticalFlow .saveCenterSummary { display: flex; align-items: center; gap: 8px; min-height: 36px; margin: 0; padding: 0 10px; color: var(--color-ink-2); font-size: var(--text-label); font-weight: 600; line-height: 1.2; white-space: nowrap; }
+    .verticalFlow .saveCenterSummary svg { flex-shrink: 0; }
+    .verticalFlow .saveCenter[data-state="saved"] .saveCenterSummary svg { color: var(--color-status-done); }
+    .verticalFlow .saveCenter[data-state="waiting"] .saveCenterSummary { background: var(--color-warning-soft); color: var(--color-warning); }
+    .verticalFlow .saveCenter[data-state="failed"] .saveCenterSummary { background: var(--color-danger-soft); color: var(--color-danger); }
+    .verticalFlow .saveCenter ul { margin: 0; padding: 0; list-style: none; }
+    .verticalFlow .saveCenter li { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 6px 10px; border-top: 1px solid var(--color-paper-rule); }
+    .verticalFlow .saveCenterPart { display: flex; flex: 1; flex-direction: column; min-width: 0; font-size: var(--text-meta); line-height: 16px; }
+    .verticalFlow .saveCenterPart strong { overflow: hidden; color: var(--color-ink); font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+    .verticalFlow .saveCenterPart span { color: var(--color-ink-muted); }
+    .verticalFlow .saveCenter li[data-failed] .saveCenterPart span { color: var(--color-danger); font-weight: 600; }
+    .verticalFlow .saveCenter li button { flex-shrink: 0; min-height: 28px; padding: 0 8px; border: 1px solid var(--color-card-border); border-radius: var(--radius-chip); background: var(--color-paper); color: var(--color-link); font-size: var(--text-meta); font-weight: 600; }
+    .verticalFlow .saveCenter li button:hover { border-color: var(--color-ink-muted); }
+    .verticalFlow .saveCenter li button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+    /* Kept-mounted steps: each step's folder keeps its own step color. */
+    .verticalFlow > [data-record-step="3"] { --stage-edge: var(--color-stage-blue); }
+    .verticalFlow > :is([data-record-step="2"], [data-record-step="workflow"], [data-record-step="email"]) { --stage-edge: var(--color-manila); }
+    .verticalFlow[data-decision-outcome="accepted"] > :is([data-record-step="workflow"], [data-record-step="email"]) { --stage-edge: var(--color-stage-green); }
+    .verticalFlow[data-decision-outcome="declined"] > :is([data-record-step="workflow"], [data-record-step="email"]) { --stage-edge: var(--color-danger); }
+    .verticalFlow > .stepContinue { display: flex; justify-content: flex-end; margin-top: 40px; padding: 32px 0 24px; border-top: 1px solid var(--color-sheet-border); }
+    .verticalFlow > .stepContinue > button { display: inline-flex; align-items: center; gap: 14px; min-height: 64px; padding: 0 32px; border: 1px solid var(--color-card-border); border-radius: var(--radius-paper); background: var(--color-paper); box-shadow: var(--shadow-card); color: var(--color-ink); font-size: var(--text-section); line-height: var(--text-section--line-height); font-weight: 700; }
+    .verticalFlow > .stepContinue > button svg { width: 22px; height: 22px; color: var(--color-link); }
+    .verticalFlow > .stepContinue > button:hover { border-color: var(--color-ink-muted); box-shadow: var(--shadow-card-hover); }
+    .verticalFlow > .stepContinue > button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+    /* A new referral's only step is Intake, and it is the one in progress. */
+    .verticalFlow .stageTab[data-folder-stage="1"][aria-current="page"][data-step-state="todo"] .stepMarker { border-style: solid; border-color: var(--tab-ink); }
+    .verticalFlow .stageTab[data-folder-stage="1"][aria-current="page"][data-step-state="todo"] .stepMarker::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--tab-ink); }
+    .verticalFlow .assessmentTools { margin: 0; }
+    /* Trash is a row like Files and Activity, in red (owner, 2026-09-26). */
+    .verticalFlow .actions > .trashTab { color: var(--color-danger); }
+    .verticalFlow .actions > .trashTab:hover:not(:disabled) { background: var(--color-danger-soft); color: var(--color-danger); }
+    /* Files and Activity a size down, Trash a size further (owner, 2026-09-27). */
+    .verticalFlow .actions > .utilityTab { min-height: 28px; font-size: calc(var(--text-meta) - 1px); }
+    .verticalFlow .actions > .utilityTab svg { width: 13px; height: 13px; }
+    .verticalFlow .actions > .trashTab { min-height: 26px; font-size: calc(var(--text-meta) - 2px); }
+    .verticalFlow .actions > .trashTab svg { width: 12px; height: 12px; }
+    /* The merged-changes check has no visible mark in the rail (owner: "don't need that"); screen readers still hear it. */
+    .verticalFlow .actions > .syncStatus { position: absolute; width: 1px; min-height: 0; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+    .railMeta { display: flex; flex-direction: column; gap: 8px; margin-top: -8px; padding: 0 8px; color: var(--color-ink-muted); font-size: var(--text-label); line-height: var(--text-label--line-height); overflow-wrap: anywhere; }
+    .railProgress { display: block; height: 4px; overflow: hidden; border-radius: var(--radius-chip); background: var(--color-track); }
+    .railProgress > span { display: block; height: 100%; border-radius: inherit; background: var(--color-status-done); }
+    /* Walk the flow: a quiet way to the next step, floating with the rail (the page's own action stays primary). */
+    .nextStepBar { display: flex; margin: 2px 0 0; }
+    .nextStepBar > button { display: inline-flex; flex: 1; align-items: center; justify-content: space-between; gap: 6px; min-height: 40px; padding: 0 12px; border: 1px solid var(--color-card-border); border-radius: var(--radius-pill); background: var(--color-paper); color: var(--color-ink-2); font-size: var(--text-label); font-weight: 600; box-shadow: var(--shadow-card); transition: box-shadow var(--duration-fade) ease, border-color var(--duration-fade) ease; }
+    .nextStepBar > button svg { color: var(--color-link); }
+    .nextStepBar > button:hover { border-color: var(--color-ink-muted); box-shadow: var(--shadow-card-hover); }
+    .nextStepBar > button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+    /* Three layers, like the Home board: warm page, the step's color wash, white cards on the wash.
+       The wash replaces the manila folder now that the tabs live in the rail. */
+    /* Folder (owner, 2026-09-26: "bring back the folder effect"): each step is a folder in its step color.
+       A white label tab carries the step's own name (owner: "white like a label"); the back panel shows as a darker band above the front flap;
+       the step's pages sit inside as white cards. Colors mix from the step color, so every step matches. */
+    .verticalFlow > :is(.readingPages, :global(.pipeline-step-enter)) > section {
+      /* Pages without a step color (Files, Activity) are manila, never gray (owner: "go with manila when in doubt"). */
+      --folder-ink: var(--stage-edge, var(--color-manila));
+      --folder-front: color-mix(in srgb, var(--folder-ink) 15%, var(--color-paper));
+      --folder-back: color-mix(in srgb, var(--folder-ink) 28%, var(--color-paper));
+      --folder-rim: color-mix(in srgb, var(--folder-ink) 45%, var(--color-paper));
+      position: relative;
+      overflow: visible;
+      margin-top: 50px;
+      padding: 24px 18px 18px;
+      border: 1px solid var(--folder-rim);
+      border-radius: 0 var(--radius-folder) var(--radius-folder) var(--radius-folder);
+      background: linear-gradient(to bottom, var(--folder-back) 0 8px, var(--folder-rim) 8px 9px, var(--folder-front) 9px);
+      box-shadow: 0 1px 2px rgb(15 23 42 / 0.06), 0 14px 28px -18px color-mix(in srgb, var(--folder-ink) 45%, transparent);
+    }
+    /* The tab is part of the folder (the back panel's color, rounded top), with a white label stuck on it that
+       carries the step's name. The tab repeats the label text invisibly so it is always the label's width plus its rim. */
+    .verticalFlow > :is(.readingPages, :global(.pipeline-step-enter)) > section::before,
+    .verticalFlow > :is(.readingPages, :global(.pipeline-step-enter)) > section::after {
+      content: attr(aria-label);
+      position: absolute;
+      display: flex;
+      align-items: center;
+      font-size: var(--text-section);
+      font-weight: 650;
+      line-height: 1;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+    .verticalFlow > :is(.readingPages, :global(.pipeline-step-enter)) > section::before {
+      bottom: calc(100% - 1px);
+      left: -1px;
+      min-width: 212px;
+      height: 48px;
+      padding: 0 36px 0 30px;
+      border: 1px solid var(--folder-rim);
+      border-bottom: 0;
+      border-radius: var(--radius-folder) var(--radius-folder) 0 0;
+      background: linear-gradient(to bottom, color-mix(in srgb, var(--folder-back) 70%, var(--color-paper)), var(--folder-back) 18px);
+      box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-paper) 60%, transparent), 0 -1px 3px -1px rgb(15 23 42 / 0.08);
+      color: transparent;
+    }
+    .verticalFlow > :is(.readingPages, :global(.pipeline-step-enter)) > section::after {
+      bottom: calc(100% + 5px);
+      left: 9px;
+      z-index: 1;
+      min-width: 194px;
+      height: 36px;
+      padding: 1px 26px 0 20px;
+      border: 1px solid color-mix(in srgb, var(--folder-ink) 30%, var(--color-card-border));
+      border-radius: var(--radius-input);
+      background: var(--color-paper);
+      box-shadow: inset 0 3px 0 var(--folder-ink), 0 1px 1px rgb(15 23 42 / 0.1);
+      color: var(--color-ink);
+    }
+    /* Create referral at the end of the intake, bottom right, like the other steps' main action. */
+    .intakeFooter { position: sticky; bottom: 0; z-index: 5; display: flex; justify-content: flex-end; margin: 16px -18px -18px; padding: 12px 18px; border-top: 1px solid var(--folder-rim); border-radius: 0 0 var(--radius-folder) var(--radius-folder); background: color-mix(in srgb, var(--color-paper) 92%, transparent); backdrop-filter: blur(6px); }
+    .verticalFlow .intakeFooter .createTab.createTab { width: auto; min-height: 44px; margin: 0; padding: 0 20px; justify-content: center; font-size: var(--text-value); }
+    @media (forced-colors: active) {
+      .verticalFlow > :is(.readingPages, :global(.pipeline-step-enter)) > section, .verticalFlow > :is(.readingPages, :global(.pipeline-step-enter)) > section::before, .verticalFlow > :is(.readingPages, :global(.pipeline-step-enter)) > section::after { border-color: CanvasText; background: Canvas; color: CanvasText; }
+    }
+    .verticalFlow .connectedFolder { margin: 0; }
+    .verticalFlow .connectedFolder > div { padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+    /* Copy pass: fewer words and one green action per page. Files live in the rail, so the Chart drops its
+       "Client files" card; the upload area keeps its heading; the rail's Next pill steps aside on the Chart
+       when the page's own button already leads to the next step. */
+    .verticalFlow [data-testid="profile-workspace"] section[aria-labelledby="client-files-heading"] { display: none; }
+    .verticalFlow [data-guide-target="initial-packet-upload"] > span:nth-child(2) > span, .verticalFlow [data-guide-target="initial-packet-upload"] > span:last-child { display: none; }
+    .verticalFlow:has([data-step-home="true"][aria-current="page"]):has([data-assessment-primary-action] button) .nextStepBar { display: none; }
+    .verticalFlow article[aria-label="Referral chart"] > header button { color: var(--color-ink-2); }
+    /* Single-sheet steps (Decision, Finish & send): the page is one white card. */
+    .verticalFlow .connectedFolder > div > div { border: 1px solid var(--color-card-border); border-radius: var(--radius-paper); background: var(--color-paper); box-shadow: var(--shadow-card); }
+    /* Chart: each part is its own card on the wash. */
+    .verticalFlow .connectedFolder > div > section:has(article[aria-label="Referral chart"]) { padding: 0; border: 0; background: transparent; box-shadow: none; }
+    .verticalFlow .connectedFolder > div > section:has(article[aria-label="Referral chart"]) > div { display: flex; flex-direction: column; gap: 16px; padding: 0; overflow: visible; }
+    .verticalFlow .connectedFolder > div > section:has(article[aria-label="Referral chart"]) > div > * { margin: 0; }
+    /* The signature line reads as one quiet line on the wash, not loose words. */
+    .verticalFlow .connectedFolder div[data-signature-history][data-signature-history] { display: block; margin: 0 0 12px; padding: 10px 14px; border: 1px solid var(--color-card-border); border-radius: var(--radius-paper); background: var(--color-paper); color: var(--color-ink-muted); font-size: var(--text-meta); line-height: 18px; }
+    .verticalFlow .connectedFolder [data-signature-history] strong { color: var(--color-ink); font-weight: 600; }
+    /* The chart review wraps the cards in its own full-bleed surfaces; let the wash show through them. */
+    .verticalFlow .connectedFolder section[aria-label="Assessment chart review"], .verticalFlow .connectedFolder main:has(> section[aria-label="Assessment chart review"]) { background: transparent; }
+    .verticalFlow :is(article[aria-label="Referral chart"], section[aria-label="Document checklist"], section[aria-label="Admission requirements"]) { border-color: var(--color-card-border); border-radius: var(--radius-paper); background: var(--color-paper); box-shadow: var(--shadow-card); }
+    /* One medical sheet: ruled fields and section bands, not separated floating cards. */
+    .verticalFlow article[aria-label="Referral chart"] { overflow: hidden; border: 1px solid var(--color-control-border); background: var(--color-paper); box-shadow: none; }
+    .verticalFlow article[aria-label="Referral chart"] > header { border-bottom: 1px solid var(--color-control-border); background: var(--color-sheet); }
+    .verticalFlow article[aria-label="Referral chart"] > header > div { padding: 8px 16px; }
+    .verticalFlow article[aria-label="Referral chart"] > section { margin: 0; }
+    .verticalFlow article[aria-label="Referral chart"] > section > h2 { margin: 0; padding: 10px 16px; border-block: 1px solid var(--color-control-border); background: var(--color-sheet); font-size: var(--text-value); line-height: var(--text-value--line-height); font-weight: 700; }
+    /* Chart: the upload is a button in the Documents row, not a drop box above the page; the whole card still takes drops. */
+    .verticalFlow [data-record-step="3"] section[data-guide-target="workspace-files-upload"] { position: relative; margin: 16px 0 0; }
+    .verticalFlow [data-record-step="3"] section[data-guide-target="workspace-files-upload"] > button[data-guide-target="initial-packet-upload"] { position: absolute; top: 4px; right: 112px; z-index: 1; width: auto; min-height: 44px; gap: 8px; padding: 0 12px; border: 0; border-radius: var(--radius-input); background: transparent; color: var(--color-link); }
+    .verticalFlow [data-record-step="3"] section[data-guide-target="workspace-files-upload"] > button[data-guide-target="initial-packet-upload"]:hover { background: var(--color-primary-soft); }
+    .verticalFlow [data-record-step="3"] section[data-guide-target="workspace-files-upload"] > button[data-guide-target="initial-packet-upload"] > span:first-child { width: auto; height: auto; }
+    .verticalFlow [data-record-step="3"] section[data-guide-target="workspace-files-upload"] > button[data-guide-target="initial-packet-upload"] svg { width: 18px; height: 18px; }
+    .verticalFlow [data-record-step="3"] section[data-guide-target="workspace-files-upload"] > button[data-guide-target="initial-packet-upload"] strong { font-size: var(--text-label); font-weight: 600; }
+    .verticalFlow [data-record-step="3"] section[data-guide-target="workspace-files-upload"] > details > summary { min-height: 52px; border-top: 0; }
+    .verticalFlow [data-record-step="3"] section[data-guide-target="workspace-files-upload"][data-file-drag-active] { outline: 2px dashed var(--color-link); outline-offset: 2px; }
+    /* Fields keep their large edit targets while labels, pencils and spacing become more compact. */
+    .verticalFlow article[aria-label="Referral chart"] dl { gap: 0; background: var(--color-paper); }
+    .verticalFlow article[aria-label="Referral chart"] dl > [data-chart-field] { min-height: 76px; padding: 12px 16px; border-right: 1px solid var(--color-control-border); border-bottom: 1px solid var(--color-control-border); }
+    .verticalFlow article[aria-label="Referral chart"] [data-chart-field] dt { font-size: var(--text-meta); line-height: var(--text-meta--line-height); }
+    .verticalFlow article[aria-label="Referral chart"] [data-chart-field] dd { margin-top: 4px; font-size: var(--text-value); line-height: var(--text-value--line-height); }
+    .verticalFlow article[aria-label="Referral chart"] [data-chart-field="Client"] dd { font-size: var(--text-section); font-weight: 700; }
+    /* One even grid: identity is the name plus three equal columns; contacts use three like the other sections. */
+    @media (min-width: 1280px) {
+      .verticalFlow dl[aria-label="Referral identity"] { grid-template-columns: minmax(0, 2fr) repeat(3, minmax(0, 1fr)); }
+      .verticalFlow dl[aria-label="Referral identity"] > [data-chart-field] { grid-column: auto; }
+      .verticalFlow dl[aria-label="Contact information"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
+    /* Empty fields step back so what is known stands out; the wording is unchanged. */
+    .verticalFlow article[aria-label="Referral chart"] [data-chart-field][data-missing] dd { color: color-mix(in srgb, var(--color-ink-muted) 75%, var(--color-paper)); font-weight: 400; }
+    /* Pencils stay visible (owner decision) but quiet until the field is hovered or focused. */
+    .verticalFlow article[aria-label="Referral chart"] [data-chart-edit] > span[aria-hidden="true"] { color: var(--color-ink-muted); opacity: 0.55; transition: opacity var(--duration-fade) ease; }
+    .verticalFlow article[aria-label="Referral chart"] [data-chart-field]:is(:hover, :focus-within) [data-chart-edit] > span[aria-hidden="true"] { color: var(--color-link); opacity: 1; }
+    /* The summary card's title already names it; its one cell drops the repeated label (the grid keeps its accessible name). */
+    .verticalFlow dl[aria-label="Referral summary"] dt { display: none; }
+    .verticalFlow [data-testid="profile-workspace"] { padding: 0; background: transparent; }
+    .verticalFlow [data-testid="profile-workspace"] > div { margin: 0; }
+    .verticalFlow [data-testid="profile-workspace"] > div > section { overflow: hidden; border: 1px solid var(--color-card-border); border-radius: var(--radius-paper); background: var(--color-paper); box-shadow: var(--shadow-card); }
+    /* Steps without a folder (an unprepared assessment) show their panel as a card too. */
+    .verticalFlow > :is(.readingPages, :global(.pipeline-step-enter)) > section > div > section { border-color: var(--color-card-border); border-radius: var(--radius-paper); background: var(--color-paper); box-shadow: var(--shadow-card); }
+  }
+}
+
+/* Interview layout (docs/design/DECISIONS.md, "Interview layout"). Redesign only, wide screens: during the interview
+   the record rail is tucked away so the information, notes and questions have the room; an arrow at the left edge,
+   like the app bar's own collapse arrow, brings it back and hides it again. Top level because the switch is on <html>. */
+.interviewRailToggle { display: none; }
+@media (min-width: 1024px) {
+  /* The interview uses the full width: no right gutter for the floating Notes button (not shown on this step). */
+  :global(html[data-design="v2"][data-interview-focus]) .verticalFlow { position: relative; max-width: none; padding-right: 24px; }
+  :global(html[data-design="v2"][data-interview-focus]) .verticalFlow:not([data-interview-rail-shown]) { grid-template-columns: 20px minmax(0, 1fr); column-gap: 14px; }
+  :global(html[data-design="v2"][data-interview-focus]) .verticalFlow:not([data-interview-rail-shown]) > .header { display: none; }
+  /* With the rail open during the interview: the save status is already in the top-right, and Review assessment is the next step. */
+  :global(html[data-design="v2"][data-interview-focus]) .verticalFlow > .header :is(.saveCenter, .nextStepBar) { display: none; }
+  :global(html[data-design="v2"][data-interview-focus]) .verticalFlow > .interviewRailToggle { position: sticky; top: calc(50vh - 22px); z-index: 21; display: grid; grid-column: 1; grid-row: 1; align-self: start; justify-self: start; place-items: center; width: 20px; height: 44px; margin-top: 30vh; border: 1px solid var(--color-card-border); border-radius: var(--radius-input); background: var(--color-paper); box-shadow: var(--shadow-card); color: var(--color-ink-muted); }
+  :global(html[data-design="v2"][data-interview-focus]) .verticalFlow[data-interview-rail-shown] > .interviewRailToggle { justify-self: end; margin-right: -30px; }
+  :global(html[data-design="v2"][data-interview-focus]) .verticalFlow > .interviewRailToggle:hover { color: var(--color-ink); border-color: var(--color-ink-muted); }
+  :global(html[data-design="v2"][data-interview-focus]) .verticalFlow > .interviewRailToggle:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 }

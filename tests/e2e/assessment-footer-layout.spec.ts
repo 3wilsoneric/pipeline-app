@@ -1,3 +1,4 @@
+import { closeTestBrowser } from "./support/browser-lifecycle";
 import { expect, test, webkit } from "@playwright/test";
 import type { AxeResults } from "axe-core";
 import { createOperationalAssessment, createOperationalReferral, startOperationalAssessment } from "./support/operational-api";
@@ -192,5 +193,5 @@ test("iPad WebKit keeps the details menu reachable without covering navigation",
     await footer.getByRole("button", { name: "Next section", exact: true }).tap();
     await expect(footer.locator('[aria-label="Section 2 of 5"]')).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  } finally { await browser.close(); }
+  } finally { await closeTestBrowser(browser); }
 });

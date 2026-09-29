@@ -57,7 +57,7 @@ assert.equal(seed.source, "");
 assert.equal(seed.note, "");
 assert.equal(seed.requirements.length, 0);
 for (const key of ["packetId", "packetFields", "documentHash", "assessment", "admissionDecision", "manualIntakeAuthorization", "interview", "ownerId", "assignedAt", "assessmentReview", "ehrHandoff"]) assert.equal(seed[key], undefined, key);
-assert.match(seed.fieldSources.currentMedications, /workspace #71.*verify/);
+assert.match(seed.fieldSources.currentMedications, /prior workspace.*verify/);
 assert.equal(JSON.stringify({ source, profile }), before, "deriving a chart/intake must not mutate source material");
 assert.equal(context.clientChartRecord(profile).date_of_birth, "1984-06-12");
 const incompleteCensus = { ...profile, resident: { date_of_birth: null, payor: null, primary_diagnosis: null },
@@ -71,10 +71,13 @@ assert(context.clientReferralSections(profile)[0].facts.some((fact) => fact.valu
 assert.equal(load("lib/pipeline/referral-validation.ts").validateReferralCreateInput(seed).ok, true);
 
 const intakeCanvas = readFileSync("components/pipeline/ReferralPacketCanvas.tsx", "utf8");
+assert.match(intakeCanvas, /currentMedications:\s*\{\s*label: "Medication history",\s*value: "",\s*placeholder: "List all past and current medications, one per line\."/, "intake describes the full medication history without an early sending instruction");
 const visibleFields = intakeCanvas.match(/const visibleChartFieldKeys[^=]*=\s*\[([\s\S]*?)\];/);
 assert(visibleFields, "intake declares its visible progress fields");
 assert.doesNotMatch(visibleFields[1], /"summary"/, "hidden summary is not counted as intake work");
-assert.doesNotMatch(intakeCanvas, /<ChartSection title="Referral summary"|<StructuredNarrativeField/, "intake does not render the removed summary editor");
+// The current design keeps the summary editor removed. The redesign restores it behind the switch
+// (docs/design/DECISIONS.md, "Chart as home"), so only a `designV2 ?`-gated editor is allowed.
+assert.doesNotMatch(intakeCanvas.replaceAll('{designV2 ? <ChartSection title="Referral summary"', ""), /<ChartSection title="Referral summary"|<StructuredNarrativeField/, "intake does not render the removed summary editor");
 const persistence = load("lib/pipeline/referral-canvas-persistence.ts");
 const intakeFields = Object.fromEntries(persistence.persistedCanvasFieldKeys.map(key => [key, { value: persistence.referralCanvasValue(source, key) }]));
 assert.equal(intakeFields.summary.value, source.note, "saved summary remains available to charts and recovery");

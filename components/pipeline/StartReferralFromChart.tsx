@@ -1,5 +1,6 @@
 "use client";
 
+import { useDesignV2 } from "@/components/design/DesignSwitch";
 import { useRef, useState } from "react";
 import HomeDialog from "@/components/pipeline/HomeDialog";
 import { fetchPipelineJson, PipelineApiError } from "@/lib/auth/authenticated-fetch";
@@ -16,6 +17,7 @@ export default function StartReferralFromChart({ sourceReferralId, allowed, inFo
   inFolder?: boolean;
   beforeStart?: () => Promise<void>;
 }) {
+  const designV2 = useDesignV2();
   const pendingCreate = useRef<PendingCreate | null>(null);
   const busy = useRef(false);
   const [saving, setSaving] = useState(false);
@@ -122,7 +124,7 @@ export default function StartReferralFromChart({ sourceReferralId, allowed, inFo
   </HomeDialog> : null;
   return <>
     <button type="button" aria-label="Create intake" title="Create intake" disabled={saving} onClick={() => void showAssignment()}
-      className={inFolder ? workspaceFolderStyles.createTab : "min-h-10 border border-[#0f8b73] bg-white px-4 text-[13px] font-bold text-[#0c705f] hover:bg-[#effaf5] disabled:opacity-60"}>
+      className={inFolder ? workspaceFolderStyles.createTab : designV2 ? "min-h-10 self-end rounded-input bg-action px-5 text-label font-semibold text-on-fill hover:bg-primary-hover disabled:opacity-60" : "min-h-10 border border-[#0f8b73] bg-white px-4 text-[13px] font-bold text-[#0c705f] hover:bg-[#effaf5] disabled:opacity-60"}>
       Create intake
     </button>
     {assignmentDialog}

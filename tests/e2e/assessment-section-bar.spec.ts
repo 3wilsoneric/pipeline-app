@@ -1,3 +1,4 @@
+import { closeTestBrowser } from "./support/browser-lifecycle";
 import { chromium, expect, test, webkit } from "@playwright/test";
 import type { AxeResults } from "axe-core";
 import { editPreparedAnswer } from "./support/assessment-navigation";
@@ -71,7 +72,7 @@ for (const width of [1440, 1024, 768, 640]) {
       return (await axe.run('[aria-label="Assessment sections"], [aria-label="Assessment section steps"]', { runOnly: ["color-contrast", "select-name", "button-name"] })).violations;
     });
     expect(violations).toEqual([]);
-    } finally { await browser.close(); }
+    } finally { await closeTestBrowser(browser); }
   });
 }
 
@@ -113,7 +114,7 @@ for (const width of [390, 320]) {
     await expect(interview.getByRole("textbox", { name: "Prior AWOL / failed placements", exact: true })).toBeInViewport();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: info.outputPath(`phone-navigation-${width}.png`) });
-    } finally { await browser.close(); }
+    } finally { await closeTestBrowser(browser); }
   });
 }
 });

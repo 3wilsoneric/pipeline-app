@@ -13,7 +13,7 @@ export const referralChartEditFields = {
   Name: "name", Client: "name", Gender: "gender", "Date of birth": "dob", SSN: "ssn",
   Assessor: "owner", "Assigned assessor": "owner", "Referral received": "referralReceived", Community: "community",
   County: "county", "Referral source": "referent", "Responsible person": "responsiblePerson",
-  "Referrer name": "referrerName", Phone: "phone", Email: "email", "Medications on record": "currentMedications",
+  "Referrer name": "referrerName", Phone: "phone", Email: "email", "Medication history": "currentMedications", "Medications on record": "currentMedications",
   Conserved: "conserved", "Conserved status": "conserved",
 } as const;
 export type ReferralChartEditField = (typeof referralChartEditFields)[keyof typeof referralChartEditFields];
@@ -79,15 +79,16 @@ const referralSummaryFieldKeys = new Set<string>([
  * are omitted below only when the stored canonical value is identical; a
  * differing (for example older) value stays visible with its workspace label.
  */
-export function clientReferralSections(profile: UnifiedClientProfileResponse, summarized?: Referral): ClientProfileSection[] {
+export function clientReferralSections(profile: UnifiedClientProfileResponse, summarized?: Referral, alsoSummarized: readonly string[] = []): ClientProfileSection[] {
   const repeatsSummary = (referral: Referral, key: string, value: string) => summarized?.id === referral.id && (key === "conserved"
     ? (summarized.conserved ?? "") === (referral.conserved ?? "")
-    : referralSummaryFieldKeys.has(key) && referralCanvasValue(summarized, key as PersistedCanvasFieldKey) === value);
+    : (referralSummaryFieldKeys.has(key) || alsoSummarized.includes(key)) && referralCanvasValue(summarized, key as PersistedCanvasFieldKey) === value);
   return profile.pipeline.referrals.map((referral) => ({
     key: `referral:${referral.id}`,
-    label: `Workspace #${referral.id} · ${referral.community} · ${referral.date || referral.createdAt.slice(0, 10)}`,
+    label: `Workspace · ${referral.community} · ${referral.date || referral.createdAt.slice(0, 10)}`,
     facts: [
-      ...(referral.admissionDecision ? [
+      // "decision": the Chart's status card already shows this referral's decision and recommendation.
+      ...(summarized?.id === referral.id && alsoSummarized.includes("decision") ? [] : referral.admissionDecision ? [
         { label: "Decision", value: referral.admissionDecision.outcome === "accepted" ? "Accept" : "Deny" },
         { label: "Decision reason", value: referral.admissionDecision.reasonNote },
         { label: "Decision recorded by", value: referral.admissionDecision.decidedByName },
@@ -133,5 +134,5 @@ export function workspaceSourceSections(source: HistoricalProfileResponse): Clie
 
 export function clientSourceSections(profile: UnifiedClientProfileResponse) {
   return (profile.pipeline.source_profiles ?? []).flatMap((source) => workspaceSourceSections(source.profile)
-    .map((section) => ({ ...section, key: `${source.referral_id}:${section.key}`, label: `Workspace #${source.referral_id} · ${section.label}` })));
+    .map((section) => ({ ...section, key: `${source.referral_id}:${section.key}`, label: `Prior workspace · ${section.label}` })));
 }

@@ -6,6 +6,7 @@ import { referralDocumentAutofillEnabled } from "@/lib/extraction/contracts";
 
 import { usePersonaSwitchSave } from "@/lib/demo/persona-switch-save";
 
+import { createPortal } from "react-dom";
 import { useCallback, useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import {
   AlertTriangle,
@@ -14,6 +15,7 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  FileSpreadsheet,
   LoaderCircle,
   Plus,
   RefreshCw,
@@ -71,6 +73,7 @@ import {
   removeOfflineAssessmentWorkingSet,
   saveOfflineAssessmentDraft,
   saveOfflineAssessmentWorkingSet,
+  type OfflineAssessmentWorkingSet,
 } from "@/lib/offline/offline-assessment-store";
 import {
   buildTrainingAssessment,
@@ -118,8 +121,14 @@ import { AssessmentFileSurface, AssessmentFileNavigation } from "@/components/pi
 import AssessmentPhoneInterview from "@/components/pipeline/AssessmentPhoneInterview";
 import AssessmentExcelBackup from "@/components/pipeline/AssessmentExcelBackup";
 import { validateAssessmentPatchRequest } from "@/lib/assessment/assessment-validation";
-import { usePhoneAssessment } from "@/components/pipeline/use-phone-layout";
+import { usePhoneAssessment, useWideRecordLayout } from "@/components/pipeline/use-phone-layout";
 import phoneStyles from "@/components/pipeline/AssessmentPhoneInterview.module.css";
+import { useDesignV2 } from "@/components/design/DesignSwitch";
+import { intakeAnswerSource, type PriorAnswers } from "@/lib/assessment/assessment-prior-answers";
+import InterviewContext from "@/components/pipeline/InterviewContext";
+import ChartPeek from "@/components/pipeline/ChartPeek";
+import InterviewSplit from "@/components/pipeline/InterviewSplit";
+import ClientNotes, { ClientNotesReopen } from "@/components/pipeline/ClientNotes";
 import workingStyles from "@/components/pipeline/AssessmentWorkingSection.module.css";
 import { assessmentPreparationGroups, preparationGroupForSection, preparationQuestions } from "@/lib/assessment/assessment-preparation";
 
@@ -149,6 +158,12 @@ type AssessmentWorkspaceProps = {
   assessmentReview?: boolean;
   chartActions?: ReactNode;
   chartDocuments?: ReactNode;
+  /** Kept-mounted steps: the Chart step is drawn into this element by this same editor. */
+  chartSlot?: HTMLElement | null;
+  /** Kept-mounted steps: false while another step (Chart, Decision) is the one opened, so sections don't move it. */
+  sectionJumps?: boolean;
+  /** Kept-mounted steps: false while this workspace only draws the Chart step, so the questions are not on screen. */
+  questionsOnScreen?: boolean;
   onEditReferralField?: (field: ReferralChartEditField) => void;
   onOpenChart?: () => void;
   onReviewAssessment?: () => void;
@@ -168,6 +183,8 @@ type AssessmentWorkspaceProps = {
   onSaveStateChange?: (state: { assessmentId?: string; dirty: boolean; error: boolean; pendingOfflineSaves: number; appointmentDraft: boolean; appointmentSaving: boolean }) => void;
   onAssessmentSaved?: (assessment: PipelineAssessmentRecord, referral?: Referral) => void | Promise<void>;
   onContinueToWorkflow?: () => void;
+  /** Redesign Chart: the way back into a filed Finish & send step. */
+  onOpenFinish?: () => void;
   onOpenWorkspace?: () => void;
   onActiveSectionChange?: (section: AssessmentToolSection, location: PipelineWorkspaceLocation) => void;
   onOpenAssignedWork?: () => void | Promise<void>;
@@ -315,6 +332,8 @@ function assessmentWorkspacePermissions(
   };
 }
 
+const assessmentModeKey = "pipeline:assessment-mode:";
+
 export default function AssessmentWorkspace({
   workspaceActive = true,
   workbookImport,
@@ -341,6 +360,9 @@ export default function AssessmentWorkspace({
   assessmentReview = false,
   chartActions,
   chartDocuments,
+  chartSlot,
+  sectionJumps = true,
+  questionsOnScreen = true,
   onEditReferralField,
   onOpenChart,
   onReviewAssessment,
@@ -351,6 +373,7 @@ export default function AssessmentWorkspace({
   onSaveStateChange,
   onAssessmentSaved,
   onContinueToWorkflow,
+  onOpenFinish,
   onOpenWorkspace,
   onOpenAssignedWork,
   onActiveSectionChange,
@@ -447,10 +470,21 @@ export default function AssessmentWorkspace({
   const closingRef = useRef(false);
   const initializedAssessmentIdRef = useRef<{ id: string; principal: string } | null>(null);
   const touchedFieldsRef = useRef(new Set<AssessmentToolFieldKey>());
+  const resolvedRecoveryFieldsRef = useRef(new Set<AssessmentToolFieldKey>());
   const workbookSourcesRef = useRef<AssessmentDraftWorkbookSources>({});
   const focusedAssessmentIdRef = useRef("");
   const preparationRequestedRef = useRef(false);
   const focusedFieldRef = useRef<{ field: AssessmentToolFieldKey; value: string; reason: string } | null>(null);
+  const idleSaveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  // Interview notebook beside the questions; hidden or shown per person on this device.
+  const [notebookOpen, setNotebookOpen] = useState(() => {
+    try { return typeof window === "undefined" || window.localStorage.getItem("pipeline:notebook-hidden") !== "1"; } catch { return true; }
+  });
+  const showNotebook = (open: boolean) => {
+    setNotebookOpen(open);
+    try { window.localStorage.setItem("pipeline:notebook-hidden", open ? "0" : "1"); } catch { /* Preference only. */ }
+  };
+  useEffect(() => () => clearTimeout(idleSaveTimerRef.current), []);
   const onActiveSectionChangeRef = useRef(onActiveSectionChange);
   const sectionRevisionRef = useRef(0);
   const packetSyncKeysRef = useRef(new Set<string>());
@@ -461,6 +495,40 @@ export default function AssessmentWorkspace({
   useEffect(() => registerAssessmentEditor(), []);
 
   const selected = assessments.find((assessment) => assessment.assessment_id === selectedId) ?? null;
+
+  // Redesign: a returning client's last signed assessment, offered question by question.
+  // Chosen answers remember their source until saved; the server re-checks them before crediting it.
+  const designV2 = useDesignV2();
+  const [priorAnswers, setPriorAnswers] = useState<{ assessmentId: string; prior: PriorAnswers; intake: Partial<AssessmentToolData> } | null>(null);
+  const priorChoicesRef = useRef(new Map<AssessmentToolFieldKey, { assessment_id: string; value: AssessmentToolData[AssessmentToolFieldKey] }>());
+  useEffect(() => {
+    if (!designV2 || trainingAssessmentMode || !selectedId) return;
+    const controller = new AbortController();
+    void fetchPipelineJson<{ prior: PriorAnswers; intake?: Partial<AssessmentToolData> }>(`/api/assessments/${encodeURIComponent(selectedId)}/prior-answers`, { signal: controller.signal }, { cacheTtlMs: 60_000 })
+      .then((payload) => { if (!controller.signal.aborted) setPriorAnswers({ assessmentId: selectedId, prior: payload.prior, intake: payload.intake ?? {} }); })
+      // Suggestions are optional; the interview works the same without them.
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, [designV2, trainingAssessmentMode, selectedId]);
+  const currentPriorAnswers = priorAnswers?.assessmentId === selectedId ? priorAnswers.prior ?? undefined : undefined;
+  const currentIntakeAnswers = priorAnswers?.assessmentId === selectedId ? priorAnswers.intake : undefined;
+  // Redesign: a link that opens the interview (or All questions) is remembered like a click, so stepping to
+  // another step and back returns to the same mode instead of the default.
+  const linkedMode = initialLocation?.assessmentMode === "prepare" ? "prepare" : initialLocation?.assessmentMode === "interview" ? "assessment" : null;
+  if (designV2 && selectedId && linkedMode && notebookPage?.assessmentId !== selectedId) setNotebookPage({ assessmentId: selectedId, view: linkedMode });
+  // Redesign: the Assessment step reopens in the mode last used for this assessment on this device (All questions
+  // or the interview), even after a reload; the first open of an unbegun assessment still starts in All questions.
+  useLayoutEffect(() => {
+    if (!designV2 || !selectedId || notebookPage?.assessmentId === selectedId || linkedMode) return;
+    try {
+      const last = window.localStorage.getItem(`${assessmentModeKey}${selectedId}`);
+      if (last === "prepare" || last === "assessment") setNotebookPage({ assessmentId: selectedId, view: last });
+    } catch { /* storage unavailable: the default applies */ }
+  }, [designV2, selectedId, notebookPage, linkedMode]);
+  useEffect(() => {
+    if (!designV2 || !notebookPage || notebookPage.view === "chart") return;
+    try { window.localStorage.setItem(`${assessmentModeKey}${notebookPage.assessmentId}`, notebookPage.view); } catch { /* not remembered */ }
+  }, [designV2, notebookPage]);
   const notebookView = notebookPage?.assessmentId === selectedId ? notebookPage.view : initialLocation?.assessmentMode === "prepare" ? "prepare" : initialLocation?.assessmentMode === "interview" ? "assessment" : null;
   const setNotebookView = (view: "prepare" | "assessment" | "chart") => setNotebookPage({ assessmentId: selectedId, view });
   const reviewingChart = chartReview ?? notebookView === "chart";
@@ -490,8 +558,88 @@ export default function AssessmentWorkspace({
   const sectionQuestions = conversationSections[activeSectionIndex].questions;
   const pageSections = preparing ? assessmentPreparationGroups : conversationSections;
   const pageIndex = preparing ? preparationIndex : activeSectionIndex;
-  const nextSection = pageSections[pageIndex + 1];
-  const previousSection = pageSections[pageIndex - 1];
+  // Redesign: Prepare and the interview each show every group on one scrolling page instead of pages
+  // (owner, 2026-09-26: "less pagination"). Answers still save as each one is left, so nothing depends
+  // on changing pages. Phones and practice keep the paged view.
+  const stackedQuestionsView = designV2 && !phoneLayout && !trainingAssessmentMode;
+  const stackedGroups = useMemo(() => !stackedQuestionsView ? []
+    : preparing ? assessmentPreparationGroups.map((group) => ({ key: group.key, label: group.label, questions: preparationQuestions(group, draft), referenceQuestions: undefined }))
+    : conversationSections.map((section) => ({ key: section.key, label: section.label, questions: section.questions, referenceQuestions: section.referenceQuestions })),
+  [stackedQuestionsView, preparing, draft, conversationSections]);
+  const [spyGroup, setSpyGroup] = useState<AssessmentToolSection | null>(null);
+  // Interview layout (docs/design/DECISIONS.md, "Interview layout"): on a wide screen the interview hides the record
+  // rail (an arrow brings it back) so the information and notes sit beside the questions with room to read.
+  const wideRecordLayout = useWideRecordLayout();
+  const interviewFocus = designV2 && wideRecordLayout && !phoneLayout && !trainingAssessmentMode && Boolean(referralId) && Boolean(referral)
+    && stackedQuestionsView && !preparing && !reviewingChart && workspaceActive && questionsOnScreen
+    // Only while an interview can still be done: a signed assessment is a finished record, shown with the rail.
+    && Boolean(selected) && !selected?.signed_at;
+  useLayoutEffect(() => {
+    if (!interviewFocus) return;
+    const root = document.documentElement;
+    root.dataset.interviewFocus = "true";
+    return () => { delete root.dataset.interviewFocus; };
+  }, [interviewFocus]);
+  const spySection = stackedGroups.find((group) => group.key === spyGroup)?.key ?? stackedGroups[0]?.key ?? visibleSectionKey;
+  const nextSection = stackedQuestionsView ? undefined : pageSections[pageIndex + 1];
+  const previousSection = stackedQuestionsView ? undefined : pageSections[pageIndex - 1];
+  const stackedQuestions = useMemo(() => stackedGroups.flatMap((group) => group.questions), [stackedGroups]);
+  const stackedHeadings = useMemo(() => new Map(stackedGroups.flatMap((group) => group.questions.map((question) => [question.field, { key: group.key, label: group.label }] as const))), [stackedGroups]);
+  // While the page scrolls to a topic someone picked, the picker holds that topic rather than flicking through
+  // the ones passed on the way; the hold ends when the scroll settles or the person scrolls themselves.
+  const pickedTopic = useRef<{ key: AssessmentToolSection; until: number } | null>(null);
+  useEffect(() => {
+    const release = () => { pickedTopic.current = null; };
+    window.addEventListener("scrollend", release, true);
+    window.addEventListener("wheel", release, { capture: true, passive: true });
+    window.addEventListener("touchstart", release, { capture: true, passive: true });
+    return () => {
+      window.removeEventListener("scrollend", release, true);
+      window.removeEventListener("wheel", release, true);
+      window.removeEventListener("touchstart", release, true);
+    };
+  }, []);
+  // The section picker follows the scroll: the group whose heading most recently passed the top third. Worked out
+  // from the headings' positions on each scroll (not from intersection changes, which can leave a stale answer
+  // after quick jumps).
+  useEffect(() => {
+    if (!stackedQuestionsView) return;
+    let frame = 0;
+    const follow = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        if (pickedTopic.current && performance.now() < pickedTopic.current.until) return;
+        const headings = [...document.querySelectorAll<HTMLElement>("[data-assessment-group-heading]")].filter((heading) => heading.offsetParent);
+        if (!headings.length) return;
+        const line = window.innerHeight * 0.34;
+        const passed = headings.filter((heading) => heading.getBoundingClientRect().top <= line);
+        const current = (passed[passed.length - 1] ?? headings[0]).getAttribute("data-assessment-group-heading") as AssessmentToolSection;
+        setSpyGroup((previous) => previous === current ? previous : current);
+      });
+    };
+    window.addEventListener("scroll", follow, true);
+    return () => { cancelAnimationFrame(frame); window.removeEventListener("scroll", follow, true); };
+  }, [stackedQuestionsView, stackedHeadings]);
+  const jumpToGroup = (section: AssessmentToolSection) => {
+    const key = preparing ? preparationGroupForSection(section).key : section;
+    pickedTopic.current = { key, until: performance.now() + 1500 };
+    setSpyGroup(key);
+    // Snaps straight to the chosen section (owner, 2026-09-27: "click and it snaps there").
+    document.querySelector(`[data-assessment-group-heading="${key}"]`)?.scrollIntoView({ block: "start" });
+  };
+  // A link or action that names a section (a deep link, a chart edit, Review unanswered) lands on it.
+  useEffect(() => {
+    if (!stackedQuestionsView || !workspaceActive || !sectionJumps) return;
+    const key = preparing ? preparationGroupForSection(activeSection).key : activeSection;
+    if (key === stackedGroups[0]?.key) return;
+    const frame = window.requestAnimationFrame(() => {
+      setSpyGroup(key);
+      document.querySelector(`[data-assessment-group-heading="${key}"]`)?.scrollIntoView({ block: "start" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+    // Only a changed section moves the page; answers changing must not.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stackedQuestionsView, workspaceActive, sectionJumps, preparing, activeSection]);
   const nextRequiredTarget = assessmentCompletionTarget(completion.missing[0]);
   const practiceReview = useMemo(
     () => trainingAssessmentMode && !initialTrainingAssessment ? getAssessmentPracticeReview(draft) : null,
@@ -615,14 +763,25 @@ export default function AssessmentWorkspace({
         if (recovered.activeQuestion) setWorkingTarget((current) => current ?? { field: recovered.activeQuestion! });
       }
     };
-    const applyRecoveryAnswers = (recovered: PipelineAssessmentDraft, assessment: PipelineAssessmentRecord) => {
+    const applyRecoveryAnswers = (recovered: PipelineAssessmentDraft, assessment: PipelineAssessmentRecord, browserAlternatives: OfflineAssessmentWorkingSet["conflictingAnswers"]) => {
       restoreRecoveryPosition(recovered);
-      if (recovered.dirtySections.length === 0) return;
+      if (recovered.dirtySections.length === 0 && !browserAlternatives?.length) return;
 
       // Recovery may finish after the assessor has already typed or saved. Only
       // restore untouched fields; a late read must never erase newer input.
       const currentData = pickAssessmentToolData(assessment);
       const { merged, recoveredBase, conflicts } = mergeRecoveryAnswers(recovered, currentData);
+      for (const candidate of browserAlternatives ?? []) {
+        if (sameAssessmentValue(merged[candidate.field], candidate.value)) continue;
+        const existing = conflicts.find((conflict) => conflict.field === candidate.field);
+        if (existing) {
+          existing.alternatives = [...(existing.alternatives ?? []), candidate.value];
+          continue;
+        }
+        const definition = assessmentToolFieldDefinitions.find((field) => field.key === candidate.field);
+        if (!definition) continue;
+        conflicts.push({ field: candidate.field, section: definition.section, localValue: merged[candidate.field], remoteValue: candidate.value, source: "browser-drafts" });
+      }
       // Keep the pre-conflict comparison value until the assessor chooses an
       // answer. Otherwise the next persisted draft loses the conflict on reopen.
       baseDataRef.current = recoveredBase;
@@ -651,13 +810,13 @@ export default function AssessmentWorkspace({
     }
     };
     const initialization = initializedAssessmentIdRef.current;
-    const { recovered, recoveredVersion } = await readAssessmentRecovery(assessment.assessment_id, offlinePrincipal);
+    const { recovered, recoveredVersion, browserAlternatives } = await readAssessmentRecovery(assessment.assessment_id, offlinePrincipal);
     if (initializedAssessmentIdRef.current !== initialization || selectedRef.current?.assessment_id !== assessment.assessment_id) return;
     draftVersionRef.current = recoveredVersion;
     setRecoveryLoadedFor(`${assessment.assessment_id}:${offlinePrincipal}`);
     if (!recovered || recovered.assessmentId !== assessment.assessment_id) return;
     restoreAppointmentDraft(recovered, selectedRef.current);
-    applyRecoveryAnswers(recovered, selectedRef.current);
+    applyRecoveryAnswers(recovered, selectedRef.current, browserAlternatives);
     if (offlinePrincipal && new URL(window.location.href).searchParams.get("syncOfflineAssessment") === assessment.assessment_id) {
       setOfflineReturnToSync(assessment.assessment_id);
     }
@@ -685,10 +844,16 @@ export default function AssessmentWorkspace({
       workbookSources: structuredClone(workbookSourcesRef.current),
     };
     const returnPath = `${window.location.pathname}${window.location.search}`;
+    const editedFields = [...touchedFieldsRef.current];
+    const resolvedFields = [...resolvedRecoveryFieldsRef.current];
     // Serialize snapshots with recovery writes so an older encrypted copy
     // cannot finish after an acknowledged save and become the newest draft.
-    const next = localRecoveryQueueRef.current.catch(() => undefined).then(() =>
-      saveOfflineAssessmentWorkingSet(offlinePrincipal, workingDraft, returnPath, { editable: true, activate }));
+    const next = localRecoveryQueueRef.current.catch(() => undefined).then(async () => {
+      await saveOfflineAssessmentWorkingSet(offlinePrincipal, workingDraft, returnPath, {
+        editable: true, activate, editedFields, resolvedFields,
+      });
+      for (const field of resolvedFields) resolvedRecoveryFieldsRef.current.delete(field);
+    });
     localRecoveryQueueRef.current = next.catch(() => undefined);
     await next;
   }, [activeSection, canEditClinical, offlinePrincipal, phoneQuestion, referralId]);
@@ -696,6 +861,12 @@ export default function AssessmentWorkspace({
   const persistRecoveryDraft = useCallback(async (assessment: PipelineAssessmentRecord) => {
     if (trainingAssessmentMode) return;
     if (dirtySectionsRef.current.size === 0 && !pendingScheduleRef.current) return;
+    // The working set reconciles other tabs before the narrower exit draft is written.
+    try {
+      await persistOfflineWorkingSet(assessment, false);
+    } catch {
+      // Server recovery must remain available when encrypted browser storage fails.
+    }
     const recoverySessionId = await currentOfflineRecoverySessionId();
     const recovery: PipelineAssessmentDraft = {
       schema: 1,
@@ -744,7 +915,7 @@ export default function AssessmentWorkspace({
       }
       throw error;
     }
-  }, [activeSection, offlinePrincipal, referralId, trainingAssessmentMode]);
+  }, [activeSection, offlinePrincipal, persistOfflineWorkingSet, referralId, trainingAssessmentMode]);
 
   const clearRecoveryDraft = useCallback((assessmentId: string) => {
     const canRetireRecovery = () => dirtySectionsRef.current.size === 0 && !pendingScheduleRef.current && selectedRef.current?.assessment_id === assessmentId;
@@ -872,6 +1043,7 @@ export default function AssessmentWorkspace({
     // open a different assessment or authorize resetting work already entered.
     if (!attachingPrincipal) {
       touchedFieldsRef.current.clear();
+      resolvedRecoveryFieldsRef.current.clear();
       workbookSourcesRef.current = {};
       selectedRef.current = selected;
       baseDataRef.current = data;
@@ -1232,7 +1404,7 @@ export default function AssessmentWorkspace({
             ? { if_match_referral_name: referral?.name ?? current.resident_name }
             : {}),
           client_mutation_id: mutationId(`assessment-${section}`),
-          patch: { data: sentData, ...(workbook ? { workbook_restore: workbook } : {}) },
+          patch: { data: sentData, ...(workbook ? { workbook_restore: workbook } : priorAnswerPatch(priorChoicesRef.current, sentData)) },
         });
     };
     const persistSectionAnswers = async () => {
@@ -1275,6 +1447,7 @@ export default function AssessmentWorkspace({
     };
     const acceptSavedSection = (payload: { assessment: PipelineAssessmentRecord; referral?: Referral }) => {
       const saved = payload.assessment;
+      for (const field of Object.keys(sentData)) priorChoicesRef.current.delete(field as AssessmentToolFieldKey);
       const { savedData, nextDraft, nextBase } = reconcileSavedAnswers(saved);
       selectedRef.current = saved;
       baseDataRef.current = nextBase;
@@ -1619,13 +1792,19 @@ export default function AssessmentWorkspace({
     };
   }, [beforeNavigationRef, beforeWorkspaceNavigationRef, contentRef, embeddedFolder, isFocused, phoneInterview, setAssessmentFocused, workspaceActive]);
 
-  const saveOnUnmount = useEffectEvent(() => {
+  const preserveWorkingDraft = useEffectEvent(() => {
     if (dirtySectionsRef.current.size > 0) void saveBeforeExit().catch(() => undefined);
   });
 
+  // The redesign keeps the editor mounted between steps. Preserve the same recovery
+  // checkpoint as an exit, without making navigation wait for either save path.
+  useEffect(() => {
+    if (designV2 && embeddedFolder && (!workspaceActive || !questionsOnScreen)) preserveWorkingDraft();
+  }, [designV2, embeddedFolder, workspaceActive, questionsOnScreen]);
+
   useEffect(() => () => {
     initializedAssessmentIdRef.current = null;
-    saveOnUnmount();
+    preserveWorkingDraft();
   }, []);
 
   const canLeaveRecommendationReview = () => {
@@ -1893,20 +2072,42 @@ export default function AssessmentWorkspace({
     setDirtySections(dirtySectionsRef.current);
     setMessage("Unsaved changes");
     setError("");
+    // Redesign: save while typing too, a moment after the person pauses, not only when they leave the
+    // answer (owner, 2026-09-26: "make it save quick"). Leaving still saves at once; the snapshot is
+    // advanced here so the same value is never sent twice.
+    if (designV2 && !trainingAssessmentMode) {
+      clearTimeout(idleSaveTimerRef.current);
+      idleSaveTimerRef.current = setTimeout(() => {
+        const focus = focusedFieldRef.current;
+        if (!focus || focus.field !== key) return;
+        const current = JSON.stringify(draftRef.current[key]);
+        if (focus.value === current) return;
+        focus.value = current;
+        const section = assessmentToolFieldDefinitions.find((definition) => definition.key === key)!.section;
+        void queueSectionSave(section, { [key]: structuredClone(draftRef.current[key]) }).catch(() => undefined);
+      }, 900);
+    }
   };
 
-  const resolveAssessmentConflict = (field: AssessmentToolFieldKey, useLatest: boolean) => {
+  const applyPriorAnswer = (field: AssessmentToolFieldKey, value: AssessmentToolData[AssessmentToolFieldKey], assessmentId: string) => {
+    priorChoicesRef.current.set(field, { assessment_id: assessmentId, value });
+    updateField(field, value);
+    commitAnswer(field);
+  };
+
+  const resolveAssessmentConflict = (field: AssessmentToolFieldKey, useLatest: boolean, alternative?: AssessmentToolData[AssessmentToolFieldKey]) => {
     const change = remoteChangeRef.current;
     const conflict = change?.conflicts.find((item) => item.field === field);
     if (!change || !conflict) return;
     touchedFieldsRef.current.add(field);
+    if (conflict.source === "browser-drafts" || conflict.alternatives?.length) resolvedRecoveryFieldsRef.current.add(field);
     const nextDraft = pickAssessmentToolData(draftRef.current);
     const nextBase = pickAssessmentToolData(baseDataRef.current);
     if (useLatest) {
-      nextDraft[field] = conflict.remoteValue as never;
+      nextDraft[field] = (alternative ?? conflict.remoteValue) as never;
       delete workbookSourcesRef.current[field];
     }
-    nextBase[field] = conflict.remoteValue as never;
+    if (conflict.source !== "browser-drafts") nextBase[field] = conflict.remoteValue as never;
     draftRef.current = nextDraft;
     baseDataRef.current = nextBase;
     setDraft(nextDraft);
@@ -1918,7 +2119,14 @@ export default function AssessmentWorkspace({
     dirtySectionsRef.current = nextDirty;
     setDirtySections(nextDirty);
     setMessage(remaining.length > 0 ? `${remaining.length} field conflicts still need review` : "Conflict resolved; saving changes...");
-    if (!useLatest) void queueSectionSave(conflict.section, { [field]: structuredClone(nextDraft[field]) }).catch(() => undefined);
+    if (conflict.source === "browser-drafts") {
+      const current = selectedRef.current;
+      if (current) void persistOfflineWorkingSet(current).then(() =>
+        queueSectionSave(conflict.section, { [field]: structuredClone(nextDraft[field]) }))
+        .catch((cause) => setError(messageFor(cause, "The selected answer could not be saved.")));
+    } else if (!useLatest) {
+      void queueSectionSave(conflict.section, { [field]: structuredClone(nextDraft[field]) }).catch(() => undefined);
+    }
   };
 
   const focusAnswer = (field: AssessmentToolFieldKey) => {
@@ -2028,36 +2236,39 @@ export default function AssessmentWorkspace({
     };
   }, [activeSection, referralId, selected?.assessment_id, trainingAssessmentMode, workspaceActive]);
 
+  // Kept-mounted steps (docs/design/DECISIONS.md, "Kept-mounted steps"): before the editor's own chart
+  // review exists, the Chart slot shows the plain chart, so the Chart is always on the page.
+  const plainStackedChart = chartSlot ? createPortal(<>{designV2 ? null : chartDocuments}<WorkspaceClientChart referral={referral ?? null} headerActions={chartActions} onEditReferralField={onEditReferralField} assessment={designV2 && !trainingAssessmentMode ? selected ?? undefined : undefined} onOpenDecision={onContinueToWorkflow && !trainingAssessmentMode ? onContinueToWorkflow : undefined} onOpenAssessment={onOpenAssessment && !trainingAssessmentMode ? onOpenAssessment : undefined} onOpenFinish={onOpenFinish} />{designV2 ? chartDocuments : null}</>, chartSlot) : null;
   if (assessmentRequiresSavedReferral(referralId, trainingAssessmentMode)) {
-    return (
+    return (<>{plainStackedChart}
       <AssessmentEmpty
         title="Save the referral to open its questionnaire"
         detail="The assessment needs a referral ID so its history, files, and edits stay attached to one intake episode."
       />
-    );
+    </>);
   }
 
   if (isLoading) {
-    return <div className="flex min-h-56 items-center justify-center gap-2 text-[12px] text-[#737373]"><LoaderCircle className="animate-spin" size={16} /> Loading assessment history...</div>;
+    return <>{plainStackedChart}<div className="flex min-h-56 items-center justify-center gap-2 text-[12px] text-[#737373]"><LoaderCircle className="animate-spin" size={16} /> Loading assessment history...</div></>;
   }
 
   if (!selected) {
     if (reviewingChart) return <AssessmentFileSurface title={workspaceTitle} container={contentRef.current} header={null} dialogs={null}>
       <div className="min-h-0 flex-1 overflow-y-auto">{chartDocuments}<WorkspaceClientChart referral={referral ?? null} headerActions={chartActions} onEditReferralField={onEditReferralField} assessmentOnly={assessmentReview} /></div>
     </AssessmentFileSurface>;
-    return (
+    return (<>{plainStackedChart}
       <AssessmentEmpty
         title="Questionnaire"
         detail="Fill in what you know from the referral. Schedule and begin the interview when ready."
         action={canCreateAssignedAssessment ? <button type="button" data-guide-target="assessment-open" onClick={createAssessmentDraft} disabled={isBusy} className="min-h-11 rounded-md bg-[#0f8b73] px-5 text-[14px] font-semibold text-white transition-colors hover:bg-[#0b6d5b] disabled:opacity-50">Prepare assessment</button> : null}
         error={error}
       />
-    );
+    </>);
   }
 
   if (!isFocused) {
     const openLabel = assessmentOpenLabel(selected);
-    return (
+    return (<>{plainStackedChart}
       <section aria-label="Assessment" className="flex flex-col gap-3 border border-[#d6ddd9] bg-[#f8faf9] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-center gap-3">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center border border-[#cfe0da] bg-white text-[#0f8b73]" aria-hidden="true">
@@ -2070,7 +2281,7 @@ export default function AssessmentWorkspace({
         </div>
         <button type="button" data-guide-target={["assessment-open", "assessment-schedule-open"].join(" ")} onClick={openFocusedAssessment} className="flex h-9 w-full items-center justify-center gap-2 bg-[#0f8b73] px-4 text-[11px] font-bold text-white transition-colors hover:bg-[#0b6d5b] sm:w-auto">{openLabel} <ChevronRight size={14} /></button>
       </section>
-    );
+    </>);
   }
 
   const openScheduleDialog = () => { setError(""); setShowBeginDialog(false); setShowScheduleDialog(true); };
@@ -2104,7 +2315,10 @@ export default function AssessmentWorkspace({
     setShowBeginDialog(true);
   };
   const changeWorkingMode = (prepare: boolean) => {
-    if (prepare && !preparing) interviewReturnRef.current = { assessmentId: selectedId, section: activeSection, field: focusedFieldRef.current?.field ?? phoneQuestionRef.current };
+    // One-page interview: the topic in view (the picker's), not the last paged section, is the one to return to.
+    if (prepare && !preparing) interviewReturnRef.current = stackedQuestionsView
+      ? { assessmentId: selectedId, section: spySection, field: null }
+      : { assessmentId: selectedId, section: activeSection, field: focusedFieldRef.current?.field ?? phoneQuestionRef.current };
     if (focusedFieldRef.current) commitAnswer(focusedFieldRef.current.field);
     const returning = interviewReturnRef.current;
     if (!prepare && preparing && returning?.assessmentId === selectedId) {
@@ -2113,7 +2327,18 @@ export default function AssessmentWorkspace({
     } else setWorkingTarget(null);
     setNotebookView(prepare ? "prepare" : "assessment");
   };
-  const continueFromPreparation = () => changeWorkingMode(false);
+  // Preparation has one deliberate interview action. Opening its confirmation
+  // does not start the interview or wait for an ordinary answer save.
+  const simplifiedPreparation = designV2 && !phoneLayout && !trainingAssessmentMode && preparing;
+  const preparationNeedsStart = simplifiedPreparation && assessmentReadyToBegin(selected) && canEditClinical;
+  const preparationActionLabel = !simplifiedPreparation ? "Open interview"
+    : preparationNeedsStart ? (unrecordedStartId === selectedId ? "Retry start time" : "Begin interview")
+    : selected.started_at ? "Return to interview" : "Interview";
+  const preparationActionDisabled = isClosing || isBusy || (!simplifiedPreparation && !canEditClinical);
+  const continueFromPreparation = () => {
+    if (preparationNeedsStart) requestInterviewStart();
+    else changeWorkingMode(false);
+  };
 
   const nextConversationSection = () => {
     setWorkingTarget(null);
@@ -2124,7 +2349,7 @@ export default function AssessmentWorkspace({
 
   const renderSignatureHistory = () => (
     selected.signed_at ? (
-        <div className="shrink-0 border-b border-[#d9dfdb] px-4 py-3 text-[11px] text-[#595959]">
+        <div data-signature-history className="shrink-0 border-b border-[#d9dfdb] px-4 py-3 text-[11px] text-[#595959]">
           Signed by <strong>{selected.signed_by?.name ?? selected.assessor ?? "Assigned assessor"}</strong> on {new Date(selected.signed_at).toLocaleString()}.
           {!isAssessmentFinalized(selected) ? " You can still edit until Meet the Client is sent." : " Meet the Client sent. Use Add note for later information."}
           {(selected.addenda ?? []).length > 0 ? (
@@ -2137,13 +2362,22 @@ export default function AssessmentWorkspace({
   );
 
   const saveIndicatorColor = () => error ? "text-[#69716c]" : !networkOnline || pendingOfflineSaves > 0 || dirty || isBusy ? "text-[#59645e]" : "text-[#0c705f]";
-  const renderReturnToInterview = () => !reviewingChart && preparing && interviewReturnRef.current?.assessmentId === selectedId
+  const renderReturnToInterview = () => !simplifiedPreparation && !reviewingChart && preparing && interviewReturnRef.current?.assessmentId === selectedId
     ? <button type="button" className={workingStyles.returnToInterview} disabled={isBusy || isClosing} onClick={() => changeWorkingMode(false)}>Return to interview</button>
     : null;
+  // Redesign interview: the All questions / Interview switch and its actions share the sticky section row, so the
+  // page has one in-page navigation row (owner, 2026-09-26: "four layers of nav").
+  const workModeInNavigation = designV2 && stackedQuestionsView && !phoneInterview;
+  // Redesign: Schedule interview and the appointment line show only while the interview has not begun.
+  const renderWorkMode = () => (!reviewingChart && !selected.signed_at ? <AssessmentWorkMode preparing={preparing} compactPreparation={simplifiedPreparation} disabled={isBusy || isClosing} canBegin={!simplifiedPreparation && assessmentReadyToBegin(selected) && canEditClinical} startAttemptFailed={unrecordedStartId === selectedId} onChange={changeWorkingMode} onBegin={requestInterviewStart} scheduleAction={(designV2 ? canScheduleUnstartedAssessment(selected, canEditClinical) : canEditClinical) && !interviewFocus ? renderScheduleAction() : null} chartAction={designV2 && referral && !trainingAssessmentMode && !splitInterview ? <ChartPeek referral={referral} assessment={{ ...selected, ...draft }} /> : null} appointment={hasActiveAssessmentSchedule(selected) && !(designV2 && selected.started_at) ? new Date(selected.scheduled_start_at!).toLocaleString("en-US", { timeZone: "America/Los_Angeles", weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" }) : undefined} /> : null);
+  // In full screen the rail is hidden, so the bottom bar shows the save status again.
+  const railSaveStatus = designV2 && embeddedFolder && !phoneLayout && !trainingAssessmentMode && !interviewFocus;
   const renderSaveStatus = () => (
     <div className={workingStyles.footerUtilities}>
           <button type="button" className={workingStyles.saveRecovery} title="Excel workbook, backup & recovery" aria-haspopup="dialog" onClick={() => setRecoveryToolsAssessment(selected.assessment_id)}>
-          <span data-guide-target="assessment-save-status" aria-live="polite" className={`flex min-w-0 items-center gap-1.5 ${saveIndicatorColor()}`}>
+          {/* Redesign record page: the rail's save panel is the one save status; this stays the way into Excel and recovery. */}
+          {railSaveStatus ? <FileSpreadsheet size={16} aria-hidden="true" /> : null}
+          <span data-guide-target="assessment-save-status" aria-live="polite" className={railSaveStatus ? "sr-only" : `flex min-w-0 items-center gap-1.5 ${saveIndicatorColor()}`}>
             {!error && networkOnline && pendingOfflineSaves === 0 && !dirty && !isBusy ? <Check size={14} className="shrink-0" aria-hidden="true" /> : null}
             <span>{assessmentSaveStatus({ error, trainingAssessmentMode, dirty, message, networkOnline, pendingOfflineSaves })}</span>
           </span>
@@ -2151,7 +2385,10 @@ export default function AssessmentWorkspace({
           <span className="sr-only">Open Excel and recovery</span>
           </button>
           {renderReturnToInterview()}
-          {embeddedFolder && assessmentDetails ? <AssessmentFileDetails label="Details" detailsRef={secondaryActionsRef}>{assessmentDetails}</AssessmentFileDetails> : null}
+          {/* Redesign: while answering, Details would hold only the interview date, so the date sits in the bar itself. */}
+          {embeddedFolder && designV2 && !reviewingChart && !(selected.signed_at && canAddAddendum)
+            ? <button type="button" className={workingStyles.saveRecovery} onClick={() => setShowInterviewDate(true)}><CalendarClock size={15} aria-hidden="true" />Interview date{draft.assessment_date ? `: ${draft.assessment_date}` : ""}</button>
+            : embeddedFolder && assessmentDetails ? <AssessmentFileDetails label="Details" detailsRef={secondaryActionsRef}>{assessmentDetails}</AssessmentFileDetails> : null}
         </div>
   );
 
@@ -2159,7 +2396,7 @@ export default function AssessmentWorkspace({
   const renderSignAction = () => (<button type="button" data-guide-target="assessment-sign" onClick={async (event) => { event.currentTarget.focus({ preventScroll: true }); if (await confirm({ title: "Sign this assessment?", message: "You can still edit it until Meet the Client is sent. Changes are logged.", confirmLabel: "Sign assessment" })) void signAssessment(selected.assessment_id); }} disabled={isBusy || isClosing || isRecommendationPending}>{isRecommendationPending ? recommendationSaveFailed ? "Working decision not saved" : "Saving recommendation..." : onContinueToWorkflow && !trainingAssessmentMode ? "Sign & continue to decision" : "Sign assessment"}</button>);
 
   const renderScheduleAction = () => (
-    <button type="button" aria-label={hasActiveAssessmentSchedule(selected) ? "Edit assessment appointment" : undefined} data-guide-target={showScheduleDialog ? undefined : "assessment-schedule-open"} onClick={(event) => { event.currentTarget.focus({ preventScroll: true }); openScheduleDialog(); }} disabled={isBusy || isClosing}>{hasActiveAssessmentSchedule(selected) ? "Edit" : <><CalendarClock size={15} aria-hidden="true" />Schedule interview</>}</button>
+    <button type="button" aria-label={hasActiveAssessmentSchedule(selected) ? "Edit assessment appointment" : undefined} data-guide-target={showScheduleDialog ? undefined : "assessment-schedule-open"} onClick={(event) => { event.currentTarget.focus({ preventScroll: true }); openScheduleDialog(); }} disabled={isBusy || isClosing}>{hasActiveAssessmentSchedule(selected) ? (designV2 ? <><CalendarClock size={15} aria-hidden="true" />Edit</> : "Edit") : <><CalendarClock size={15} aria-hidden="true" />Schedule interview</>}</button>
   );
 
   const renderPrimaryAssessmentActions = () => (
@@ -2182,7 +2419,9 @@ export default function AssessmentWorkspace({
           <div className="flex items-center gap-2 text-[11px] font-black text-[#333333]">
             <RefreshCw size={13} className="text-[#0f8b73]" />
             {remoteChange.conflicts.length > 0
-              ? `${remoteChange.assessment.updated_by.name} changed fields you were editing.`
+              ? remoteChange.conflicts.some((conflict) => conflict.source === "browser-drafts")
+                ? "Two browser tabs have different unsaved answers. Choose which to keep."
+                : `${remoteChange.assessment.updated_by.name} changed fields you were editing.`
               : `Latest changes from ${remoteChange.assessment.updated_by.name} were merged.`}
           </div>
           {remoteChange.conflicts.length > 0 ? (
@@ -2193,13 +2432,15 @@ export default function AssessmentWorkspace({
                   <div key={conflict.field} className="grid gap-2 border-t border-[#e5cf9d] pt-2 sm:grid-cols-[180px_minmax(0,1fr)_auto] sm:items-center">
                     <div className="text-[11px] font-black">{definition?.label ?? conflict.field}</div>
                     <div className="min-w-0 text-[10px] text-[#595959]">
-                      <span className="font-semibold">Yours:</span> {displayAssessmentValue(conflict.localValue)}
+                      <span className="font-semibold">{conflict.source === "browser-drafts" ? "Current draft:" : "Yours:"}</span> {displayAssessmentValue(conflict.localValue)}
                       <span className="mx-2 text-[#9a6115]">|</span>
-                      <span className="font-semibold">Latest:</span> {displayAssessmentValue(conflict.remoteValue)}
+                      <span className="font-semibold">{conflict.source === "browser-drafts" ? "Other tab:" : "Latest:"}</span> {displayAssessmentValue(conflict.remoteValue)}
+                      {conflict.alternatives?.map((value, index) => <span key={index}> | Other unsaved answer: {displayAssessmentValue(value)}</span>)}
                     </div>
                     <div className="flex gap-2">
                       <button type="button" onClick={() => resolveAssessmentConflict(conflict.field, false)} className="h-8 border border-[#9a6115] px-3 text-[10px] font-black text-[#7a4c0d] hover:bg-white">Keep mine</button>
-                      <button type="button" onClick={() => resolveAssessmentConflict(conflict.field, true)} className="h-8 bg-[#111111] px-3 text-[10px] font-black text-white hover:bg-[#0f8b73]">Use latest</button>
+                      <button type="button" onClick={() => resolveAssessmentConflict(conflict.field, true)} className="h-8 bg-ink px-3 text-[10px] font-black text-on-fill hover:bg-primary">{conflict.source === "browser-drafts" ? "Use other tab" : "Use latest"}</button>
+                      {conflict.alternatives?.map((value, index) => <button key={index} type="button" onClick={() => resolveAssessmentConflict(conflict.field, true, value)} className="h-8 border border-stage-amber px-3 text-[10px] font-black text-warning hover:bg-paper">Use other answer {index + 2}</button>)}
                     </div>
                   </div>
                 );
@@ -2267,17 +2508,18 @@ export default function AssessmentWorkspace({
     if (!remaining) return null;
     return <div className={workingStyles.chartReviewNotice} data-chart-unanswered>
       {onReviewAssessment ? <button type="button" onClick={() => void reviewChart()} disabled={isBusy || isClosing}>Review unanswered assessment items<ChevronRight size={15} aria-hidden="true" /></button> : null}
-      <p>Assessment answers: {questions - remaining} of {questions} recorded. The rest are unanswered or unverified and do not prevent continuing.</p>
+      <p>Assessment answers: {questions - remaining} of {questions} recorded.<span data-chart-unanswered-note> The rest are unanswered or unverified and do not prevent continuing.</span></p>
     </div>;
   };
 
   const renderChartReview = () => (
     <section data-guide-target="assessment-review" aria-label="Assessment chart review" className={workingStyles.chartReview}>
-            {chartDocuments}
+            {/* Redesign: documents follow the chart, so the client reads first (owner, 2026-09-26). */}
+            {designV2 ? null : chartDocuments}
             {renderChartReviewToolbar()}
-            {assessmentReview ? renderReviewOverview() : renderUnansweredEntry()}
+            {assessmentReview ? renderReviewOverview() : designV2 ? null : renderUnansweredEntry()}
             <div className={assessmentReview ? workingStyles.reviewDocument : undefined}>
-            <WorkspaceClientChart referral={referral ?? null} headerActions={chartActions} contactActions={renderChartScheduling()} onEditReferralField={onEditReferralField} assessmentOnly={assessmentReview}
+            <WorkspaceClientChart referral={referral ?? null} headerActions={chartActions} contactActions={renderChartScheduling()} assessmentEntry={designV2 && !assessmentReview ? renderUnansweredEntry() : undefined} onEditReferralField={onEditReferralField} assessmentOnly={assessmentReview}
               onEditAssessmentField={!isBusy && !isRecommendationPending && !isAssessmentFinalized(selected) && canEditClinical ? (field) => {
                 if (!canLeaveRecommendationReview()) return;
                 if (field === "assessment_date") { setShowInterviewDate(true); return; }
@@ -2286,8 +2528,11 @@ export default function AssessmentWorkspace({
                 setNotebookView(isInterviewFocusField(field) ? "assessment" : "prepare");
                 onOpenAssessment?.();
               } : undefined}
-              assessment={{ ...selected, ...draft, signed_at: dirtySections.size > 0 ? null : selected.signed_at }} practice={Boolean(trainingAssessmentMode)} />
+              assessment={{ ...selected, ...draft, signed_at: dirtySections.size > 0 ? null : selected.signed_at }} practice={Boolean(trainingAssessmentMode)}
+              onOpenDecision={onContinueToWorkflow && !trainingAssessmentMode ? continueToWorkflow : undefined}
+              onOpenAssessment={onOpenAssessment && !trainingAssessmentMode ? onOpenAssessment : undefined} onOpenFinish={onOpenFinish} />
             </div>
+            {designV2 ? chartDocuments : null}
           </section>
   );
 
@@ -2298,13 +2543,32 @@ export default function AssessmentWorkspace({
         </div>
       </HomeDialog> : null);
 
+  // Interview notebook (docs/design/DECISIONS.md, "Interview notebook"): beside the questions on wide
+  // screens, following the topic in view. Phones and practice keep the questions alone for now.
+  const notebookAvailable = designV2 && !phoneLayout && !trainingAssessmentMode && Boolean(referralId);
+  const notebookTopic = stackedQuestionsView ? spySection : activeSection;
+  // Redesign interview on a wide screen: the Chart as text on the left, the interview on the right (owner, 2026-09-26).
+  const splitInterview = notebookAvailable && stackedQuestionsView && !preparing && Boolean(referral);
+  // Preparing has no side column, so the notebook sits to the right; the interview puts it in a tab
+  // beside Current information so the questions keep their width.
+  const renderNotebook = (onCollapse?: () => void) => <ClientNotes key={referralId} referralId={referralId!} readOnly={!canEditClinical}
+    currentTopics={preparing ? preparationGroupForSection(notebookTopic).sections : [notebookTopic]} onCollapse={onCollapse} />;
+  const withNotebook = (content: ReactNode) => notebookAvailable && preparing ? <div className={workingStyles.withNotebook} data-notebook-open={notebookOpen || undefined}>
+    {content}
+    {notebookOpen ? renderNotebook(() => showNotebook(false)) : <ClientNotesReopen onOpen={() => showNotebook(true)} />}
+  </div> : content;
   const sectionSteps = <nav aria-label="Assessment section steps" className={`${workingStyles.sectionSteps} ${phoneLayout ? workingStyles.phonePreparationSteps : ""}`}>
+    {stackedQuestionsView ? null : <>
     <button type="button" aria-label="Previous section" className={workingStyles.previousSection} onClick={() => { if (previousSection) { setWorkingTarget(null); setActiveSection(previousSection.key); } }} disabled={!previousSection || isClosing} title={previousSection ? `Previous: ${previousSection.label}` : undefined}><ChevronLeft size={16} aria-hidden="true" /><span>Previous</span></button>
     <span className={workingStyles.stepPosition} aria-label={`Section ${pageIndex + 1} of ${pageSections.length}`}><strong>{pageIndex + 1}</strong> of {pageSections.length}</span>
-    <div data-assessment-primary-action><button type="button" data-guide-target="assessment-next-section" onClick={nextConversationSection} disabled={isClosing || (!nextSection && isBusy) || (preparing && !nextSection && !canEditClinical)} title={nextSection ? `Next: ${nextSection.label}` : undefined}>{nextSection ? "Next section" : preparing ? "Open interview" : "Review assessment"}<ChevronRight size={16} aria-hidden="true" /></button></div>
+    </>}
+    <div data-assessment-primary-action><button type="button" data-guide-target={preparationNeedsStart && !nextSection ? "assessment-begin" : "assessment-next-section"} onClick={nextConversationSection} disabled={isClosing || (!nextSection && (preparing ? preparationActionDisabled : isBusy))} title={nextSection ? `Next: ${nextSection.label}` : undefined}>{nextSection ? "Next section" : preparing ? preparationActionLabel : "Review assessment"}<ChevronRight size={16} aria-hidden="true" /></button></div>
   </nav>;
 
-  return (
+  // Kept-mounted steps: this editor draws the Chart step (with its appointment and unanswered-items
+  // entry); in the signed review it draws the plain chart there instead.
+  const stackedChart = chartSlot ? (assessmentReview ? plainStackedChart : createPortal(renderChartReview(), chartSlot)) : null;
+  return (<>{stackedChart}
     <AssessmentFileSurface
       title={workspaceTitle}
       container={contentRef.current}
@@ -2356,7 +2620,7 @@ export default function AssessmentWorkspace({
 
       <div className="flex min-h-0 flex-1">
         <main ref={chartScrollRef} className={`min-w-0 flex-1 ${reviewingChart ? "overflow-y-auto" : phoneInterview ? phoneStyles.mobileMain : `${workingStyles.readingMain} ${preparing ? workingStyles.preparationMain : ""}`}`}>
-          {!reviewingChart && !selected.signed_at ? <AssessmentWorkMode preparing={preparing} disabled={isBusy || isClosing} canBegin={assessmentReadyToBegin(selected) && canEditClinical} startAttemptFailed={unrecordedStartId === selectedId} onChange={changeWorkingMode} onBegin={requestInterviewStart} scheduleAction={canEditClinical ? renderScheduleAction() : null} appointment={hasActiveAssessmentSchedule(selected) ? new Date(selected.scheduled_start_at!).toLocaleString("en-US", { timeZone: "America/Los_Angeles", weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" }) : undefined} /> : null}
+          {workModeInNavigation ? null : renderWorkMode()}
           <AssessmentExcelBackup key={selected.assessment_id} assessment={selected} data={draft} readOnly={workbookReadOnly(selected, canEditClinical, isBusy, isClosing)} onApply={restoreWorkbook}
             importFile={workbookImport} onImportFileRead={onWorkbookImportRead}
             toolsOpen={recoveryToolsAssessment === selected.assessment_id} onCloseTools={() => setRecoveryToolsAssessment(null)}
@@ -2378,7 +2642,7 @@ export default function AssessmentWorkspace({
 
           {renderRemoteChanges()}
 
-          {reviewingChart ? renderChartReview() : <div data-assessment-question-content className={!phoneInterview ? workingStyles.readingContent : "w-full px-3 py-3 sm:px-4"}>
+          {reviewingChart ? renderChartReview() : withNotebook(<div data-assessment-question-content className={!phoneInterview ? workingStyles.readingContent : "w-full px-3 py-3 sm:px-4"}>
             {renderPhoneQuestionHeading()}
             {trainingAssessmentMode && activeSection === "provenance_qc" && practiceReview ? <PracticeAssessmentReview review={practiceReview} /> : null}
             <QuestionPage
@@ -2391,27 +2655,38 @@ export default function AssessmentWorkspace({
                 if (preparing) continueFromPreparation();
                 else void reviewChart();
               }}
-              section={visibleSectionKey}
-              sectionLabel={workingSectionLabel()}
+              section={stackedQuestionsView ? stackedGroups[0].key : visibleSectionKey}
+              sectionLabel={stackedQuestionsView ? undefined : workingSectionLabel()}
+              groupHeadings={stackedQuestionsView ? stackedHeadings : undefined}
               assessment={selected}
               data={draft}
               pending={pendingFields}
-              questions={preparing ? preparationQuestions(preparationGroup, draft) : sectionQuestions}
-              referenceQuestions={conversationSections[activeSectionIndex].referenceQuestions}
+              questions={stackedQuestionsView ? stackedQuestions : preparing ? preparationQuestions(preparationGroup, draft) : sectionQuestions}
+              referenceQuestions={stackedQuestionsView && !preparing ? stackedGroups.find((group) => group.key === spySection)?.referenceQuestions : conversationSections[activeSectionIndex].referenceQuestions}
               onAllQuestions={() => changeWorkingMode(true)}
               required={requiredInterviewFields}
               target={workingTarget}
-              questionNavigation={!phoneInterview ? (recordedAnswers) => <AssessmentWorkingNavigation preparing={preparing} recordedAnswers={recordedAnswers} data={draft} pending={pendingFields} activeSection={visibleSectionKey} guideTargets={assessmentSectionGuideTargets} onSectionChange={(section) => { setWorkingTarget(null); setActiveSection(section); }} /> : undefined}
+              questionNavigation={!phoneInterview ? (recordedAnswers) => <AssessmentWorkingNavigation onAllQuestions={workModeInNavigation && !preparing ? () => changeWorkingMode(true) : undefined} lead={workModeInNavigation ? <>
+                {interviewFocus && workspaceTitle ? <h2 className={workingStyles.focusTitle}>{workspaceTitle}</h2> : null}
+                {renderWorkMode()}
+                {interviewFocus ? renderSaveStatus() : null}
+              </> : undefined} preparing={preparing} recordedAnswers={recordedAnswers} data={draft} pending={pendingFields} activeSection={stackedQuestionsView ? spySection : visibleSectionKey} guideTargets={assessmentSectionGuideTargets} onSectionChange={(section) => { setWorkingTarget(null); if (stackedQuestionsView) jumpToGroup(section); else setActiveSection(section); }} /> : undefined}
               disabled={isBusy || isAssessmentFinalized(selected) || !canEditClinical}
               reviewDisabled={isBusy || isAssessmentFinalized(selected) || !canEditClinical}
               onChange={updateField}
               onFieldFocus={(field) => {
                 focusAnswer(field);
                 rememberPhoneQuestion(field);
-                if (preparing) setActiveSection(assessmentToolFieldDefinitions.find((definition) => definition.key === field)!.section);
+                if (preparing && !stackedQuestionsView) setActiveSection(assessmentToolFieldDefinitions.find((definition) => definition.key === field)!.section);
               }}
               onFieldBlur={commitAnswer}
               onReview={(field, action) => void reviewExtractedField(field, action)}
+              priorAnswers={currentPriorAnswers}
+              intakeAnswers={currentIntakeAnswers}
+              onUsePriorAnswer={applyPriorAnswer}
+              notebook={notebookAvailable && !preparing && !splitInterview ? renderNotebook() : undefined}
+              split={splitInterview && referral ? <InterviewSplit topics={stackedGroups} data={draft} currentTopic={spySection} notes={renderNotebook()} /> : undefined}
+              interviewContext={designV2 && referral ? <InterviewContext key={referral.id} referralId={referral.id} summary={referral.note} /> : undefined}
               onUnableReasonChange={(field, reason) => updateField("unable_to_assess_reasons", setAssessmentUnableReason(draftRef.current.unable_to_assess_reasons, field, reason))}
               onReferenceEdit={(field) => {
                 if (field === "assessment_date") { setShowInterviewDate(true); return; }
@@ -2435,7 +2710,7 @@ export default function AssessmentWorkspace({
           </div>
               </details>
             ) : null}
-          </div>}
+          </div>)}
         </main>
 
       </div>
@@ -2443,14 +2718,15 @@ export default function AssessmentWorkspace({
       {!reviewingChart && preparing && phoneLayout ? sectionSteps : null}
       <footer aria-label="Assessment actions" data-assessment-chart-review={reviewingChart || undefined} className={`${workingStyles.footer} flex shrink-0 flex-wrap items-center justify-between bg-white ${phoneLayout ? phoneStyles.mobileFooter : "gap-x-3 gap-y-2 px-4 py-2 sm:px-6 lg:px-8"}`}>
         {reviewingChart && error ? <p role="alert" className={workingStyles.reviewError}>{error}</p> : null}
-        {renderSaveStatus()}
+        {/* Interview layout: the save status and interview date sit in the top-right of the interview bar instead. */}
+        {interviewFocus ? null : renderSaveStatus()}
         {!reviewingChart && !phoneLayout ? sectionSteps : (reviewingChart || selected.signed_at) ? <div>
         {renderPrimaryAssessmentActions()}
         </div> : null}
       </footer>
 
     </AssessmentFileSurface>
-  );
+  </>);
 }
 
 function workbookReadOnly(assessment: PipelineAssessmentRecord, canEdit: boolean, busy: boolean, closing: boolean) {
@@ -2461,27 +2737,65 @@ function newestRecoveryDraft(current: PipelineAssessmentDraft | null, candidate:
   return candidate && (!current || Date.parse(candidate.savedAt) >= Date.parse(current.savedAt)) ? candidate : current;
 }
 
+function combineRecoveryDrafts(
+  current: PipelineAssessmentDraft | null,
+  candidate: PipelineAssessmentDraft | null | undefined,
+  alternatives: OfflineAssessmentWorkingSet["conflictingAnswers"],
+  authoritativeCurrent = false,
+  authoritativeCandidate = false,
+) {
+  if (!candidate || candidate.assessmentId !== current?.assessmentId) return current ?? candidate ?? null;
+  const candidateIsNewer = Date.parse(candidate.savedAt) >= Date.parse(current.savedAt);
+  const [newer, older] = candidateIsNewer ? [candidate, current] : [current, candidate];
+  const newerIsCompleteWorkingSet = candidateIsNewer ? authoritativeCandidate : authoritativeCurrent;
+  const data = pickAssessmentToolData(newer.data);
+  const baseData = pickAssessmentToolData(newer.baseData);
+  const workbookSources = { ...newer.workbookSources };
+  const dirtySections = new Set(newer.dirtySections);
+  for (const { key: field, section } of assessmentToolFieldDefinitions) {
+    if (sameAssessmentValue(older.data[field], older.baseData[field])) continue;
+    if (!sameAssessmentValue(newer.data[field], newer.baseData[field])) {
+      if (!sameAssessmentValue(older.data[field], newer.data[field])
+        && !alternatives?.some((answer) => answer.field === field && sameAssessmentValue(answer.value, older.data[field]))) {
+        alternatives?.push({ field, value: older.data[field] });
+      }
+      continue;
+    }
+    if (newerIsCompleteWorkingSet) continue;
+    data[field] = older.data[field] as never;
+    baseData[field] = older.baseData[field] as never;
+    if (older.workbookSources?.[field]) workbookSources[field] = older.workbookSources[field];
+    dirtySections.add(section);
+  }
+  return { ...newer, data, baseData, workbookSources, dirtySections: [...dirtySections], scheduleDraft: newer.scheduleDraft ?? older.scheduleDraft };
+}
+
 function hasPendingRecovery(draft: PipelineAssessmentDraft | null) {
   return Boolean(draft && (draft.dirtySections.length > 0 || draft.scheduleDraft));
 }
 
 async function readBrowserAssessmentRecovery(assessmentId: string, principal: string | null) {
   let recovered: PipelineAssessmentDraft | null = null;
+  let browserAlternatives: OfflineAssessmentWorkingSet["conflictingAnswers"] = [];
+  let hasWorkingSet = false;
   if (principal) {
     try {
-      recovered = await loadOfflineAssessmentDraft(principal, assessmentId);
+      const exitDraft = await loadOfflineAssessmentDraft(principal, assessmentId);
       const workingSet = await loadOfflineAssessmentWorkingSet(principal, assessmentId);
-      if (!hasPendingRecovery(recovered)) recovered = newestRecoveryDraft(recovered, workingSet?.draft);
+      hasWorkingSet = Boolean(workingSet);
+      browserAlternatives = workingSet?.conflictingAnswers ?? [];
+      recovered = combineRecoveryDrafts(exitDraft, workingSet?.draft ?? null, browserAlternatives, false, true);
     } catch {
       // Server recovery remains available when encrypted browser storage is unavailable.
     }
     recovered = newestRecoveryDraft(recovered, volatileAssessmentRecovery(principal, assessmentId));
   }
-  return recovered;
+  return { recovered, browserAlternatives, hasWorkingSet };
 }
 
 async function readAssessmentRecovery(assessmentId: string, principal: string | null) {
-  let recovered = await readBrowserAssessmentRecovery(assessmentId, principal);
+  const browserRecovery = await readBrowserAssessmentRecovery(assessmentId, principal);
+  let recovered = browserRecovery.recovered;
   let recoveredVersion = 0;
   if (usesServerUserWorkspaceState()) {
     try {
@@ -2489,14 +2803,14 @@ async function readAssessmentRecovery(assessmentId: string, principal: string | 
         `/api/me/assessment-drafts/${encodeURIComponent(assessmentId)}`, { cache: "no-store" },
       );
       if (!hasPendingRecovery(recovered) && !await isActiveOtherRecoverySession(payload.draft?.recoverySessionId)) {
-        recovered = newestRecoveryDraft(recovered, payload.draft);
+        recovered = combineRecoveryDrafts(recovered, payload.draft, browserRecovery.browserAlternatives, browserRecovery.hasWorkingSet);
       }
       recoveredVersion = payload.version;
     } catch {
       // Browser recovery remains available during a transient server-state outage.
     }
   }
-  return { recovered, recoveredVersion };
+  return { recovered, recoveredVersion, browserAlternatives: browserRecovery.browserAlternatives };
 }
 
 function AssessmentEmpty({ title, detail, action, error }: { title: string; detail: string; action?: React.ReactNode; error?: string }) {
@@ -2644,4 +2958,16 @@ function isolateAssessmentContent(content: HTMLElement | null, embeddedFolder: b
       if (content) content.style.isolation = previousIsolation;
       for (const { element, inert } of backgrounds) element.inert = inert;
     };
+}
+
+// Answers chosen from the last assessment that this save still carries unchanged.
+function priorAnswerPatch(
+  choices: ReadonlyMap<AssessmentToolFieldKey, { assessment_id: string; value: AssessmentToolData[AssessmentToolFieldKey] }>,
+  sentData: Partial<AssessmentToolData>,
+) {
+  const carried = [...choices]
+    .filter(([field, choice]) => Object.hasOwn(sentData, field) && sameAssessmentValue(sentData[field] ?? null, choice.value));
+  const priorAnswers = carried.filter(([, choice]) => choice.assessment_id !== intakeAnswerSource).map(([field, choice]) => ({ field, assessment_id: choice.assessment_id }));
+  const referralAnswers = carried.filter(([, choice]) => choice.assessment_id === intakeAnswerSource).map(([field]) => field);
+  return { ...(priorAnswers.length ? { prior_answers: priorAnswers } : {}), ...(referralAnswers.length ? { referral_answers: referralAnswers } : {}) };
 }

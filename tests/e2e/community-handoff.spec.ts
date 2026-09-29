@@ -31,14 +31,16 @@ test("community defaults, To/Cc edits, reload and community replacement use the 
   const cc = page.getByRole("list", { name: "Cc recipients", exact: true });
   await expect(to).toContainText("Care team");
   await expect(cc).toContainText("Admissions");
+  const endpoint = `/api/referrals/${referral.id}/handoff-recipients`;
+  const initial = await (await page.request.get(endpoint)).json();
+  expect(initial.draft.medicationReview.status).toBe("unconfirmed");
   await page.getByRole("button", { name: "Remove Medication team from To", exact: true }).click();
   const input = page.getByRole("combobox", { name: /^Cc/ });
   await input.fill("Transport <transport@example.invalid>");
   await input.press("Enter");
   await expect(page.getByRole("status").filter({ hasText: "Handoff draft saved" })).toBeVisible();
-  const endpoint = `/api/referrals/${referral.id}/handoff-recipients`;
   const saved = await (await page.request.get(endpoint)).json();
-  expect(saved.version).toBe(2);
+  expect(saved.version).toBe(initial.version + 2);
   expect(saved.draft.to.map((item: { email: string }) => item.email)).toEqual(["care@example.invalid"]);
   expect(saved.draft.cc.map((item: { email: string }) => item.email)).toEqual(["admissions@example.invalid", "transport@example.invalid"]);
   await page.reload();
@@ -122,6 +124,8 @@ test("conflicts preserve the saved audience and cross-origin or wrong-community 
 test("failed autosave keeps visible edits until retry confirms persistence", async ({ page }) => {
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { owner: "", community: "San Pablo" });
   await openHandoff(page, referral.id);
+  const endpoint = `/api/referrals/${referral.id}/handoff-recipients`;
+  const initial = await (await page.request.get(endpoint)).json();
   await page.route(`**/api/referrals/${referral.id}/handoff-recipients`, async (route) => {
     if (route.request().method() === "PUT") await route.fulfill({ status: 503, json: { error: "Synthetic storage unavailable" } });
     else await route.continue();
@@ -131,14 +135,14 @@ test("failed autosave keeps visible edits until retry confirms persistence", asy
   await expect(page.getByRole("list", { name: "To recipients", exact: true })).not.toContainText("Care team");
   await expect(page.getByRole("combobox", { name: /^To/ })).toBeEnabled();
   await expect(page.getByRole("button", { name: "Retry saving" })).toBeVisible();
-  const stored = await (await page.request.get(`/api/referrals/${referral.id}/handoff-recipients`)).json();
-  expect(stored.version).toBe(0);
-  expect(stored.draft).toBeNull();
+  const stored = await (await page.request.get(endpoint)).json();
+  expect(stored.version).toBe(initial.version);
+  expect(stored.draft).toEqual(initial.draft);
   await page.unroute(`**/api/referrals/${referral.id}/handoff-recipients`);
   await page.getByRole("button", { name: "Retry saving" }).click();
   await expect(page.getByRole("status").filter({ hasText: "Handoff draft saved" })).toBeVisible();
-  const recovered = await (await page.request.get(`/api/referrals/${referral.id}/handoff-recipients`)).json();
-  expect(recovered.version).toBe(1);
+  const recovered = await (await page.request.get(endpoint)).json();
+  expect(recovered.version).toBe(initial.version + 1);
   expect(recovered.draft.to.map((item: { email: string }) => item.email)).toEqual(["meds@example.invalid"]);
   await page.reload();
   await openRecipients(page);

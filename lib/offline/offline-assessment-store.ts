@@ -8,9 +8,11 @@ import {
 } from "@/lib/assessment/assessment-interview-schema";
 import {
   assessmentToolFieldDefinitions,
+  type AssessmentToolFieldKey,
   type AssessmentToolSection,
 } from "@/lib/assessment/assessment-tool-schema";
 import type { PipelineAssessmentDraft } from "@/lib/pipeline/user-workspace-state-types";
+import type { ClientNoteDraft } from "@/lib/pipeline/client-notes";
 
 const databaseName = "pipeline-offline-v1";
 const databaseVersion = 2;
@@ -75,7 +77,7 @@ type StoredKey = { id: string; key: CryptoKey; createdAt: number };
 type StoredRecord = EncryptedPayload & {
   id: string;
   principal: string;
-  kind: "assessment-draft" | "assessment-working-set" | "referral-draft";
+  kind: "assessment-draft" | "assessment-working-set" | "referral-draft" | "client-notes-draft";
   sessionId?: string;
   updatedAt: number;
   expiresAt: number;
@@ -100,6 +102,7 @@ export type OfflineAssessmentQuestion = Pick<
 
 export type OfflineAssessmentWorkingSet = {
   schema: 1;
+  conflictingAnswers?: Array<{ field: AssessmentToolFieldKey; value: PipelineAssessmentDraft["data"][AssessmentToolFieldKey] }>;
   savedAt: string;
   returnPath: string;
   editable: boolean;
@@ -219,7 +222,7 @@ export async function saveOfflineAssessmentWorkingSet(
   principalId: string,
   draft: PipelineAssessmentDraft,
   returnPath: string,
-  options: { editable: boolean; activate?: boolean },
+  options: { editable: boolean; activate?: boolean; editedFields: AssessmentToolFieldKey[]; resolvedFields?: AssessmentToolFieldKey[] },
 ) {
   const database = await openDatabase();
   const principal = await hashValue(principalId);
@@ -270,15 +273,64 @@ export async function loadOfflineAssessmentWorkingSet(principalId: string, asses
       .sort((left, right) => Number(right.sessionId === sessionId) - Number(left.sessionId === sessionId) || right.updatedAt - left.updatedAt);
     if (!records.length) return null;
     const key = await getOrCreateKey(database, principal);
+    const available: OfflineAssessmentWorkingSet[] = [];
+    let unreadable: unknown;
     for (const stored of records) {
-      if (await isActiveOtherRecoverySession(stored.sessionId)) continue;
-      const workingSet = await decryptPayload<OfflineAssessmentWorkingSet>(key, principal, stored.id, stored);
-      if (workingSet.draft.assessmentId === assessmentId) return workingSet;
+      // An active tab owns its unsaved answers. Only merge another slot once
+      // that tab has closed and released its lifetime lock.
+      if (stored.sessionId !== sessionId && await isActiveOtherRecoverySession(stored.sessionId)) continue;
+      try {
+        const workingSet = await decryptPayload<OfflineAssessmentWorkingSet>(key, principal, stored.id, stored);
+        if (workingSet.draft.assessmentId === assessmentId) available.push(workingSet);
+      } catch (error) {
+        unreadable ??= error;
+      }
     }
-    return null;
+    if (!available.length) {
+      if (unreadable) throw unreadable;
+      return null;
+    }
+    // Keep the current (or newest) tab as the primary answer. Other slots
+    // contribute recovery alternatives without being modified or replayed.
+    return available.slice(1).reverse().reduce(mergeOfflineWorkingSets, available[0]);
   } finally {
     database.close();
   }
+}
+
+function mergeOfflineWorkingSets(primary: OfflineAssessmentWorkingSet, other: OfflineAssessmentWorkingSet): OfflineAssessmentWorkingSet {
+  const data = { ...primary.draft.data };
+  const baseData = { ...primary.draft.baseData };
+  const workbookSources = { ...primary.draft.workbookSources };
+  const dirtySections = new Set(primary.draft.dirtySections);
+  const conflictingAnswers = [...(primary.conflictingAnswers ?? [])];
+  const addAlternative = (field: AssessmentToolFieldKey, value: PipelineAssessmentDraft["data"][AssessmentToolFieldKey]) => {
+    if (JSON.stringify(value) === JSON.stringify(data[field])) return;
+    if (!conflictingAnswers.some((answer) => answer.field === field && JSON.stringify(answer.value) === JSON.stringify(value))) {
+      conflictingAnswers.push({ field, value });
+    }
+  };
+  for (const answer of other.conflictingAnswers ?? []) addAlternative(answer.field, answer.value);
+  for (const { key: field, section } of assessmentToolFieldDefinitions) {
+    if (JSON.stringify(other.draft.data[field]) === JSON.stringify(other.draft.baseData[field])) continue;
+    if (JSON.stringify(data[field]) !== JSON.stringify(baseData[field])) {
+      addAlternative(field, other.draft.data[field]);
+      continue;
+    }
+    data[field] = other.draft.data[field] as never;
+    baseData[field] = other.draft.baseData[field] as never;
+    if (other.draft.workbookSources?.[field]) workbookSources[field] = other.draft.workbookSources[field];
+    else delete workbookSources[field];
+    dirtySections.add(section);
+  }
+  return {
+    ...primary,
+    conflictingAnswers: conflictingAnswers.filter(({ field, value }) => JSON.stringify(value) !== JSON.stringify(data[field])),
+    draft: {
+      ...primary.draft, data, baseData, workbookSources, dirtySections: [...dirtySections],
+      scheduleDraft: primary.draft.scheduleDraft ?? other.draft.scheduleDraft,
+    },
+  };
 }
 
 export async function removeOfflineAssessmentWorkingSet(principalId: string, assessmentId: string) {
@@ -474,6 +526,44 @@ function decryptBytes(key: CryptoKey, principal: string, record: string, value: 
 
 async function decryptPayload<T>(key: CryptoKey, principal: string, record: string, value: EncryptedPayload) {
   return JSON.parse(new TextDecoder().decode(await decryptBytes(key, principal, record, value))) as T;
+}
+
+// Notes reuse the same encrypted, expiring, account- and tab-scoped recovery store.
+// A closed tab's draft is moved to this tab only after its replacement is durable.
+export async function saveOfflineClientNotes(principalId: string, referralId: number, entries: Record<string, ClientNoteDraft>, recoveredId?: string) {
+  const database = await openDatabase();
+  try {
+    const principal = await hashValue(principalId);
+    const key = await getOrCreateKey(database, principal);
+    const sessionId = await currentOfflineRecoverySessionId();
+    const id = await recordId(principal, "client-notes-draft", `${referralId}:${sessionId}`);
+    const encrypted = await encryptPayload(key, principal, id, { referralId, entries });
+    const transaction = database.transaction(recordsStore, "readwrite");
+    const store = transaction.objectStore(recordsStore);
+    if (Object.keys(entries).length) store.put({ id, principal, kind: "client-notes-draft", sessionId,
+      updatedAt: Date.now(), expiresAt: Date.now() + expiryMs, ...encrypted } satisfies StoredRecord);
+    else store.delete(id);
+    if (recoveredId && recoveredId !== id) store.delete(recoveredId);
+    await transactionDone(transaction);
+  } finally { database.close(); }
+}
+
+export async function loadOfflineClientNotes(principalId: string, referralId: number) {
+  const database = await openDatabase();
+  try {
+    const principal = await hashValue(principalId);
+    const key = await getOrCreateKey(database, principal);
+    const sessionId = await currentOfflineRecoverySessionId();
+    const records = (await recordsForPrincipal<StoredRecord>(database, recordsStore, principal))
+      .filter((record) => record.kind === "client-notes-draft" && record.expiresAt > Date.now())
+      .sort((a, b) => Number(b.sessionId === sessionId) - Number(a.sessionId === sessionId) || b.updatedAt - a.updatedAt);
+    for (const record of records) {
+      if (await isActiveOtherRecoverySession(record.sessionId)) continue;
+      const payload = await decryptPayload<{ referralId: number; entries: Record<string, ClientNoteDraft> }>(key, principal, record.id, record);
+      if (payload.referralId === referralId) return { entries: payload.entries, recoveredId: record.id };
+    }
+    return null;
+  } finally { database.close(); }
 }
 
 export async function saveOfflineReferralDraft(principalId: string, draftKey: string, payload: Blob) {

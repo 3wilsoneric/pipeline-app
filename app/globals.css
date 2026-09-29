@@ -1,4 +1,5 @@
 @import "tailwindcss" source(none);
+@import "./design-tokens.css";
 @import "./pipeline-surfaces.css";
 
 @source "../app";
@@ -407,4 +408,13 @@ textarea {
   .pipeline-directory-loader__segment:nth-child(n + 5) {
     opacity: 0.14;
   }
+}
+
+/* Design switch (docs/design/DECISIONS.md): redesign-only globals. */
+html[data-design="v2"] {
+  --font-pipeline-sans: var(--font-design-v2-sans);
+  --pipeline-canvas: var(--color-page);
+}
+@media print {
+  html[data-design="v2"] { --pipeline-canvas: #fff; }
 }

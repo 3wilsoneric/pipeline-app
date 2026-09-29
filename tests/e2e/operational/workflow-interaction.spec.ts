@@ -1,5 +1,6 @@
 import { confirmReferralFileLabels } from "../support/referral-upload";
 import { expect, test, type APIRequestContext } from "@playwright/test";
+import { leaveInterviewFullScreen } from "../support/assessment-navigation";
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import ts from "typescript";
@@ -16,6 +17,8 @@ import {
   requireOperationalBaseURL,
   syntheticReferralInput,
 } from "../support/pipeline-actors";
+
+const redesign = process.env.PIPELINE_DESIGN_V2 === "true";
 
 test.describe("workflow interaction and durable feedback", () => {
   test.skip(process.env.PIPELINE_OPERATIONAL_E2E !== "true", "Use the isolated operational configuration.");
@@ -221,15 +224,17 @@ test.describe("workflow interaction and durable feedback", () => {
       await expect.poll(() => uploading).toBe(true);
       const id = new URL(page.url()).searchParams.get("referralId");
       expect(id).not.toBeNull();
-      await expect(page.getByTestId("workspace-save-status")).toContainText("Workspace created");
-      await expect(page.getByTestId("workspace-save-status")).toContainText("Uploading");
+      const saveStatus = redesign ? page.locator("[data-save-center]") : page.getByTestId("workspace-save-status");
+      if (redesign) expect((await page.request.get(`/api/referrals/${id}`)).status()).toBe(200);
+      else await expect(saveStatus).toContainText("Workspace created");
+      await expect(saveStatus).toContainText("Uploading");
       await page.getByRole("button", { name: "Edit referral details", exact: true }).click();
       await page.getByTestId("document-checklist-toggle").click();
       await expect(page.getByRole("region", { name: "Document checklist" })).toContainText("1 pending");
       await expect(page.getByRole("button", { name: "Create referral", exact: true })).toHaveCount(0);
       await page.screenshot({ path: testInfo.outputPath("creation-upload-pending.png") });
       releaseUpload();
-      await expect(page.getByTestId("workspace-save-status")).toContainText("Packet uploaded");
+      await expect(saveStatus).toContainText(redesign ? "All changes saved" : "Packet uploaded");
       await expect(page.getByRole("region", { name: "Document checklist" })).toContainText("1 file");
       expect(new URL(page.url()).searchParams.get("referralId")).toBe(id);
       const storedPacket = await page.request.get(`/api/referrals/${id}/packet`);
@@ -329,7 +334,7 @@ test.describe("workflow interaction and durable feedback", () => {
       await board.getByRole("button", { name: `Open ${referral.name}`, exact: true }).getByText(referral.name, { exact: true }).click();
       await expect(page).toHaveURL(new RegExp(`referralId=${referral.id}.*assessmentSection=prior_history`));
       await expect(chart).toBeVisible();
-      await chart.getByRole("button", { name: "Edit Prior placements", exact: true }).click();
+      if (!redesign) await chart.getByRole("button", { name: "Edit Prior placements", exact: true }).click();
       await expect(chart.getByRole("textbox", { name: "Prior placements", exact: true })).toHaveValue(answer);
       await exit.click();
       await page.getByRole("button", { name: "Open referrals", exact: true }).click();
@@ -363,6 +368,7 @@ test.describe("workflow interaction and durable feedback", () => {
       });
       const answer = "Synthetic unsaved answer must remain visible.";
       await chart.getByRole("textbox", { name: "Prior placements", exact: true }).fill(answer);
+      await leaveInterviewFullScreen(page);
       await page.getByRole("button", { name: "Open referrals", exact: true }).click();
       await expect(chart).toHaveCount(0);
       await expect(page.getByRole("alert").filter({ hasText: "Some edits are only in this open tab." })).toBeVisible();
@@ -371,6 +377,7 @@ test.describe("workflow interaction and durable feedback", () => {
       await expect(chart).toBeVisible();
       await expect(chart.getByRole("textbox", { name: "Prior placements", exact: true })).toHaveValue(answer);
       await page.unroute(`**/api/assessments/${assessmentId}`);
+      await leaveInterviewFullScreen(page);
       await page.getByRole("button", { name: "Open referrals", exact: true }).click();
       await expect(chart).toHaveCount(0);
       await expect.poll(async () => (await (await api.get(`/api/assessments/${assessmentId}`)).json()).assessment.prior_placements).toBe(answer);
@@ -398,7 +405,7 @@ test.describe("workflow interaction and durable feedback", () => {
       expect(created.status()).toBe(201);
       const assessmentId = (await created.json()).assessment.assessment_id;
       await page.goto(`${workspacePath(referral.id)}&workspaceStage=assessment`);
-      await page.locator('summary[aria-label="Assessment details"]').click();
+      if (process.env.PIPELINE_DESIGN_V2 !== "true") await page.locator('summary[aria-label="Assessment details"]').click();
       await page.getByRole("button", { name: "Schedule interview", exact: true }).click();
       const scheduling = page.getByRole("dialog", { name: "Schedule interview", exact: true });
       await expect(scheduling).toBeVisible();
@@ -417,22 +424,35 @@ test.describe("workflow interaction and durable feedback", () => {
       await page.getByRole("button", { name: "Begin interview", exact: true }).click();
       await page.getByRole("dialog", { name: "Begin interview", exact: true }).getByRole("button", { name: "Begin interview", exact: true }).click();
       await expect(page.getByRole("button", { name: "Begin assessment", exact: true })).toHaveCount(0);
-      await expect(page.getByRole("button", { name: "Interview", exact: true })).toHaveAttribute("aria-pressed", "true");
+      if (redesign) await expect(page.locator("html")).toHaveAttribute("data-interview-focus", "true");
+      else await expect(page.getByRole("button", { name: "Interview", exact: true })).toHaveAttribute("aria-pressed", "true");
       const editor = page.locator('[data-assessment-view]');
       const sectionSelect = editor.getByRole("combobox", { name: "Assessment section", exact: true });
       const sectionBody = editor.locator('[data-assessment-working-section]');
       await expect(editor).toBeVisible();
       const visited: string[] = [];
+      const expectSection = async (key: string) => {
+        if (redesign) {
+          await expect(sectionSelect).toHaveValue(key);
+          // The first topic heading is screen-reader-only; its first question is the visible destination.
+          const heading = editor.locator(`[data-assessment-group-heading="${key}"]`);
+          await expect(heading.locator("+ section [data-working-field]").first()).toBeInViewport();
+        } else await expect(sectionBody).toHaveAttribute("data-assessment-section", key);
+      };
+      // Move away first so choosing the initially selected topic exercises a real jump, too.
+      if (redesign) await sectionSelect.selectOption("physical_health");
       for (const section of assessmentConversationSections) {
         await sectionSelect.selectOption(section.key);
-        await expect(sectionBody).toHaveAttribute("data-assessment-section", section.key);
+        await expectSection(section.key);
         visited.push(section.key);
       }
       expect(visited).toEqual(assessmentConversationSections.map((section) => section.key));
       await sectionSelect.selectOption("substance_use");
       await expect(editor.locator('[data-working-field="use_pattern"]')).toHaveCount(0);
       await sectionSelect.selectOption("physical_health");
-      const questionCount = await sectionBody.locator('[data-working-field]').count();
+      const healthQuestions = redesign ? editor.locator('[data-assessment-group-heading="physical_health"] + section [data-working-field]') : sectionBody.locator('[data-working-field]');
+      const questionCount = await healthQuestions.count();
+      expect(questionCount).toBeGreaterThan(0);
       const latest = (await (await api.get(`/api/assessments/${assessmentId}`)).json()).assessment;
       const changed = await api.patch(`/api/assessments/${assessmentId}`, { data: {
         section: "substance_use", if_match_section: latest.section_versions.substance_use,
@@ -441,14 +461,14 @@ test.describe("workflow interaction and durable feedback", () => {
       expect(changed.status()).toBe(200);
       await page.evaluate(() => window.dispatchEvent(new Event("focus")));
       await expect(editor.getByText(/Latest changes from .* were merged/)).toBeVisible();
-      await expect(sectionBody).toHaveAttribute("data-assessment-section", "physical_health");
-      await expect(sectionBody.locator('[data-working-field]')).toHaveCount(questionCount);
+      await expectSection("physical_health");
+      await expect(healthQuestions).toHaveCount(questionCount);
       await sectionSelect.selectOption("substance_use");
       await expect(editor.locator('[data-working-field="use_pattern"]')).toBeVisible();
       // Traverse the same questionnaire backwards; remote conditional fields do not reset its position.
       for (const section of [...assessmentConversationSections].reverse()) {
         await sectionSelect.selectOption(section.key);
-        await expect(sectionBody).toHaveAttribute("data-assessment-section", section.key);
+        await expectSection(section.key);
       }
       await page.setViewportSize({ width: 390, height: 844 });
       const status = page.locator('[data-guide-target="assessment-save-status"]:visible');

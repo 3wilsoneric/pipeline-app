@@ -105,6 +105,14 @@ test.describe("Pipeline Learning Center", () => {
     await page.getByRole("button", { name: "Close tutorials", exact: true }).click();
     await expect(name).toHaveValue("Synthetic Help Draft");
     await expect(page).toHaveURL(currentUrl);
+    await page.getByRole("button", { name: "Open guided tutorials", exact: true }).click();
+    await page.getByRole("dialog", { name: "Tutorials", exact: true })
+      .getByRole("button", { name: "Create a referral & add files", exact: true }).click();
+    await expect(page.getByTestId("tutorial-referral-session")).toBeVisible();
+    await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toHaveValue("Taylor Rivera");
+    await page.getByRole("button", { name: "Close tutorial", exact: true }).click();
+    await expect(page).toHaveURL(currentUrl);
+    await expect(name).toHaveValue("Synthetic Help Draft");
   });
 
   test("guides report selection, unapplied filters, and the export checkpoint", async ({ page }) => {

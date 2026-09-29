@@ -892,7 +892,7 @@ test.describe("Pipeline home", () => {
     await expect(evidence).toBeVisible();
     await expect(evidence.getByText("Referral record", { exact: true })).toBeVisible();
     await expect(evidence.getByText("Governed resident record", { exact: true })).toBeVisible();
-    await expect(evidence.getByText("Workspace #101", { exact: true })).toBeVisible();
+    await expect(evidence.getByText("Workspace #101", { exact: true })).toHaveCount(0);
     await expect(evidence.getByText("Date of birth matches", { exact: false })).toBeVisible();
     await page.getByRole("button", { name: "Confirm connection" }).click();
     await expect(page.getByRole("heading", { name: "Identity review", exact: true })).toHaveCount(0);

@@ -378,7 +378,7 @@ export async function sendPacketVerificationCode(recipient: string, code: string
   }, 202, "send_verification_code");
 }
 
-async function graphAccessToken() {
+export async function graphAccessToken() {
   const tenantId = process.env.PIPELINE_GRAPH_TENANT_ID!.trim();
   const body = new URLSearchParams({
     client_id: process.env.PIPELINE_GRAPH_CLIENT_ID!.trim(),

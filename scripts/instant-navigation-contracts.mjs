@@ -188,6 +188,7 @@ let startupUser = null;
 let finishUserRead;
 const startupReads = [];
 const rootStubs = {
+  "@/components/design/DesignSwitch": { useDesignV2: () => false },
   react: { useState: (initial) => {
     const value = typeof initial === "function" ? initial() : initial;
     const index = seededStates.push(value) - 1;
@@ -272,6 +273,7 @@ let linksStarted = false;
 let linksFail = false;
 const clinical = { client: { canonical_client_id: "fixture", resident_numbers: ["1"], current_resident: true, resident_profile: { facility_id: "F", res_number: "1" } } };
 const unified = load("lib/pipeline/unified-profile.ts", {
+  "@/lib/clinical/clinical-resident-demographics": { supplementResidentBirthDate: () => assert.fail("Canonical client navigation must not start census DOB matching") },
   "./referral-ownership": loadTypeScriptModule(process.cwd(), "lib/pipeline/referral-ownership.ts"),
   "./workspace-presentation": { isImportedWorkspace: () => false },
   "./historical-profile-store": {},

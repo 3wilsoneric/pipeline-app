@@ -15,6 +15,7 @@ import {
   type ClinicalResident,
 } from "@/lib/clinical/clinical-data";
 import { logApi } from "@/lib/observability/api-logging";
+import { supplementResidentBirthDate } from "@/lib/clinical/clinical-resident-demographics";
 import { recordPipelineMetric } from "@/lib/observability/pipeline-metrics";
 import { getClientHistoryForResident } from "./client-history-store";
 import { getHistoricalProfile } from "./historical-profile-store";
@@ -97,7 +98,7 @@ export async function getUnifiedClientProfile(
     try {
       sources.push({ referral_id: referral.id, profile: await getHistoricalProfile(referral) });
     } catch {
-      warnings.push(`Original notes for workspace #${referral.id} could not be loaded. Retry the chart.`);
+      warnings.push("Original notes for a prior workspace could not be loaded. Retry the chart.");
     }
   }
   return { ...profile, pipeline: { ...profile.pipeline, source_profiles: sources, source_warnings: warnings } };
@@ -270,7 +271,7 @@ async function loadPipelineLinkedClientProfile(
     if (key.includes(":")) {
       const current = await getClinicalResident(request, key);
       if (!current.resident.canonical_client_id) {
-        return { ...currentCensusProfile(current), pipeline: { ...pipeline.pipeline, connection: buildConnection(links[0], [], []) } };
+        return { ...currentCensusProfile(await supplementResidentBirthDate(request, current)), pipeline: { ...pipeline.pipeline, connection: buildConnection(links[0], [], []) } };
       }
       return await loadUnifiedClientProfile(request, current.resident.canonical_client_id, permissions, user, observability);
     }
@@ -430,7 +431,7 @@ export async function getCurrentCensusClientProfile(
   if (current.resident.canonical_client_id) {
     return getUnifiedClientProfile(request, current.resident.canonical_client_id, permissions, user, observability);
   }
-  const census = currentCensusProfile(current);
+  const census = currentCensusProfile(await supplementResidentBirthDate(request, current));
   if (!getResidentLinkStoreReadiness().ready) return census;
   try {
     const links = await filterLinksForUser(await listProfileLinks({ residentKey: current.resident.resident_key, status: "confirmed" }), user);

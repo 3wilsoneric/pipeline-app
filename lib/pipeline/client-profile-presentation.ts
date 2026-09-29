@@ -1,4 +1,5 @@
-import type { ClinicalClientRecord } from "@/lib/clinical/clinical-contracts";
+import type { ClinicalClientDetail, ClinicalClientRecord } from "@/lib/clinical/clinical-contracts";
+import { normalizeSourceCalendarDate } from "./calendar-date";
 import { normalizeClientName } from "@/lib/pipeline/client-identity-presentation.mjs";
 import type { ClientHistoryProjection } from "@/lib/pipeline/client-history-contracts";
 
@@ -205,6 +206,16 @@ function firstSourceValues(profile: Record<string, unknown>, sources: string[]) 
     if (values.length) return values;
   }
   return [];
+}
+
+// Keep structured clinical values consistent between chart display and reviewed matching.
+export { firstSourceValues as clientProfileSourceValues };
+
+/** Keep invalid/conflicting source dates visible to callers; never pick the first DOB. */
+export function clientProfileBirthDates(client: ClinicalClientDetail) {
+  const records = [client.enrichment, ...client.resident_profiles, ...(client.resident_profile ? [client.resident_profile] : [])];
+  return [...new Set(records.flatMap((record) => firstSourceValues(record, ["date_of_birth"]))
+    .map(normalizeSourceCalendarDate))];
 }
 
 function buildFact(profile: Record<string, unknown>, definition: FieldDefinition): ClientProfileFact | null {

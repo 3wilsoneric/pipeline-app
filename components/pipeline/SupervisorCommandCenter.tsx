@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRight, CheckCircle2, RefreshCw, ShieldCheck } from "lucide-react";
 
 import { fetchPipelineJson, usePipelineDataGeneration } from "@/lib/auth/authenticated-fetch";
@@ -28,8 +28,13 @@ export default function SupervisorCommandCenter({
   const [error, setError] = useState("");
   const [showAll, setShowAll] = useState(false);
   const dataGeneration = usePipelineDataGeneration();
+  const pendingLoad = useRef<AbortController | null>(null);
 
-  const load = useCallback(async (signal?: AbortSignal) => {
+  const load = useCallback(async () => {
+    pendingLoad.current?.abort();
+    const controller = new AbortController();
+    pendingLoad.current = controller;
+    const { signal } = controller;
     setLoading(true);
     try {
       const payload = await fetchPipelineJson<SupervisorExceptionSnapshot>(
@@ -37,26 +42,39 @@ export default function SupervisorCommandCenter({
         { cache: "no-store", signal },
         { cacheTtlMs: 5_000 },
       );
-      if (signal?.aborted) return;
-      setSnapshot(payload);
+      // Refresh from page one each time. Queue priorities can change between
+      // reads, so deduplicate overlaps; the next refresh reconciles movement.
+      const items = new Map(payload.items.map((item) => [item.id, item]));
+      let offset = payload.next_offset;
+      while (showAll && offset != null && offset < payload.total) {
+        const page = await fetchPipelineJson<SupervisorExceptionSnapshot>(
+          `/api/operations/supervisor-queue?offset=${offset}`,
+          { cache: "no-store", signal },
+          { cacheTtlMs: 5_000 },
+        );
+        for (const item of page.items) items.set(item.id, item);
+        if (page.next_offset != null && page.next_offset <= offset) throw new Error("Supervisor exceptions could not be loaded.");
+        offset = page.next_offset;
+      }
+      if (signal.aborted) return;
+      setSnapshot({ ...payload, items: [...items.values()] });
       setError("");
     } catch (loadError) {
-      if (!signal?.aborted) {
+      if (!signal.aborted) {
         setError(loadError instanceof Error ? loadError.message : "Supervisor exceptions could not be loaded.");
       }
     } finally {
-      if (!signal?.aborted) setLoading(false);
+      if (!signal.aborted) setLoading(false);
     }
-  }, []);
+  }, [showAll]);
 
   useEffect(() => {
-    const controller = new AbortController();
-    void load(controller.signal);
-    const refreshOnFocus = () => void load(controller.signal);
-    const interval = window.setInterval(() => void load(controller.signal), 60_000);
+    void load();
+    const refreshOnFocus = () => void load();
+    const interval = window.setInterval(() => void load(), 60_000);
     window.addEventListener("focus", refreshOnFocus);
     return () => {
-      controller.abort();
+      pendingLoad.current?.abort();
       window.clearInterval(interval);
       window.removeEventListener("focus", refreshOnFocus);
     };
@@ -100,7 +118,7 @@ function CommandCenterView({
   onToggleAll: () => void;
   onOpenItem: (item: SupervisorExceptionItem) => void;
 }) {
-  const counts = severityCounts(snapshot?.items ?? []);
+  const counts = snapshot?.severity_counts ?? severityCounts(snapshot?.items ?? []);
   return (
     <section aria-label="Supervisor command center" className="border-y border-[#cfd7d2] bg-white">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[#dfe5e2] px-1 py-4 sm:px-3">
@@ -166,11 +184,11 @@ function CommandCenterExpansion({
   showAll: boolean;
   onToggleAll: () => void;
 }) {
-  if (!snapshot || snapshot.items.length <= collapsedItemLimit) return null;
+  if (!snapshot || snapshot.total <= collapsedItemLimit) return null;
   return (
     <div className="flex justify-center border-t border-[#dfe5e2] py-3">
       <button type="button" onClick={onToggleAll} aria-expanded={showAll} className="h-9 px-4 text-[10px] font-black uppercase tracking-[0.07em] text-[#176f60] hover:bg-[#eff8f5]">
-        {showAll ? "Show priority exceptions" : `Show all ${snapshot.items.length} exceptions`}
+        {showAll ? "Show priority exceptions" : `Show all ${snapshot.total} exceptions`}
       </button>
     </div>
   );

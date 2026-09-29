@@ -1,8 +1,42 @@
+import { closeTestBrowser } from "./support/browser-lifecycle";
 import { chromium, expect, test, webkit } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { createOperationalReferral, createOperationalAssessment, startOperationalAssessment } from "./support/operational-api";
 import { openAssessmentChart } from "./support/assessment-navigation";
 import { unifiedProfileFixture } from "./support/pipeline-clinical-fixtures";
+
+test("late supporting records preserve chart focus and leave intake editing usable", async ({ page }) => {
+  const referral = await createOperationalReferral(page.request, "assessmentCoordinator", {
+    name: `Synthetic Focus ${randomUUID()}`, owner: "Annette Everhart",
+  }, { assigneeId: "provisional:allo:annette" });
+  let releaseProfile!: () => void;
+  const profileGate = new Promise<void>((resolve) => { releaseProfile = resolve; });
+  await page.route("**/api/profiles/**", async (route) => {
+    await profileGate;
+    await route.fulfill({ json: unifiedProfileFixture });
+  });
+  try {
+    await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=chart`);
+    await expect(page.getByTestId("packet-workspace")).toHaveAttribute("aria-busy", "false");
+    await expect(page.getByText("Loading supporting records...", { exact: true })).toBeVisible();
+    const pencil = page.getByRole("article", { name: "Referral chart", exact: true }).getByRole("button", { name: "Edit Phone", exact: true });
+    await pencil.focus();
+    await expect(pencil).toBeFocused();
+    const originalButton = await pencil.elementHandle();
+    releaseProfile();
+    await expect(page.getByText("Loading supporting records...", { exact: true })).toHaveCount(0);
+    expect(await originalButton!.evaluate((element) => element.isConnected)).toBe(true);
+    await expect(pencil).toBeFocused();
+    await pencil.press("Enter");
+    const phone = page.locator('[data-workspace-field="phone"] input');
+    await expect(phone).toBeFocused();
+    await phone.fill("555-0182");
+    await page.getByRole("button", { name: "Done", exact: true }).click();
+    await expect.poll(async () => (await (await page.request.get(`/api/referrals/${referral.id}`)).json()).referral.phone).toBe("555-0182");
+  } finally {
+    releaseProfile();
+  }
+});
 
 for (const [browserName, browserType] of [["chromium", chromium], ["webkit", webkit]] as const) {
   for (const width of [1440, 834, 390]) {
@@ -17,7 +51,7 @@ for (const [browserName, browserType] of [["chromium", chromium], ["webkit", web
         const url = `/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=chart`;
         await page.goto(url);
         const chart = page.getByRole("article", { name: "Referral chart", exact: true });
-        for (const field of ["Client", "Date of birth", "Gender", "Community", "Medications on record", "Conserved status"]) {
+        for (const field of ["Client", "Date of birth", "Gender", "Community", "Medication history", "Conserved status"]) {
           const edit = chart.getByRole("button", { name: `Edit ${field}`, exact: true });
           await expect(edit.locator("svg")).toBeVisible();
           // The pencil stays visible without repeating the editor hint on every field.
@@ -69,7 +103,7 @@ for (const [browserName, browserType] of [["chromium", chromium], ["webkit", web
         expect(saved.email).toBe("after@example.invalid");
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
         await page.screenshot({ path: info.outputPath(`chart-edit-${width}.png`) });
-      } finally { await browser.close(); }
+      } finally { await closeTestBrowser(browser); }
     });
   }
 }

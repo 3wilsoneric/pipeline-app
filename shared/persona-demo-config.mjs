@@ -7,6 +7,7 @@ export const personaDemoStoreFiles = {
   PIPELINE_CONTACT_STORE_PATH: "contacts.json",
   PIPELINE_DESKTOP_STATE_STORE_PATH: "desktop-state.json",
   PIPELINE_NOTE_LAB_STORE_PATH: "note-lab.json",
+  PIPELINE_CLIENT_NOTES_STORE_PATH: "client-notes.json",
   PIPELINE_LOCAL_DOCUMENT_ROOT: "documents",
 };
 

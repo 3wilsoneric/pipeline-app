@@ -40,7 +40,7 @@ function requestKey(input: Input, assessor: Awaited<ReturnType<typeof directHand
     assessmentId: input.assessment.assessment_id, assessmentVersion: input.assessment.version,
     decisionId: input.audit.decisionId, reviewId: input.audit.reviewId, reviewVersion: input.audit.reviewVersion,
     packetRevision: input.packetRevision, to: input.recipients, cc: input.ccRecipients,
-    message: input.message, assessor, from: getGraphMailReadiness().sender,
+    message: input.message, currentMedications: input.summary.medications, medicationStatus: input.summary.medicationStatus, assessor, from: getGraphMailReadiness().sender,
   })).digest("hex");
 }
 

@@ -8,6 +8,12 @@ const validation = load("lib/pipeline/referral-validation.ts");
 const sections = load("lib/pipeline/referral-sections.ts");
 const flow = load("lib/pipeline/referral-flow.ts");
 
+test("workspace provenance keeps stored IDs but hides them in display text", () => {
+  assert.equal(presentation.displayWorkspaceSource("Chart from workspace #2718, as of 2026-09-28; verify for this referral"), "Chart from prior workspace, as of 2026-09-28; verify for this referral");
+  assert.equal(presentation.displayWorkspaceSource("New intake from workspace #2718; carried chart fields require review."), "New intake from a prior workspace; carried chart fields require review.");
+  assert.equal(presentation.displayWorkspaceSource("Uploaded referral packet"), "Uploaded referral packet");
+});
+
 test("normal reopening follows handoff progress without inventing admission or redirecting unsigned work", () => {
   const referral = { workspaceStatus: "active", stage: "Community Review" };
   const signed = { signedAt: "2026-09-21T10:00:00Z" };

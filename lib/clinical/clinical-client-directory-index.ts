@@ -10,6 +10,7 @@ const STALE_TTL_MS = 30 * 60_000;
 const MAX_CACHE_ENTRIES = 16;
 
 type DirectoryIndex = {
+  freshUntil: number;
   byCanonicalClientId: Map<string, ClinicalClientDirectoryItem>;
   byResidentNumber: Map<string, ClinicalClientDirectoryItem>;
 };
@@ -71,8 +72,12 @@ async function loadDirectoryIndex(request: Request) {
   const byResidentNumber = new Map<string, ClinicalClientDirectoryItem>();
   const ambiguousResidentNumbers = new Set<string>();
   let cursor: string | undefined;
+  let snapshot: string | undefined;
+  let freshUntil = Date.now() + FRESH_TTL_MS;
   for (let page = 0; page < MAX_PAGES; page += 1) {
     const response = await getClinicalClients(request, { limit: PAGE_SIZE, cursor });
+    if (response.freshness.status !== "fresh" || (snapshot && snapshot !== response.snapshot_id)) freshUntil = 0;
+    snapshot = response.snapshot_id;
     for (const client of response.clients) {
       byCanonicalClientId.set(client.canonical_client_id, client);
       for (const residentNumber of client.resident_numbers) {
@@ -87,7 +92,7 @@ async function loadDirectoryIndex(request: Request) {
         byResidentNumber.set(normalized, client);
       }
     }
-    if (!response.next_cursor) return { byCanonicalClientId, byResidentNumber };
+    if (!response.next_cursor) return { byCanonicalClientId, byResidentNumber, freshUntil };
     cursor = response.next_cursor;
   }
   throw new ClinicalDataError(

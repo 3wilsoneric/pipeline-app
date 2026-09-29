@@ -1,3 +1,4 @@
+import { closeTestBrowser } from "./support/browser-lifecycle";
 import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import type { AxeResults } from "axe-core";
@@ -60,7 +61,7 @@ for (const engine of ["chromium", "webkit"] as const) {
           });
           expect(violations).toEqual([]);
         }
-      } finally { await browser.close(); }
+      } finally { await closeTestBrowser(browser); }
     });
   }
 }

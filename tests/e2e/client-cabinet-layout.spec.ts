@@ -1,3 +1,4 @@
+import { closeTestBrowser } from "./support/browser-lifecycle";
 import { expect, test } from "@playwright/test";
 import { clientDirectoryFixture } from "./support/pipeline-clinical-fixtures";
 
@@ -58,7 +59,7 @@ for (const engine of ["chromium", "webkit"] as const) {
         expect(await drawer.evaluate((node) => node.getAnimations().length)).toBe(0);
         await page.keyboard.press("Escape");
         await expect(cabinets.last()).toBeFocused();
-      } finally { await browser.close(); }
+      } finally { await closeTestBrowser(browser); }
     });
   }
 }

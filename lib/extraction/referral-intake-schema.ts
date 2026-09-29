@@ -128,7 +128,7 @@ export const packetFieldDefinitions: ReadonlyArray<{
   { field: "lastName", label: "Last name" },
   { field: "dateOfBirth", label: "Date of birth" },
   { field: "diagnosis", label: "Diagnosis" },
-  { field: "currentMedications", label: "Current medications" },
+  { field: "currentMedications", label: "Medication history" },
   { field: "source", label: "Referral source" },
   { field: "referringProvider", label: "Referring provider" },
   { field: "referringFacility", label: "Referring facility" },
@@ -431,7 +431,7 @@ export const referralIntakeExtractionFields: ReadonlyArray<
   {
     field: "currentMedications",
     field_key: "referral.current_medications",
-    label: "Current medications",
+    label: "Medication history",
     section: "clinical",
     value_type: "text",
     review_tier: "critical",

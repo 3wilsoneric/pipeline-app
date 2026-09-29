@@ -2,6 +2,7 @@
 
 import { ArrowLeft, ArrowRight, Check, FileText, LocateFixed, RotateCcw, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import AssessmentWorkspace from "@/components/pipeline/AssessmentWorkspace";
 import { ChartSection, EditablePacketField, initialFields } from "@/components/pipeline/ReferralPacketCanvas";
 import { ReferralLifecycleBoard } from "@/components/pipeline/ReferralWorkflowTracker";
@@ -22,6 +23,7 @@ import { createTutorialReferral, prepareTutorialStep, tutorialBoardItem, tutoria
 import styles from "./TutorialReferralPractice.module.css";
 
 export default function TutorialReferralPractice({ initialStep, returnTo }: { initialStep: number; returnTo?: string }) {
+  const router = useRouter();
   const [step, setStep] = useState(initialStep);
   const [state, setState] = useState(() => prepareTutorialStep(createTutorialReferral(), initialStep));
   const current = useRef(state);
@@ -78,7 +80,7 @@ export default function TutorialReferralPractice({ initialStep, returnTo }: { in
   function close() {
     // Only return to this application's main workspace, never an external URL.
     const destination = returnTo?.startsWith("/?") || returnTo === "/" ? returnTo : "/";
-    window.location.assign(toPipelinePath(destination));
+    router.push(toPipelinePath(destination));
   }
 
   async function restart() {
@@ -230,7 +232,7 @@ function TutorialIntake({ referral, files, onFiles, onChange, onCreate }: { refe
           detail={key === "dob" ? `Age ${ageFromCalendarDate(referral.dob) ?? "not known"}` : undefined} onFocus={() => undefined} onChange={(value) => onChange({ [property]: value })} />;
       })}</div>
     </ChartSection></div>)}
-    <div className={styles.notes}>{(["note", "currentMedications"] as const).map((key) => <label key={key}>{key === "note" ? "Referral summary" : "Current medications"}<textarea rows={4} value={referral[key]} onChange={(event) => onChange({ [key]: event.target.value })} /></label>)}</div>
+    <div className={styles.notes}>{(["note", "currentMedications"] as const).map((key) => <label key={key}>{key === "note" ? "Referral summary" : "Medication history"}<textarea rows={4} value={referral[key]} onChange={(event) => onChange({ [key]: event.target.value })} /></label>)}</div>
     <p role="status" className={styles.saved}><Check size={16} />Sample changes kept in this tutorial</p>
   </div>;
 }

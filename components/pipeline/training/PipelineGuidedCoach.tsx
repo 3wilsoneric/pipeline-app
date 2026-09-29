@@ -16,6 +16,8 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { PrefetchKind } from "next/dist/client/components/router-reducer/router-reducer-types";
 
 import { fetchCurrentPipelineUser, fetchPipelineJson, PipelineApiError } from "@/lib/auth/authenticated-fetch";
 import { fromPipelinePath, toPipelinePath } from "@/lib/pipeline/base-path";
@@ -65,6 +67,8 @@ type ProgressSyncState = "idle" | "server" | "browser" | "guide";
 const emptyTarget: TargetView = { element: null, rect: null, available: false };
 type PendingGuide = { id: string; stepIndex: number; resume: boolean };
 export default function PipelineGuidedCoach() {
+  const router = useRouter();
+  const pathname = fromPipelinePath(usePathname());
   const [state, setState] = useState<OperatorGuideState>(() => emptyOperatorGuideState());
   const [hydrated, setHydrated] = useState(false);
   const [allowedGuides, setAllowedGuides] = useState<readonly OperatorGuidedTutorial[]>([]);
@@ -150,9 +154,9 @@ export default function PipelineGuidedCoach() {
       try {
         await beforeNavigationRef.current?.();
         if (generation !== navigationGeneration.current) return;
-        const params = new URLSearchParams({ task: selected.id, returnTo: fromPipelinePath(window.location.pathname) === "/" ? `/${window.location.search}` : "/" });
+        const destination = tutorialPracticeDestination(selected.id);
         commit({ type: "close" });
-        window.location.assign(toPipelinePath(`/tutorials/referral?${params}`));
+        router.push(destination);
       } catch { setNavigationError("Your current work could not be saved. Resolve its save error before opening the sample."); }
       return;
     }
@@ -347,7 +351,6 @@ export default function PipelineGuidedCoach() {
   }, [locationKey, state.mode, state.stepIndex, step]);
 
   if (!hydrated) return null;
-  const pathname = fromPipelinePath(window.location.pathname);
   if (pathname === "/training/demo" || pathname === "/tutorials/referral" || pathname === "/note-lab" || pathname.startsWith("/note-lab/")) return null;
   const currentTarget = target.stepId === step?.id && step && guideRouteMatches(step.route, locationKey) ? target : emptyTarget;
   return <><span hidden data-pipeline-ready="guided-coach" /><GuideCoachSurface state={state} allowedGuides={allowedGuides} tutorial={tutorial} step={step} target={currentTarget} locationKey={locationKey} progressSyncState={progressSyncState} navigationError={navigationError} pendingGuide={pendingGuide} onCancelSelection={() => setPendingGuide(null)} onBrowse={(destination = "board") => { void openGuideRoute(destination === "board" ? "/" : "/?view=referrals", "app", true); }} onOpenRoute={() => { if (step) void openGuideRoute(step.route); }} onSkip={() => { void advance(undefined, true); }} onStart={startTutorial} onCommit={commit} onAdvance={() => advance()} onBack={goBack} onResume={resumeTutorial} onGoToStep={goToStep} /></>;
@@ -385,9 +388,22 @@ function targetView(candidate: HTMLElement | null): TargetView {
   return { element: candidate, rect, available: Boolean(candidate && rect && rect.width > 0 && rect.height > 0) };
 }
 
+function tutorialPracticeDestination(tutorialId: string) {
+  const params = new URLSearchParams({ task: tutorialId, returnTo: fromPipelinePath(window.location.pathname) === "/" ? `/${window.location.search}` : "/" });
+  return toPipelinePath(`/tutorials/referral?${params}`);
+}
+
 function GuideLibrary({ tutorials, navigationError, onStart, onClose }: { tutorials: readonly OperatorGuidedTutorial[]; completed: readonly string[]; locationKey: string; navigationError: string; resumableTutorialId: string | null; pending: PendingGuide | null; onCancelSelection: () => void; onBrowse: (destination?: "board" | "directory") => void; onStart: (id: string, stepIndex?: number) => void; onResume: () => void; onClose: () => void }) {
+  const router = useRouter();
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => { heading.current?.focus({ preventScroll: true }); }, []);
+  useEffect(() => {
+    // Load the fictional practice routes only when their menu is open. Starting
+    // one still rechecks the current identity and preserves the live-work guard.
+    for (const tutorial of tutorials) {
+      if (tutorialReferralEntry(tutorial.id) !== undefined) router.prefetch(tutorialPracticeDestination(tutorial.id), { kind: PrefetchKind.FULL });
+    }
+  }, [router, tutorials]);
   const tasks = [
     ["create-referral", "Create a referral & add files"],
     ["start-assessment", "Schedule an appointment"],

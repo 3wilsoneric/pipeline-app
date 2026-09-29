@@ -89,7 +89,7 @@ export async function GET(
           sender: mail.sender,
           prepared_by: auth.user.name,
           preview: report ? renderMeetClientEmail(
-            report.meetClient, auth.user.name, "Preview — assigned when sent",
+            { ...report.meetClient, medications: [] }, auth.user.name, "Preview — assigned when sent",
             admissionPacket.files.map((file) => file.name),
             undefined, { demo: exampleOnly },
           ) : null,

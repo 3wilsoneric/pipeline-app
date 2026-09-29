@@ -5,17 +5,27 @@ The authoritative operator guide is `docs/AZURE_PRODUCTION_SETUP.md`.
 ## Release order
 
 1. CI must pass on the exact commit.
-2. A required reviewer approves the GitHub `production` environment.
+2. Obtain the owner's explicit deploy approval. The workflow has no protected
+   `production` environment/reviewer gate; dispatch deploys immediately. Read the
+   latest successful dispatch inputs, and confirm extraction/demo settings with
+   the owner instead of substituting workflow defaults.
 3. GitHub exchanges an OIDC token for the Azure deployment identity.
 4. Build one standalone Next.js image with a stable deployment ID and Server
    Action encryption key.
 5. Push the immutable commit tag to private ACR.
-6. Run `runtime.bicep` what-if, then deploy the web revision and jobs.
+6. Run `runtime.bicep` what-if and record the current revision, image, and flags.
 7. Run the VNet-scoped backup job and require its encrypted Blob verification to succeed.
-8. Run the manual VNet-scoped database bootstrap/migration job.
+8. Run the VNet-scoped migration job with the candidate image, then deploy the web
+   revision/jobs. Initial bootstrap is a separate, explicitly selected first-deploy path.
 9. Verify `/api/health/live`, then `/api/health`.
 10. Run synthetic auth, packet, extraction, collaboration, and log checks.
-11. Promote staff in small groups. Retention remains disabled until approved.
+11. Preserve the approved runtime settings. The redesign switch is global, not a
+    per-user rollout: deploy off first, verify compatibility, then obtain separate
+    approval to deploy with `enable_design_v2=true`.
+
+Full deployments use a commit prefix plus the workflow run/attempt as the revision
+suffix. The application's deployment ID remains the immutable commit. Thus the
+same image can be deployed off, on, and off again without reusing a revision name.
 
 ## Web-only fast lane
 
@@ -62,3 +72,7 @@ tag as described below.
 - Stop scheduled jobs before changing worker contracts.
 - Use forward database migrations. Never rewrite checksums or migration history.
 - Preserve uploaded originals, correction history, and audit events.
+- Keep `pipeline.client_note_blocks` and migration `0046_client_notes` applied on
+  an application rollback. Turning the redesign off must not erase notes. Restore
+  the recorded flag settings with the image; image-only rollback preserves the
+  current environment and does not itself disable the redesign.

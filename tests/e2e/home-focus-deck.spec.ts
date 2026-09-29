@@ -4,6 +4,9 @@ import { getReferralBoardState } from "@/lib/pipeline/referral-flow";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import type { WorkspaceStateProjection } from "@/lib/pipeline/workspace-state";
 
+// These UI tests supply the Home payload through request routes. A service worker
+// can bypass those routes and show unrelated server fixtures instead.
+test.use({ serviceWorkers: "block" });
 test("accepted board cards show the highest-priority open admission items", () => {
   const requirement = {
     id: "tb-result",
@@ -53,6 +56,43 @@ test("board folders show document work without an overall completion percentage"
   await expect(card).not.toContainText(/\d+% complete/);
   await card.screenshot({ path: testInfo.outputPath("board-card.png"), animations: "disabled" });
 });
+
+for (const width of [1440, 390]) {
+  test(`redesign received and decision columns stay neutral and readable at ${width}px`, async ({ page }, info) => {
+    test.skip(process.env.PIPELINE_DESIGN_V2 !== "true", "Redesign colors only");
+    await page.setViewportSize({ width, height: 950 });
+    await homeFixture(page, undefined, 2);
+    await page.goto("/");
+    await expect(page.locator("html")).toHaveAttribute("data-design", "v2");
+    for (const stage of ["received", "decision", "in_progress"]) {
+      if (width < 1024) await page.getByRole("combobox", { name: "Referral stage", exact: true }).selectOption(stage);
+      const column = page.locator(`[data-board-stage="${stage}"]`);
+      await expect(column).toBeVisible();
+      const palette = stage === "received"
+        ? { background: "rgb(239, 226, 203)", border: "rgb(221, 200, 166)", ink: "rgb(114, 89, 46)" }
+        : stage === "decision"
+          ? { background: "rgb(226, 213, 237)", border: "rgb(205, 185, 223)", ink: "rgb(101, 81, 124)" }
+          : { background: "rgb(223, 227, 250)", border: "rgb(213, 222, 250)", ink: "rgb(47, 84, 200)" };
+      await expect(column).toHaveCSS("background-color", palette.background);
+      await expect(column).toHaveCSS("border-top-color", palette.border);
+      await expect(column.locator("[data-board-card]").first()).toHaveCSS("background-color", "rgb(255, 255, 255)");
+      await expect(column.locator("[data-board-status]").first()).toHaveCSS("color", palette.ink);
+      await page.screenshot({ path: info.outputPath(`neutral-board-${width}-${stage}.png`), animations: "disabled" });
+      await column.locator("[data-open-folder]").click();
+      const folder = page.getByRole("dialog");
+      await expect(folder).toBeVisible();
+      await expect(folder.locator("[data-board-card]")).toHaveCount(2);
+      await page.keyboard.press("Escape");
+      await expect(folder).toHaveCount(0);
+    }
+    await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
+    const violations = await page.evaluate(async () => {
+      const axe = (window as unknown as { axe: { run: (selector: string, options: object) => Promise<AxeResults> } }).axe;
+      return (await axe.run("[data-current-work-board]", { runOnly: ["color-contrast"] })).violations;
+    });
+    expect(violations).toEqual([]);
+  });
+}
 
 async function homeFixture(page: Page, moduleIds = ["current-work", "new-assignments", "upcoming-assessments"], filesPerStage = 0, withFinished = false, longLabels = false, scope?: "mixed" | "team-only") {
   const acknowledgments: unknown[] = [];
@@ -519,14 +559,16 @@ test("expanded folders retain stage accents and long file labels stay readable",
 
 test("iPad folder scrolling does not turn the Home deck", async ({ baseURL }) => {
   const browser = await webkit.launch();
+  const context = await browser.newContext({ baseURL, viewport: { width: 834, height: 1194 }, hasTouch: true, isMobile: true, serviceWorkers: "block" });
   try {
-    const page = await browser.newPage({ baseURL, viewport: { width: 834, height: 1194 }, hasTouch: true, isMobile: true });
+    const page = await context.newPage();
     await homeFixture(page, undefined, 10);
     await page.goto("/");
     const open = page.getByRole("button", { name: "Open referral received folder", exact: true });
     await open.tap();
     const dialog = page.getByRole("dialog", { name: "Referral received folder", exact: true });
     await expect(dialog).toBeVisible();
+    await expect(dialog.locator("[data-board-card]")).toHaveCount(10);
     const grid = dialog.locator("[data-expanded-folder]");
     await grid.dispatchEvent("pointerdown", { pointerId: 8, isPrimary: true, pointerType: "touch", button: 0, clientX: 200, clientY: 300 });
     await grid.dispatchEvent("pointermove", { pointerId: 8, clientX: 80, clientY: 304 });
@@ -537,5 +579,5 @@ test("iPad folder scrolling does not turn the Home deck", async ({ baseURL }) =>
     await expect(dialog).toHaveCount(0);
     await expect(page.getByRole("tab", { name: "Board", exact: true })).toHaveAttribute("aria-selected", "true");
     await expect(open).toBeFocused();
-  } finally { await browser.close(); }
+  } finally { try { await context.close(); } finally { await browser.close(); } }
 });

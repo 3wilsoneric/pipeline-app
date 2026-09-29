@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
 import { createOperationalAssessment, createOperationalReferral, readOperationalReferral, recordOperationalAcceptance, signOperationalAssessment } from "./support/operational-api";
-import { openRecipients, confirmRecipients } from "./support/handoff-review";
+import { openRecipients, openSummary, confirmRecipients } from "./support/handoff-review";
 import type { AxeResults } from "axe-core";
 
 test.skip(process.env.PIPELINE_DESKTOP_E2E !== "true", "Requires the isolated handoff draft store.");
@@ -13,6 +13,11 @@ async function chooseWorkspaceView(page: Page, label: "Files" | "Decision" | "Fi
   await expect(page.getByRole("navigation", { name: "Workspace stages", exact: true })).toBeVisible();
   const phonePicker = page.getByRole("combobox", { name: "Workspace view", exact: true });
   if (await phonePicker.isVisible()) await phonePicker.selectOption({ label });
+  else if (label === "Decision" && process.env.PIPELINE_DESIGN_V2 === "true") {
+    // Exercise the Chart's Decision shortcut, distinct from admission requirements.
+    await page.getByRole("navigation", { name: "Workspace stages", exact: true }).getByRole("button", { name: "Chart", exact: true }).click();
+    await page.locator('[data-chart-stage="Decision"]').getByRole("button", { name: "Open decision", exact: true }).click();
+  }
   else await page.getByRole("button", { name: label === "Files" ? "Workspace files" : label, exact: true }).click();
 }
 
@@ -97,6 +102,7 @@ for (const exit of ["Workspace files", "Change packet files"]) test(`a failed ha
   else await page.getByRole("button", { name: exit, exact: true }).click();
   await expect(page.locator("#packet-files")).toBeVisible();
   await expect(page).toHaveURL(/workspaceView=files/);
+  await expect(page.locator("dialog[open]")).toHaveCount(0);
   await chooseWorkspaceView(page, "Finish & send");
   await expect(page.getByRole("region", { name: "Email and referral packet", exact: true }).getByRole("alert")).toContainText("Synthetic recipient save interrupted");
   const recoveredDialog = await openRecipients(page);
@@ -169,7 +175,7 @@ test("unfinished recipient text survives closing review and cannot be skipped in
 });
 
 for (const steps of [1, 2]) test(`browser Back by ${steps} entries preserves unrecorded decisions and Forward history`, async ({ page }, info) => {
-  const name = `Synthetic ${steps === 1 ? "Browserback" : "Historyjump"}${info.project.name.replace(/[^a-z]/g, "")}`;
+  const name = `Synthetic ${steps === 1 ? "Browserback" : "Historyjump"}${info.project.name.replace(/[^a-z]/g, "")}${randomUUID().replace(/[^a-z]/g, "")}`;
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name, owner: "", tags: [] });
   await createOperationalAssessment(page.request, referral.id);
   await page.goto("/");
@@ -219,7 +225,7 @@ test("changing the admit date after a lost response never replays the older date
   await expect.poll(() => mutations.length).toBe(2);
   expect(mutations[1]).not.toBe(mutations[0]);
   await expect(date).toHaveValue("2026-10-05");
-  await expect(page.getByRole("alert")).toBeVisible();
+  await expect(page.getByRole("alert").filter({ hasText: "This referral changed in another session." })).toBeVisible();
   await review.click();
   await expect(page.getByRole("button", { name: "Review handoff", exact: true })).toBeVisible();
   expect((await (await page.request.get(`/api/referrals/${referral.id}`)).json()).referral.plannedAdmissionDate).toBe("2026-10-05");
@@ -237,6 +243,7 @@ test("browser Back from contact settings saves unfinished addresses and remains 
   });
   await page.goto("/settings");
   await page.getByRole("link", { name: /^Community contact lists/ }).click();
+  await expect(page.getByRole("heading", { name: "Community contact lists", exact: true })).toBeVisible();
   const cc = page.getByRole("combobox", { name: /^Cc/ });
   await cc.fill("retain@example.invalid");
   await page.goBack();
@@ -274,11 +281,17 @@ test("Retry saving after a draft load failure restores the saved recipients", as
   await page.route(endpoint, route => route.request().method() === "GET"
     ? route.fulfill({ status: 503, json: { error: "Synthetic draft load interrupted" } }) : route.continue());
   await page.reload();
-  const dialog = await openRecipients(page);
-  await expect(dialog.getByRole("alert")).toContainText("Recipient drafts could not be loaded");
+  const summary = await openSummary(page);
+  await expect(summary.getByRole("alert")).toContainText("Recipient drafts could not be loaded");
   await page.unroute(endpoint);
-  await dialog.getByRole("button", { name: "Retry saving", exact: true }).click();
+  await summary.getByRole("button", { name: "Retry saving", exact: true }).click();
+  await expect(summary.getByRole("alert")).toHaveCount(0);
+  await summary.getByRole("button", { name: "Confirm summary", exact: true }).click();
+  const packet = page.getByRole("dialog", { name: "Check admission packet", exact: true });
+  await expect(packet).toBeVisible();
+  await packet.getByRole("button", { name: "Confirm packet", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Check recipients", exact: true });
+  await expect(dialog).toBeVisible();
   await expect(dialog.getByRole("list", { name: "To recipients", exact: true })).toContainText("first@example.invalid");
-  await expect(dialog.getByRole("alert")).toHaveCount(0);
   await confirmRecipients(page);
 });
