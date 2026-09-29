@@ -180,7 +180,11 @@ check("historical workspace mutation is blocked at both API and storage boundari
     && mutableReferralRoutes.every((source) => source.includes("requireMutableReferralAccess"))
     && mutablePacketRoutes.every((source) => source.includes("requireMutablePacketAccess"))
     && referralStore.includes("HistoricalWorkspaceReadOnlyError")
-    && referralStore.match(/assertMutableWorkspace\(current\)/g)?.length === 6);
+    && referralStore.match(/assertMutableWorkspace\(current(?:, patch, metadata)?\)/g)?.length === 6);
+check("historical admission is a scoped command, not ordinary historical editing",
+  referralStore.includes("isHistoricalAdmissionPatch(referral, patch)")
+    && referralStore.includes('mutationScope: "historical_admission"')
+    && read("lib/pipeline/historical-admission.ts").includes('key === "admissionDate" || key === "community"'));
 check("historical workspaces cannot receive new files",
   referralAccess.includes("Historical workspaces are read-only and cannot receive new files.")
     && uploadRoutes.every((source) => /requireMutable(?:Referral|Packet)Access/.test(source)));
@@ -194,7 +198,9 @@ check("historical workspaces expose one read-only client Chart surface",
 check("historical workspaces hide mutation controls while preserving read-only files",
   canvas.includes("<WorkspaceSaveControl")
     && canvas.includes("const editingControlsVisible = showWorkspaceEditingControls(trainingAssessmentMode, readOnly);")
-    && canvas.includes("{editingControlsVisible ? (")
+    && canvas.includes("{editingControlsVisible && !intakeFooterSave ? renderSaveControl() : null}")
+    && canvas.includes("intakeFooterSave && editingControlsVisible ?")
+    && canvas.includes("recordStack && stackVisible && editingControlsVisible ? renderSaveCenter() : null")
     && canvas.includes("<ReferralDocumentUpload")
     && canvas.includes("readOnly={readOnly || draftRecoveryLoading}")
     && canvas.includes("Files in this imported chart can be opened and downloaded."));
