@@ -22,6 +22,8 @@ export type WorkflowContext = {
   packetSentAt?: string | null;
   assessmentStarted?: boolean;
   assessmentScheduleStatus?: AssessmentScheduleStatus | null;
+  assessmentScheduledStartAt?: string | null;
+  assessmentScheduledDurationMinutes?: number | null;
   assessmentDate?: string | null;
   assessmentStatus?: AssessmentWorkflowStatus | null;
   assessmentData?: AssessmentToolData | null;

@@ -86,6 +86,11 @@ export async function getPlatformAdmissionsSummary() {
       const work = workByReferral.get(referral.id);
       const workflowContext = operational.workflowContexts.get(referral.id);
       const decision = workflowContext?.decision ?? referral.admissionDecision;
+      const assessmentScheduledDate = ["scheduled", "rescheduled"].includes(workflowContext?.assessmentScheduleStatus ?? "")
+        ? workflowContext?.assessmentScheduledStartAt ?? null
+        : workflowContext
+          ? null
+          : referral.assessment?.scheduledDate ?? null;
       const params = new URLSearchParams({ view: "referrals", screen: "packet", referralId: String(referral.id) });
       if (work) applyPipelineWorkspaceLocation(params, work.board.location);
       return {
@@ -99,7 +104,8 @@ export async function getPlatformAdmissionsSummary() {
         decidedAt: decision?.decidedAt ?? null,
         plannedAdmissionDate: getPlannedAdmissionDate(referral) || null,
         actualAdmissionDate: referral.actualAdmissionDate ?? null,
-        assessmentScheduledDate: workflowContext?.assessmentDate ?? referral.assessment?.scheduledDate ?? null,
+        assessmentScheduledDate,
+        assessmentScheduledDurationMinutes: workflowContext?.assessmentScheduledDurationMinutes ?? null,
         assessmentComplete: Boolean(workflowContext?.assessmentComplete ?? referral.assessment?.completedAt),
         currentWorkspace: (referral.workspaceStatus ?? "active") === "active",
         boardColumn: work?.board.stage ?? null,

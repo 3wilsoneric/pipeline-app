@@ -35,6 +35,10 @@ referral side of it through one server-to-server endpoint:
   text lengths are capped before transmission.
 - **Builder:** `lib/pipeline/platform-admissions-summary.ts` (pure);
   loader: `getPlatformAdmissionsSummary` in `lib/pipeline/operations-snapshot.ts`.
+- **Assessment appointments:** the briefing reads the canonical assessment
+  appointment timestamp and duration from `pipeline.assessments`, the same
+  schedule source used by Pipeline Home. The clinical assessment date is never
+  treated as an appointment.
 - **Statuses:** the board's own details, with three renamed for leadership
   (Accept -> "Accepted, requirements open", Email not sent -> "Meet the Client
   not sent", Denied -> "Declined").

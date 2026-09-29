@@ -18,6 +18,7 @@ const referral = (overrides) => ({
   plannedAdmissionDate: null,
   actualAdmissionDate: null,
   assessmentScheduledDate: null,
+  assessmentScheduledDurationMinutes: null,
   assessmentComplete: false,
   currentWorkspace: true,
   boardColumn: "in_progress",
@@ -127,6 +128,18 @@ test("snapshots the live board by column and status with client identity and dri
 test("uses an explicit fallback when the referral has no recorded name", () => {
   const summary = summarize([referral({ clientName: "  " })]);
   assert.equal(summary.board.cards[0].client_name, "Name not recorded");
+});
+
+test("uses the canonical appointment timestamp and excludes appointments that already ended", () => {
+  const summary = summarize([
+    referral({ clientName: "Future appointment", assessmentScheduledDate: "2026-09-26T17:00:00.000Z", assessmentScheduledDurationMinutes: 60 }),
+    referral({ clientName: "Appointment in progress", assessmentScheduledDate: "2026-09-26T14:30:00.000Z", assessmentScheduledDurationMinutes: 60 }),
+    referral({ clientName: "Appointment ended", assessmentScheduledDate: "2026-09-26T13:00:00.000Z", assessmentScheduledDurationMinutes: 60 }),
+  ]);
+  assert.deepEqual(summary.briefing.upcoming_assessments.map((row) => row.client_name), [
+    "Appointment in progress",
+    "Future appointment",
+  ]);
 });
 
 test("marks capped briefing slices incomplete instead of presenting truncation as complete", () => {
