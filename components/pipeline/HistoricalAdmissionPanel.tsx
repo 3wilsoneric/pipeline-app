@@ -34,7 +34,7 @@ export default function HistoricalAdmissionPanel({ referral, readOnly, onSaved }
     if (!open || readOnly) return;
     const controller = new AbortController();
     fetchPipelineJson<Lookup>(path, { signal: controller.signal, cache: "no-store" })
-      .then(setLookup).catch(() => { if (!controller.signal.aborted) setLookup({ suggestion: null, available: false }); });
+      .then((value) => { if (!controller.signal.aborted) setLookup(value); }).catch(() => { if (!controller.signal.aborted) setLookup({ suggestion: null, available: false }); });
     return () => controller.abort();
   }, [open, path, readOnly]);
 
@@ -70,9 +70,14 @@ export default function HistoricalAdmissionPanel({ referral, readOnly, onSaved }
     {open ? <form className="mt-3 space-y-3" onSubmit={(event) => { event.preventDefault(); void save(); }}>
       <p className="text-label text-ink-muted">Record an admission that already happened. This does not start intake, complete an assessment, send a packet, or change the current census.</p>
       {lookup?.suggestion ? <div className="text-label">
-        <p>Possible roster match: {lookup.suggestion.name} · {lookup.suggestion.community} · {formatProfileDate(lookup.suggestion.admissionDate)}. Check this is the same person and admission.</p>
-        <button type="button" disabled={busy} className={`${buttonClass} mt-2`} onClick={() => { setDate(lookup.suggestion!.admissionDate); setCommunity(lookup.suggestion!.community); setConfirmed(false); }}>Use roster date and community</button>
-      </div> : <p className="text-meta text-ink-muted">{lookup ? "No verified roster match. You can enter and confirm the prior admission below." : "Checking roster; you can enter the admission while it loads."}</p>}
+        <p>{lookup.suggestion.identityMatched ? "Name and date of birth match" : "Possible client match"}: {lookup.suggestion.name}. Check this is the same person and admission.</p>
+        <p>Date of birth in Alamo: {lookup.suggestion.dob ? formatProfileDate(lookup.suggestion.dob) : "Not recorded"}. Your original chart is not changed by this lookup.</p>
+        {(lookup.suggestion.admissions ?? []).map((stay) => <div key={`${stay.admissionDate}:${stay.community}`} className="mt-2 flex flex-wrap items-center gap-2">
+          <span>{stay.community} · {formatProfileDate(stay.admissionDate)}</span>
+          <button type="button" disabled={busy} aria-label={`Use ${stay.community} admission on ${formatProfileDate(stay.admissionDate)}`} className={buttonClass} onClick={() => { setDate(stay.admissionDate); setCommunity(stay.community); setConfirmed(false); }}>Use this admission</button>
+        </div>)}
+        {!lookup.suggestion.admissions?.length ? <p>No admission date and community recorded together. Enter the prior admission below.</p> : null}
+      </div> : <p className="text-meta text-ink-muted">{lookup ? "No verified client match. You can enter and confirm the prior admission below." : "Checking client records; you can enter the admission while they load."}</p>}
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="text-label">Admission date<input className={inputClass} type="date" required max={calendarToday()} value={date} disabled={busy} onChange={(event) => { setDate(event.target.value); setConfirmed(false); }} /></label>
         <div className="text-label"><label htmlFor={`${fieldId}-community`}>Admission community</label><select id={`${fieldId}-community`} className={inputClass} required value={community} disabled={busy} onChange={(event) => { setCommunity(event.target.value as Referral["community"]); setConfirmed(false); }}>

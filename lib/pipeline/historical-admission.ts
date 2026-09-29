@@ -1,7 +1,8 @@
 import { actualAdmissionDateError } from "./admission-lifecycle";
 import { normalizeCalendarDate } from "./calendar-date";
 import { pipelineCommunities, pipelineCommunityFromClinicalName } from "./community-config";
-import type { ClinicalResident } from "@/lib/clinical/clinical-contracts";
+import type { ClinicalClientDetail, ClinicalClientDirectoryItem } from "@/lib/clinical/clinical-contracts";
+import { clientProfileSourceValues } from "./client-profile-presentation";
 import type { Referral, ReferralPatch } from "./referral-types";
 
 export const historicalAdmissionSource = "Prior admission confirmed in Pipeline";
@@ -28,19 +29,51 @@ export function isHistoricalAdmissionPatch(referral: Referral, patch: ReferralPa
     && historicalAdmissionInput(patch) !== null;
 }
 
-export type HistoricalAdmissionSuggestion = { name: string; admissionDate: string; community: Referral["community"] };
+export type HistoricalAdmissionSuggestion = {
+  name: string;
+  dob: string | null;
+  identityMatched: boolean;
+  admissions: { admissionDate: string; community: Referral["community"] }[];
+  /** Retained for an already-open pre-deployment browser; staff still confirm explicitly. */
+  admissionDate: string;
+  community: Referral["community"];
+};
 
-/** Name-only evidence is displayed for human review; it NEVER joins identities. */
-export function historicalAdmissionSuggestion(referral: Referral, residents: ClinicalResident[]): HistoricalAdmissionSuggestion | null {
-  const normalize = (value: string) => value.normalize("NFKD").toLowerCase().match(/[a-z0-9]+/g)?.join(" ") ?? "";
-  const name = normalize(referral.name);
+const normalizedName = (value: string) => value.normalize("NFKD").toLowerCase().match(/[a-z0-9]+/g)?.join(" ") ?? "";
+
+export function historicalAdmissionClient(referral: Referral, clients: ClinicalClientDirectoryItem[]) {
+  const name = normalizedName(referral.name);
   if (name.split(" ").length < 2) return null;
-  const candidates = residents.filter((resident) => normalize(resident.display_name) === name);
-  if (candidates.length !== 1) return null;
-  const resident = candidates[0];
-  // Missing DOB is not a verified match; conflicting DOB is not even a suggestion.
-  const dob = normalizeCalendarDate(referral.dob ?? "");
-  if (dob && resident.date_of_birth && dob !== resident.date_of_birth) return null;
-  const input = historicalAdmissionInput({ admissionDate: resident.admit_date, community: pipelineCommunityFromClinicalName(resident.community_name) });
-  return input ? { name: resident.display_name, ...input } : null;
+  const candidates = clients.filter((client) => normalizedName(client.display_name) === name);
+  return candidates.length === 1 ? candidates[0] : null;
+}
+
+function sourceDate(value: string | undefined) {
+  // Full client DOBs may be date-valued timestamps. Never shift their calendar day.
+  return normalizeCalendarDate(value?.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?$/) ? value.slice(0, 10) : value);
+}
+
+/** Supporting evidence only: neither name/DOB matching nor selecting a stay joins identities. */
+export function historicalAdmissionSuggestion(referral: Referral, client: ClinicalClientDetail): HistoricalAdmissionSuggestion | null {
+  if (!historicalAdmissionClient(referral, [client])) return null;
+  const records = [client.enrichment, ...client.resident_profiles, ...(client.resident_profile ? [client.resident_profile] : [])];
+  const sourceDobs = records.flatMap((record) => clientProfileSourceValues(record, ["date_of_birth"]));
+  const dobs = [...new Set(sourceDobs.map(sourceDate))];
+  if (dobs.length > 1 || (sourceDobs.length && !dobs[0])) return null;
+  const dob = dobs[0] ?? null;
+  const recordedDob = sourceDate(referral.dob);
+  if ((referral.dob?.trim() && !recordedDob) || (recordedDob && dob && recordedDob !== dob)) return null;
+  const stays = [...client.resident_episode_history, ...records];
+  const admissions = stays.map((stay) => historicalAdmissionInput({
+    admissionDate: sourceDate(clientProfileSourceValues(stay, ["admit_date", "admission_date", "episode_start_date", "latest_structured_admit_date", "latest_admit_date"])[0]),
+    community: pipelineCommunityFromClinicalName(clientProfileSourceValues(stay, ["facility_name", "community_name", "facility_canonical", "community"])[0] ?? ""),
+  }));
+  // Directory admission and a single recorded community are supporting evidence, not current census.
+  admissions.push(historicalAdmissionInput({ admissionDate: client.admit_date,
+    community: pipelineCommunityFromClinicalName(client.current_community ?? (client.community_names.length === 1 ? client.community_names[0] : "")),
+  }));
+  const unique = new Map(admissions.filter((stay) => stay !== null).map((stay) => [`${stay.admissionDate}:${stay.community}`, stay]));
+  const ordered = [...unique.values()].sort((a, b) => b.admissionDate.localeCompare(a.admissionDate));
+  return { name: client.display_name, dob, identityMatched: Boolean(dob && recordedDob === dob), admissions: ordered,
+    admissionDate: ordered[0]?.admissionDate ?? "", community: ordered[0]?.community ?? "Unassigned" };
 }
