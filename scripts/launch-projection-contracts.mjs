@@ -80,8 +80,10 @@ const signed = chart.buildClientMedicalChart(identity, resident, [], [draft, { .
 assert.equal(signed.assessmentDate, "2026-09-12");
 checks.push("drafts neither claim an assessment occurred nor override platform clinical data; signed encounters remain visible");
 const readableChartText = load("components/pipeline/ReadableChartText.tsx", { "react/jsx-runtime": jsxRuntime });
+const designSwitch = { useDesignV2: () => false };
 const medicalChart = load("components/pipeline/ClientMedicalChart.tsx", {
   "react/jsx-runtime": jsxRuntime, "@/components/pipeline/ReadableChartText": readableChartText,
+  "@/components/design/DesignSwitch": designSwitch,
 });
 const assessmentRecord = load("components/pipeline/ClientAssessmentRecord.tsx", {
   "react/jsx-runtime": jsxRuntime,
@@ -97,6 +99,7 @@ const clientProfile = load("components/pipeline/ClientProfileView.tsx", {
   react: React, "react/jsx-runtime": jsxRuntime, "lucide-react": icons,
   "next/dynamic": () => () => null,
   "@/lib/auth/authenticated-fetch": authenticatedFetch,
+  "@/components/design/DesignSwitch": designSwitch,
   "@/lib/clinical/clinical-value-presentation": loadTypeScriptModule(process.cwd(), "lib/clinical/clinical-value-presentation.ts"),
   "@/lib/pipeline/client-profile-presentation": loadTypeScriptModule(process.cwd(), "lib/pipeline/client-profile-presentation.ts"),
   "@/lib/pipeline/client-medical-chart": chart,
@@ -110,6 +113,7 @@ const clientProfile = load("components/pipeline/ClientProfileView.tsx", {
 const transferredChart = load("components/pipeline/TransferredWorkspaceChart.tsx", {
   "react/jsx-runtime": jsxRuntime, react: React,
   "@/lib/auth/authenticated-fetch": authenticatedFetch,
+  "@/components/design/DesignSwitch": designSwitch,
   "@/components/pipeline/ClientProfileView": clientProfile,
   "@/components/pipeline/ClientMedicalChart": medicalChart,
   "@/lib/pipeline/referral-ownership": loadTypeScriptModule(process.cwd(), "lib/pipeline/referral-ownership.ts"),
