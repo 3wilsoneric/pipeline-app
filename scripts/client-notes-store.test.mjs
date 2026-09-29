@@ -26,6 +26,9 @@ test("one editor carries every existing topic note and picks up later legacy edi
   entries.notes = { ...entries.notes, body: merged, saved: merged };
   entries[second.key] = { ...entries[second.key], body: "Recovered unsaved note", saved: "Second saved note", updated_at: "2026-09-28T11:00:00Z" };
   assert.equal(noteModel.combinedClientNote(entries), `${merged}\n\n${second.label}\nRecovered unsaved note`, "older offline drafts remain visible");
+  entries.notes = { body: `${merged}\n\n${second.label}\nRecovered unsaved note`, saved: `${merged}\n\n${second.label}\nRecovered unsaved note`, updated_at: "2026-09-28T14:00:00Z" };
+  entries[second.key] = { ...entries[second.key], saved: "Recovered unsaved note", updated_at: "2026-09-28T15:00:00Z" };
+  assert.equal(noteModel.combinedClientNote(entries), entries.notes.body, "a recovered draft saved after consolidation is not repeated");
 });
 
 function store({ sql, fs } = {}) {

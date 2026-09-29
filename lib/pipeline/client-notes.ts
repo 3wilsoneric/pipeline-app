@@ -33,7 +33,9 @@ export function combinedClientNote(entries: Readonly<Record<string, Pick<ClientN
   if (unified && unified.body !== unified.saved) return unified.body;
   const legacy = noteHeadings()
     .map(({ key, label }) => ({ label, entry: entries[key] }))
-    .filter(({ entry }) => entry?.body?.trim() && (!unified || entry.body !== entry.saved || (unified.updated_at && entry.updated_at && entry.updated_at > unified.updated_at)))
+    .filter(({ label, entry }) => entry?.body?.trim()
+      && !unified?.body.includes(`${label}\n${entry.body}`)
+      && (!unified || entry.body !== entry.saved || (unified.updated_at && entry.updated_at && entry.updated_at > unified.updated_at)))
     .map(({ label, entry }) => `${label}\n${entry.body}`);
   return [unified?.body, ...legacy].filter((part) => part?.trim()).join("\n\n");
 }
