@@ -143,8 +143,6 @@
 /* Redesign sidebar (docs/design/DECISIONS.md, "Sidebar"): warm paper rail, rounded icon buttons,
    one soft active tint. These selectors match only under html[data-design="v2"]; the rules
    above stay the current design. Remove the rules above this block when the switch is removed. */
-/* No expand/collapse arrow on the app bar (owner, 2026-09-27); it still opens on hover. */
-:where(html[data-design="v2"]) .expandButton { display: none; }
 :where(html[data-design="v2"]) .shell .sidebar { gap: 8px; padding: 16px 12px; border-right: 1px solid var(--color-sheet-border); background: var(--color-sheet); box-shadow: none; }
 :where(html[data-design="v2"]) .home { color: var(--color-link); }
 :where(html[data-design="v2"]) .brandDivider { background: var(--color-sheet-border); }
