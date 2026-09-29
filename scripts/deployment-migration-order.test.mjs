@@ -11,8 +11,8 @@ const step = workflow.split("      - name: Back up and migrate before applicatio
 assert.ok(step?.includes("if: ${{ !inputs.initial_database_bootstrap }}"));
 const script = step.split("        run: |\n")[1].split("\n").map(line => line.replace(/^          /, "")).join("\n");
 
-test("the global redesign defaults off and both runtime invocations receive its explicit value and rollout identity", () => {
-  assert.match(workflow, /enable_design_v2:[\s\S]*?default: false/);
+test("the approved redesign stays on by default and both runtime invocations receive its explicit value and rollout identity", () => {
+  assert.match(workflow, /enable_design_v2:[\s\S]*?default: true/);
   assert.equal(workflow.match(/enableDesignV2='\$\{\{ inputs.enable_design_v2 \}\}'/g)?.length, 2);
   assert.equal(workflow.match(/rolloutId='r\$\{\{ github.run_id \}\}-\$\{\{ github.run_attempt \}\}'/g)?.length, 2);
   const runtime = readFileSync(new URL("../infra/azure/runtime.bicep", import.meta.url), "utf8");

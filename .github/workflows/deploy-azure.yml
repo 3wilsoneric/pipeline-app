@@ -37,7 +37,7 @@ on:
       enable_design_v2:
         description: Enable the owner-approved Pipeline redesign globally
         required: true
-        default: false
+        default: true
         type: boolean
       enable_demo_center:
         description: Expose the read-only Demo Center (synthetic database writes remain locked)

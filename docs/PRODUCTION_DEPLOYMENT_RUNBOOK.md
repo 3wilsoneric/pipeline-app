@@ -19,9 +19,9 @@ The authoritative operator guide is `docs/AZURE_PRODUCTION_SETUP.md`.
    revision/jobs. Initial bootstrap is a separate, explicitly selected first-deploy path.
 9. Verify `/api/health/live`, then `/api/health`.
 10. Run synthetic auth, packet, extraction, collaboration, and log checks.
-11. Preserve the approved runtime settings. The redesign switch is global, not a
-    per-user rollout: deploy off first, verify compatibility, then obtain separate
-    approval to deploy with `enable_design_v2=true`.
+11. Preserve the approved runtime settings. The redesign is now on globally;
+    full deployments default to `enable_design_v2=true`. Pass `false` only for an
+    intentional rollback to the previous design.
 
 Full deployments use a commit prefix plus the workflow run/attempt as the revision
 suffix. The application's deployment ID remains the immutable commit. Thus the
