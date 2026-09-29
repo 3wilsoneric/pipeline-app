@@ -3,7 +3,7 @@ import { pipelineAuditActor } from "@/lib/auth/assessor-session-policy";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
 import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
 import { withApiLogging } from "@/lib/observability/api-logging";
-import { isNoteHeadingKey, noteBlockMaxLength, parseNoteBody } from "@/lib/pipeline/client-notes";
+import { isNoteHeadingKey, noteBlockMaxLength, parseNoteBody, unifiedNoteKey, unifiedNoteMaxLength } from "@/lib/pipeline/client-notes";
 import { saveClientNote } from "@/lib/pipeline/client-notes-store";
 import { requireMutableReferralAccess } from "@/lib/pipeline/referral-access";
 
@@ -25,10 +25,11 @@ export async function PUT(request: Request, context: Context) {
     if (!isNoteHeadingKey(headingKey)) return jsonError("Unknown notes heading.");
     const access = await requireMutableReferralAccess(auth.user, Number(referralId));
     if (!access.ok) return access.response;
-    const body = await readJsonBody<{ body?: unknown; if_match?: unknown }>(request, 64_000);
+    const maxLength = headingKey === unifiedNoteKey ? unifiedNoteMaxLength : noteBlockMaxLength;
+    const body = await readJsonBody<{ body?: unknown; if_match?: unknown }>(request, maxLength * 4 + 1_000);
     if (!body.ok) return jsonError(body.message, body.status);
-    const text = parseNoteBody(body.value?.body);
-    if (text === null) return jsonError(`Keep each heading's notes to ${noteBlockMaxLength.toLocaleString()} characters of plain text.`);
+    const text = parseNoteBody(body.value?.body, maxLength);
+    if (text === null) return jsonError(`Keep notes to ${maxLength.toLocaleString()} characters of plain text.`);
     const expected = body.value?.if_match;
     if (!Number.isInteger(expected) || (expected as number) < 0) return jsonError("if_match must be the heading's version, or 0 for a new one.");
     const result = await saveClientNote(Number(referralId), headingKey, text, expected as number, pipelineAuditActor(auth.user));

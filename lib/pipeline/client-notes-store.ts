@@ -4,7 +4,7 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
 import { getPipelineSql } from "@/lib/database/pipeline-database";
-import type { LatestNote, NoteBlock } from "@/lib/pipeline/client-notes";
+import { clientNotePreview, unifiedNoteKey, type LatestNote, type NoteBlock } from "@/lib/pipeline/client-notes";
 import { getReferralStoreReadiness } from "@/lib/pipeline/referral-store";
 
 // Client notes storage (docs/design/DECISIONS.md, "Notes"). Each heading has its own version and never
@@ -111,19 +111,24 @@ export async function saveClientNote(referralId: number, headingKey: string, bod
   });
 }
 
-// For the Home board and Workspaces: per referral, the first line of the most recently edited heading.
+// For the Home board and Workspaces: show the unified note once it exists.
+// Older topic blocks remain archived; only a later edit from an older open tab
+// can supersede its preview until the unified editor carries that edit forward.
 export async function latestClientNotes(referralIds: readonly number[]): Promise<LatestNote[]> {
   if (!referralIds.length) return [];
   const blocks = usesPostgres()
     ? (await getPipelineSql()<(Row & { referral_id: number | string })[]>`
         select referral_id, heading_key, body, version, updated_at, updated_by_name from pipeline.client_note_blocks
-        where referral_id = any(${[...referralIds]}::bigint[]) and body <> ''
+        where referral_id = any(${[...referralIds]}::bigint[])
         order by updated_at desc`).map((row) => ({ referral_id: Number(row.referral_id), ...fromRow(row) }))
     : (await loadLocal()).blocks.filter((block) => referralIds.includes(block.referral_id)).sort((left, right) => right.updated_at.localeCompare(left.updated_at));
+  const unified = new Map(blocks.filter((block) => block.block_key === unifiedNoteKey).map((block) => [block.referral_id, block]));
   const latest = new Map<number, LatestNote>();
   for (const block of blocks) {
     if (latest.has(block.referral_id)) continue;
-    const text = block.body.split("\n").map((line) => line.trim()).find(Boolean);
+    const current = unified.get(block.referral_id);
+    if (current && block.block_key !== unifiedNoteKey && block.updated_at <= current.updated_at) continue;
+    const text = clientNotePreview(block.body);
     if (text) latest.set(block.referral_id, { referral_id: block.referral_id, text: text.slice(0, 300), updated_at: block.updated_at });
   }
   return [...latest.values()];
