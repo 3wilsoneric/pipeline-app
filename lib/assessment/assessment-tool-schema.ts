@@ -1,4 +1,5 @@
 import { normalizeClientName } from "@/lib/pipeline/client-identity-presentation.mjs";
+import { earlierHistoryAnswers } from "./assessment-history";
 
 export const assessmentToolSections = [
   "identity",
@@ -41,6 +42,8 @@ export type AssessmentToolData = {
   prior_hospitalizations_count: number | null;
   most_recent_hospitalization: string | null;
   prior_5150_5250_holds: string | null;
+  hospitalization_history: string | null;
+  hospitalization_timeline: string[];
   prior_placements: string | null;
   crisis_er_utilization: string | null;
   prior_awol_failed_placements: string | null;
@@ -119,6 +122,8 @@ export type AssessmentToolData = {
   probation_parole_justice: string | null;
   forensic_involvement: string | null;
   forensic_involvement_details: string | null;
+  forensic_history: string | null;
+  forensic_timeline: string[];
   arrest_history: string | null;
   most_recent_arrest_date: string | null;
   most_recent_arrest_charge: string | null;
@@ -280,9 +285,11 @@ export const assessmentToolFieldDefinitions: readonly AssessmentToolFieldDefinit
   field("county", "County", "prior_placement", "string", false, ["referral.county"]),
   field("admit_date", "Admit date", "prior_placement", "date", false, ["resident.admit_date"]),
 
-  field("prior_hospitalizations_count", "Prior hospitalizations", "prior_history", "integer", true),
+  field("prior_hospitalizations_count", "Prior hospitalizations", "prior_history", "integer", false),
   field("most_recent_hospitalization", "Most recent hospitalization", "prior_history", "date", false),
   field("prior_5150_5250_holds", "Prior 5150 / 5250 holds", "prior_history", "string", false),
+  field("hospitalization_history", "Hospitalization history", "prior_history", "string", false),
+  field("hospitalization_timeline", "Hospitalization timeline", "prior_history", "string_list", false),
   field("prior_placements", "Prior placements", "prior_history", "string", false),
   field("crisis_er_utilization", "Crisis / ER utilization", "prior_history", "string", false),
   field("prior_awol_failed_placements", "Prior AWOL / failed placements", "prior_history", "string", false),
@@ -359,9 +366,11 @@ export const assessmentToolFieldDefinitions: readonly AssessmentToolFieldDefinit
   field("hold_type", "Hold type", "legal_conservatorship", "string", false),
   field("court_dates", "Court dates", "legal_conservatorship", "string", false),
   field("probation_parole_justice", "Probation / parole / justice", "legal_conservatorship", "string", false),
-  field("forensic_involvement", "Forensic involvement", "legal_conservatorship", "string", true),
+  field("forensic_involvement", "Forensic involvement", "legal_conservatorship", "string", false),
   field("forensic_involvement_details", "Forensic involvement details", "legal_conservatorship", "string", false),
-  field("arrest_history", "History of arrest", "legal_conservatorship", "string", true),
+  field("forensic_history", "Forensic history", "legal_conservatorship", "string", false),
+  field("forensic_timeline", "Forensic timeline", "legal_conservatorship", "string_list", false),
+  field("arrest_history", "History of arrest", "legal_conservatorship", "string", false),
   field("most_recent_arrest_date", "Most recent arrest date", "legal_conservatorship", "date", false),
   field("most_recent_arrest_charge", "Most recent arrest charge", "legal_conservatorship", "string", false),
   field("most_recent_arrest_jail_time", "Time in jail", "legal_conservatorship", "string", false),
@@ -478,6 +487,8 @@ export function createEmptyAssessmentToolData(): AssessmentToolData {
     prior_hospitalizations_count: null,
     most_recent_hospitalization: null,
     prior_5150_5250_holds: null,
+    hospitalization_history: null,
+    hospitalization_timeline: [],
     prior_placements: null,
     crisis_er_utilization: null,
     prior_awol_failed_placements: null,
@@ -552,6 +563,8 @@ export function createEmptyAssessmentToolData(): AssessmentToolData {
     probation_parole_justice: null,
     forensic_involvement: null,
     forensic_involvement_details: null,
+    forensic_history: null,
+    forensic_timeline: [],
     arrest_history: null,
     most_recent_arrest_date: null,
     most_recent_arrest_charge: null,
@@ -802,6 +815,10 @@ export function pickAssessmentToolData(value: Partial<AssessmentToolData>): Asse
     const current = value[definition.key];
     if (current !== undefined) assignAssessmentToolValue(data, definition.key, current);
   }
+  // Older assessments retain their original answers. Project those answers into
+  // the new overviews until someone edits or explicitly clears the overview.
+  if (data.hospitalization_history === null) data.hospitalization_history = earlierHistoryAnswers(data, "hospitalization_history") || null;
+  if (data.forensic_history === null) data.forensic_history = earlierHistoryAnswers(data, "forensic_history") || null;
   return data;
 }
 

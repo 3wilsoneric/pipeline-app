@@ -30,7 +30,7 @@ for (const width of [1440, 1024, 834, 640, 390, 320]) {
     await expect(text).toHaveCSS("font-size", "19px");
     await expect(text).toHaveCSS("font-family", await page.locator("body").evaluate((el) => getComputedStyle(el).fontFamily));
     await expect(text).toHaveCSS("white-space", "pre-wrap");
-    await expect(reference.getByRole("button", { name: `${phone ? "Review" : "Edit"} Prior hospitalizations`, exact: true })).toContainText("0");
+    await expect(reference.getByRole("button", { name: `${phone ? "Review" : "Edit"} Hospitalization history`, exact: true })).toContainText("Prior hospitalizations: 0");
     expect(await reference.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     if (!phone) await expect(reference.locator("[data-assessment-reference-page]")).toHaveCSS("animation-name", "none");

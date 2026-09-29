@@ -14,6 +14,7 @@ export type AssessmentQuestionControl =
   | "select"
   | "text"
   | "textarea"
+  | "timeline"
   | "yes_no";
 
 export type AssessmentQuestionOption = { value: string; label: string };
@@ -169,10 +170,8 @@ export const assessmentInterviewQuestions: readonly AssessmentInterviewQuestion[
   q("prior_placements", "Placement trajectory", "textarea", { span: "full" }),
   q("prior_awol_failed_placements", "Placement trajectory", "textarea", { span: "full" }),
 
-  q("prior_hospitalizations_count", "Hospital and crisis history", "number", { min: 0 }),
-  q("most_recent_hospitalization", "Hospital and crisis history", "date"),
-  q("prior_5150_5250_holds", "Hospital and crisis history", "textarea", { span: "full" }),
-  q("crisis_er_utilization", "Hospital and crisis history", "textarea", { span: "full" }),
+  q("hospitalization_history", "Hospitalization history", "textarea", { span: "full", placeholder: "Describe hospital stays, holds, and crisis or ER visits. Approximate dates and unknowns are okay." }),
+  q("hospitalization_timeline", "Hospitalization history", "timeline", { span: "full", help: "Optional. Add an event only when you know enough to describe it; approximate timing is fine." }),
 
   q("diagnosis_categories", "Diagnoses", "multi_select", { options: diagnosisOptions, span: "full" }),
   q("diagnosis_other_detail", "Diagnoses", "text", { showWhen: includes("diagnosis_categories", "other"), requiredWhen: includes("diagnosis_categories", "other") }),
@@ -205,15 +204,8 @@ export const assessmentInterviewQuestions: readonly AssessmentInterviewQuestion[
   q("conservator_name", "Conservatorship", "text", { showWhen: notEquals("conservatorship_type", "non_conserved"), requiredWhen: notEquals("conservatorship_type", "non_conserved") }),
   q("conservatorship_status", "Conservatorship", "text", { showWhen: notEquals("conservatorship_type", "non_conserved") }),
   q("hold_type", "Conservatorship", "text"),
-  q("forensic_involvement", "Forensic history", "yes_no", { options: yesNo }),
-  q("forensic_involvement_details", "Forensic history", "textarea", { showWhen: equals("forensic_involvement", "yes"), requiredWhen: equals("forensic_involvement", "yes"), span: "full" }),
-  q("arrest_history", "Arrest history", "yes_no", { options: yesNo }),
-  q("most_recent_arrest_date", "Arrest history", "date", { showWhen: equals("arrest_history", "yes"), requiredWhen: equals("arrest_history", "yes") }),
-  q("most_recent_arrest_charge", "Arrest history", "text", { showWhen: equals("arrest_history", "yes"), requiredWhen: equals("arrest_history", "yes") }),
-  q("most_recent_arrest_jail_time", "Arrest history", "text", { showWhen: equals("arrest_history", "yes") }),
-  q("arrest_in_last_two_years", "Arrest history", "yes_no", { options: yesNo, showWhen: equals("arrest_history", "yes"), requiredWhen: equals("arrest_history", "yes") }),
-  q("arrest_last_two_years_details", "Arrest history", "textarea", { showWhen: equals("arrest_in_last_two_years", "yes"), requiredWhen: equals("arrest_in_last_two_years", "yes"), span: "full" }),
-  q("total_arrests", "Arrest history", "number", { showWhen: equals("arrest_history", "yes"), requiredWhen: equals("arrest_history", "yes"), min: 0 }),
+  q("forensic_history", "Forensic history", "textarea", { span: "full", placeholder: "Describe arrests, jail time, court involvement, and the overall timeline. Include only what is known." }),
+  q("forensic_timeline", "Forensic history", "timeline", { span: "full", help: "Optional. Record an approximate date, event, and outcome in each row." }),
   q("pc290_registration", "Forensic requirements", "yes_no", { options: yesNo }),
   q("arson_history", "Forensic requirements", "yes_no", { options: yesNo }),
   q("diversion_client", "Forensic requirements", "yes_no", { options: yesNo }),

@@ -9,8 +9,10 @@ import AssignedWorkButton from "@/components/pipeline/AssignedWorkButton";
 import FeedbackCue from "@/components/pipeline/FeedbackCue";
 import { DemoAssessmentControls } from "@/components/pipeline/DemoAssessmentLabButton";
 import { AssessmentFieldWritingGuidePanel } from "@/components/pipeline/AssessmentInterviewFields";
+import { AssessmentHistoryTimeline } from "@/components/pipeline/AssessmentHistoryTimeline";
 import { extractionOwnedFields, latestPendingProvenance } from "@/components/pipeline/assessment-workspace-state";
 import type { PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
+import { isHistoryOverviewField } from "@/lib/assessment/assessment-history";
 import {
   assessmentInterviewFieldLabel,
   assessmentInterviewQuestions,
@@ -371,11 +373,12 @@ function GuidedFieldHeading({ id, question, definition, value, required, primary
   required: boolean;
   primary: boolean;
 }) {
-  if (primary) return <label htmlFor={id} className="sr-only">{definition.label}</label>;
+  if (primary) return question.control === "timeline" ? null : <label htmlFor={id} className="sr-only">{definition.label}</label>;
   const status = guidedFieldStatus(value, required);
   return (
     <div className="mb-2 flex items-start justify-between gap-3">
-      <label htmlFor={id} className="text-[12px] font-black leading-5 text-[#303531]">{questionPrompt(question)}</label>
+      {question.control === "timeline" ? <span className="text-[12px] font-black leading-5 text-ink">{questionPrompt(question)}</span>
+        : <label htmlFor={id} className="text-[12px] font-black leading-5 text-[#303531]">{questionPrompt(question)}</label>}
       <span className={`shrink-0 text-[9px] font-bold uppercase tracking-[0.06em] ${status.className}`}>{status.label}</span>
     </div>
   );
@@ -435,6 +438,8 @@ function GuidedAssessmentControl(props: GuidedAssessmentControlProps) {
       return <GuidedSelectControl {...props} />;
     case "multi_select":
       return <GuidedMultiSelectControl {...props} />;
+    case "timeline":
+      return <AssessmentHistoryTimeline id={props.id} label={props.definition.label} value={Array.isArray(props.value) ? props.value : []} disabled={props.disabled} onChange={props.onChange} />;
     case "rating":
       return <GuidedRatingControl {...props} />;
     case "textarea":
@@ -504,7 +509,7 @@ function GuidedTextareaControl({ id, question, definition, value, prominent, dis
   if (definition.value_type === "string_list") {
     return <StringListTextarea id={id} value={Array.isArray(value) ? value : []} disabled={disabled} placeholder={question.placeholder ?? "One item per line"} onChange={onChange} />;
   }
-  return <textarea data-guide-target="assessment-answer" id={id} value={stringValue(value)} disabled={disabled} rows={prominent ? 6 : 4} maxLength={20_000} placeholder={question.placeholder ?? "Enter assessment detail"} onChange={(event) => onChange(event.target.value || null)} className="w-full resize-y rounded-[6px] border border-[#d4d9d6] bg-white px-4 py-3 text-[13px] leading-5 outline-none transition-colors placeholder:text-[#9da39f] hover:border-[#aab3ae] focus:border-[#0f8b73] disabled:bg-[#f1f3f2]" />;
+  return <textarea data-guide-target="assessment-answer" id={id} value={stringValue(value)} disabled={disabled} rows={prominent ? 6 : 4} maxLength={20_000} placeholder={question.placeholder ?? "Enter assessment detail"} onChange={(event) => onChange(isHistoryOverviewField(definition.key) ? event.target.value : event.target.value || null)} className="w-full resize-y rounded-[6px] border border-[#d4d9d6] bg-white px-4 py-3 text-[13px] leading-5 outline-none transition-colors placeholder:text-[#9da39f] hover:border-[#aab3ae] focus:border-[#0f8b73] disabled:bg-[#f1f3f2]" />;
 }
 
 function GuidedTextInputControl({ id, question, definition, value, disabled, onChange }: GuidedAssessmentControlProps) {
@@ -650,7 +655,7 @@ function finalizeScreen(screen: { section: AssessmentToolSection; group: string;
 }
 
 function guidedQuestionWeight(question: AssessmentInterviewQuestion) {
-  if (question.control === "textarea" || question.control === "multi_select") return 2;
+  if (question.control === "textarea" || question.control === "multi_select" || question.control === "timeline") return 2;
   if ((question.options?.length ?? 0) > 5) return 2;
   return 1;
 }

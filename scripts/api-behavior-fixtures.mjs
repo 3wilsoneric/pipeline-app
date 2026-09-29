@@ -1623,12 +1623,12 @@ function referralHardeningResults() {
 function assessmentSchemaResults() {
   return [
     run("assessment schema exposes the complete governed interview", () => {
-      assert(assessmentSchema.assessmentToolFieldDefinitions.length === 162, "Expected 162 assessment fields, including injection timing and preserved legacy data");
+      assert(assessmentSchema.assessmentToolFieldDefinitions.length === 166, "Expected 166 assessment fields, including preserved legacy answers and the four new history fields");
       assert(
         new Set(assessmentSchema.assessmentToolFieldDefinitions.map((definition) => definition.key)).size === assessmentSchema.assessmentToolFieldDefinitions.length,
         "Every governed assessment field must be defined exactly once",
       );
-      assert(assessmentInterview.assessmentInterviewQuestions.length === 128, "Expected 128 focused user-facing interview questions");
+      assert(assessmentInterview.assessmentInterviewQuestions.length === 119, "Expected 119 user-facing questions after consolidating hospitalization and forensic history");
       assert(
         new Set(assessmentInterview.assessmentInterviewQuestions.map((question) => question.field)).size === assessmentInterview.assessmentInterviewQuestions.length,
         "Every interview field must appear exactly once",
@@ -1639,17 +1639,20 @@ function assessmentSchemaResults() {
         .filter((field) => !interviewFields.has(field));
       assert(
         JSON.stringify(nonInterviewFields) === JSON.stringify([
-          "resident_number", "assessor", "admit_date", "primary_diagnosis", "acuity_level", "triggers", "aggression_risk",
+          "resident_number", "assessor", "admit_date", "prior_hospitalizations_count", "most_recent_hospitalization",
+          "prior_5150_5250_holds", "crisis_er_utilization", "primary_diagnosis", "acuity_level", "triggers", "aggression_risk",
           "responds_to_internal_stimuli", "auditory_hallucinations", "auditory_hallucination_nature",
           "auditory_hallucination_frequency", "auditory_hallucination_triggers", "visual_hallucinations",
           "visual_hallucination_details", "visual_hallucination_recent", "olfactory_hallucinations",
           "olfactory_hallucination_details", "olfactory_hallucination_impact", "tactile_hallucinations",
           "tactile_hallucination_details", "tactile_hallucination_frequency", "gustatory_hallucinations",
           "gustatory_hallucination_details", "hallucination_coping_strategies", "hallucination_distress_impairment",
-          "hallucination_functional_impact", "hallucination_treatment_history", "lai_vs_oral", "longest_sobriety_months",
+          "hallucination_functional_impact", "hallucination_treatment_history", "forensic_involvement", "forensic_involvement_details",
+          "arrest_history", "most_recent_arrest_date", "most_recent_arrest_charge", "most_recent_arrest_jail_time",
+          "arrest_in_last_two_years", "arrest_last_two_years_details", "total_arrests", "lai_vs_oral", "longest_sobriety_months",
           "unable_to_assess_reasons", "source_file", "match_confidence", "assessment_notes", "extraction_date",
         ]),
-        "Only the approved retired questions, assignment, unable-response support, legacy notes, and extraction metadata may stay outside the interview",
+        "Only the approved consolidated legacy questions, assignment, unable-response support, legacy notes, and extraction metadata may stay outside the interview",
       );
       assert(
         assessmentInterview.assessmentInterviewSections.every((section) => (
@@ -1668,6 +1671,15 @@ function assessmentSchemaResults() {
         "Initial packet extraction should capture intake context and reviewable clinical evidence without process metadata",
       );
       const interviewQuestion = (field) => assessmentInterview.assessmentInterviewQuestions.find((question) => question.field === field);
+      assert(
+        interviewQuestion("hospitalization_history")?.control === "textarea"
+          && interviewQuestion("hospitalization_timeline")?.control === "timeline"
+          && interviewQuestion("forensic_history")?.control === "textarea"
+          && interviewQuestion("forensic_timeline")?.control === "timeline"
+          && !interviewQuestion("prior_hospitalizations_count")
+          && !interviewQuestion("arrest_history"),
+        "Consolidated history questions must replace exact legacy prompts while retaining those stored fields",
+      );
       assert(
         interviewQuestion("prior_setting_bucket")?.control === "select"
           && interviewQuestion("referring_facility")?.control === "text"
@@ -1756,7 +1768,7 @@ function assessmentSchemaResults() {
     run("assessment completeness requires the governed interview without requiring a pre-admission resident number", () => {
       const empty = assessmentSchema.createEmptyAssessmentToolData();
       const initial = assessmentSchema.getAssessmentToolCompleteness(empty);
-      assert(initial.required_total === assessmentSchema.requiredAssessmentToolFields.length && initial.required_total === 50, "Expected all 50 core interview answers");
+      assert(initial.required_total === assessmentSchema.requiredAssessmentToolFields.length && initial.required_total === 47, "Expected 47 core answers after removing the three exact-history requirements");
       assert(initial.required_ready === 0, "A fresh assessment must not begin with completed answers");
       assert(
         ["auditory_hallucinations", "visual_hallucinations", "olfactory_hallucinations", "tactile_hallucinations", "gustatory_hallucinations"]
@@ -1764,6 +1776,11 @@ function assessmentSchemaResults() {
         "The five retired required hallucination questions must not block current assessments",
       );
       assert(!initial.missing_fields.includes("resident_number"), "A pre-admission assessment must not require an ElderMark resident number");
+      assert(
+        ["prior_hospitalizations_count", "forensic_involvement", "arrest_history", "hospitalization_timeline", "forensic_timeline"]
+          .every((field) => !initial.missing_fields.includes(field)),
+        "Exact history and optional event rows must not block assessment completion",
+      );
 
       const identified = assessmentSchema.getAssessmentToolCompleteness({
         ...empty,

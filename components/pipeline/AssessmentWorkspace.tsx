@@ -2072,6 +2072,18 @@ export default function AssessmentWorkspace({
     setDirtySections(dirtySectionsRef.current);
     setMessage("Unsaved changes");
     setError("");
+    // Removing the last timeline row unmounts its focused button, so there may
+    // be no blur to commit the empty list. Save these edits after a short pause
+    // even when focus has moved or disappeared.
+    if ((key === "hospitalization_timeline" || key === "forensic_timeline") && !trainingAssessmentMode) {
+      clearTimeout(idleSaveTimerRef.current);
+      idleSaveTimerRef.current = setTimeout(() => {
+        if (sameAssessmentValue(baseDataRef.current[key], draftRef.current[key])) return;
+        const section = assessmentToolFieldDefinitions.find((definition) => definition.key === key)!.section;
+        void queueSectionSave(section, { [key]: structuredClone(draftRef.current[key]) }).catch(() => undefined);
+      }, 900);
+      return;
+    }
     // Redesign: save while typing too, a moment after the person pauses, not only when they leave the
     // answer (owner, 2026-09-26: "make it save quick"). Leaving still saves at once; the snapshot is
     // advanced here so the same value is never sent twice.

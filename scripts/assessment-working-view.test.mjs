@@ -83,5 +83,26 @@ test("captured answers use the schema's labels without truncating notes", () => 
   const data = { ...tool.createEmptyAssessmentToolData(), diagnosis_categories: ["schizoaffective", "other"], current_symptoms: "Synthetic source-backed note. ".repeat(40), prior_hospitalizations_count: 0 };
   assert.equal(view.capturedAssessmentAnswer(question("diagnosis_categories"), data), "Schizoaffective disorder; Other");
   assert.equal(view.capturedAssessmentAnswer(question("current_symptoms"), data), data.current_symptoms);
-  assert.equal(view.capturedAssessmentAnswer(question("prior_hospitalizations_count"), data), "0");
+  const carried = tool.pickAssessmentToolData(data);
+  assert.equal(view.capturedAssessmentAnswer(question("hospitalization_history"), carried), "Prior hospitalizations: 0");
+});
+
+test("older hospitalization and forensic answers carry into the new overviews until explicitly replaced", () => {
+  const stored = {
+    ...tool.createEmptyAssessmentToolData(),
+    prior_hospitalizations_count: 0,
+    prior_5150_5250_holds: "Synthetic hold history",
+    forensic_involvement: "yes",
+    arrest_history: "yes",
+    most_recent_arrest_charge: "Synthetic charge",
+  };
+  const carried = tool.pickAssessmentToolData(stored);
+  assert.equal(carried.hospitalization_history, "Prior hospitalizations: 0\nPrior 5150 / 5250 holds: Synthetic hold history");
+  assert.equal(carried.forensic_history, "Forensic involvement: yes\nArrest history: yes\nCharge: Synthetic charge");
+  assert.equal(carried.prior_hospitalizations_count, 0);
+  assert.equal(carried.most_recent_arrest_charge, "Synthetic charge");
+  assert.equal(tool.pickAssessmentToolData({ ...carried, hospitalization_history: "Updated history" }).hospitalization_history, "Updated history");
+  assert.equal(tool.pickAssessmentToolData({ ...carried, hospitalization_history: "" }).hospitalization_history, "");
+  assert.equal(question("hospitalization_timeline").control, "timeline");
+  assert.equal(question("forensic_timeline").control, "timeline");
 });
