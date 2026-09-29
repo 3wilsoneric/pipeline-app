@@ -36,7 +36,7 @@ test("full client suggestions require a unique name and withhold conflicting or 
   assert.equal(policy.historicalAdmissionClient(fixture, [client]), client);
   assert.equal(policy.historicalAdmissionClient(fixture, [client, client]), null);
   assert.equal(policy.historicalAdmissionClient({ ...fixture, name: "Synthetic" }, [{ ...client, display_name: "Synthetic" }]), null);
-  assert.deepEqual(clean(policy.historicalAdmissionSuggestion(fixture, client)), { name: fixture.name, dob: fixture.dob, identityMatched: true, admissions: [admission] });
+  assert.deepEqual(clean(policy.historicalAdmissionSuggestion(fixture, client)), { name: fixture.name, dob: fixture.dob, identityMatched: true, admissions: [admission], ...admission });
   for (const dob of ["1990-01-01", "1980-02-30T00:00:00", ["1980-01-02", "1990-01-01"], "nonsense"]) {
     assert.equal(policy.historicalAdmissionSuggestion(fixture, { ...client, enrichment: { date_of_birth: dob } }), null);
   }

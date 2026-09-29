@@ -34,6 +34,9 @@ export type HistoricalAdmissionSuggestion = {
   dob: string | null;
   identityMatched: boolean;
   admissions: { admissionDate: string; community: Referral["community"] }[];
+  /** Retained for an already-open pre-deployment browser; staff still confirm explicitly. */
+  admissionDate: string;
+  community: Referral["community"];
 };
 
 const normalizedName = (value: string) => value.normalize("NFKD").toLowerCase().match(/[a-z0-9]+/g)?.join(" ") ?? "";
@@ -70,6 +73,7 @@ export function historicalAdmissionSuggestion(referral: Referral, client: Clinic
     community: pipelineCommunityFromClinicalName(client.current_community ?? (client.community_names.length === 1 ? client.community_names[0] : "")),
   }));
   const unique = new Map(admissions.filter((stay) => stay !== null).map((stay) => [`${stay.admissionDate}:${stay.community}`, stay]));
-  return { name: client.display_name, dob, identityMatched: Boolean(dob && recordedDob === dob),
-    admissions: [...unique.values()].sort((a, b) => b.admissionDate.localeCompare(a.admissionDate)) };
+  const ordered = [...unique.values()].sort((a, b) => b.admissionDate.localeCompare(a.admissionDate));
+  return { name: client.display_name, dob, identityMatched: Boolean(dob && recordedDob === dob), admissions: ordered,
+    admissionDate: ordered[0]?.admissionDate ?? "", community: ordered[0]?.community ?? "Unassigned" };
 }

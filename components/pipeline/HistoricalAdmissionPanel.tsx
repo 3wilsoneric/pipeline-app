@@ -72,11 +72,11 @@ export default function HistoricalAdmissionPanel({ referral, readOnly, onSaved }
       {lookup?.suggestion ? <div className="text-label">
         <p>{lookup.suggestion.identityMatched ? "Name and date of birth match" : "Possible client match"}: {lookup.suggestion.name}. Check this is the same person and admission.</p>
         <p>Date of birth in Alamo: {lookup.suggestion.dob ? formatProfileDate(lookup.suggestion.dob) : "Not recorded"}. Your original chart is not changed by this lookup.</p>
-        {lookup.suggestion.admissions.map((stay) => <div key={`${stay.admissionDate}:${stay.community}`} className="mt-2 flex flex-wrap items-center gap-2">
+        {(lookup.suggestion.admissions ?? []).map((stay) => <div key={`${stay.admissionDate}:${stay.community}`} className="mt-2 flex flex-wrap items-center gap-2">
           <span>{stay.community} · {formatProfileDate(stay.admissionDate)}</span>
           <button type="button" disabled={busy} aria-label={`Use ${stay.community} admission on ${formatProfileDate(stay.admissionDate)}`} className={buttonClass} onClick={() => { setDate(stay.admissionDate); setCommunity(stay.community); setConfirmed(false); }}>Use this admission</button>
         </div>)}
-        {!lookup.suggestion.admissions.length ? <p>No admission date and community recorded together. Enter the prior admission below.</p> : null}
+        {!lookup.suggestion.admissions?.length ? <p>No admission date and community recorded together. Enter the prior admission below.</p> : null}
       </div> : <p className="text-meta text-ink-muted">{lookup ? "No verified client match. You can enter and confirm the prior admission below." : "Checking client records; you can enter the admission while they load."}</p>}
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="text-label">Admission date<input className={inputClass} type="date" required max={calendarToday()} value={date} disabled={busy} onChange={(event) => { setDate(event.target.value); setConfirmed(false); }} /></label>
