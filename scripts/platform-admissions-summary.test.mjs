@@ -17,6 +17,8 @@ const referral = (overrides) => ({
   decidedAt: null,
   plannedAdmissionDate: null,
   actualAdmissionDate: null,
+  assessmentScheduledDate: null,
+  assessmentComplete: false,
   currentWorkspace: true,
   boardColumn: "in_progress",
   boardStatus: "Assessment scheduled",
@@ -53,10 +55,10 @@ function summarize(referrals) {
 
 test("snapshots the live board by column and status with client identity and drill-down rows", () => {
   const summary = summarize([
-    referral({ clientName: "Alex Morgan", boardColumn: "received", boardStatus: "Referral received", stale: true, unassigned: true, receivedDate: "2026-09-20" }),
+    referral({ clientName: "Alex Morgan", boardColumn: "received", boardStatus: "Referral received", stale: true, unassigned: true, receivedDate: "2026-09-20", assessmentScheduledDate: "2026-09-27" }),
     referral({}),
     referral({ community: "Turlock", boardColumn: "decision", boardStatus: "Accept", decisionOutcome: "accepted", receivedDate: "2026-09-01", decidedAt: "2026-09-05T10:00:00Z", plannedAdmissionDate: "2026-09-30" }),
-    referral({ boardColumn: "decision", boardStatus: "Awaiting admit", decisionOutcome: "accepted", receivedDate: "2026-09-03", decidedAt: "2026-09-08T10:00:00Z", plannedAdmissionDate: "2026-09-20" }),
+    referral({ boardColumn: "decision", boardStatus: "Awaiting admit", decisionOutcome: "accepted", receivedDate: "2026-09-03", decidedAt: "2026-09-08T10:00:00Z", plannedAdmissionDate: "2026-09-25" }),
     referral({ boardColumn: "decision", boardStatus: "Denied", decisionOutcome: "declined", receivedDate: "2026-09-10", decidedAt: "2026-09-13T10:00:00Z" }),
     referral({ boardColumn: null, boardStatus: "Completed", decisionOutcome: "accepted", receivedDate: "2026-08-20", decidedAt: "2026-08-30T10:00:00Z", actualAdmissionDate: "2026-09-12" }),
     referral({ currentWorkspace: false, boardColumn: "received", boardStatus: "Referral received", receivedDate: "2025-01-01" }),
@@ -78,7 +80,7 @@ test("snapshots the live board by column and status with client identity and dri
   assert.equal(newest.days_since_update, 1);
   const overdue = summary.board.cards.find((card) => card.status === "Awaiting admit");
   assert.equal(overdue.flags.move_in_overdue, true);
-  assert.equal(overdue.planned_admission_date, "2026-09-20");
+  assert.equal(overdue.planned_admission_date, "2026-09-25");
   assert.equal(summary.board.cards[0].days_open >= summary.board.cards.at(-1).days_open, true, "oldest referrals first");
 
   assert.deepEqual(summary.metrics, { on_board: 5, stale: 1, unassigned: 1, awaiting_admission: 2 });
@@ -104,12 +106,48 @@ test("snapshots the live board by column and status with client identity and dri
     medications: ["Medication A", "Medication B"],
     medication_source: "signed_assessment",
   });
-  assert.equal(summary.contract_version, "3.0");
+  assert.equal(summary.contract_version, "3.1");
+  assert.equal(summary.briefing.timezone, "America/Los_Angeles");
+  assert.equal(summary.briefing.window_end, "2026-09-26");
+  assert.deepEqual(summary.briefing.coverage, {
+    recent_referrals_complete: true,
+    assessments_complete: true,
+    move_ins_complete: true,
+    weekly_trend_complete: true,
+  });
+  assert.deepEqual(summary.briefing.recent_referrals.map((row) => row.client_name), ["Alex Morgan"]);
+  assert.equal(summary.briefing.recent_referrals[0].source_name, "County behavioral health");
+  assert.deepEqual(summary.briefing.upcoming_assessments.map((row) => [row.client_name, row.scheduled_at]), [["Alex Morgan", "2026-09-27"]]);
+  assert.equal(summary.briefing.planned_move_ins.length, 1);
+  assert.equal(summary.briefing.planned_move_ins[0].readiness, "blocked");
+  assert.equal(summary.briefing.weekly_trend.length, 12);
+  assert.deepEqual(summary.briefing.weekly_trend.at(-1), { week_start: "2026-09-21", received: 0, accepted: 0 });
 });
 
 test("uses an explicit fallback when the referral has no recorded name", () => {
   const summary = summarize([referral({ clientName: "  " })]);
   assert.equal(summary.board.cards[0].client_name, "Name not recorded");
+});
+
+test("marks capped briefing slices incomplete instead of presenting truncation as complete", () => {
+  const referrals = Array.from({ length: 501 }, (_, index) => referral({
+    clientName: `Client ${index + 1}`,
+    receivedDate: "2026-09-25",
+    assessmentScheduledDate: index < 101 ? "2026-09-27" : null,
+    decisionOutcome: "accepted",
+    decidedAt: "2026-09-25",
+    plannedAdmissionDate: index < 101 ? "2026-09-26" : null,
+  }));
+  const summary = summarize(referrals);
+  assert.deepEqual(summary.briefing.coverage, {
+    recent_referrals_complete: false,
+    assessments_complete: false,
+    move_ins_complete: false,
+    weekly_trend_complete: true,
+  });
+  assert.equal(summary.briefing.recent_referrals.length, 500);
+  assert.equal(summary.briefing.upcoming_assessments.length, 100);
+  assert.equal(summary.briefing.planned_move_ins.length, 100);
 });
 
 test("platform summary route requires its own secret and never a browser session", async () => {

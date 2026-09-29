@@ -20,7 +20,15 @@ referral side of it through one server-to-server endpoint:
   after the assessment is signed—the same capped overview and support fields
   used to prepare Meet the Client.
   `metrics`, `upcoming_admissions`, and `history` (six-month counts and median
-  days to decision) sit beside it. The card and management profile contain PHI
+  days to decision) sit beside it. Contract 3.1 also publishes `briefing`: the
+  Los Angeles reporting date, explicit completeness flags, the trailing 14 days
+  of referrals with source and county, remaining assessments scheduled through
+  Sunday, planned move-ins for the Monday-through-Sunday week, and 12 weekly
+  received/accepted totals. Event rows retain only client name, destination,
+  owner, leadership status, and the bounded Pipeline path already authorized
+  for the board. Arrays are capped and their coverage flag turns false instead
+  of silently presenting a truncated result as complete. The card and
+  management profile contain PHI
   and are therefore limited to the authenticated Platform integration. Raw
   referral notes, contact details, uploaded documents, extraction evidence,
   and unsigned assessment narrative remain outside this contract. Arrays and
