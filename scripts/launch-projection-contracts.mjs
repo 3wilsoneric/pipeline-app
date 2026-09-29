@@ -10,6 +10,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import * as icons from "lucide-react";
 
 function load(file, stubs, source = readFileSync(file, "utf8")) {
+  // These original chart contracts exercise the legacy rendering branch.
+  stubs = { "@/components/design/DesignSwitch": { useDesignV2: () => false }, ...stubs };
   const output = ts.transpileModule(source, { fileName: file, compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true } }).outputText;
   const loaded = { exports: {} };
   vm.runInNewContext(output, { module: loaded, exports: loaded.exports, require: (id) => stubs[id] ?? {}, Buffer, URL, URLSearchParams, Request, Response, Date, console, Map, Set }, { filename: file });
@@ -56,11 +58,14 @@ unavailable = true;
 assert.equal((await directory.GET(new Request(path))).status, 503);
 checks.push("authorization and upstream failures never substitute fake current clients");
 const profile = load("lib/pipeline/unified-profile.ts", { "@/lib/clinical/clinical-data": clinical,
+  "@/lib/clinical/clinical-resident-demographics": { supplementResidentBirthDate: async (_request, current) => ({ ...current, resident: { ...current.resident, date_of_birth: "1980-02-29" } }) },
   "./resident-link-store": { getResidentLinkStoreReadiness: () => ({ ready: false }) } });
 const current = await profile.getCurrentCensusClientProfile(new Request(path), "resident:site:71", {});
 assert.equal(current.client.canonical_client_id, "");
 assert.equal(current.client.display_name, resident.display_name);
 assert.equal(current.resident.resident_number, "71");
+assert.equal(current.resident.date_of_birth, "1980-02-29");
+assert.equal(current.client.enrichment.date_of_birth, "1980-02-29");
 assert.equal(current.pipeline.referrals.length, 0);
 assert.equal(current.pipeline.assessments.length, 0);
 assert.equal(current.pipeline.permissions.can_review_identity, false);

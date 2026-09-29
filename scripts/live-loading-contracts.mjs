@@ -286,6 +286,7 @@ let releaseReferrals, releaseDocuments;
 let referralsStarted = false, documentsStarted = false;
 let visible = true;
 const unified = load("lib/pipeline/unified-profile.ts", {
+  "@/lib/clinical/clinical-resident-demographics": { supplementResidentBirthDate: () => assert.fail("Pipeline-only charts must not start census DOB matching") },
   "./referral-ownership": loadTypeScriptModule(root, "lib/pipeline/referral-ownership.ts"),
   "@/lib/assessment/assessment-store": { getAssessmentStoreReadiness: () => ({ ready: false }) },
   "@/lib/assessment/assessment-tool-schema": {},

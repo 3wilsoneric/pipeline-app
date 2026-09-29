@@ -1,8 +1,8 @@
 import { actualAdmissionDateError } from "./admission-lifecycle";
-import { normalizeCalendarDate } from "./calendar-date";
+import { normalizeCalendarDate, normalizeSourceCalendarDate as sourceDate } from "./calendar-date";
 import { pipelineCommunities, pipelineCommunityFromClinicalName } from "./community-config";
 import type { ClinicalClientDetail, ClinicalClientDirectoryItem } from "@/lib/clinical/clinical-contracts";
-import { clientProfileSourceValues } from "./client-profile-presentation";
+import { clientProfileBirthDates, clientProfileSourceValues } from "./client-profile-presentation";
 import type { Referral, ReferralPatch } from "./referral-types";
 
 export const historicalAdmissionSource = "Prior admission confirmed in Pipeline";
@@ -48,18 +48,12 @@ export function historicalAdmissionClient(referral: Referral, clients: ClinicalC
   return candidates.length === 1 ? candidates[0] : null;
 }
 
-function sourceDate(value: string | undefined) {
-  // Full client DOBs may be date-valued timestamps. Never shift their calendar day.
-  return normalizeCalendarDate(value?.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?$/) ? value.slice(0, 10) : value);
-}
-
 /** Supporting evidence only: neither name/DOB matching nor selecting a stay joins identities. */
 export function historicalAdmissionSuggestion(referral: Referral, client: ClinicalClientDetail): HistoricalAdmissionSuggestion | null {
   if (!historicalAdmissionClient(referral, [client])) return null;
   const records = [client.enrichment, ...client.resident_profiles, ...(client.resident_profile ? [client.resident_profile] : [])];
-  const sourceDobs = records.flatMap((record) => clientProfileSourceValues(record, ["date_of_birth"]));
-  const dobs = [...new Set(sourceDobs.map(sourceDate))];
-  if (dobs.length > 1 || (sourceDobs.length && !dobs[0])) return null;
+  const dobs = clientProfileBirthDates(client);
+  if (dobs.length > 1 || (dobs.length && !dobs[0])) return null;
   const dob = dobs[0] ?? null;
   const recordedDob = sourceDate(referral.dob);
   if ((referral.dob?.trim() && !recordedDob) || (recordedDob && dob && recordedDob !== dob)) return null;
