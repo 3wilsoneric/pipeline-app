@@ -45,6 +45,7 @@ export type PlatformSummaryReferral = {
   plannedAdmissionDate: string | null;
   actualAdmissionDate: string | null;
   assessmentScheduledDate: string | null;
+  assessmentScheduledDurationMinutes: number | null;
   assessmentComplete: boolean;
   /** Current (not historical or archived) workspace. */
   currentWorkspace: boolean;
@@ -135,6 +136,15 @@ function recentWeekStarts(today: string, count: number) {
 function inWindow(value: string | null | undefined, start: string, end: string) {
   const day = dayKey(value);
   return Boolean(day && day >= start && day <= end);
+}
+
+function appointmentIsUpcoming(referral: PlatformSummaryReferral, now: Date, start: string, end: string) {
+  const scheduled = referral.assessmentScheduledDate;
+  if (!inWindow(scheduled, start, end)) return false;
+  if (!scheduled?.includes("T")) return true;
+  const startsAt = Date.parse(scheduled);
+  if (!Number.isFinite(startsAt)) return false;
+  return startsAt + Math.max(0, referral.assessmentScheduledDurationMinutes ?? 0) * 60_000 > now.getTime();
 }
 
 function median(values: number[]) {
@@ -250,7 +260,7 @@ export function buildPlatformAdmissionsSummary(input: PlatformAdmissionsSummaryI
     .filter((referral) =>
       referral.currentWorkspace &&
       !referral.assessmentComplete &&
-      inWindow(referral.assessmentScheduledDate, today, weekEnd))
+      appointmentIsUpcoming(referral, input.now, today, weekEnd))
     .map((referral) => ({
       referral_id: referral.referralId,
       client_name: referral.clientName.trim() || "Name not recorded",
