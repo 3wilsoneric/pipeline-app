@@ -14,7 +14,7 @@ if (!resourceGroup) fail("Configure PIPELINE_AZURE_RESOURCE_GROUP before auditin
 const bicep = readFileSync("infra/azure/operational-alerts.bicep", "utf8");
 const queryKeys = [...bicep.matchAll(/key:\s*'([^']+)'/g)].map((match) => match[1]);
 const expectedQueries = queryKeys.map((key) => `${namePrefix}-${environment}-${key}`);
-const expectedMetrics = ["postgres-connections", "postgres-storage", "blob-capacity", "web-restarts", "web-timeouts"]
+const expectedMetrics = ["postgres-connections", "postgres-memory-50", "postgres-cpu-50", "postgres-storage", "blob-capacity", "web-restarts", "web-timeouts"]
   .map((key) => `${namePrefix}-${environment}-${key}`);
 
 const scheduled = await azJson(["monitor", "scheduled-query", "list", "--resource-group", resourceGroup, "-o", "json"]);
