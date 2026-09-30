@@ -39,7 +39,7 @@ for (const width of [1440, 1024, 834, 768, 640]) {
     await picker.selectOption("prior_history");
     await expect(picker).toBeFocused();
     await expect(header.getByLabel("Section 7 of 12", { exact: true })).toBeVisible();
-    await expect(status).toHaveText("1 / 3 recorded");
+    await expect(status).toHaveText("2 / 4 recorded");
     await page.screenshot({ path: info.outputPath(`assessment-header-${width}.png`), animations: "disabled" });
     await picker.selectOption("legal_conservatorship");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

@@ -17,7 +17,7 @@ test("two tabs on one assessment keep disjoint answers and expose same-answer co
     await other.goto(url);
     const placementsA = page.locator("#assessment-prior_placements");
     const placementsB = other.locator("#assessment-prior_placements");
-    const holdsB = other.getByRole("textbox", { name: /Prior 5150/ });
+    const holdsB = other.getByRole("textbox", { name: "Hospitalization history", exact: true });
     await expect(placementsA).toBeEditable();
     await expect(placementsB).toBeEditable();
 
@@ -28,7 +28,7 @@ test("two tabs on one assessment keep disjoint answers and expose same-answer co
     await holdsB.blur();
     await expect.poll(read).toMatchObject({
       prior_placements: "First tab's placement history",
-      prior_5150_5250_holds: "Second tab's separate history",
+      hospitalization_history: "Second tab's separate history",
     });
 
     await placementsA.fill("First tab's later answer");
@@ -46,7 +46,7 @@ test("two tabs on one assessment keep disjoint answers and expose same-answer co
     await other.getByRole("button", { name: "Keep mine", exact: true }).click();
     await expect.poll(read).toMatchObject({
       prior_placements: "Second tab's competing answer",
-      prior_5150_5250_holds: "Second tab's separate history",
+      hospitalization_history: "Second tab's separate history",
     });
     await page.reload();
     await expect(page.locator("#assessment-prior_placements")).toHaveValue("Second tab's competing answer");
@@ -75,11 +75,11 @@ test("a second tab saving cannot erase the first tab's unsaved recovery", async 
     // The encrypted working-set snapshot is debounced by 250 ms.
     await page.waitForTimeout(800);
 
-    const holds = other.getByRole("textbox", { name: /Prior 5150/ });
+    const holds = other.getByRole("textbox", { name: "Hospitalization history", exact: true });
     await holds.fill("Second tab's saved answer");
     await holds.blur();
     const read = async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
-    await expect.poll(async () => (await read()).prior_5150_5250_holds).toBe("Second tab's saved answer");
+    await expect.poll(async () => (await read()).hospitalization_history).toBe("Second tab's saved answer");
     expect((await read()).prior_placements).toBeNull();
     await other.waitForTimeout(800);
 
@@ -88,7 +88,7 @@ test("a second tab saving cannot erase the first tab's unsaved recovery", async 
     try {
       await reopened.goto(url);
       await expect(reopened.locator("#assessment-prior_placements")).toHaveValue(answer);
-      await expect(reopened.getByRole("textbox", { name: /Prior 5150/ })).toHaveValue("Second tab's saved answer");
+      await expect(reopened.getByRole("textbox", { name: "Hospitalization history", exact: true })).toHaveValue("Second tab's saved answer");
     } finally {
       await reopened.close();
     }
@@ -114,19 +114,19 @@ test("different unsaved answers in two tabs both survive closing the browser pag
       ? route.fulfill({ status: 503, json: { error: "Synthetic second-tab save outage" } }) : route.continue());
     await page.locator("#assessment-prior_placements").fill("First tab's unsaved placement");
     await page.waitForTimeout(800);
-    await other.getByRole("textbox", { name: /Prior 5150/ }).fill("Second tab's unsaved hold history");
+    await other.getByRole("textbox", { name: "Hospitalization history", exact: true }).fill("Second tab's unsaved hold history");
     await other.waitForTimeout(800);
     await page.close({ runBeforeUnload: false });
     await other.close({ runBeforeUnload: false });
     const unsaved = (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
     expect(unsaved.prior_placements).toBeNull();
-    expect(unsaved.prior_5150_5250_holds).toBeNull();
+    expect(unsaved.hospitalization_history).toBeNull();
 
     const reopened = await page.context().newPage();
     try {
       await reopened.goto(url);
       await expect(reopened.locator("#assessment-prior_placements")).toHaveValue("First tab's unsaved placement");
-      await expect(reopened.getByRole("textbox", { name: /Prior 5150/ })).toHaveValue("Second tab's unsaved hold history");
+      await expect(reopened.getByRole("textbox", { name: "Hospitalization history", exact: true })).toHaveValue("Second tab's unsaved hold history");
     } finally {
       await reopened.close();
     }
@@ -208,7 +208,7 @@ test("simultaneous edits in separate tabs preserve both recovery fields", async 
     }
     await Promise.all([
       page.locator("#assessment-prior_placements").fill("Parallel placement answer"),
-      other.getByRole("textbox", { name: /Prior 5150/ }).fill("Parallel hold answer"),
+      other.getByRole("textbox", { name: "Hospitalization history", exact: true }).fill("Parallel hold answer"),
     ]);
     await page.waitForTimeout(1000);
     await page.close({ runBeforeUnload: false });
@@ -217,7 +217,7 @@ test("simultaneous edits in separate tabs preserve both recovery fields", async 
     try {
       await reopened.goto(url);
       await expect(reopened.locator("#assessment-prior_placements")).toHaveValue("Parallel placement answer");
-      await expect(reopened.getByRole("textbox", { name: /Prior 5150/ })).toHaveValue("Parallel hold answer");
+      await expect(reopened.getByRole("textbox", { name: "Hospitalization history", exact: true })).toHaveValue("Parallel hold answer");
     } finally {
       await reopened.close();
     }
@@ -243,7 +243,7 @@ test("leaving the assessment from two tabs keeps both unsaved answers", async ({
     }
     await page.locator("#assessment-prior_placements").fill("First tab's exit draft");
     await page.waitForTimeout(800);
-    await other.getByRole("textbox", { name: /Prior 5150/ }).fill("Second tab's exit draft");
+    await other.getByRole("textbox", { name: "Hospitalization history", exact: true }).fill("Second tab's exit draft");
     await other.waitForTimeout(800);
     for (const tab of [page, other]) {
       await tab.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: "Chart", exact: true }).click();
@@ -253,7 +253,7 @@ test("leaving the assessment from two tabs keeps both unsaved answers", async ({
     try {
       await whileOwned.goto(url);
       await expect(whileOwned.locator("#assessment-prior_placements")).toHaveValue("");
-      await expect(whileOwned.getByRole("textbox", { name: /Prior 5150/ })).toHaveValue("");
+      await expect(whileOwned.getByRole("textbox", { name: "Hospitalization history", exact: true })).toHaveValue("");
     } finally {
       await whileOwned.close();
     }
@@ -263,7 +263,7 @@ test("leaving the assessment from two tabs keeps both unsaved answers", async ({
     try {
       await reopened.goto(url);
       await expect(reopened.locator("#assessment-prior_placements")).toHaveValue("First tab's exit draft");
-      await expect(reopened.getByRole("textbox", { name: /Prior 5150/ })).toHaveValue("Second tab's exit draft");
+      await expect(reopened.getByRole("textbox", { name: "Hospitalization history", exact: true })).toHaveValue("Second tab's exit draft");
     } finally {
       await reopened.close();
     }

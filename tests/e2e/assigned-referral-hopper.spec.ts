@@ -94,7 +94,7 @@ test("assessment can return to Intake, add documents and resume the same saved i
     await page.screenshot({ path: testInfo.outputPath(`assessment-chart-header-${width}.png`) });
   }
   await chart.getByRole("combobox", { name: "Assessment section", exact: true }).selectOption("prior_history");
-  const answer = chart.getByRole("textbox", { name: "Crisis / ER utilization" });
+  const answer = chart.getByRole("textbox", { name: "Hospitalization history", exact: true });
   await answer.fill("Synthetic answer kept while updating intake and adding a document.");
   await stages.getByRole("button", { name: "Chart", exact: true }).click();
   await page.getByRole("button", { name: "Edit referral details", exact: true }).click();
@@ -117,11 +117,11 @@ test("assessment can return to Intake, add documents and resume the same saved i
   const saved = (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
   expect(saved.scheduled_start_at).toBe(scheduledStart);
   expect(new Date(saved.started_at).getTime()).toBeLessThan(new Date(scheduledStart).getTime());
-  expect(saved.crisis_er_utilization).toContain("Synthetic answer kept");
+  expect(saved.hospitalization_history).toContain("Synthetic answer kept");
   await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: /Assessment/ }).click();
   await expect(chart).toBeVisible();
   await chart.getByRole("combobox", { name: "Assessment section", exact: true }).selectOption("prior_history");
-  await chart.getByRole("button", { name: "Edit Crisis / ER utilization" }).click();
+  await chart.getByRole("button", { name: "Edit Hospitalization history", exact: true }).click();
   await expect(answer).toHaveValue("Synthetic answer kept while updating intake and adding a document.");
   await stages.getByRole("button", { name: "Chart", exact: true }).click();
   await page.getByRole("button", { name: "Edit referral details", exact: true }).click();
@@ -130,7 +130,7 @@ test("assessment can return to Intake, add documents and resume the same saved i
   expect(resumed.assessment_id).toBe(assessment.assessment_id);
   expect(resumed.started_at).toBe(saved.started_at);
   expect(resumed.scheduled_start_at).toBe(saved.scheduled_start_at);
-  expect(resumed.crisis_er_utilization).toBe(saved.crisis_er_utilization);
+  expect(resumed.hospitalization_history).toBe(saved.hospitalization_history);
   const assessments = (await (await page.request.get(`/api/referrals/${referral.id}/assessments`)).json()).assessments;
   expect(assessments).toHaveLength(1);
 });
@@ -301,25 +301,25 @@ test("desktop and phone assessments keep answers and position after using the wo
   await expect(chart).toBeVisible();
   const section = chart.getByRole("combobox", { name: "Assessment section", exact: true });
   await section.selectOption("prior_history");
-  const answer = chart.getByRole("textbox", { name: "Crisis / ER utilization" });
+  const answer = chart.getByRole("textbox", { name: "Hospitalization history", exact: true });
   await answer.fill("Synthetic assessment answer preserved across the referral switcher.");
   await page.getByRole("button", { name: "Open referrals", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Referral workspaces", exact: true })).toBeVisible();
   const saved = (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
-  expect(saved.crisis_er_utilization).toContain("Synthetic assessment answer preserved");
+  expect(saved.hospitalization_history).toContain("Synthetic assessment answer preserved");
   await page.goBack();
   await expect(chart).toBeVisible();
   await expect(section).toHaveValue("prior_history");
-  await chart.getByRole("button", { name: "Edit Crisis / ER utilization" }).click();
+  await chart.getByRole("button", { name: "Edit Hospitalization history", exact: true }).click();
   await expect(answer).toHaveValue("Synthetic assessment answer preserved across the referral switcher.");
   await page.setViewportSize({ width: 320, height: 900 });
   const phone = page.locator("[data-phone-interview]");
   await expect(phone).toBeVisible();
   await phone.getByRole("button", { name: "Choose questionnaire section", exact: true }).click();
   const picker = page.getByRole("dialog", { name: "Questionnaire sections", exact: true });
-  await picker.getByRole("searchbox", { name: "Find a question", exact: true }).fill("Crisis / ER utilization");
-  await picker.getByRole("button", { name: "Crisis / ER utilization" }).click();
-  await expect(phone.getByRole("textbox", { name: "Crisis / ER utilization" })).toHaveValue("Synthetic assessment answer preserved across the referral switcher.");
+  await picker.getByRole("searchbox", { name: "Find a question", exact: true }).fill("Hospitalization history");
+  await picker.getByRole("button", { name: /^Hospitalization history / }).click();
+  await expect(phone.getByRole("textbox", { name: "Hospitalization history", exact: true })).toHaveValue("Synthetic assessment answer preserved across the referral switcher.");
   expect(await phone.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
   await page.screenshot({ path: testInfo.outputPath("assessment-phone-resume.png") });
 

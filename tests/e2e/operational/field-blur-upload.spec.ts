@@ -99,8 +99,8 @@ test.describe("field exit saves and single uploads", () => {
       if (redesign) await page.getByRole("button", { name: "Prepare assessment", exact: true }).click();
       const editor = page.locator('[data-assessment-view]');
       await editor.getByRole("combobox", { name: "Assessment section", exact: true }).selectOption("prior_history");
-      const first = editor.getByRole("textbox", { name: /Prior 5150/ });
-      const second = editor.getByRole("textbox", { name: /Crisis \/ ER utilization/ });
+      const first = editor.getByRole("textbox", { name: "Hospitalization history", exact: true });
+      const second = editor.getByRole("textbox", { name: "Prior AWOL / failed placements", exact: true });
       const records = (await (await api.get(`/api/referrals/${referral.id}/assessments`)).json()).assessments;
       const id = records[0].assessment_id;
       const read = async () => (await (await api.get(`/api/assessments/${id}`)).json()).assessment;
@@ -108,7 +108,7 @@ test.describe("field exit saves and single uploads", () => {
       let release!: () => void;
       const held = new Promise<void>((resolve) => { release = resolve; });
       await page.route(`**/api/assessments/${id}`, async (route) => {
-        if (route.request().method() === "PATCH" && route.request().postDataJSON().patch.data.prior_5150_5250_holds) await held;
+        if (route.request().method() === "PATCH" && route.request().postDataJSON().patch.data.hospitalization_history) await held;
         await route.continue();
       });
       await first.fill("Synthetic first answer");
@@ -116,15 +116,15 @@ test.describe("field exit saves and single uploads", () => {
       else { await page.waitForTimeout(900); expect(writes).toEqual([]); }
       await second.fill("Synthetic second answer still being typed");
       await expect.poll(() => writes.length).toBe(1);
-      expect(writes[0].patch.data).toEqual({ prior_5150_5250_holds: "Synthetic first answer" });
+      expect(writes[0].patch.data).toEqual({ hospitalization_history: "Synthetic first answer" });
       release();
-      await expect.poll(async () => (await read()).prior_5150_5250_holds).toBe("Synthetic first answer");
+      await expect.poll(async () => (await read()).hospitalization_history).toBe("Synthetic first answer");
       await page.waitForTimeout(redesign ? 100 : 900);
       expect(writes).toHaveLength(1);
-      expect((await read()).crisis_er_utilization).toBeNull();
+      expect((await read()).prior_awol_failed_placements).toBeNull();
       await expect(second).toHaveValue("Synthetic second answer still being typed");
       await second.blur();
-      await expect.poll(async () => (await read()).crisis_er_utilization).toBe("Synthetic second answer still being typed");
+      await expect.poll(async () => (await read()).prior_awol_failed_placements).toBe("Synthetic second answer still being typed");
       await second.focus();
       await second.blur();
       await page.waitForTimeout(600);

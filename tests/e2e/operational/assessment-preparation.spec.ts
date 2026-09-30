@@ -35,16 +35,16 @@ test.describe("assessment preparation", () => {
 
         const findHistory = async () => {
           await editor.getByRole("combobox", { name: "Assessment section", exact: true }).selectOption("prior_history");
-          const recorded = editor.getByRole("button", { name: "Edit Prior 5150 / 5250 holds", exact: true });
+          const recorded = editor.getByRole("button", { name: "Edit Hospitalization history", exact: true });
           if (await recorded.isVisible()) await recorded.click();
         };
         await findHistory();
-        const field = editor.getByRole("textbox", { name: /Prior 5150/ });
+        const field = editor.getByRole("textbox", { name: "Hospitalization history", exact: true });
         const answer = "Synthetic discharge summary describes one prior hold, with the date still to confirm.";
         await field.fill(answer);
         await stages.getByRole("button", { name: "Chart", exact: true }).click();
         await expect(stages.getByRole("button", { name: "Chart", exact: true })).toHaveAttribute("aria-current", "page");
-        await expect.poll(async () => (await readAssessment(api, id)).prior_5150_5250_holds).toBe(answer);
+        await expect.poll(async () => (await readAssessment(api, id)).hospitalization_history).toBe(answer);
         expect((await readAssessment(api, id)).started_at).toBeNull();
         await stages.getByRole("button", { name: "Assessment", exact: true }).click();
         await findHistory();
@@ -73,7 +73,7 @@ test.describe("assessment preparation", () => {
         const scheduled = await readAssessment(api, id);
         expect(scheduled.started_at).toBeNull();
         expect(scheduled.scheduled_start_at).toBeTruthy();
-        expect(scheduled.prior_5150_5250_holds).toBe(scheduledAnswer);
+        expect(scheduled.hospitalization_history).toBe(scheduledAnswer);
 
         const finalAnswer = `${scheduledAnswer} Last edit immediately before rescheduling.`;
         await field.fill(finalAnswer);
@@ -90,7 +90,7 @@ test.describe("assessment preparation", () => {
         await expect(field).toHaveValue(finalAnswer);
         const saved = await readAssessment(api, id);
         expect(saved.started_at).toBeNull();
-        expect(saved.prior_5150_5250_holds).toBe(finalAnswer);
+        expect(saved.hospitalization_history).toBe(finalAnswer);
         await page.reload();
         await findHistory();
         await expect(field).toHaveValue(finalAnswer);
