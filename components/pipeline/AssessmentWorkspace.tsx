@@ -57,6 +57,7 @@ import {
 } from "@/lib/assessment/assessment-interview-schema";
 import { normalizeAssessmentSectionVersions } from "@/lib/assessment/assessment-sections";
 import type { EditingPresence } from "@/lib/pipeline/editing-presence";
+import { startEditingPresenceSession } from "./editing-presence-session";
 import type { AssessmentDraftWorkbookSources, PipelineAssessmentDraft } from "@/lib/pipeline/user-workspace-state-types";
 import { usesServerUserWorkspaceState } from "@/lib/pipeline/user-workspace-state-client";
 import { forgetVolatileAssessmentRecovery, registerAssessmentEditor, rememberVolatileAssessmentRecovery, volatileAssessmentRecovery } from "@/lib/pipeline/volatile-recovery";
@@ -2221,33 +2222,11 @@ export default function AssessmentWorkspace({
 
   useEffect(() => {
     if (!workspaceActive || trainingAssessmentMode || !referralId || !selected?.assessment_id) return;
-    const leaseId = crypto.randomUUID();
-    let cancelled = false;
-    const heartbeat = async () => {
-      try {
-        await fetchPipelineJson(`/api/referrals/${referralId}/presence`, {
-          method: "POST",
-          body: JSON.stringify({ lease_id: leaseId, section: `assessment:${activeSection}` }),
-        });
-        const payload = await fetchPipelineJson<{ presence: Array<EditingPresence & { is_me?: boolean }> }>(
-          `/api/referrals/${referralId}/presence`,
-          { cache: "no-store" },
-        );
-        if (!cancelled) setPresence(payload.presence.filter((item) => !item.is_me));
-      } catch {
-        // Presence is advisory; section versions remain authoritative.
-      }
-    };
-    void heartbeat();
-    const interval = window.setInterval(heartbeat, 15_000);
-    return () => {
-      cancelled = true;
-      window.clearInterval(interval);
-      void fetchPipelineJson(`/api/referrals/${referralId}/presence`, {
-        method: "DELETE",
-        body: JSON.stringify({ lease_id: leaseId }),
-      }).catch(() => undefined);
-    };
+    return startEditingPresenceSession({
+      referralId,
+      section: `assessment:${activeSection}`,
+      onPresence: (presence) => setPresence(presence.filter((item) => !item.is_me)),
+    });
   }, [activeSection, referralId, selected?.assessment_id, trainingAssessmentMode, workspaceActive]);
 
   // Kept-mounted steps (docs/design/DECISIONS.md, "Kept-mounted steps"): before the editor's own chart
