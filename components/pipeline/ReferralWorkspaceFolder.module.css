@@ -961,18 +961,24 @@
   }
 }
 
-.focusAssessmentControl { display: none; }
+.interviewRailDivider { display: none; }
 
-/* Interview layout (docs/design/DECISIONS.md, "Interview layout"). The record rail gives its width to the
-   assessment; its icon-only focus control sits below the rail actions. Top level because the switch is on <html>. */
+/* Interview layout (docs/design/DECISIONS.md, "Interview layout"). Drag the divider to reveal, resize, or tuck the rail. */
 @media (min-width: 1024px) {
   /* The interview uses the full width: no right gutter for the floating Notes button (not shown on this step). */
   :global(html[data-design="v2"][data-interview-focus]) .verticalFlow { position: relative; max-width: none; padding-right: 24px; }
-  :global(html[data-design="v2"][data-interview-focus]) .verticalFlow:not([data-interview-rail-shown]) { grid-template-columns: 0 minmax(0, 1fr); column-gap: 0; }
+  :global(html[data-design="v2"][data-interview-focus]) .verticalFlow { grid-template-columns: var(--interview-rail-width, 0px) minmax(0, 1fr); }
+  :global(html[data-design="v2"][data-interview-focus]) .verticalFlow:not([data-interview-rail-shown]) { column-gap: 0; }
   :global(html[data-design="v2"][data-interview-focus]) .verticalFlow:not([data-interview-rail-shown]) > .header { display: none; }
   /* With the rail open during the interview: the save status is already in the top-right, and Review assessment is the next step. */
   :global(html[data-design="v2"][data-interview-focus]) .verticalFlow > .header :is(.saveCenter, .nextStepBar) { display: none; }
-  :global(html[data-design="v2"][data-interview-focus]) .verticalFlow[data-interview-rail-shown] .focusAssessmentControl { display: grid; place-items: center; align-self: center; width: 56px; height: 56px; margin: 20px auto 0; border: 1px solid var(--color-link); border-radius: var(--radius-input); background: var(--color-link); box-shadow: var(--shadow-card); color: var(--color-on-fill); }
-  :global(html[data-design="v2"][data-interview-focus]) .verticalFlow[data-interview-rail-shown] .focusAssessmentControl:hover { background: color-mix(in srgb, var(--color-link) 85%, black); box-shadow: var(--shadow-card-hover); }
-  :global(html[data-design="v2"][data-interview-focus]) .verticalFlow[data-interview-rail-shown] .focusAssessmentControl:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 3px; }
+  :global(html[data-design="v2"][data-interview-focus]) .verticalFlow > .interviewRailDivider { display: block; grid-column: 1; grid-row: 1 / span 20; position: sticky; top: 20px; z-index: 21; justify-self: end; align-self: start; width: 20px; height: calc(100dvh - 40px); margin-right: -20px; cursor: col-resize; touch-action: none; }
+  :global(html[data-design="v2"][data-interview-focus]) .verticalFlow:not([data-interview-rail-shown]) > .interviewRailDivider { margin-right: -10px; }
+  .interviewRailDivider::before { content: ""; position: absolute; inset: 0 auto 0 9px; width: 2px; background: var(--color-control-border); }
+  .interviewRailDivider::after { content: ""; position: absolute; top: 50%; left: 0; width: 20px; height: 52px; transform: translateY(-50%); border: 1px solid var(--color-control-border); border-radius: var(--radius-pill); background: var(--color-paper); box-shadow: var(--shadow-card); }
+  .interviewRailDivider svg { position: absolute; top: 50%; left: 50%; z-index: 1; transform: translate(-50%, -50%); pointer-events: none; color: var(--color-ink-muted); }
+  .interviewRailDivider:hover::before, .interviewRailDivider:focus-visible::before, .interviewRailDivider:active::before { width: 3px; background: var(--color-link); }
+  .interviewRailDivider:hover::after, .interviewRailDivider:focus-visible::after, .interviewRailDivider:active::after { border-color: var(--color-link); }
+  .interviewRailDivider:hover svg, .interviewRailDivider:focus-visible svg, .interviewRailDivider:active svg { color: var(--color-link); }
+  .interviewRailDivider:focus-visible { outline: none; }
 }
