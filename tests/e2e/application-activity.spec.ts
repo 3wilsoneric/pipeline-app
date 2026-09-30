@@ -13,6 +13,11 @@ for (const width of [1440, 390]) test(`owner activity is readable, filterable an
     sampledAt: new Date().toISOString(), cpuPercent: 8.2, memoryPercent: 27.4,
     activeConnections: 9, cpuPeakHourPercent: 34.4,
   } }));
+  await page.route("**/api/operations/assessor-status?*", (route) => route.fulfill({ json: { people: [
+    { id: "online", name: "Andrew", status: "online" },
+    { id: "today", name: "Jazmine", status: "today" },
+    { id: "away", name: "Vince", status: "away" },
+  ] } }));
   const queries: URLSearchParams[] = [];
   await page.route("**/api/operations/application-activity?*", (route) => {
     const params = new URL(route.request().url()).searchParams;
@@ -33,6 +38,17 @@ for (const width of [1440, 390]) test(`owner activity is readable, filterable an
   });
   expect(meterViolations).toEqual([]);
   const card = page.getByRole("button", { name: "Open application activity" });
+  await expect(card.locator('[data-status="online"]')).toContainText("Andrew");
+  await expect(card.locator('[data-status="today"]')).toContainText("Jazmine");
+  await expect(card.locator('[data-status="away"]')).toContainText("Vince");
+  await expect(card).toHaveAttribute("aria-describedby", /.+/);
+  expect(await card.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
+  const ribbonViolations = await page.evaluate(async () => {
+    const axe = (window as unknown as { axe: { run: (context: string) => Promise<{ violations: { impact: string; id: string }[] }> } }).axe;
+    return (await axe.run('button[aria-label="Open application activity"]')).violations.filter((item) => ["serious", "critical"].includes(item.impact));
+  });
+  expect(ribbonViolations).toEqual([]);
+  await card.screenshot({ path: `.data/activity-ribbon-${width}.png` });
   await card.click();
   const dialog = page.getByRole("dialog", { name: "Application activity", exact: true });
   await expect(dialog.getByRole("heading", { name: "People", exact: true })).toBeVisible();
@@ -64,6 +80,8 @@ test("other admins do not get the card or access to the reporting endpoint", asy
   await expect(page.getByRole("button", { name: "Open application activity" })).toHaveCount(0);
   const result = await page.request.get(`/api/operations/application-activity?since=${new Date().toISOString()}`);
   expect(result.status()).toBe(403);
+  const status = await page.request.get(`/api/operations/assessor-status?since=${new Date().toISOString()}`);
+  expect(status.status()).toBe(403);
 });
 
 test("activity failure stays inside the dialog and can be retried", async ({ page }) => {
