@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
-import { openAllQuestions } from "../support/assessment-navigation";
+import { leaveInterviewFullScreen, openAllQuestions } from "../support/assessment-navigation";
 import { createOperationalAssessment, createOperationalReferral } from "../support/operational-api";
 import { actorApiContext, actorPage, pipelineActors, requireOperationalBaseURL } from "../support/pipeline-actors";
 
@@ -70,14 +70,16 @@ test("client notes stay together, save while typing, and fit beside the question
   await page.keyboard.press("Tab");
   await expect(split.locator('[data-split-topic="identity"]')).toContainText("Board and care in Turlock");
   // Interview layout (docs/design/DECISIONS.md, "Interview layout"): the record rail is tucked away; the
-  // assessment bar brings it back and hides it again. Scheduling stays in All questions.
+  // divider brings it back and hides it again. Scheduling stays in All questions.
   const root = page.locator("html");
   await expect(root).toHaveAttribute("data-interview-focus", "true");
   const railChart = page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: "Chart", exact: true });
   await expect(railChart).toBeHidden();
-  await page.getByRole("button", { name: "Show workspace" }).click();
+  await leaveInterviewFullScreen(page);
   await expect(railChart).toBeVisible();
-  await page.getByRole("button", { name: "Focus assessment" }).click();
+  const railDivider = page.getByRole("separator", { name: "Resize workspace rail", exact: true });
+  await railDivider.press("Home");
+  await expect(railDivider).toHaveAttribute("aria-valuenow", "0");
   await expect(railChart).toBeHidden();
   const headerRow = page.getByRole("navigation", { name: "Assessment sections" });
   await expect(headerRow.getByRole("button", { name: "Schedule interview" })).toHaveCount(0);
