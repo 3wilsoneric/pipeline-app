@@ -961,19 +961,13 @@
   }
 }
 
-/* Interview layout (docs/design/DECISIONS.md, "Interview layout"). Redesign only, wide screens: during the interview
-   the record rail is tucked away so the information, notes and questions have the room; an arrow at the left edge,
-   like the app bar's own collapse arrow, brings it back and hides it again. Top level because the switch is on <html>. */
-.interviewRailToggle { display: none; }
+/* Interview layout (docs/design/DECISIONS.md, "Interview layout"). The record rail gives its width to the
+   assessment; its labeled control lives in the sticky assessment bar. Top level because the switch is on <html>. */
 @media (min-width: 1024px) {
   /* The interview uses the full width: no right gutter for the floating Notes button (not shown on this step). */
   :global(html[data-design="v2"][data-interview-focus]) .verticalFlow { position: relative; max-width: none; padding-right: 24px; }
-  :global(html[data-design="v2"][data-interview-focus]) .verticalFlow:not([data-interview-rail-shown]) { grid-template-columns: 20px minmax(0, 1fr); column-gap: 14px; }
+  :global(html[data-design="v2"][data-interview-focus]) .verticalFlow:not([data-interview-rail-shown]) { grid-template-columns: 0 minmax(0, 1fr); column-gap: 0; }
   :global(html[data-design="v2"][data-interview-focus]) .verticalFlow:not([data-interview-rail-shown]) > .header { display: none; }
   /* With the rail open during the interview: the save status is already in the top-right, and Review assessment is the next step. */
   :global(html[data-design="v2"][data-interview-focus]) .verticalFlow > .header :is(.saveCenter, .nextStepBar) { display: none; }
-  :global(html[data-design="v2"][data-interview-focus]) .verticalFlow > .interviewRailToggle { position: sticky; top: calc(50vh - 22px); z-index: 21; display: grid; grid-column: 1; grid-row: 1; align-self: start; justify-self: start; place-items: center; width: 20px; height: 44px; margin-top: 30vh; border: 1px solid var(--color-card-border); border-radius: var(--radius-input); background: var(--color-paper); box-shadow: var(--shadow-card); color: var(--color-ink-muted); }
-  :global(html[data-design="v2"][data-interview-focus]) .verticalFlow[data-interview-rail-shown] > .interviewRailToggle { justify-self: end; margin-right: -30px; }
-  :global(html[data-design="v2"][data-interview-focus]) .verticalFlow > .interviewRailToggle:hover { color: var(--color-ink); border-color: var(--color-ink-muted); }
-  :global(html[data-design="v2"][data-interview-focus]) .verticalFlow > .interviewRailToggle:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 }
