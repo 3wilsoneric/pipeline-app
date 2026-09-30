@@ -31,7 +31,7 @@ export async function editPreparedAnswer(page: Page, label: string) {
 }
 
 // Redesign interview layout (docs/design/DECISIONS.md, "Interview layout") tucks the record rail away during the
-// interview; a person opens it from the assessment bar before choosing another step. No-op otherwise.
+// interview; a person opens its draggable divider before choosing another step. No-op otherwise.
 export async function leaveInterviewFullScreen(page: Page) {
   // It turns on just after a layout change (such as a resize), so give it a moment to appear.
   const on = await page.locator("html[data-interview-focus]").waitFor({ state: "attached", timeout: 1_500 }).then(() => true, () => false);
@@ -44,8 +44,10 @@ export async function leaveInterviewFullScreen(page: Page) {
     await page.mouse.move((page.viewportSize()?.width ?? 1440) - 1, 1);
     await expect(preview).toHaveCount(0);
   }
-  const toggle = page.locator("[data-interview-rail-toggle]");
-  if (await toggle.getAttribute("aria-expanded") !== "true") await toggle.click();
+  const divider = page.getByRole("separator", { name: "Resize workspace rail", exact: true });
+  await expect(divider).toBeVisible();
+  if (await divider.getAttribute("aria-valuenow") === "0") await divider.press("Enter");
+  await expect(page.getByRole("navigation", { name: "Workspace stages", exact: true })).toBeVisible();
 }
 
 // All questions: a button beside Interview, or (redesign interview) the first choice in the section dropdown.

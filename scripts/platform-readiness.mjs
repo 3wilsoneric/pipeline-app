@@ -7,6 +7,11 @@ const skipBuild = args.has("--skip-build");
 
 const checks = [
   {
+    name: "Editing presence background lifecycle and late-response isolation",
+    command: "node",
+    args: ["--test", "scripts/editing-presence-session.test.mjs"],
+  },
+  {
     name: "Deployment migration order and runtime flag preservation",
     command: "node",
     args: ["--test", "scripts/deployment-migration-order.test.mjs"],

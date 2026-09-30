@@ -1,6 +1,7 @@
 "use client";
 
 import HistoricalAdmissionPanel from "./HistoricalAdmissionPanel";
+import { startEditingPresenceSession } from "./editing-presence-session";
 
 import { usePersonaSwitchSave } from "@/lib/demo/persona-switch-save";
 import ReferralHandoffContacts from "./ReferralHandoffContacts";
@@ -1425,35 +1426,7 @@ export default function ReferralPacketCanvas({
   useEffect(() => {
     const referralId = editableReferralId;
     if (!referralId) return;
-    const leaseId = crypto.randomUUID();
-    const section = presenceSection(activePage);
-    let cancelled = false;
-
-    const heartbeat = async () => {
-      try {
-        await fetchPipelineJson(`/api/referrals/${referralId}/presence`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ lease_id: leaseId, section }),
-        });
-      } catch {
-        // Presence is advisory. Save/version checks remain authoritative.
-      }
-    };
-
-    void heartbeat();
-    const interval = window.setInterval(() => {
-      if (!cancelled) void heartbeat();
-    }, 15_000);
-    return () => {
-      cancelled = true;
-      window.clearInterval(interval);
-      void fetchPipelineJson(`/api/referrals/${referralId}/presence`, {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ lease_id: leaseId }),
-      }).catch(() => undefined);
-    };
+    return startEditingPresenceSession({ referralId, section: presenceSection(activePage) });
   }, [activePage, editableReferralId]);
 
   const updateField = (key: FieldKey, value: string) => {
