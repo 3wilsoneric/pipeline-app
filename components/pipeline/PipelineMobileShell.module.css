@@ -156,8 +156,8 @@
 :where(html[data-design="v2"]) .utilities { border-top-color: var(--color-sheet-border); }
 :where(html[data-design="v2"]) .shell .utilities > button, :where(html[data-design="v2"]) .shell .utilities > div > button { height: 48px; min-height: 48px; border-radius: var(--radius-paper); color: var(--color-ink-muted); }
 :where(html[data-design="v2"]) .utilities > button:hover, :where(html[data-design="v2"]) .utilities > div > button:hover { background-color: var(--color-segment); color: var(--color-ink); }
-:where(html[data-design="v2"]) .expandButton { color: var(--color-ink-muted); }
-:where(html[data-design="v2"]) .expandButton::before { border-color: var(--color-sheet-border); border-radius: var(--radius-input); background: var(--color-paper); box-shadow: var(--shadow-card); }
+:where(html[data-design="v2"]) .expandButton { top: 8px; height: 44px; transform: none; color: var(--color-ink-muted); }
+:where(html[data-design="v2"]) .expandButton::before { inset: 6px 10px; border-color: var(--color-sheet-border); border-radius: var(--radius-input); background: var(--color-paper); box-shadow: var(--shadow-card); }
 :where(html[data-design="v2"]) .expandButton:hover::before { border-color: var(--color-control-border); background: var(--color-segment); }
 :where(html[data-design="v2"]) .shell .utilities > button > span:not([aria-hidden]), :where(html[data-design="v2"]) .shell .utilities > div > button > span:not([aria-hidden]) { font-size: var(--text-value); font-weight: 500; }
 /* Sidebar pass (docs/design/DECISIONS.md, "Sidebar"): the Alamo logo sits on the rail without its white box;
