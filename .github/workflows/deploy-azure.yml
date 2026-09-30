@@ -359,6 +359,7 @@ jobs:
               containerRegistryLoginServer='${{ steps.foundation.outputs.registry_server }}' \
               runtimeIdentityResourceId='${{ steps.foundation.outputs.runtime_identity_id }}' \
               runtimeIdentityClientId='${{ steps.foundation.outputs.runtime_identity_client_id }}' \
+              postgresServerName='${{ steps.foundation.outputs.postgres_name }}' \
               keyVaultUri='${{ steps.foundation.outputs.key_vault_uri }}' \
               storageAccountName='${{ steps.foundation.outputs.storage_account }}' \
               alertActionGroupResourceIds='${{ steps.foundation.outputs.alert_action_group_ids }}' \
