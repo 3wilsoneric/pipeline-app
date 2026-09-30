@@ -4,7 +4,7 @@ import { createOperationalAssessment, createOperationalReferral } from "../suppo
 import { actorApiContext, actorPage, pipelineActors, requireOperationalBaseURL } from "../support/pipeline-actors";
 
 // Interview layout edge cases (docs/design/DECISIONS.md, "Interview layout"): the record rail is tucked away during
-// the interview behind a labeled assessment control, comes back everywhere else, and the information beside the questions is the
+// the interview behind an icon-only assessment control, comes back everywhere else, and the information beside the questions is the
 // filled-in information for the topic being asked.
 test.describe("interview layout", () => {
   test.skip(process.env.PIPELINE_OPERATIONAL_E2E !== "true" || process.env.PIPELINE_DESIGN_V2 !== "true", "Run with the operational configuration and PIPELINE_DESIGN_V2=true.");
@@ -79,10 +79,14 @@ test.describe("interview layout", () => {
       // The assessment control brings the rail back; the app sidebar keeps its separate arrow.
       const workspaceToggle = page.locator("[data-interview-rail-toggle]");
       await expect(workspaceToggle).toHaveAccessibleName("Show workspace");
+      await expect(workspaceToggle).toHaveText("");
+      await expect(bar.locator("[data-interview-rail-toggle]")).toHaveCount(1);
       await expect(workspaceToggle).toHaveAttribute("aria-controls", "workspace-record-rail");
       await workspaceToggle.click();
       await expect(workspaceToggle).toHaveAccessibleName("Focus assessment");
+      await expect(workspaceToggle).toHaveText("");
       await expect(rail).toBeVisible();
+      await expect(page.getByTestId("workspace-folder-header").locator("[data-interview-rail-toggle]")).toHaveCount(1);
       await expect(workspaceToggle).toBeInViewport();
       await page.screenshot({ path: test.info().outputPath("workspace-rail-shown.png") });
       await rail.getByRole("button", { name: "Chart", exact: true }).click();

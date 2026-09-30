@@ -17,7 +17,6 @@ import {
   ChevronRight,
   FileSpreadsheet,
   LoaderCircle,
-  Maximize2,
   PanelLeftOpen,
   Plus,
   RefreshCw,
@@ -2683,10 +2682,9 @@ export default function AssessmentWorkspace({
               target={workingTarget}
               questionNavigation={!phoneInterview ? (recordedAnswers) => <AssessmentWorkingNavigation onAllQuestions={workModeInNavigation && !preparing ? () => changeWorkingMode(true) : undefined} lead={workModeInNavigation ? <>
                 {interviewFocus && !workspaceRailShown && workspaceTitle ? <h2 className={workingStyles.focusTitle}>{workspaceTitle}</h2> : null}
-                {interviewFocus && onWorkspaceRailToggle ? <button type="button" data-interview-rail-toggle className={workingStyles.workspaceRailControl}
-                  aria-expanded={workspaceRailShown} aria-controls="workspace-record-rail" onClick={onWorkspaceRailToggle}>
-                  {workspaceRailShown ? <Maximize2 size={14} aria-hidden="true" /> : <PanelLeftOpen size={14} aria-hidden="true" />}
-                  {workspaceRailShown ? "Focus assessment" : "Show workspace"}
+                {interviewFocus && !workspaceRailShown && onWorkspaceRailToggle ? <button type="button" data-interview-rail-toggle className={workingStyles.workspaceRailControl}
+                  aria-label="Show workspace" aria-expanded={false} aria-controls="workspace-record-rail" onClick={onWorkspaceRailToggle}>
+                  <PanelLeftOpen size={20} aria-hidden="true" />
                 </button> : null}
                 {renderWorkMode()}
                 {interviewFocus ? renderSaveStatus() : null}
