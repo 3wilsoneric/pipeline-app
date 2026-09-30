@@ -40,9 +40,9 @@ on:
         default: true
         type: boolean
       enable_demo_center:
-        description: Expose the read-only Demo Center (synthetic database writes remain locked)
+        description: Enable demo-only mode (disables live Meet the Client)
         required: true
-        default: true
+        default: false
         type: boolean
       desktop_activation:
         description: Preserve the current installed desktop experience, enable it, or disable it
@@ -54,7 +54,7 @@ on:
           - enabled
           - disabled
       meet_client_activation:
-        description: Meet the Client production activation (assessors send from Outlook)
+        description: Meet the Client production email activation
         required: true
         default: preserve
         type: choice
@@ -202,7 +202,7 @@ jobs:
             test "$DEMO_CENTER_ENABLED" == "false" || { echo "Disable the Demo Center for production Meet the Client activation."; exit 1; }
             test -n "$OUTLOOK_CLIENT_ID" || { echo "Configure the public Outlook Drafts client before activation."; exit 1; }
           fi
-          node scripts/preserve-deployment-mail.mjs "$RESOURCE_GROUP" "${WEB_NAME:0:32}" "$RUNNER_TEMP/pipeline-mail-parameters.json" "$INITIAL_BOOTSTRAP" "$MEET_CLIENT_ACTIVATION" '${{ inputs.enable_meet_client_large_packets }}'
+          node scripts/preserve-deployment-mail.mjs "$RESOURCE_GROUP" "${WEB_NAME:0:32}" "$RUNNER_TEMP/pipeline-mail-parameters.json" "$INITIAL_BOOTSTRAP" "$MEET_CLIENT_ACTIVATION" '${{ inputs.enable_meet_client_large_packets }}' "$DEMO_CENTER_ENABLED"
 
       - name: Sign in to Azure Container Registry
         shell: bash

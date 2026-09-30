@@ -1,6 +1,34 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import test from "node:test";
 import { deploymentMailSettings } from "./preserve-deployment-mail.mjs";
+
+test("demo mode cannot silently disable preserved or newly activated live Meet the Client", () => {
+  const live = [{ name: "PIPELINE_MEET_CLIENT_LIVE_ENABLED", value: "true" }];
+  assert.throws(() => deploymentMailSettings(live, [], "preserve", false, true), /Disable demo mode/);
+  assert.throws(() => deploymentMailSettings([], [], "enabled", false, true), /Disable demo mode/);
+  assert.deepEqual(deploymentMailSettings(live, [], "preserve", false, false).environment, live);
+  assert.deepEqual(deploymentMailSettings([], [], "enabled", false, false).environment, live);
+  assert.deepEqual(deploymentMailSettings(live, [], "disabled", false, true).environment,
+    [{ name: "PIPELINE_MEET_CLIENT_LIVE_ENABLED", value: "false" }]);
+  assert.deepEqual(deploymentMailSettings([], [], "preserve", false, true).environment, []);
+});
+
+test("deployment defaults demo mode off and passes the requested mode into the mail guard", () => {
+  const workflow = readFileSync(new URL("../.github/workflows/deploy-azure.yml", import.meta.url), "utf8");
+  const input = workflow.match(/      enable_demo_center:\n(?<settings>(?:        .*\n)+)/u)?.groups.settings;
+  assert.match(input, /default: false/u);
+  assert.match(workflow, /DEMO_CENTER_ENABLED: \$\{\{ inputs\.enable_demo_center \}\}/u);
+  const command = workflow.split("\n").find(line => line.includes("node scripts/preserve-deployment-mail.mjs"));
+  assert.match(command, /'\$\{\{ inputs\.enable_meet_client_large_packets \}\}' "\$DEMO_CENTER_ENABLED"$/u);
+});
+
+test("CLI rejects an invalid demo flag before reading or changing Azure", () => {
+  const result = spawnSync(process.execPath, ["scripts/preserve-deployment-mail.mjs", "resource-group", "app", "unused.json", "true", "preserve", "false", "typo"], { encoding: "utf8" });
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Choose true or false for demo mode/u);
+});
 
 test("preserves the dedicated tenant, mail hold, sender and only referenced mail credentials", () => {
   const environment = [

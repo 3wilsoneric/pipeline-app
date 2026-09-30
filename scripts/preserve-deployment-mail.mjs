@@ -3,7 +3,7 @@ import { writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-export function deploymentMailSettings(environment, secrets, activation = "preserve", enableLargePackets = false) {
+export function deploymentMailSettings(environment, secrets, activation = "preserve", enableLargePackets = false, enableDemoCenter = false) {
   if (!["preserve", "enabled", "disabled"].includes(activation)) throw new Error("Choose preserve, enabled or disabled for Meet the Client activation.");
   const mail = environment.filter(({ name }) => /^PIPELINE_(GRAPH_|MEET_CLIENT_)/u.test(name));
   const references = new Set(mail.map(({ secretRef }) => secretRef).filter(Boolean));
@@ -19,6 +19,9 @@ export function deploymentMailSettings(environment, secrets, activation = "prese
     ? [...activatedMail.filter(({ name }) => name !== "PIPELINE_GRAPH_MAIL_READ_WRITE"),
       { name: "PIPELINE_GRAPH_MAIL_READ_WRITE", value: "true" }]
     : activatedMail;
+  if (enableDemoCenter && configuredMail.some(({ name, value }) => name === "PIPELINE_MEET_CLIENT_LIVE_ENABLED" && value === "true")) {
+    throw new Error("Disable demo mode before deploying with live Meet the Client, including when preserving its current activation.");
+  }
   return { environment: configuredMail, secrets: preservedSecrets };
 }
 
@@ -37,13 +40,14 @@ function readAzure(args) {
 }
 
 function main() {
-  const [resourceGroup, appName, outputPath, bootstrap, activation = "preserve", largePackets = "false"] = process.argv.slice(2);
+  const [resourceGroup, appName, outputPath, bootstrap, activation = "preserve", largePackets = "false", demoCenter = "false"] = process.argv.slice(2);
   if (!resourceGroup || !appName || !outputPath) throw new Error("Resource group, application name and output path are required.");
   if (!["true", "false"].includes(largePackets)) throw new Error("Choose true or false for large packet delivery.");
+  if (!["true", "false"].includes(demoCenter)) throw new Error("Choose true or false for demo mode.");
   const scope = ["--resource-group", resourceGroup, "--name", appName];
   const environment = bootstrap === "true" ? [] : readAzure(["containerapp", "show", ...scope, "--query", "properties.template.containers[0].env"]);
   const needsSecrets = environment.some(({ name, secretRef }) => /^PIPELINE_(GRAPH_|MEET_CLIENT_)/u.test(name) && secretRef);
-  const settings = deploymentMailSettings(environment, needsSecrets ? readAzure(["containerapp", "secret", "list", ...scope, "--show-values"]) : [], activation, largePackets === "true");
+  const settings = deploymentMailSettings(environment, needsSecrets ? readAzure(["containerapp", "secret", "list", ...scope, "--show-values"]) : [], activation, largePackets === "true", demoCenter === "true");
   for (const secret of settings.secrets) {
     if (secret.value && process.env.GITHUB_ACTIONS === "true") process.stdout.write(`::add-mask::${secret.value.replaceAll("%", "%25").replaceAll("\r", "%0D").replaceAll("\n", "%0A")}\n`);
   }
