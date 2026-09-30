@@ -69,15 +69,15 @@ test("client notes stay together, save while typing, and fit beside the question
   await page.getByRole("textbox", { name: "Current location" }).fill("Board and care in Turlock");
   await page.keyboard.press("Tab");
   await expect(split.locator('[data-split-topic="identity"]')).toContainText("Board and care in Turlock");
-  // Interview layout (docs/design/DECISIONS.md, "Interview layout"): the record rail is tucked away; the arrow
-  // brings it back and hides it again. Scheduling stays in All questions.
+  // Interview layout (docs/design/DECISIONS.md, "Interview layout"): the record rail is tucked away; the
+  // assessment bar brings it back and hides it again. Scheduling stays in All questions.
   const root = page.locator("html");
   await expect(root).toHaveAttribute("data-interview-focus", "true");
   const railChart = page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: "Chart", exact: true });
   await expect(railChart).toBeHidden();
-  await page.getByRole("button", { name: "Expand navigation" }).last().click();
+  await page.getByRole("button", { name: "Show workspace" }).click();
   await expect(railChart).toBeVisible();
-  await page.getByRole("button", { name: "Collapse navigation" }).last().click();
+  await page.getByRole("button", { name: "Focus assessment" }).click();
   await expect(railChart).toBeHidden();
   const headerRow = page.getByRole("navigation", { name: "Assessment sections" });
   await expect(headerRow.getByRole("button", { name: "Schedule interview" })).toHaveCount(0);

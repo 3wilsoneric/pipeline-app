@@ -31,7 +31,7 @@ With the switch on, the redesign also changes how screens behave, not just how t
 - Opening a referral resumes where you left off.
 - The Chart is the workspace home. Finished steps (signed assessment, recorded decision, completed Finish & send) are filed into it as sections and drop off the rail.
 - Steps stay mounted and save as you scroll.
-- During an unsigned interview the progress rail tucks away behind an arrow. The interview uses a split with the section's intake answers on the left and notes ruled below them.
+- During an unsigned interview the progress rail tucks away behind a labeled control in the assessment section bar. The interview uses a split with the section's intake answers on the left and notes ruled below them.
 - There is one set of client notes per referral, which replaces the quick note and the assessment notebook.
 - "Schedule interview" shows only until the interview begins.
 - An interview can offer answers from the client's last signed assessment and from intake. They are credited to that source only when unchanged, and the server verifies them.

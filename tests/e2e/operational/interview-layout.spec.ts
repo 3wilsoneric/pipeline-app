@@ -4,7 +4,7 @@ import { createOperationalAssessment, createOperationalReferral } from "../suppo
 import { actorApiContext, actorPage, pipelineActors, requireOperationalBaseURL } from "../support/pipeline-actors";
 
 // Interview layout edge cases (docs/design/DECISIONS.md, "Interview layout"): the record rail is tucked away during
-// the interview behind an arrow, comes back everywhere else, and the information beside the questions is the
+// the interview behind a labeled assessment control, comes back everywhere else, and the information beside the questions is the
 // filled-in information for the topic being asked.
 test.describe("interview layout", () => {
   test.skip(process.env.PIPELINE_OPERATIONAL_E2E !== "true" || process.env.PIPELINE_DESIGN_V2 !== "true", "Run with the operational configuration and PIPELINE_DESIGN_V2=true.");
@@ -76,9 +76,15 @@ test.describe("interview layout", () => {
       await page.screenshot({ path: test.info().outputPath("long-answers.png") });
       await page.setViewportSize({ width: 1440, height: 900 });
 
-      // The arrow brings the rail back; once back it stays, across steps and reloads, until it is collapsed.
-      await page.getByRole("button", { name: "Expand navigation" }).last().click();
+      // The assessment control brings the rail back; the app sidebar keeps its separate arrow.
+      const workspaceToggle = page.locator("[data-interview-rail-toggle]");
+      await expect(workspaceToggle).toHaveAccessibleName("Show workspace");
+      await expect(workspaceToggle).toHaveAttribute("aria-controls", "workspace-record-rail");
+      await workspaceToggle.click();
+      await expect(workspaceToggle).toHaveAccessibleName("Focus assessment");
       await expect(rail).toBeVisible();
+      await expect(workspaceToggle).toBeInViewport();
+      await page.screenshot({ path: test.info().outputPath("workspace-rail-shown.png") });
       await rail.getByRole("button", { name: "Chart", exact: true }).click();
       await expect(page.getByRole("heading", { name: "Referral chart", exact: true })).toBeVisible();
       await expect(root).not.toHaveAttribute("data-interview-focus", "true");
@@ -89,7 +95,7 @@ test.describe("interview layout", () => {
       await page.reload();
       await expect(root).toHaveAttribute("data-interview-focus", "true");
       await expect(rail).toBeVisible();
-      await page.getByRole("button", { name: "Collapse navigation" }).last().click();
+      await page.getByRole("button", { name: "Focus assessment" }).click();
       await expect(rail).toBeHidden();
       await page.reload();
       await expect(root).toHaveAttribute("data-interview-focus", "true");

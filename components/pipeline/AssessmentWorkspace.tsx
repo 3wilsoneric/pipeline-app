@@ -17,6 +17,8 @@ import {
   ChevronRight,
   FileSpreadsheet,
   LoaderCircle,
+  Maximize2,
+  PanelLeftOpen,
   Plus,
   RefreshCw,
 } from "lucide-react";
@@ -186,6 +188,8 @@ type AssessmentWorkspaceProps = {
   /** Redesign Chart: the way back into a filed Finish & send step. */
   onOpenFinish?: () => void;
   onOpenWorkspace?: () => void;
+  workspaceRailShown?: boolean;
+  onWorkspaceRailToggle?: () => void;
   onActiveSectionChange?: (section: AssessmentToolSection, location: PipelineWorkspaceLocation) => void;
   onOpenAssignedWork?: () => void | Promise<void>;
 };
@@ -375,6 +379,8 @@ export default function AssessmentWorkspace({
   onContinueToWorkflow,
   onOpenFinish,
   onOpenWorkspace,
+  workspaceRailShown = false,
+  onWorkspaceRailToggle,
   onOpenAssignedWork,
   onActiveSectionChange,
 }: AssessmentWorkspaceProps) {
@@ -568,7 +574,7 @@ export default function AssessmentWorkspace({
   [stackedQuestionsView, preparing, draft, conversationSections]);
   const [spyGroup, setSpyGroup] = useState<AssessmentToolSection | null>(null);
   // Interview layout (docs/design/DECISIONS.md, "Interview layout"): on a wide screen the interview hides the record
-  // rail (an arrow brings it back) so the information and notes sit beside the questions with room to read.
+  // rail (the assessment bar brings it back) so information and notes sit beside the questions with room to read.
   const wideRecordLayout = useWideRecordLayout();
   const interviewFocus = designV2 && wideRecordLayout && !phoneLayout && !trainingAssessmentMode && Boolean(referralId) && Boolean(referral)
     && stackedQuestionsView && !preparing && !reviewingChart && workspaceActive && questionsOnScreen
@@ -2676,7 +2682,12 @@ export default function AssessmentWorkspace({
               required={requiredInterviewFields}
               target={workingTarget}
               questionNavigation={!phoneInterview ? (recordedAnswers) => <AssessmentWorkingNavigation onAllQuestions={workModeInNavigation && !preparing ? () => changeWorkingMode(true) : undefined} lead={workModeInNavigation ? <>
-                {interviewFocus && workspaceTitle ? <h2 className={workingStyles.focusTitle}>{workspaceTitle}</h2> : null}
+                {interviewFocus && !workspaceRailShown && workspaceTitle ? <h2 className={workingStyles.focusTitle}>{workspaceTitle}</h2> : null}
+                {interviewFocus && onWorkspaceRailToggle ? <button type="button" data-interview-rail-toggle className={workingStyles.workspaceRailControl}
+                  aria-expanded={workspaceRailShown} aria-controls="workspace-record-rail" onClick={onWorkspaceRailToggle}>
+                  {workspaceRailShown ? <Maximize2 size={14} aria-hidden="true" /> : <PanelLeftOpen size={14} aria-hidden="true" />}
+                  {workspaceRailShown ? "Focus assessment" : "Show workspace"}
+                </button> : null}
                 {renderWorkMode()}
                 {interviewFocus ? renderSaveStatus() : null}
               </> : undefined} preparing={preparing} recordedAnswers={recordedAnswers} data={draft} pending={pendingFields} activeSection={stackedQuestionsView ? spySection : visibleSectionKey} guideTargets={assessmentSectionGuideTargets} onSectionChange={(section) => { setWorkingTarget(null); if (stackedQuestionsView) jumpToGroup(section); else setActiveSection(section); }} /> : undefined}

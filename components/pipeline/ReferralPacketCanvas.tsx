@@ -13,8 +13,6 @@ import {
   CalendarClock,
   Check,
   CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
   CircleAlert,
   FolderOpen,
   History,
@@ -2932,6 +2930,8 @@ export default function ReferralPacketCanvas({
                   onContinueToWorkflow={() => openPage("workflow")}
                   onOpenFinish={() => openPage("email")}
                   onOpenWorkspace={() => openPage(3)}
+                  workspaceRailShown={interviewRailShown}
+                  onWorkspaceRailToggle={toggleInterviewRail}
                   onOpenAssignedWork={onOpenAssignedWork ? openAssignedWork : undefined}
                   onActiveSectionChange={(section, location) => {
                     lastAssessmentSectionRef.current = section;
@@ -3196,13 +3196,6 @@ export default function ReferralPacketCanvas({
         className={`mx-auto w-full max-w-[1480px] px-2 pb-10 pt-0 sm:px-4 lg:px-6 ${readingAssessment ? workspaceFolderStyles.readingWorkspace : ""} ${verticalFlow ? workspaceFolderStyles.verticalFlow : ""}`}
       >
         {renderWorkspaceHeader()}
-        {/* Shown only during the interview (styles); same control as the app bar's own collapse arrow. */}
-        {verticalFlow ? <button type="button" data-interview-rail-toggle className={workspaceFolderStyles.interviewRailToggle}
-          aria-label={interviewRailShown ? "Collapse navigation" : "Expand navigation"} title={interviewRailShown ? "Collapse navigation" : "Expand navigation"}
-          aria-expanded={interviewRailShown} aria-controls="workspace-record-rail" onClick={toggleInterviewRail}>
-          {interviewRailShown ? <ChevronLeft size={16} aria-hidden="true" /> : <ChevronRight size={16} aria-hidden="true" />}
-        </button> : null}
-
         {accessError ? <div role="alert" className="mb-3 border border-[#e2c592] bg-[#fff9ec] px-4 py-3 text-[12px] font-semibold text-[#7a4c0d]">
           {accessError} <button type="button" onClick={() => { setAccessChecking(true); setAccessRetry((retry) => retry + 1); }} disabled={accessChecking} className="font-bold underline underline-offset-2 disabled:opacity-50">{accessChecking ? "Checking access..." : "Retry access check"}</button>
         </div> : null}
