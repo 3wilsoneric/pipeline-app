@@ -9,6 +9,10 @@ const event = { id: "first", actor_id: person.id, actor_name: person.name, actio
 for (const width of [1440, 390]) test(`owner activity is readable, filterable and accessible at ${width}px`, async ({ page }) => {
   await page.setViewportSize({ width, height: 900 });
   await page.route("**/api/auth/me", (route) => route.fulfill({ json: { user: owner } }));
+  await page.route("**/api/operations/azure-usage", (route) => route.fulfill({ json: {
+    sampledAt: new Date().toISOString(), cpuPercent: 8.2, memoryPercent: 27.4,
+    activeConnections: 9, cpuPeakHourPercent: 34.4,
+  } }));
   const queries: URLSearchParams[] = [];
   await page.route("**/api/operations/application-activity?*", (route) => {
     const params = new URL(route.request().url()).searchParams;
@@ -17,6 +21,17 @@ for (const width of [1440, 390]) test(`owner activity is readable, filterable an
     return route.fulfill({ json: { since: params.get("since"), through: params.get("through"), people: [person], events: [{ ...event, id: more ? "second" : "first", action: more ? "assessment_signed" : "referral_updated", entity_type: more ? "assessment" : "referral" }], next_cursor: more ? null : "synthetic-cursor" } });
   });
   await page.goto("/");
+  const meter = page.getByRole("region", { name: "Live database usage" });
+  await expect(meter.getByText("Database usage")).toBeVisible();
+  await expect(meter.getByText("8.2%")).toBeVisible();
+  await expect(meter.getByText("Highest 1-minute CPU average in the past hour: 34.4%.")).toBeVisible();
+  expect(await meter.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
+  await page.addScriptTag({ content: axeSource });
+  const meterViolations = await page.evaluate(async () => {
+    const axe = (window as unknown as { axe: { run: (context: string) => Promise<{ violations: { impact: string; id: string }[] }> } }).axe;
+    return (await axe.run('section[aria-label="Live database usage"]')).violations.filter((item) => ["serious", "critical"].includes(item.impact));
+  });
+  expect(meterViolations).toEqual([]);
   const card = page.getByRole("button", { name: "Open application activity" });
   await card.click();
   const dialog = page.getByRole("dialog", { name: "Application activity", exact: true });
@@ -32,7 +47,6 @@ for (const width of [1440, 390]) test(`owner activity is readable, filterable an
   await expect.poll(() => Date.parse(queries.at(-1)!.get("through")!) - Date.parse(queries.at(-1)!.get("since")!)).toBe(7 * 86400_000);
   await expect(dialog.getByText("Changed: Primary assignee, Admission date")).toBeVisible();
   expect(await dialog.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
-  await page.addScriptTag({ content: axeSource });
   const violations = await page.evaluate(async () => {
     const axe = (window as unknown as { axe: { run: (context: string) => Promise<{ violations: { impact: string; id: string }[] }> } }).axe;
     return (await axe.run('dialog[open]')).violations.filter((item) => ["serious", "critical"].includes(item.impact));
