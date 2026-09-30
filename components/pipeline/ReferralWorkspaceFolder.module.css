@@ -961,8 +961,10 @@
   }
 }
 
+.focusAssessmentControl { display: none; }
+
 /* Interview layout (docs/design/DECISIONS.md, "Interview layout"). The record rail gives its width to the
-   assessment; its labeled control lives in the sticky assessment bar. Top level because the switch is on <html>. */
+   assessment; its icon-only focus control sits below the rail actions. Top level because the switch is on <html>. */
 @media (min-width: 1024px) {
   /* The interview uses the full width: no right gutter for the floating Notes button (not shown on this step). */
   :global(html[data-design="v2"][data-interview-focus]) .verticalFlow { position: relative; max-width: none; padding-right: 24px; }
@@ -970,4 +972,7 @@
   :global(html[data-design="v2"][data-interview-focus]) .verticalFlow:not([data-interview-rail-shown]) > .header { display: none; }
   /* With the rail open during the interview: the save status is already in the top-right, and Review assessment is the next step. */
   :global(html[data-design="v2"][data-interview-focus]) .verticalFlow > .header :is(.saveCenter, .nextStepBar) { display: none; }
+  :global(html[data-design="v2"][data-interview-focus]) .verticalFlow[data-interview-rail-shown] .focusAssessmentControl { display: grid; place-items: center; align-self: center; width: 56px; height: 56px; margin: 20px auto 0; border: 1px solid var(--color-link); border-radius: var(--radius-input); background: var(--color-link); box-shadow: var(--shadow-card); color: var(--color-on-fill); }
+  :global(html[data-design="v2"][data-interview-focus]) .verticalFlow[data-interview-rail-shown] .focusAssessmentControl:hover { background: color-mix(in srgb, var(--color-link) 85%, black); box-shadow: var(--shadow-card-hover); }
+  :global(html[data-design="v2"][data-interview-focus]) .verticalFlow[data-interview-rail-shown] .focusAssessmentControl:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 3px; }
 }

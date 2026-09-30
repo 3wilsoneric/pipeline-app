@@ -18,6 +18,7 @@ import {
   History,
   House,
   LoaderCircle,
+  Maximize2,
   Plus,
   RefreshCw,
   Trash2,
@@ -434,7 +435,7 @@ export default function ReferralPacketCanvas({
     : { view: "assessment" });
   const [activePage, setActivePage] = useState<WorkspaceView>(workspacePageForLocation(routedWorkspaceLocation, referral?.id));
   const [assessmentVisitedReferral, setAssessmentVisitedReferral] = useState<number | undefined>();
-  // Interview layout: the record rail is tucked away during the interview; this arrow brings it back, and once
+  // Interview layout: the record rail is tucked away during the interview; its icon control brings it back, and once
   // brought back it stays until collapsed again, on this device (owner, 2026-09-27).
   const [interviewRailShown, setInterviewRailShown] = useState(false);
   useEffect(() => {
@@ -2770,6 +2771,12 @@ export default function ReferralPacketCanvas({
             {/* Redesign: no "is editing" pills in the rail (owner, 2026-09-26). Saves still refuse and
                 explain conflicting edits (renderWorkspaceConflicts). */}
             {renderWorkspaceActions()}
+            {verticalFlow && interviewRailShown && displayedPage === 2 ? (
+              <button type="button" data-interview-rail-toggle className={workspaceFolderStyles.focusAssessmentControl}
+                aria-label="Focus assessment" aria-expanded="true" aria-controls="workspace-record-rail" onClick={toggleInterviewRail}>
+                <Maximize2 size={22} aria-hidden="true" />
+              </button>
+            ) : null}
           </div>
           {editingControlsVisible && !stackVisible && displayedPage !== 2 && (displayedPage !== "email" || Boolean(saveError || isSaving || hasPendingWorkspaceChanges || saveStatus === deviceOnlySaveStatus)) && (!(decisionSaveNotice || assessmentSaveNotice) || Boolean(saveError || isSaving || hasPendingWorkspaceChanges || saveStatus === deviceOnlySaveStatus)) ? (
             <WorkspaceSaveStatus

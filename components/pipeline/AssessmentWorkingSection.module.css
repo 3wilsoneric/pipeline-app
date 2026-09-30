@@ -606,8 +606,8 @@
   .navigation[data-with-work-mode] .prepActions { order: 3; }
   /* Interview layout: with the rail tucked away, the client's name leads the bar. */
   .focusTitle { order: -1; flex: 0 1 auto; max-width: 280px; margin: 0; padding-right: 16px; overflow: hidden; border-right: 1px solid var(--color-paper-rule); color: var(--color-ink); font-size: var(--text-section); line-height: var(--text-section--line-height); font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
-  .workspaceRailControl { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 6px; min-height: 40px; padding: 0 10px; border: 1px solid var(--color-card-border); border-radius: var(--radius-input); background: var(--color-paper); color: var(--color-ink-2); font-size: var(--text-label); font-weight: 600; white-space: nowrap; }
-  .workspaceRailControl:hover { border-color: var(--color-ink-muted); background: var(--color-segment); }
+  .workspaceRailControl { display: grid; flex: 0 0 44px; place-items: center; width: 44px; min-height: 44px; padding: 0; border: 1px solid var(--color-link); border-radius: var(--radius-input); background: color-mix(in srgb, var(--color-link) 12%, var(--color-paper)); box-shadow: var(--shadow-card); color: var(--color-link); }
+  .workspaceRailControl:hover { background: color-mix(in srgb, var(--color-link) 20%, var(--color-paper)); }
   .workspaceRailControl:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
   /* No fractions or step numbers in the row (owner, 2026-09-26); screen readers still hear the position and count. */
   .navigation[data-with-work-mode] :is(.sectionPosition, .sectionProgress, .progressTrack) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
