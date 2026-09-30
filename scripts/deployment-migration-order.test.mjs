@@ -15,6 +15,7 @@ test("the approved redesign stays on by default and both runtime invocations rec
   assert.match(workflow, /enable_design_v2:[\s\S]*?default: true/);
   assert.equal(workflow.match(/enableDesignV2='\$\{\{ inputs.enable_design_v2 \}\}'/g)?.length, 2);
   assert.equal(workflow.match(/rolloutId='r\$\{\{ github.run_id \}\}-\$\{\{ github.run_attempt \}\}'/g)?.length, 2);
+  assert.equal(workflow.match(/postgresServerName='\$\{\{ steps.foundation.outputs.postgres_name \}\}'/g)?.length, 2);
   const runtime = readFileSync(new URL("../infra/azure/runtime.bicep", import.meta.url), "utf8");
   assert.match(runtime, /param enableDesignV2 bool = false/);
   assert.match(runtime, /name: 'PIPELINE_DESIGN_V2', value: enableDesignV2 \? 'true' : 'false'/);
