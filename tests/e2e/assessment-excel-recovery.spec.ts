@@ -4,7 +4,11 @@ import { createOperationalAssessment, createOperationalReferral, startOperationa
 import { changeWorkbook, closeRecoveryTools, openRecoveryTools } from "./support/workbook-runtime";
 import { pickAssessmentToolData } from "../../lib/assessment/assessment-tool-schema";
 import { assessmentWorkbookFields, assessmentWorkbookLayout } from "../../lib/assessment/assessment-workbook-contract";
-const historySheet = assessmentWorkbookLayout.findIndex((section) => section.key === "prior_history") + 2;
+
+function workbookCell(key: "current_location" | "prior_awol_failed_placements" | "hospitalization_history") {
+  const field = assessmentWorkbookFields.find((item) => item.key === key)!;
+  return { sheet: assessmentWorkbookLayout.findIndex((section) => section.sheet === field.sheet) + 2, cell: `C${field.row}` };
+}
 
 test.describe("workbook recovery integration boundaries", () => {
   test.skip(process.env.PIPELINE_DESKTOP_E2E !== "true", "Build with NEXT_PUBLIC_PIPELINE_DESKTOP_ENABLED=true and run with PIPELINE_DESKTOP_E2E=true.");
@@ -25,7 +29,7 @@ test.describe("workbook recovery integration boundaries", () => {
         schema: 1, assessmentId: saved.assessment_id, referralId: fixture.referral.id,
         savedAt: new Date().toISOString(), baseVersion: saved.version, sectionVersions: saved.section_versions,
         dirtySections: ["prior_history"], activeSection: "prior_history", baseData,
-        data: { ...baseData, prior_awol_failed_placements: "Older recovered typing", crisis_er_utilization: "Older recovered workbook answer" },
+        data: { ...baseData, prior_awol_failed_placements: "Older recovered typing", hospitalization_history: "Older recovered workbook answer" },
       } } });
       delivered = true;
     });
@@ -36,7 +40,7 @@ test.describe("workbook recovery integration boundaries", () => {
     await input.blur();
     await expect.poll(async () => (await fixture.read()).prior_awol_failed_placements).toBe("Newer typed answer");
     const { dialog, bytes } = await downloadCopy(page);
-    const changed = changeWorkbook(bytes, [{ sheet: historySheet, cell: "C11", value: "Newer Excel answer" }]);
+    const changed = changeWorkbook(bytes, [{ ...workbookCell("hospitalization_history"), value: "Newer Excel answer" }]);
     await page.getByLabel("Choose workbook").setInputFiles({ name: "copy.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer: changed });
     await dialog.getByRole("button", { name: "Commit 1 change", exact: true }).click();
     await expect(dialog).toHaveCount(0);
@@ -44,8 +48,8 @@ test.describe("workbook recovery integration boundaries", () => {
     release();
     await expect.poll(() => delivered).toBe(true);
     await expect.soft(page.getByRole("button", { name: "Edit Prior AWOL / failed placements", exact: true })).toContainText("Newer typed answer");
-    await expect.soft(page.getByRole("button", { name: "Edit Crisis / ER utilization", exact: true })).toContainText("Newer Excel answer");
-    expect((await fixture.read()).crisis_er_utilization).toBe("Newer Excel answer");
+    await expect.soft(page.getByRole("button", { name: "Edit Hospitalization history", exact: true })).toContainText("Newer Excel answer");
+    expect((await fixture.read()).hospitalization_history).toBe("Newer Excel answer");
   });
 
   test("a late workbook save cannot populate the next open assessment", async ({ page }) => {
@@ -54,8 +58,7 @@ test.describe("workbook recovery integration boundaries", () => {
     const secondBefore = pickAssessmentToolData(await second.read());
     await page.goto(first.href);
     const { dialog, bytes } = await downloadCopy(page);
-    const location = assessmentWorkbookFields.find((field) => field.key === "current_location")!;
-    const changed = changeWorkbook(bytes, [{ sheet: assessmentWorkbookLayout.findIndex((section) => section.sheet === location.sheet) + 2, cell: `C${location.row}`, value: "Synthetic imported first location" }, { sheet: historySheet, cell: "C7", value: "First assessment Excel answer" }]);
+    const changed = changeWorkbook(bytes, [{ ...workbookCell("current_location"), value: "Synthetic imported first location" }, { ...workbookCell("prior_awol_failed_placements"), value: "First assessment Excel answer" }]);
     let release!: () => void;
     const held = new Promise<void>((resolve) => { release = resolve; });
     let requestStarted = false;

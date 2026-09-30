@@ -27,21 +27,21 @@ test.describe("assessment editing entry and return paths", () => {
         const full = page.locator("[data-assessment-view]");
         await expect(full.getByRole("combobox", { name: "Assessment section", exact: true })).toHaveValue("prior_history");
         await expect(page.getByRole("dialog", { name: "Begin assessment", exact: true })).toHaveCount(0);
-        await expect(full.getByRole("textbox", { name: /Prior 5150/ })).toBeEditable();
+        await expect(full.getByRole("textbox", { name: "Hospitalization history", exact: true })).toBeEditable();
         expect((await readAssessment(api, assessment.assessment_id)).started_at).toBeFalsy();
         await expect(page.getByRole("button", { name: "Begin assessment", exact: true })).toHaveCount(0);
         expect((await readAssessment(api, assessment.assessment_id)).started_at).toBeNull();
 
         const answer = "Synthetic history entered immediately before closing the assessment.";
-        await full.getByRole("textbox", { name: /Prior 5150/ }).fill(answer);
+        await full.getByRole("textbox", { name: "Hospitalization history", exact: true }).fill(answer);
         const stages = page.getByRole("navigation", { name: "Workspace stages" });
         await stages.getByRole("button", { name: "Chart", exact: true }).click();
         await expect(stages.getByRole("button", { name: "Chart", exact: true })).toHaveAttribute("aria-current", "page");
-        expect((await readAssessment(api, assessment.assessment_id)).prior_5150_5250_holds).toBe(answer);
+        expect((await readAssessment(api, assessment.assessment_id)).hospitalization_history).toBe(answer);
         // Reopen without leaving the workspace, not just via a saved Home link.
         await stages.getByRole("button", { name: "Assessment", exact: true }).click();
         await expect(full.getByRole("combobox", { name: "Assessment section", exact: true })).toHaveValue("prior_history");
-        await expect(full.getByRole("textbox", { name: /Prior 5150/ })).toHaveValue(answer);
+        await expect(full.getByRole("textbox", { name: "Hospitalization history", exact: true })).toHaveValue(answer);
         await page.getByRole("button", { name: "Pipeline home", exact: true }).click();
         await expect(page.getByTestId("packet-workspace")).toHaveCount(0);
         await page.locator('[data-home-module="current-work"]').getByRole("button", { name: "Open current work", exact: true }).click();
@@ -49,11 +49,11 @@ test.describe("assessment editing entry and return paths", () => {
         await board.getByRole("button", { name: `Open ${referral.name}`, exact: true }).click();
         await expect(full).toBeVisible();
         await expect(full.getByRole("combobox", { name: "Assessment section", exact: true })).toHaveValue("prior_history");
-        await expect(full.getByRole("textbox", { name: /Prior 5150/ })).toHaveValue(answer);
+        await expect(full.getByRole("textbox", { name: "Hospitalization history", exact: true })).toHaveValue(answer);
         const records = (await (await api.get(`/api/referrals/${referral.id}/assessments`)).json()).assessments;
         expect(records).toHaveLength(1);
         expect(records[0].assessment_id).toBe(assessment.assessment_id);
-        expect(records[0].prior_5150_5250_holds).toBe(answer);
+        expect(records[0].hospitalization_history).toBe(answer);
       } finally {
         await context.close();
         await api.dispose();
@@ -75,7 +75,7 @@ test.describe("assessment editing entry and return paths", () => {
         expect(cancelled.status(), await cancelled.text()).toBe(200);
         await page.goto(`${workspacePath(referral.id)}&workspaceStage=assessment&assessmentSection=prior_history`);
         const full = page.locator("[data-assessment-view]");
-        await expect(full.getByRole("textbox", { name: /Prior 5150/ })).toBeEditable();
+        await expect(full.getByRole("textbox", { name: "Hospitalization history", exact: true })).toBeEditable();
         await page.getByRole("region", { name: "Assessment progress", exact: true })
           .getByRole("button", { name: "Schedule interview", exact: true }).click();
         const schedule = page.getByRole("dialog", { name: "Schedule interview", exact: true });

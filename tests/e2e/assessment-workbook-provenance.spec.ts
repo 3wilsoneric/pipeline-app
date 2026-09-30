@@ -5,7 +5,11 @@ import { createOperationalAssessment, createOperationalReferral, startOperationa
 import { changeWorkbook, closeRecoveryTools, openRecoveryTools } from "./support/workbook-runtime";
 import { assessmentWorkbookFields, assessmentWorkbookLayout } from "../../lib/assessment/assessment-workbook-contract";
 import type { AssessmentWorkbookRestoreSource, PipelineAssessmentRecord } from "../../lib/assessment/assessment-records";
-const historySheet = assessmentWorkbookLayout.findIndex((section) => section.key === "prior_history") + 2;
+
+function workbookCell(key: "current_location" | "prior_awol_failed_placements" | "hospitalization_history") {
+  const field = assessmentWorkbookFields.find((item) => item.key === key)!;
+  return { sheet: assessmentWorkbookLayout.findIndex((section) => section.sheet === field.sheet) + 2, cell: `C${field.row}` };
+}
 
 test.beforeEach(() => {
   test.skip(process.env.PIPELINE_DESKTOP_E2E !== "true", "Requires canonical and encrypted recovery drafts.");
@@ -15,7 +19,7 @@ test("Keep mine after offline conflict and reload retains the workbook source an
   const fixture = await createFixture(page, "Synthetic workbook conflict");
   await page.goto(fixture.href);
   const bytes = await downloadCopy(page);
-  const changed = changeWorkbook(bytes, [{ sheet: historySheet, cell: "C7", value: "Synthetic offline workbook answer" }]);
+  const changed = changeWorkbook(bytes, [{ ...workbookCell("prior_awol_failed_placements"), value: "Synthetic offline workbook answer" }]);
   let source: AssessmentWorkbookRestoreSource | undefined;
   page.on("request", (request) => {
     if (request.method() === "PATCH" && request.url().endsWith(fixture.api)) source ??= request.postDataJSON()?.patch?.workbook_restore;
@@ -50,11 +54,10 @@ for (const manuallyReplace of [false, true]) {
     const fixture = await createFixture(page, "Synthetic interrupted workbook");
     await page.goto(fixture.href);
     const bytes = await downloadCopy(page);
-    const location = assessmentWorkbookFields.find((field) => field.key === "current_location")!;
     const changed = changeWorkbook(bytes, [
-      { sheet: assessmentWorkbookLayout.findIndex((section) => section.sheet === location.sheet) + 2, cell: `C${location.row}`, value: "Synthetic imported location" },
-      { sheet: historySheet, cell: "C7", value: "Synthetic imported AWOL answer" },
-      { sheet: historySheet, cell: "C11", value: "Synthetic imported crisis answer" },
+      { ...workbookCell("current_location"), value: "Synthetic imported location" },
+      { ...workbookCell("prior_awol_failed_placements"), value: "Synthetic imported AWOL answer" },
+      { ...workbookCell("hospitalization_history"), value: "Synthetic imported hospitalization answer" },
     ]);
     let source: AssessmentWorkbookRestoreSource | undefined;
     let firstSaved = false;
@@ -84,11 +87,11 @@ for (const manuallyReplace of [false, true]) {
       await reopened.goto(fixture.href);
       await expect(reopened.getByRole("button", { name: "Edit Prior AWOL / failed placements", exact: true })).toContainText("Synthetic imported AWOL answer");
       if (manuallyReplace) {
-        await reopened.getByRole("button", { name: "Edit Crisis / ER utilization", exact: true }).click();
-        const input = reopened.locator("#assessment-crisis_er_utilization");
+        await reopened.getByRole("button", { name: "Edit Hospitalization history", exact: true }).click();
+        const input = reopened.locator("#assessment-hospitalization_history");
         await input.fill("Synthetic manual replacement");
         await input.blur();
-        await expect.poll(async () => (await fixture.read()).crisis_er_utilization).toBe("Synthetic manual replacement");
+        await expect.poll(async () => (await fixture.read()).hospitalization_history).toBe("Synthetic manual replacement");
       }
       await reopened.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: "Chart", exact: true }).click();
       await expect.poll(async () => (await fixture.read()).prior_awol_failed_placements).toBe("Synthetic imported AWOL answer");
@@ -97,12 +100,12 @@ for (const manuallyReplace of [false, true]) {
       expectWorkbookSource(saved, "prior_awol_failed_placements", source!);
       expect(saved.audit_events.filter((event) => event.action === "assessment_imported")).toHaveLength(2);
       if (manuallyReplace) {
-        expect(saved.field_provenance.crisis_er_utilization?.at(-1)?.source_field_key).toBe("manual.crisis_er_utilization");
-        expect(saved.field_provenance.crisis_er_utilization?.at(-1)?.evidence_url).toBeNull();
-        expect(saved.audit_events.some((event) => event.action === "assessment_updated" && event.changed_fields.includes("crisis_er_utilization"))).toBe(true);
+        expect(saved.field_provenance.hospitalization_history?.at(-1)?.source_field_key).toBe("manual.hospitalization_history");
+        expect(saved.field_provenance.hospitalization_history?.at(-1)?.evidence_url).toBeNull();
+        expect(saved.audit_events.some((event) => event.action === "assessment_updated" && event.changed_fields.includes("hospitalization_history"))).toBe(true);
       } else {
-        expect(saved.crisis_er_utilization).toBe("Synthetic imported crisis answer");
-        expectWorkbookSource(saved, "crisis_er_utilization", source!);
+        expect(saved.hospitalization_history).toBe("Synthetic imported hospitalization answer");
+        expectWorkbookSource(saved, "hospitalization_history", source!);
       }
       expect(saved.signed_at).toBeNull();
       await reopened.close();
@@ -110,7 +113,7 @@ for (const manuallyReplace of [false, true]) {
   });
 }
 
-function expectWorkbookSource(record: PipelineAssessmentRecord, field: "current_location" | "prior_awol_failed_placements" | "crisis_er_utilization", source: AssessmentWorkbookRestoreSource) {
+function expectWorkbookSource(record: PipelineAssessmentRecord, field: "current_location" | "prior_awol_failed_placements" | "hospitalization_history", source: AssessmentWorkbookRestoreSource) {
   expect(record.field_provenance[field]?.at(-1)).toMatchObject({
     source_field_key: `workbook.${field}`, source_file: `Excel backup ${source.export_id}`,
     evidence_url: `workbook://${source.export_id}?exported=${encodeURIComponent(source.exported_at)}`,

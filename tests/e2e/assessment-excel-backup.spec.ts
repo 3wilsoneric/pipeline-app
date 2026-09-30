@@ -12,9 +12,13 @@ import { getAssessmentCompletionSummary } from "../../lib/assessment/assessment-
 type Runtime = typeof Backup & typeof Contract & typeof Schema;
 declare global { interface Window { workbookTest: Runtime } }
 const templateFile = "public/templates/pipeline-assessment-workbook.xlsx";
-const historySheet = assessmentWorkbookLayout.findIndex((section) => section.key === "prior_history") + 2;
 
-test("conditional workbook restore labels retained details and drops inactive nested requirements without erasing answers", async ({ page }) => {
+function workbookCell(key: "prior_placements" | "prior_awol_failed_placements" | "crisis_er_utilization") {
+  const field = assessmentWorkbookFields.find((item) => item.key === key)!;
+  return { sheet: assessmentWorkbookLayout.findIndex((section) => section.sheet === field.sheet) + 2, cell: `C${field.row}` };
+}
+
+test("legacy forensic workbook edits retain recorded details in the overview", async ({ page }) => {
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: "Synthetic branch review", owner: "", tags: [] });
   const created = await page.request.post(`/api/referrals/${referral.id}/assessments`, { data: { client_mutation_id: randomUUID(), data: {
     arrest_history: "yes", arrest_in_last_two_years: "yes", arrest_last_two_years_details: "Synthetic earlier recorded detail",
@@ -32,13 +36,14 @@ test("conditional workbook restore labels retained details and drops inactive ne
   await page.getByLabel("Choose workbook").setInputFiles({ name: "conditional-working-copy.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer: changed });
   const dialog = page.locator('dialog[aria-describedby="excel-preview-description"]');
   const preview = dialog.getByRole("region", { name: "Populated assessment preview" });
-  await expect(preview.getByText("Recent arrest details (previous answer)", { exact: true })).toBeVisible();
-  await expect(preview).toContainText("Not applicable to the current answers. Retained for review.");
+  await expect(preview.getByText("Recent arrest details", { exact: true })).toBeVisible();
+  await expect(preview).toContainText("Synthetic earlier recorded detail");
   expect((await read()).arrest_history).toBe("yes");
   await dialog.getByRole("button", { name: "Commit 1 change", exact: true }).click();
-  await expect.poll(async () => (await read()).arrest_history).toBe("no");
+  await expect.poll(async () => (await read()).arrest_history).toBe("No");
   const saved = await read();
   expect(saved.arrest_last_two_years_details).toBe("Synthetic earlier recorded detail");
+  expect(saved.forensic_history).toContain("Synthetic earlier recorded detail");
   expect(getAssessmentCompletionSummary(saved).missing.flatMap((item) => item.fields)).not.toContain("arrest_last_two_years_details");
   await page.reload();
   await openRecoveryTools(page);
@@ -56,7 +61,7 @@ test("conditional workbook restore labels retained details and drops inactive ne
     const status = Array.from(xml.getElementsByTagNameNS("*", "c")).find((cell) => cell.getAttribute("r") === `E${field.row}`);
     return { parent: copy.answers.arrest_history, detail: copy.answers.arrest_last_two_years_details, check: status?.getElementsByTagNameNS("*", "v")[0]?.textContent };
   }, { bytes: Array.from(finalBytes), assessmentId: assessment.assessment_id, referralId: referral.id });
-  expect(result).toEqual({ parent: "no", detail: "Synthetic earlier recorded detail", check: "Review previous answer" });
+  expect(result).toEqual({ parent: "No", detail: "Synthetic earlier recorded detail", check: "Answered" });
 });
 
 test("every canonical field round-trips exactly, including long answers and explicit reasons", async ({ page }, info) => {
@@ -156,7 +161,7 @@ test("download current unsynced answers, drop Excel changes, review conflicts an
     return { answer: copy.answers.prior_awol_failed_placements, elapsed: performance.now() };
   }, { bytes: Array.from(original), assessmentId: assessment.assessment_id, referralId: referral.id });
   expect(parsed.answer).toBe("Latest device answer");
-  const changed = changeWorkbook(original, [{ sheet: historySheet, cell: "C7", value: "Excel updated answer" }, { sheet: historySheet, cell: "C11", value: "Synthetic crisis detail" }]);
+  const changed = changeWorkbook(original, [{ ...workbookCell("prior_awol_failed_placements"), value: "Excel updated answer" }, { ...workbookCell("crisis_er_utilization"), value: "Synthetic crisis detail" }]);
   const transfer = await page.evaluateHandle((bytes) => { const dt = new DataTransfer(); dt.items.add(new File([new Uint8Array(bytes)], "assessment.xlsx", { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" })); return dt; }, Array.from(changed));
   await page.getByRole("region", { name: "Restore Excel workbook", exact: true }).dispatchEvent("drop", { dataTransfer: transfer });
   await expect(dialog.getByRole("heading", { name: "2 proposed changes" })).toBeVisible();
@@ -177,7 +182,7 @@ test("download current unsynced answers, drop Excel changes, review conflicts an
   await page.getByLabel("Choose workbook").setInputFiles({ name: "assessment.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer: original });
   await expect(dialog.getByRole("heading", { name: "No new changes", exact: true })).toBeVisible();
   await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
-  const conflicting = changeWorkbook(original, [{ sheet: historySheet, cell: "C7", value: "Older copy different answer" }, { sheet: historySheet, cell: "C6", value: "" }]);
+  const conflicting = changeWorkbook(original, [{ ...workbookCell("prior_awol_failed_placements"), value: "Older copy different answer" }, { ...workbookCell("prior_placements"), value: "" }]);
   await page.getByLabel("Choose workbook").setInputFiles({ name: "assessment.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer: conflicting });
   await expect(dialog.getByRole("button", { name: "Commit changes", exact: true })).toBeDisabled();
   await dialog.getByLabel("Use workbook answer for Prior AWOL / failed placements", { exact: true }).check();
@@ -195,7 +200,7 @@ test("offline workbook restore never overwrites a concurrent server answer", asy
   const downloading = page.waitForEvent("download");
   await page.getByRole("button", { name: "Download current assessment", exact: true }).click();
   const bytes = await fs.readFile((await (await downloading).path())!);
-  const changed = changeWorkbook(bytes, [{ sheet: historySheet, cell: "C7", value: "Offline Excel answer" }]);
+  const changed = changeWorkbook(bytes, [{ ...workbookCell("prior_awol_failed_placements"), value: "Offline Excel answer" }]);
   await page.context().setOffline(true);
   await page.getByLabel("Choose workbook").setInputFiles({ name: "copy.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer: changed });
   await dialog.getByRole("button", { name: "Commit 1 change", exact: true }).click();
@@ -229,9 +234,9 @@ test("drop previews the populated chart, cancel is neutral, and commit replaces 
   const bytes = await fs.readFile((await (await downloading).path())!);
   const before = await read();
   const changed = changeWorkbook(bytes, [
-    { sheet: historySheet, cell: "C7", value: "One unplanned departure in 2024; returned the same day." },
-    { sheet: historySheet, cell: "C6", value: "" },
-    { sheet: historySheet, cell: "C11", value: "One emergency visit in June; follow-up completed." },
+    { ...workbookCell("prior_awol_failed_placements"), value: "One unplanned departure in 2024; returned the same day." },
+    { ...workbookCell("prior_placements"), value: "" },
+    { ...workbookCell("crisis_er_utilization"), value: "One emergency visit in June; follow-up completed." },
   ]);
   const transfer = await page.evaluateHandle((bytes) => { const dt = new DataTransfer(); dt.items.add(new File([new Uint8Array(bytes)], "working-copy.xlsx")); return dt; }, Array.from(changed));
   const dialog = page.locator('dialog[aria-describedby="excel-preview-description"]');
@@ -377,7 +382,7 @@ test("iPad WebKit exports and restores Excel with usable tablet and phone contro
     const downloading = page.waitForEvent("download");
     await page.getByRole("button", { name: "Download current assessment", exact: true }).tap();
     const bytes = await fs.readFile((await (await downloading).path())!);
-    const changed = changeWorkbook(bytes, [{ sheet: historySheet, cell: "C7", value: "Synthetic tablet update" }]);
+    const changed = changeWorkbook(bytes, [{ ...workbookCell("prior_awol_failed_placements"), value: "Synthetic tablet update" }]);
     await page.getByLabel("Choose workbook").setInputFiles({ name: "copy.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer: changed });
     await expect(dialog.getByRole("button", { name: "Commit 1 change", exact: true })).toBeEnabled();
     await expect(dialog).toHaveCSS("opacity", "1");

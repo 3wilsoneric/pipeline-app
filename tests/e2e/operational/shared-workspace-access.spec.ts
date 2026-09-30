@@ -107,14 +107,14 @@ test.describe("shared workspace editing", () => {
       const editor = page.locator("[data-assessment-view]");
       await expect(editor).toBeVisible();
       await editor.getByRole("combobox", { name: "Assessment section", exact: true }).selectOption("prior_history");
-      const answer = editor.getByRole("textbox", { name: /Prior 5150/ });
+      const answer = editor.getByRole("textbox", { name: "Hospitalization history", exact: true });
       await expect(answer).toBeEnabled();
       await answer.fill("A teammate can document this answer.");
       await page.getByRole("navigation", { name: "Workspace stages", exact: true }).getByRole("button", { name: "Chart", exact: true }).click();
       await expect(page.getByRole("heading", { name: "Referral chart", exact: true })).toBeVisible();
       const records = (await (await api.get(`/api/referrals/${referral.id}/assessments`)).json()).assessments;
       expect(records).toHaveLength(1);
-      expect(records[0].prior_5150_5250_holds).toBe("A teammate can document this answer.");
+      expect(records[0].hospitalization_history).toBe("A teammate can document this answer.");
     } finally { await context.close(); await owner.dispose(); await api.dispose(); }
   });
 
