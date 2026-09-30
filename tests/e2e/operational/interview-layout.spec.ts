@@ -4,7 +4,7 @@ import { createOperationalAssessment, createOperationalReferral } from "../suppo
 import { actorApiContext, actorPage, pipelineActors, requireOperationalBaseURL } from "../support/pipeline-actors";
 
 // Interview layout edge cases (docs/design/DECISIONS.md, "Interview layout"): the record rail is tucked away during
-// the interview behind an icon-only assessment control, comes back everywhere else, and the information beside the questions is the
+// the interview behind a draggable divider, comes back everywhere else, and the information beside the questions is the
 // filled-in information for the topic being asked.
 test.describe("interview layout", () => {
   test.skip(process.env.PIPELINE_OPERATIONAL_E2E !== "true" || process.env.PIPELINE_DESIGN_V2 !== "true", "Run with the operational configuration and PIPELINE_DESIGN_V2=true.");
@@ -76,34 +76,42 @@ test.describe("interview layout", () => {
       await page.screenshot({ path: test.info().outputPath("long-answers.png") });
       await page.setViewportSize({ width: 1440, height: 900 });
 
-      // The assessment control brings the rail back; the app sidebar keeps its separate arrow.
-      const workspaceToggle = page.locator("[data-interview-rail-toggle]");
-      await expect(workspaceToggle).toHaveAccessibleName("Show workspace");
-      await expect(workspaceToggle).toHaveText("");
-      await expect(bar.locator("[data-interview-rail-toggle]")).toHaveCount(1);
-      await expect(workspaceToggle).toHaveAttribute("aria-controls", "workspace-record-rail");
-      await workspaceToggle.click();
-      await expect(workspaceToggle).toHaveAccessibleName("Focus assessment");
-      await expect(workspaceToggle).toHaveText("");
+      // Dragging the divider reveals the rail and changes its width; keyboard users can do the same.
+      const divider = page.getByRole("separator", { name: "Resize workspace rail" });
+      await expect(divider).toBeVisible();
+      await expect(divider).toHaveAttribute("aria-valuenow", "0");
+      await expect(divider).toHaveAttribute("aria-controls", "workspace-record-rail");
+      const grip = await divider.boundingBox();
+      expect(grip).not.toBeNull();
+      await page.mouse.move(grip!.x + grip!.width / 2, grip!.y + 160);
+      await page.mouse.down();
+      await page.mouse.move(grip!.x + grip!.width / 2 + 210, grip!.y + 160, { steps: 8 });
+      await page.mouse.up();
       await expect(rail).toBeVisible();
-      await expect(page.getByTestId("workspace-folder-header").locator("[data-interview-rail-toggle]")).toHaveCount(1);
-      await expect(workspaceToggle).toBeInViewport();
+      await expect(divider).toHaveAttribute("aria-valuenow", "210");
+      await divider.focus();
+      await divider.press("ArrowRight");
+      await expect(divider).toHaveAttribute("aria-valuenow", "230");
       await page.screenshot({ path: test.info().outputPath("workspace-rail-shown.png") });
       await rail.getByRole("button", { name: "Chart", exact: true }).click();
       await expect(page.getByRole("heading", { name: "Referral chart", exact: true })).toBeVisible();
       await expect(root).not.toHaveAttribute("data-interview-focus", "true");
-      await expect(page.locator("[data-interview-rail-toggle]")).toBeHidden();
+      await expect(divider).toBeHidden();
       await rail.getByRole("button", { name: "Assessment", exact: true }).click();
       await expect(root).toHaveAttribute("data-interview-focus", "true");
       await expect(rail).toBeVisible();
       await page.reload();
       await expect(root).toHaveAttribute("data-interview-focus", "true");
       await expect(rail).toBeVisible();
-      await page.getByRole("button", { name: "Focus assessment" }).click();
+      await divider.focus();
+      await divider.press("Home");
       await expect(rail).toBeHidden();
       await page.reload();
       await expect(root).toHaveAttribute("data-interview-focus", "true");
       await expect(rail).toBeHidden();
+      await divider.focus();
+      await divider.press("End");
+      await expect(rail).toBeVisible();
 
       // All questions is the normal page with the rail; Interview tucks it away again.
       await openAllQuestions(page);

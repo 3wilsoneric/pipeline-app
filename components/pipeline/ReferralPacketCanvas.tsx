@@ -7,7 +7,7 @@ import ReferralHandoffContacts from "./ReferralHandoffContacts";
 import { useHandoffRecipients } from "./useHandoffRecipients";
 import FeedbackCue from "@/components/pipeline/FeedbackCue";
 
-import { useCallback, useEffect, useEffectEvent, useLayoutEffect, useRef, useState, type Dispatch, type FocusEvent, type ReactNode, type SetStateAction } from "react";
+import { useCallback, useEffect, useEffectEvent, useLayoutEffect, useRef, useState, type CSSProperties, type Dispatch, type FocusEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type SetStateAction } from "react";
 import {
   ArrowRight,
   CalendarClock,
@@ -15,10 +15,10 @@ import {
   CheckCircle2,
   CircleAlert,
   FolderOpen,
+  GripVertical,
   History,
   House,
   LoaderCircle,
-  Maximize2,
   Plus,
   RefreshCw,
   Trash2,
@@ -388,6 +388,8 @@ function hasRememberedAssessmentWork(location: PipelineWorkspaceLocation | undef
 }
 
 const interviewRailKey = "pipeline:interview-rail";
+const defaultInterviewRailWidth = 188;
+const maxInterviewRailWidth = 300;
 
 export default function ReferralPacketCanvas({
   referral,
@@ -435,18 +437,41 @@ export default function ReferralPacketCanvas({
     : { view: "assessment" });
   const [activePage, setActivePage] = useState<WorkspaceView>(workspacePageForLocation(routedWorkspaceLocation, referral?.id));
   const [assessmentVisitedReferral, setAssessmentVisitedReferral] = useState<number | undefined>();
-  // Interview layout: the record rail is tucked away during the interview; its icon control brings it back, and once
-  // brought back it stays until collapsed again, on this device (owner, 2026-09-27).
-  const [interviewRailShown, setInterviewRailShown] = useState(false);
+  // The interview rail can be dragged like the Current information divider; remember its width on this device.
+  const [interviewRailWidth, setInterviewRailWidth] = useState(0);
   useEffect(() => {
     try {
-      if (window.localStorage.getItem(interviewRailKey) === "shown") setInterviewRailShown(true);
+      const saved = window.localStorage.getItem(interviewRailKey);
+      if (saved === "shown") setInterviewRailWidth(defaultInterviewRailWidth);
+      else if (saved && saved !== "tucked") {
+        const width = Number(saved);
+        if (Number.isFinite(width) && width >= 0 && width <= maxInterviewRailWidth) setInterviewRailWidth(width);
+      }
     } catch { /* storage unavailable: tucked away by default */ }
   }, []);
-  const toggleInterviewRail = () => setInterviewRailShown((shown) => {
-    try { window.localStorage.setItem(interviewRailKey, shown ? "tucked" : "shown"); } catch { /* not remembered */ }
-    return !shown;
-  });
+  const interviewRailShown = interviewRailWidth > 0;
+  const commitInterviewRailWidth = (width: number) => {
+    const next = width < 80 ? 0 : Math.min(maxInterviewRailWidth, Math.max(160, Math.round(width)));
+    setInterviewRailWidth(next);
+    try { window.localStorage.setItem(interviewRailKey, String(next)); } catch { /* not remembered */ }
+  };
+  const dragInterviewRail = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    const handle = event.currentTarget;
+    const startX = event.clientX;
+    const startWidth = interviewRailWidth;
+    handle.setPointerCapture(event.pointerId);
+    const move = (moveEvent: PointerEvent) => commitInterviewRailWidth(startWidth + moveEvent.clientX - startX);
+    const end = () => {
+      handle.removeEventListener("pointermove", move);
+      handle.removeEventListener("pointerup", end);
+      handle.removeEventListener("pointercancel", end);
+    };
+    handle.addEventListener("pointermove", move);
+    handle.addEventListener("pointerup", end);
+    handle.addEventListener("pointercancel", end);
+  };
   // Kept-mounted steps: the element the assessment editor draws the Chart into.
   const [chartSlot, setChartSlot] = useState<HTMLElement | null>(null);
 
@@ -2771,12 +2796,6 @@ export default function ReferralPacketCanvas({
             {/* Redesign: no "is editing" pills in the rail (owner, 2026-09-26). Saves still refuse and
                 explain conflicting edits (renderWorkspaceConflicts). */}
             {renderWorkspaceActions()}
-            {verticalFlow && interviewRailShown && displayedPage === 2 ? (
-              <button type="button" data-interview-rail-toggle className={workspaceFolderStyles.focusAssessmentControl}
-                aria-label="Focus assessment" aria-expanded="true" aria-controls="workspace-record-rail" onClick={toggleInterviewRail}>
-                <Maximize2 size={22} aria-hidden="true" />
-              </button>
-            ) : null}
           </div>
           {editingControlsVisible && !stackVisible && displayedPage !== 2 && (displayedPage !== "email" || Boolean(saveError || isSaving || hasPendingWorkspaceChanges || saveStatus === deviceOnlySaveStatus)) && (!(decisionSaveNotice || assessmentSaveNotice) || Boolean(saveError || isSaving || hasPendingWorkspaceChanges || saveStatus === deviceOnlySaveStatus)) ? (
             <WorkspaceSaveStatus
@@ -2938,7 +2957,6 @@ export default function ReferralPacketCanvas({
                   onOpenFinish={() => openPage("email")}
                   onOpenWorkspace={() => openPage(3)}
                   workspaceRailShown={interviewRailShown}
-                  onWorkspaceRailToggle={toggleInterviewRail}
                   onOpenAssignedWork={onOpenAssignedWork ? openAssignedWork : undefined}
                   onActiveSectionChange={(section, location) => {
                     lastAssessmentSectionRef.current = section;
@@ -3200,9 +3218,24 @@ export default function ReferralPacketCanvas({
         inert={draftRecoveryLoading}
         aria-busy={draftRecoveryLoading}
         data-interview-rail-shown={verticalFlow && interviewRailShown ? true : undefined}
+        style={verticalFlow ? { "--interview-rail-width": `${interviewRailWidth}px` } as CSSProperties : undefined}
         className={`mx-auto w-full max-w-[1480px] px-2 pb-10 pt-0 sm:px-4 lg:px-6 ${readingAssessment ? workspaceFolderStyles.readingWorkspace : ""} ${verticalFlow ? workspaceFolderStyles.verticalFlow : ""}`}
       >
         {renderWorkspaceHeader()}
+        {verticalFlow && displayedPage === 2 ? <div role="separator" tabIndex={0} data-interview-rail-resizer
+          aria-label="Resize workspace rail" aria-orientation="vertical" aria-controls="workspace-record-rail"
+          aria-valuemin={0} aria-valuemax={maxInterviewRailWidth} aria-valuenow={interviewRailWidth}
+          aria-valuetext={interviewRailShown ? `${interviewRailWidth} pixels` : "Hidden"}
+          className={workspaceFolderStyles.interviewRailDivider} onPointerDown={dragInterviewRail}
+          onDoubleClick={() => commitInterviewRailWidth(defaultInterviewRailWidth)}
+          onKeyDown={(event) => {
+            const step = event.shiftKey ? 40 : 20;
+            if (event.key === "ArrowLeft") { event.preventDefault(); commitInterviewRailWidth(interviewRailWidth - step); }
+            else if (event.key === "ArrowRight") { event.preventDefault(); commitInterviewRailWidth(interviewRailWidth + step); }
+            else if (event.key === "Home") { event.preventDefault(); commitInterviewRailWidth(0); }
+            else if (event.key === "End") { event.preventDefault(); commitInterviewRailWidth(maxInterviewRailWidth); }
+            else if (event.key === "Enter") { event.preventDefault(); commitInterviewRailWidth(defaultInterviewRailWidth); }
+          }}><GripVertical size={16} aria-hidden="true" /></div> : null}
         {accessError ? <div role="alert" className="mb-3 border border-[#e2c592] bg-[#fff9ec] px-4 py-3 text-[12px] font-semibold text-[#7a4c0d]">
           {accessError} <button type="button" onClick={() => { setAccessChecking(true); setAccessRetry((retry) => retry + 1); }} disabled={accessChecking} className="font-bold underline underline-offset-2 disabled:opacity-50">{accessChecking ? "Checking access..." : "Retry access check"}</button>
         </div> : null}

@@ -17,7 +17,6 @@ import {
   ChevronRight,
   FileSpreadsheet,
   LoaderCircle,
-  PanelLeftOpen,
   Plus,
   RefreshCw,
 } from "lucide-react";
@@ -188,7 +187,6 @@ type AssessmentWorkspaceProps = {
   onOpenFinish?: () => void;
   onOpenWorkspace?: () => void;
   workspaceRailShown?: boolean;
-  onWorkspaceRailToggle?: () => void;
   onActiveSectionChange?: (section: AssessmentToolSection, location: PipelineWorkspaceLocation) => void;
   onOpenAssignedWork?: () => void | Promise<void>;
 };
@@ -379,7 +377,6 @@ export default function AssessmentWorkspace({
   onOpenFinish,
   onOpenWorkspace,
   workspaceRailShown = false,
-  onWorkspaceRailToggle,
   onOpenAssignedWork,
   onActiveSectionChange,
 }: AssessmentWorkspaceProps) {
@@ -2682,10 +2679,6 @@ export default function AssessmentWorkspace({
               target={workingTarget}
               questionNavigation={!phoneInterview ? (recordedAnswers) => <AssessmentWorkingNavigation onAllQuestions={workModeInNavigation && !preparing ? () => changeWorkingMode(true) : undefined} lead={workModeInNavigation ? <>
                 {interviewFocus && !workspaceRailShown && workspaceTitle ? <h2 className={workingStyles.focusTitle}>{workspaceTitle}</h2> : null}
-                {interviewFocus && !workspaceRailShown && onWorkspaceRailToggle ? <button type="button" data-interview-rail-toggle className={workingStyles.workspaceRailControl}
-                  aria-label="Show workspace" aria-expanded={false} aria-controls="workspace-record-rail" onClick={onWorkspaceRailToggle}>
-                  <PanelLeftOpen size={20} aria-hidden="true" />
-                </button> : null}
                 {renderWorkMode()}
                 {interviewFocus ? renderSaveStatus() : null}
               </> : undefined} preparing={preparing} recordedAnswers={recordedAnswers} data={draft} pending={pendingFields} activeSection={stackedQuestionsView ? spySection : visibleSectionKey} guideTargets={assessmentSectionGuideTargets} onSectionChange={(section) => { setWorkingTarget(null); if (stackedQuestionsView) jumpToGroup(section); else setActiveSection(section); }} /> : undefined}
