@@ -29,6 +29,19 @@ var common = {
   }
 }
 
+var postgresResourceMetrics = [
+  {
+    suffix: 'memory-50'
+    metricName: 'memory_percent'
+    description: 'Pipeline PostgreSQL memory exceeded 50 percent.'
+  }
+  {
+    suffix: 'cpu-50'
+    metricName: 'cpu_percent'
+    description: 'Pipeline PostgreSQL CPU exceeded 50 percent.'
+  }
+]
+
 var alerts = [
   {
     key: 'save-conflicts'
@@ -312,6 +325,37 @@ resource postgresConnectionsAlert 'Microsoft.Insights/metricAlerts@2018-03-01' =
   }
 }
 
+resource postgresResourceAlerts 'Microsoft.Insights/metricAlerts@2018-03-01' = [for metric in postgresResourceMetrics: if (enabled) {
+  name: take('${namePrefix}-${environment}-postgres-${metric.suffix}', 260)
+  location: 'global'
+  tags: common.tags
+  properties: {
+    description: metric.description
+    severity: 2
+    enabled: true
+    scopes: [postgresServerId]
+    evaluationFrequency: 'PT5M'
+    windowSize: 'PT5M'
+    autoMitigate: true
+    criteria: {
+      'odata.type': 'Microsoft.Azure.Monitor.SingleResourceMultipleMetricCriteria'
+      allOf: [
+        {
+          criterionType: 'StaticThresholdCriterion'
+          name: 'ResourcePercent'
+          metricName: metric.metricName
+          metricNamespace: 'Microsoft.DBforPostgreSQL/flexibleServers'
+          operator: 'GreaterThan'
+          threshold: 50
+          timeAggregation: 'Maximum'
+          skipMetricValidation: false
+        }
+      ]
+    }
+    actions: [for actionGroupId in actionGroupResourceIds: { actionGroupId: actionGroupId }]
+  }
+}]
+
 resource postgresStorageAlert 'Microsoft.Insights/metricAlerts@2018-03-01' = if (enabled) {
   name: take('${namePrefix}-${environment}-postgres-storage', 260)
   location: 'global'
@@ -374,4 +418,4 @@ resource blobCapacityAlert 'Microsoft.Insights/metricAlerts@2018-03-01' = if (en
   }
 }
 
-output alertRuleCount int = enabled ? length(alerts) + 3 : 0
+output alertRuleCount int = enabled ? length(alerts) + length(postgresResourceMetrics) + 3 : 0
