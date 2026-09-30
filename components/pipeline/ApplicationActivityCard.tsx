@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { useState } from "react";
 import { Activity, ArrowUpRight } from "lucide-react";
+import AzureUsageMeter from "./AzureUsageMeter";
 
 // Keep the opener mounted while the optional dashboard chunk loads, so the
 // shared dialog can restore keyboard focus to it on close.
@@ -16,6 +17,7 @@ export default function ApplicationActivityCard() {
       <span className="flex-1"><span className="font-semibold">Application activity</span>{" "}<span className="ml-2 text-xs text-[#53665d]">Only you</span><span className="mt-0.5 block text-sm text-[#53665d]">Who signed in, last activity, and changes across Pipeline</span></span>
       <ArrowUpRight size={18} aria-hidden="true" />
     </button>
+    <AzureUsageMeter />
     {open ? <ApplicationActivityDashboard onClose={() => setOpen(false)} /> : null}
   </>;
 }

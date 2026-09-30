@@ -17,6 +17,8 @@ param containerAppsEnvironmentId string
 param containerRegistryLoginServer string
 param runtimeIdentityResourceId string
 param runtimeIdentityClientId string
+@description('PostgreSQL server name used by the private Azure Monitor usage meter. The web identity requires Monitoring Reader on this server.')
+param postgresServerName string = ''
 param keyVaultUri string
 param storageAccountName string
 @description('Storage account used by the manual database recovery job. Defaults to the application account; set to the separately deployed recovery vault for cross-region copies.')
@@ -241,6 +243,7 @@ var baseEnvironment = [
   { name: 'PIPELINE_ALLOW_PRODUCTION_MOCK_EXTRACTION', value: 'false' }
   { name: 'PIPELINE_AZURE_BLOB_AUTH_MODE', value: 'managed_identity' }
   { name: 'AZURE_CLIENT_ID', value: runtimeIdentityClientId }
+  { name: 'PIPELINE_MONITOR_POSTGRES_RESOURCE_ID', value: empty(postgresServerName) ? '' : resourceId('Microsoft.DBforPostgreSQL/flexibleServers', postgresServerName) }
   { name: 'AZURE_STORAGE_ACCOUNT', value: storageAccountName }
   { name: 'AZURE_STORAGE_CONTAINER_RAW', value: 'raw' }
   { name: 'AZURE_STORAGE_CONTAINER_NORMALIZED', value: 'normalized' }

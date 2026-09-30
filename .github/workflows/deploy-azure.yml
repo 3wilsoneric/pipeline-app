@@ -127,6 +127,7 @@ jobs:
           echo "runtime_identity_client_id=$(jq -r '.runtimeIdentityClientId.value' <<<"$outputs")" >> "$GITHUB_OUTPUT"
           echo "key_vault_uri=$(jq -r '.keyVaultUri.value' <<<"$outputs")" >> "$GITHUB_OUTPUT"
           echo "storage_account=$(jq -r '.storageAccountName.value' <<<"$outputs")" >> "$GITHUB_OUTPUT"
+          echo "postgres_name=$(jq -r '.postgresHost.value | split(".")[0]' <<<"$outputs")" >> "$GITHUB_OUTPUT"
           echo "alert_action_group_ids=$(jq -c '.alertActionGroupResourceIds.value // []' <<<"$outputs")" >> "$GITHUB_OUTPUT"
 
       - name: Preserve existing custom hostname bindings
@@ -258,6 +259,7 @@ jobs:
               containerRegistryLoginServer='${{ steps.foundation.outputs.registry_server }}' \
               runtimeIdentityResourceId='${{ steps.foundation.outputs.runtime_identity_id }}' \
               runtimeIdentityClientId='${{ steps.foundation.outputs.runtime_identity_client_id }}' \
+              postgresServerName='${{ steps.foundation.outputs.postgres_name }}' \
               keyVaultUri='${{ steps.foundation.outputs.key_vault_uri }}' \
               storageAccountName='${{ steps.foundation.outputs.storage_account }}' \
               alertActionGroupResourceIds='${{ steps.foundation.outputs.alert_action_group_ids }}' \
