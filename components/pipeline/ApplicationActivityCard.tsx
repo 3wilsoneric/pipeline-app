@@ -52,18 +52,20 @@ export default function ApplicationActivityCard() {
     <span id={descriptionId} className="sr-only">
       {people ? people.map((person) => `${person.name}: ${statusPresentation[person.status].label}`).join("; ") : unavailable ? "Team status is temporarily unavailable." : "Loading team status."}
     </span>
-    <button type="button" aria-label="Open application activity" aria-describedby={descriptionId} onClick={() => setOpen(true)} className="my-3 flex w-full flex-wrap items-center gap-3 rounded-lg border border-[#d7dfdb] bg-white px-4 py-3 text-left hover:bg-[#f8faf9] focus-visible:outline-2 focus-visible:outline-[#087d66] sm:flex-nowrap">
-      <Activity size={20} aria-hidden="true" className="shrink-0 text-[#087d66]" />
-      <span className="shrink-0"><span className="block font-semibold">Application activity</span><span className="block text-xs text-[#53665d]">Only you · green now · blue today · gray none</span></span>
-      <span className="order-3 flex w-full min-w-0 items-center gap-3 overflow-x-auto whitespace-nowrap py-1 sm:order-none sm:ml-2 sm:w-auto sm:flex-1">
-        {people?.length ? people.map((person) => <span key={person.id} data-status={person.status} title={`${person.name}: ${statusPresentation[person.status].label}`} className="inline-flex shrink-0 items-center gap-1.5 text-sm">
-          <span aria-hidden="true" className={`h-2.5 w-2.5 rounded-full ${statusPresentation[person.status].color}`} />
-          {person.name}
-        </span>) : <span className="text-sm text-[#53665d]">{unavailable ? "Team status unavailable" : people ? "No users listed" : "Loading team…"}</span>}
-      </span>
-      <ArrowUpRight size={18} aria-hidden="true" className="ml-auto shrink-0 sm:ml-0" />
-    </button>
-    <AzureUsageMeter />
+    <div className="my-3 grid gap-3 lg:grid-cols-[minmax(0,1.12fr)_minmax(0,0.88fr)]">
+      <button type="button" aria-label="Open application activity" aria-describedby={descriptionId} onClick={() => setOpen(true)} className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] content-start gap-x-3 gap-y-2 rounded-paper border border-card-border bg-paper px-4 py-3 text-left hover:bg-sheet focus-visible:outline-2 focus-visible:outline-focus">
+        <Activity size={18} aria-hidden="true" className="mt-0.5 text-primary" />
+        <span className="min-w-0"><span className="block text-sm font-semibold">Application activity</span><span className="block text-xs text-ink-muted">Only you · green now · blue today · gray none</span></span>
+        <ArrowUpRight size={18} aria-hidden="true" className="text-ink-muted" />
+        <span className="col-span-3 grid min-w-0 grid-cols-2 gap-x-3 gap-y-1 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3">
+          {people?.length ? people.map((person) => <span key={person.id} data-status={person.status} title={`${person.name}: ${statusPresentation[person.status].label}`} className="flex min-w-0 items-center gap-1.5 text-xs">
+            <span aria-hidden="true" className={`size-2 shrink-0 rounded-full ${statusPresentation[person.status].color}`} />
+            <span className="truncate">{person.name}</span>
+          </span>) : <span className="col-span-full text-xs text-ink-muted">{unavailable ? "Team status unavailable" : people ? "No users listed" : "Loading team…"}</span>}
+        </span>
+      </button>
+      <AzureUsageMeter />
+    </div>
     {open ? <ApplicationActivityDashboard onClose={() => setOpen(false)} /> : null}
   </>;
 }
