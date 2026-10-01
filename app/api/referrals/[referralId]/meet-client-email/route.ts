@@ -9,7 +9,6 @@ import { buildAssessmentSummaryReport, buildMeetClientSummary, selectSignedAsses
 import type { PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
 import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
 import { parseMeetClientMessage, type MeetClientMessage } from "@/lib/notifications/meet-client-message";
-import { medicationInventory, medicationReviewMatches, parseMedicationReview, type MedicationReview } from "@/lib/notifications/meet-client-medications";
 import { meetClientIdentityIssues } from "@/lib/notifications/meet-client-identity";
 import { prepareAdmissionPacketLink } from "@/lib/notifications/admission-packet-files";
 import { renderMeetClientEmail } from "@/lib/notifications/meet-client-email-template";
@@ -80,17 +79,7 @@ export async function POST(
     if (!contextResult.ok) return contextResult.response;
     const { assessment, snapshot } = contextResult;
     const handoffReferral = { ...snapshot.referral, requirements: snapshot.work_items };
-    const chartSummary = buildMeetClientSummary(assessment, handoffReferral);
-    const inventory = medicationInventory(chartSummary.medications, handoffReferral.currentMedications || "");
-    if (!medicationReviewMatches(prepared.medicationReview, assessment.assessment_id, assessment.version, inventory)) {
-      return jsonError("Medication history changed or has not been reviewed. Recheck current medications in Meet the Client before sending.", 409);
-    }
-    const summary = { ...chartSummary, medications: prepared.medicationReview.selected,
-      medicationStatus: prepared.medicationReview.status === "confirmed" ? undefined : prepared.medicationReview.status };
-    const unselected = inventory.filter((entry) => !summary.medications.includes(entry));
-    if (prepared.message.body && unselected.some((entry) => prepared.message.body?.toLocaleLowerCase().includes(entry.toLocaleLowerCase()))) {
-      return jsonError("The edited message names a medication not selected as current. Review the message and medication choices before sending.", 422);
-    }
+    const summary = buildMeetClientSummary(assessment, handoffReferral);
     const attachmentContext = await loadAdmissionPacket(handoffReferral, assessment, prepared.packetRevision, outlook, outlook || assessorEmail || direct);
     if (!attachmentContext.ok) return attachmentContext.response;
     if (assessorEmail) {
@@ -270,7 +259,7 @@ type PreparedEmailRequest = {
 };
 
 async function prepareEmailRequest(request: Request): Promise<
-  | { ok: true; mutationId: string; recipients: string[]; ccRecipients: string[]; referralVersion: number; message: MeetClientMessage; medicationReview: MedicationReview; assessmentId: string; assessmentVersion: number; packetRevision: string; snapshotId?: string }
+  | { ok: true; mutationId: string; recipients: string[]; ccRecipients: string[]; referralVersion: number; message: MeetClientMessage; assessmentId: string; assessmentVersion: number; packetRevision: string; snapshotId?: string }
   | { ok: false; response: Response }
 > {
   const body = await readJsonBody(request, 256_000);
@@ -282,8 +271,6 @@ async function prepareEmailRequest(request: Request): Promise<
   if (snapshotId !== undefined && (typeof snapshotId !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(snapshotId))) return { ok: false, response: jsonError("Choose a saved email preview.") };
   const message = parseMeetClientMessage(body.value.message);
   if (!message) return { ok: false, response: jsonError("Use a subject up to 200 characters and message up to 20,000 characters, without unsupported control characters.") };
-  const medicationReview = parseMedicationReview(body.value.medication_review);
-  if (!medicationReview) return { ok: false, response: jsonError("Review current medications in Meet the Client before preparing this email.", 422) };
   const packetRevision = body.value.packet_revision;
   if (!validPacketRevision(packetRevision)) return { ok: false, response: jsonError("Refresh the preview before sending the packet.", 409) };
   const mutationId = body.value.client_mutation_id;
@@ -302,7 +289,7 @@ async function prepareEmailRequest(request: Request): Promise<
     return { ok: false, response: jsonError("Refresh and review the assessment summary before sending.", 409) };
   }
   const audience = prepareHandoffAudience(body.value);
-  return audience.ok ? { ...audience, mutationId, referralVersion, message, medicationReview, assessmentId: assessmentId as string, assessmentVersion: assessmentVersion as number, packetRevision, snapshotId: snapshotId as string | undefined } : audience;
+  return audience.ok ? { ...audience, mutationId, referralVersion, message, assessmentId: assessmentId as string, assessmentVersion: assessmentVersion as number, packetRevision, snapshotId: snapshotId as string | undefined } : audience;
 }
 
 function prepareHandoffAudience(body: Record<string, unknown>) {

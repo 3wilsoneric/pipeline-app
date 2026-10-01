@@ -19,17 +19,10 @@ export async function openSummary(page: Page) {
 }
 export async function openFiles(page: Page) {
   await openSummary(page);
-  await reviewCurrentMedications(page);
   await page.getByRole("button", { name: "Confirm summary", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Check admission packet", exact: true });
   await expect(dialog).toBeVisible();
   return dialog;
-}
-export async function reviewCurrentMedications(page: Page) {
-  const review = page.getByRole("group", { name: "Which medications are current for this handoff?" });
-  const options = review.getByRole("checkbox");
-  if (await options.count()) await options.first().check();
-  else await review.getByRole("radio", { name: "Current medications cannot be confirmed yet" }).check();
 }
 export async function openRecipients(page: Page) {
   await openFiles(page);
