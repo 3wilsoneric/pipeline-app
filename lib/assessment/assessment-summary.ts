@@ -172,8 +172,11 @@ export function buildMeetClientSummary(
       sentence("Community and routine", assessment.programming_notes),
       sentence("Important supports", firstValue(assessment.family_involvement, assessment.friendships_social_connections)),
       sentence("Goals", assessment.discharge_planning_goals),
-      sentence("Placement preferences", firstValue(assessment.placement_preferences_concerns, assessment.preferred_facility_characteristics)),
-    ]).slice(0, 4),
+      sentence("Placement preferences", [assessment.placement_preferences_concerns, assessment.preferred_facility_characteristics]
+        .map((value) => value?.trim())
+        .filter((value, index, values): value is string => Boolean(value) && values.indexOf(value) === index)
+        .join("\n")),
+    ]),
     medications,
     medicationNotes: buildMedicationHandoff(assessment),
     safetyNotes: buildSafetyHandoff(assessment),

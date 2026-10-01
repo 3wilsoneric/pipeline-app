@@ -170,8 +170,7 @@ export const assessmentInterviewQuestions: readonly AssessmentInterviewQuestion[
   q("prior_placements", "Earlier care placements", "textarea", { span: "full", placeholder: "One earlier placement per line, newest first: setting | approximate dates or duration | why it ended. Do not repeat the most recent setting above." }),
   q("prior_awol_failed_placements", "Placement trajectory", "textarea", { span: "full" }),
 
-  q("hospitalization_history", "Hospitalization history", "textarea", { span: "full", placeholder: "Describe hospital stays, holds, and crisis or ER visits. Approximate dates and unknowns are okay." }),
-  q("hospitalization_timeline", "Hospitalization history", "timeline", { span: "full", help: "Optional. Add an event only when you know enough to describe it; approximate timing is fine." }),
+  q("hospitalization_history", "Hospitalization history", "textarea", { span: "full", placeholder: "Describe hospital stays, holds, and crisis or ER visits, with approximate dates and outcomes when known. Note what remains uncertain." }),
 
   q("diagnosis_categories", "Diagnoses", "multi_select", { options: diagnosisOptions, span: "full" }),
   q("diagnosis_other_detail", "Diagnoses", "text", { showWhen: includes("diagnosis_categories", "other"), requiredWhen: includes("diagnosis_categories", "other") }),
@@ -204,8 +203,7 @@ export const assessmentInterviewQuestions: readonly AssessmentInterviewQuestion[
   q("conservator_name", "Conservatorship", "text", { showWhen: notEquals("conservatorship_type", "non_conserved"), requiredWhen: notEquals("conservatorship_type", "non_conserved") }),
   q("conservatorship_status", "Conservatorship", "text", { showWhen: notEquals("conservatorship_type", "non_conserved") }),
   q("hold_type", "Conservatorship", "text"),
-  q("forensic_history", "Forensic history", "textarea", { span: "full", placeholder: "Describe arrests, jail time, court involvement, and the overall timeline. Include only what is known." }),
-  q("forensic_timeline", "Forensic history", "timeline", { span: "full", help: "Optional. Record an approximate date, event, and outcome in each row." }),
+  q("forensic_history", "Forensic history", "textarea", { span: "full", placeholder: "Describe arrests, jail time, and court involvement, with approximate dates and outcomes when known. Note what remains uncertain." }),
   q("pc290_registration", "Forensic requirements", "yes_no", { options: yesNo }),
   q("arson_history", "Forensic requirements", "yes_no", { options: yesNo }),
   q("diversion_client", "Forensic requirements", "yes_no", { options: yesNo }),
@@ -241,7 +239,7 @@ export const assessmentInterviewQuestions: readonly AssessmentInterviewQuestion[
   q("substance_use_insight_details", "Recovery history", "textarea", { showWhen: equals("substance_abuse_history", "yes"), span: "full", placeholder: "Optional: what the client recognizes or does not recognize, in their own words" }),
   q("treatment_history", "Recovery history", "textarea", { showWhen: equals("substance_abuse_history", "yes"), span: "full" }),
 
-  q("behavioral_history", "Current behavior", "textarea", { span: "full", placeholder: "Describe behaviors, patterns, and recent events" }),
+  q("behavioral_history", "Current behavior", "textarea", { span: "full", placeholder: "Describe other behaviors, patterns, and recent events not covered by the specific questions below." }),
   q("physical_altercations", "Current behavior", "yes_no", { options: yesNo }),
   q("physical_altercation_details", "Current behavior", "textarea", { showWhen: equals("physical_altercations", "yes"), span: "full", placeholder: "What happened, when, the context, and the outcome", help: "Optional. Include an approximate date and response or support used, if known." }),
   q("self_harm_history", "Self-harm", "yes_no", { options: yesNo }),
@@ -256,9 +254,9 @@ export const assessmentInterviewQuestions: readonly AssessmentInterviewQuestion[
   q("elopement_risk", "Assault and elopement", "textarea", { showWhen: equals("elopement_history", "yes"), requiredWhen: equals("elopement_history", "yes"), span: "full" }),
   q("si_hi_history", "Assault and elopement", "textarea"),
 
-  q("physical_health_concerns", "Current health", "yes_no", { options: yesNo }),
-  q("physical_health_diagnoses", "Current health", "textarea", { showWhen: equals("physical_health_concerns", "yes"), requiredWhen: equals("physical_health_concerns", "yes"), span: "full" }),
-  q("physical_health_measures", "Current health", "textarea", { showWhen: equals("physical_health_concerns", "yes"), requiredWhen: equals("physical_health_concerns", "yes"), span: "full" }),
+  q("physical_health_concerns", "Current health", "yes_no", { options: yesNo, help: "Use this for other health concerns. Diabetes, diet, and skin have their own questions below." }),
+  q("physical_health_diagnoses", "Current health", "textarea", { showWhen: equals("physical_health_concerns", "yes"), requiredWhen: equals("physical_health_concerns", "yes"), span: "full", placeholder: "Other diagnosed conditions not covered below" }),
+  q("physical_health_measures", "Current health", "textarea", { showWhen: equals("physical_health_concerns", "yes"), requiredWhen: equals("physical_health_concerns", "yes"), span: "full", placeholder: "Other treatments and supports not covered below" }),
   q("diabetic", "Current health", "yes_no", { options: yesNo }),
   q("diabetic_details", "Current health", "textarea", { showWhen: equals("diabetic", "yes"), requiredWhen: equals("diabetic", "yes") }),
   q("special_diet", "Current health", "yes_no", { options: yesNo }),
@@ -287,9 +285,8 @@ export const assessmentInterviewQuestions: readonly AssessmentInterviewQuestion[
   q("prior_living_situation", "Living history", "textarea", { span: "full" }),
   q("housing_history", "Living history", "textarea", { span: "full", placeholder: "Describe home and housing stability, who lives with or supports the client, and relevant earlier housing. No need to repeat the facility named above." }),
   q("benefits_income_status", "Living history", "textarea"),
-  q("preferred_facility_characteristics", "Preferences and goals", "textarea", { span: "full" }),
   q("discharge_planning_goals", "Preferences and goals", "textarea", { span: "full" }),
-  q("placement_preferences_concerns", "Preferences and goals", "textarea", { span: "full" }),
+  q("placement_preferences_concerns", "Preferences and goals", "textarea", { span: "full", placeholder: "Describe preferred setting, priorities, concerns, flexibility, and needed accommodations. Include the client's own words when possible." }),
 
   q("additional_information", "Additional comments", "textarea", { span: "full" }),
   q("placement_process_questions", "Additional comments", "textarea", { span: "full" }),

@@ -122,6 +122,10 @@ test("older hospitalization and forensic answers carry into the new overviews un
   assert.equal(carried.most_recent_arrest_charge, "Synthetic charge");
   assert.equal(tool.pickAssessmentToolData({ ...carried, hospitalization_history: "Updated history" }).hospitalization_history, "Updated history");
   assert.equal(tool.pickAssessmentToolData({ ...carried, hospitalization_history: "" }).hospitalization_history, "");
-  assert.equal(question("hospitalization_timeline").control, "timeline");
-  assert.equal(question("forensic_timeline").control, "timeline");
+  assert.equal(question("hospitalization_timeline"), undefined);
+  assert.equal(question("forensic_timeline"), undefined);
+  assert.equal(question("preferred_facility_characteristics"), undefined);
+  assert.equal(question("placement_preferences_concerns").control, "textarea");
+  assert.match(question("hospitalization_history").placeholder, /dates and outcomes when known/i);
+  assert.match(question("forensic_history").placeholder, /dates and outcomes when known/i);
 });

@@ -49,14 +49,14 @@ const formatLabels: Record<AssessmentAnswerFormat, string> = {
 const writingSpecs: Partial<Record<AssessmentToolFieldKey, WritingSpecInput>> = {
   hospitalization_history: {
     preferredFormat: "dated_history",
-    lengthGuidance: "Short overview; add timeline events only when known",
+    lengthGuidance: "One written history; include approximate dates and outcomes when known",
     formatTemplate: "What is known | Approximate timing | Hospital, hold, or ER use | Outcome | Source and gaps",
     requiredElements: ["Known care history", "Approximate timing when available", "Outcome when available", "Source and uncertainty"],
     strongExample: "Per the supplied discharge summary, one hospital stay occurred in spring 2025 after a crisis evaluation. The client reports earlier stays but cannot recall dates or facilities; those episodes remain unverified.",
   },
   forensic_history: {
     preferredFormat: "dated_history",
-    lengthGuidance: "Short overview; add timeline events only when known",
+    lengthGuidance: "One written history; include approximate dates and outcomes when known",
     formatTemplate: "Reported or verified event | Approximate timing | Status or outcome | Source and gaps",
     requiredElements: ["Reported or verified history", "Approximate timing when available", "Current status when known", "Source and uncertainty"],
     strongExample: "The client reports one arrest several years ago but does not recall the date or charge. No booking or court record was supplied; current legal status requires confirmation.",
@@ -611,7 +611,7 @@ const writingSpecs: Partial<Record<AssessmentToolFieldKey, WritingSpecInput>> = 
   placement_preferences_concerns: {
     preferredFormat: "observation_report",
     lengthGuidance: "2-4 sentences",
-    formatTemplate: "Preference/concern | Client's reason | Deal breaker or flexibility | Needed accommodation | Unresolved question",
+    formatTemplate: "Preferred setting or characteristic | Client's reason | Concern or flexibility | Needed accommodation | Unresolved question",
     requiredElements: ["Preference or concern", "Client's reason", "Priority or flexibility", "Needed support", "Unresolved question"],
     strongExample: "The client is concerned about placement far from family because weekly visits are a primary support. The client is flexible about community if public transportation is available. Weekend transportation options remain to be confirmed.",
   },

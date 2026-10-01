@@ -68,6 +68,34 @@ test("editable handoff text keeps linked admission details, source provenance, a
   assert.match(changed.text, /Medication reference\nRecorded medication/);
 });
 
+test("older timelines stay in the chart and data sheet while both placement answers reach the handoff", async () => {
+  const recorded = {
+    ...assessment,
+    hospitalization_timeline: ["Spring 2025 — hospital stay — discharged"],
+    forensic_timeline: ["2024 — court appearance — resolved"],
+    current_location: "Synthetic current location",
+    programming_notes: "Synthetic routine",
+    family_involvement: "Synthetic family support",
+    discharge_planning_goals: "Synthetic goal",
+    placement_preferences_concerns: "Near family",
+    preferred_facility_characteristics: "Quiet common area",
+  };
+  const report = summaryOwner.buildAssessmentSummaryReport(recorded, referral);
+  const items = report.sections.flatMap((section) => section.items);
+  assert.equal(items.find(({ label }) => label === "Hospitalization timeline")?.value, "Spring 2025 — hospital stay — discharged");
+  assert.equal(items.find(({ label }) => label === "Forensic timeline")?.value, "2024 — court appearance — resolved");
+  assert.equal(items.find(({ label }) => label === "Preferred facility characteristics")?.value, "Quiet common area");
+  assert.equal(report.meetClient.bio.length, 5);
+  assert.match(report.meetClient.bio[4], /Near family\nQuiet common area/);
+  const email = emailOwner.renderMeetClientEmail(report.meetClient, "Synthetic sender", "preview");
+  assert.match(email.text, /Near family/);
+  assert.match(email.text, /Quiet common area/);
+  const sheet = await pdfText(await sheetOwner.renderClientDataSheet(report, referral));
+  assert.match(sheet, /Spring 2025/);
+  assert.match(sheet, /2024/);
+  assert.match(sheet, /Quiet common area/);
+});
+
 test("injection handoff preserves named dates and exposes missing details without calculating a due date", () => {
   const recorded = { ...assessment, im_injections: "yes", im_injections_details: "Synthetic injection A - recorded dose", injection_frequency: "A - every 4 weeks", last_injection: "A - around September 2\nB - unknown", next_injection_due: "A - confirm with clinic" };
   const notes = Object.fromEntries(summaryOwner.buildMeetClientSummary(recorded, referral).medicationNotes.map(({ label, value }) => [label, value]));

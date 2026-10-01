@@ -59,7 +59,7 @@ for (const key of ["source_file", "match_confidence", "extraction_date", "unable
 }
 const residentNumber = contract.assessmentWorkbookFields.find((f) => f.key === "resident_number");
 assert.equal(residentNumber.editable, false, "Resident number is an internal identity, not an assessment answer");
-for (const key of ["medications_at_intake", "prior_living_situation"]) {
+for (const key of ["medications_at_intake", "prior_living_situation", "hospitalization_timeline", "forensic_timeline", "preferred_facility_characteristics"]) {
   assert.equal(contract.assessmentWorkbookFields.find((f) => f.key === key)?.editable, false, `${key} is retained history, not a new workbook question`);
 }
 assert.match(text("xl/worksheets/sheet2.xml"), new RegExp(`<row\\b[^>]*r="${residentNumber.row}"[^>]*hidden="1"`));

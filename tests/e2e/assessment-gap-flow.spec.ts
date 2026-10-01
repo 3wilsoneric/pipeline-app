@@ -112,10 +112,15 @@ test("recorded prep answers fit a short phone screen without covering or clippin
   await expect(page.getByLabel("Assessment section", { exact: true })).toHaveValue("prior_history");
 });
 
-test("history overviews preserve older answers and timeline edits survive reopening", async ({ page }, info) => {
+test("one written history saves across visits while earlier timeline events remain recorded", async ({ page }, info) => {
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: `History ${randomUUID()}`, owner: "Annette Everhart" });
   const created = await page.request.post(`/api/referrals/${referral.id}/assessments`, { data: {
-    client_mutation_id: randomUUID(), data: { prior_hospitalizations_count: 0, prior_5150_5250_holds: "Synthetic earlier hold" },
+    client_mutation_id: randomUUID(), data: {
+      prior_hospitalizations_count: 0,
+      prior_5150_5250_holds: "Synthetic earlier hold",
+      hospitalization_timeline: ["Early 2026 — hospital stay — returned to community"],
+      forensic_timeline: ["2024 — court hearing — resolved"],
+    },
   } });
   expect(created.status()).toBe(201);
   const { assessment } = await created.json();
@@ -127,25 +132,19 @@ test("history overviews preserve older answers and timeline edits survive reopen
   await overview.fill("Two stays are reported; the exact dates need confirmation.");
   await overview.blur();
   await expect.poll(async () => (await read()).hospitalization_history).toBe("Two stays are reported; the exact dates need confirmation.");
-
-  const timeline = page.getByRole("group", { name: "Hospitalization timeline", exact: true });
-  await timeline.getByRole("button", { name: "+ Add event" }).click();
-  const event = timeline.getByRole("textbox", { name: "Hospitalization timeline event 1" });
-  await event.fill("Early 2026 — hospital stay — returned to community");
-  await event.blur();
-  await expect.poll(async () => (await read()).hospitalization_timeline).toEqual(["Early 2026 — hospital stay — returned to community"]);
+  await expect(page.getByRole("group", { name: "Hospitalization timeline", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("group", { name: "Forensic timeline", exact: true })).toHaveCount(0);
   await page.reload();
   await expect(overview).toHaveValue("Two stays are reported; the exact dates need confirmation.");
-  await expect(event).toHaveValue("Early 2026 — hospital stay — returned to community");
+  await expect.poll(async () => (await read()).hospitalization_timeline).toEqual(["Early 2026 — hospital stay — returned to community"]);
+  await expect.poll(async () => (await read()).forensic_timeline).toEqual(["2024 — court hearing — resolved"]);
   await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
   const violations = await page.evaluate(async () => {
     const axe = (window as unknown as { axe: typeof import("axe-core") }).axe;
-    return (await axe.run('[role="group"][aria-label="Hospitalization timeline"]', { runOnly: ["wcag2a", "wcag2aa", "wcag21aa"] })).violations.map(({ id }) => id);
+    return (await axe.run('[data-assessment-question-editor]', { runOnly: ["wcag2a", "wcag2aa", "wcag21aa"] })).violations.map(({ id }) => id);
   });
   expect(violations).toEqual([]);
-  await timeline.screenshot({ path: info.outputPath("hospitalization-timeline.png") });
-  await timeline.getByRole("button", { name: "Remove hospitalization timeline event 1" }).click();
-  await expect.poll(async () => (await read()).hospitalization_timeline).toEqual([]);
+  await overview.screenshot({ path: info.outputPath("hospitalization-history.png") });
   expect((await read()).prior_hospitalizations_count).toBe(0);
 });
 

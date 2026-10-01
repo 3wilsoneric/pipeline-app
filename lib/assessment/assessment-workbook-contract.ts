@@ -20,7 +20,7 @@ export const assessmentWorkbookDataHeaders = [
 export const assessmentWorkbookTemplatePath = "/templates/pipeline-assessment-workbook.xlsx";
 
 export const assessmentBackupVersion = "PIPELINE_ASSESSMENT_BACKUP_V2";
-export const workbookReadOnlyFields = new Set<AssessmentToolFieldKey>(["resident_number", "assessor", "source_file", "match_confidence", "extraction_date", "medications_at_intake", "prior_living_situation"]);
+export const workbookReadOnlyFields = new Set<AssessmentToolFieldKey>(["resident_number", "assessor", "source_file", "match_confidence", "extraction_date", "medications_at_intake", "prior_living_situation", "hospitalization_timeline", "forensic_timeline", "preferred_facility_characteristics"]);
 export const workbookChunkLength = 30000;
 
 // One owner for the template, reader and writer. Extra cells prevent Excel's
