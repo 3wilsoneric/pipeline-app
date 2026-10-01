@@ -9,7 +9,6 @@ const template = loadEntry("lib/notifications/meet-client-email-template.ts");
 const realMail = loadTypeScriptModule(process.cwd(), "lib/notifications/microsoft-graph-mail.ts");
 const schema = loadTypeScriptModule(process.cwd(), "lib/assessment/assessment-tool-schema.ts");
 const summary = loadTypeScriptModule(process.cwd(), "lib/assessment/assessment-summary.ts");
-const medications = loadTypeScriptModule(process.cwd(), "lib/notifications/meet-client-medications.ts");
 
 function fixture(t, options = {}) {
   const dir = mkdtempSync("/tmp/direct-handoff-");
@@ -34,7 +33,7 @@ function fixture(t, options = {}) {
   const files = loadEntry("lib/notifications/admission-packet-files.ts", { "./admission-packet-store": store, "@/lib/extraction/document-assets": assets, "@/lib/extraction/azure-blob": { getAzureBlobUploadSigner: () => signer }, "@/lib/extraction/http-byte-range": {}, "@/lib/pipeline/base-path": {} }, globals);
   const inventory = { ready: true, revision: "1".repeat(64), totalBytes: bytes.length + 7, blockers: [], deliveryMode: "direct", files: [
     { documentId: "sheet", name: "Client data sheet.pdf", byteSize: 7, contentType: "application/pdf", generatedContent: Buffer.from("%PDF-qa"), ready: true },
-    { documentId: "original", name: "Original.docx", byteSize: bytes.length, contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", ready: true },
+    { documentId: "original", name: options.fileName ?? "Original.docx", byteSize: bytes.length, contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", ready: true },
   ] };
   let sent = 0;
   const assessmentStore = { requireAssessmentStore: () => ({ ok: true }), listAssessments: async () => ({ assessments: [assessment] }), deliverAssessmentPacket: async (id, version, send) => {
@@ -60,7 +59,6 @@ function fixture(t, options = {}) {
     "@/lib/assessment/assessment-summary": summary, "@/lib/notifications/direct-handoff": direct,
     "@/lib/notifications/admission-packet-store": store, "@/lib/notifications/admission-packet-files": files,
     "@/lib/notifications/microsoft-graph-mail": mail, "@/lib/notifications/meet-client-email-template": template,
-    "@/lib/notifications/meet-client-medications": medications,
     "@/lib/notifications/outlook-mail": {}, "@/lib/notifications/outlook-handoff": {}, "@/lib/notifications/assessor-email-handoff": {},
     "@/lib/notifications/meet-client-attachments": { getMeetClientAttachmentInventory: async () => inventory },
     "@/lib/pipeline/meet-client-delivery-audit": audit, "@/lib/pipeline/workflow-store": { getReferralWorkflowSnapshot: async () => ({ referral, work_items: [], decision: { outcome: "accepted", decisionId: "decision", assessmentId: "assessment" } }) },
@@ -70,8 +68,7 @@ function fixture(t, options = {}) {
   const history = loadEntry("app/api/communications/route.ts", dependencies, { ...globals, fetch: async url => { const b = blobs.get(url.replace("https://storage.invalid/", "")); return b ? new Response(new Uint8Array(b.bytes)) : new Response(null, { status: 404 }); } });
   const body = { recipients: ["care@outlook.com"], cc_recipients: ["team@example.invalid"], confirmed: true,
     if_match: 4, assessment_id: "assessment", if_match_assessment: 7, client_mutation_id: randomUUID(), packet_revision: inventory.revision,
-    message: { subject: "Reviewed subject", body: "Exact reviewed text <literal>" },
-    medication_review: { assessmentId: "assessment", assessmentVersion: 7, inventory: medications.medicationInventory(assessment.medications_at_intake, referral.currentMedications), selected: [], status: "unconfirmed" } };
+    message: { subject: "Reviewed subject", body: "Exact reviewed text <literal>" } };
   const post = (patch = {}, origin) => route.POST(new Request("http://localhost/api/referrals/6/meet-client-email?delivery=direct", { method: "POST", headers: origin ? { origin } : {}, body: JSON.stringify({ ...body, ...patch }) }), { params: Promise.resolve({ referralId: "6" }) });
   return { store, direct, inventory, body, blobs, bytes, post, get: query => history.GET(new Request(`http://localhost/api/communications?${query}`)),
     prepare: async () => { const response = await post(); assert.equal(response.status, 200, JSON.stringify(await response.clone().json())); return (await response.json()).communication; },
@@ -106,28 +103,19 @@ test("exact prepared snapshot supplies the actual email, assigned assessor Cc/Re
   assert.equal((await f.store.listAdmissionPacketLinks(6)).length, 0);
 });
 
-test("older medication-review choices cannot change the prepared direct email", async t => {
-  const f = fixture(t, { assessmentMedications: ["Medication A", "Medication B"] });
-  const selectedA = { ...f.body.medication_review, selected: ["Medication A"], status: "confirmed" };
-  const previewResponse = await f.post({ medication_review: selectedA });
-  assert.equal(previewResponse.status, 200);
-  const preview = (await previewResponse.json()).communication;
-  assert.match(preview.html, /Current medications not confirmed/);
-  assert.doesNotMatch(preview.html, /Medication A/);
-  assert.doesNotMatch(preview.html, /Medication B/);
-  const selectedB = { ...selectedA, selected: ["Medication B"] };
-  const delivered = await f.post({ medication_review: selectedB, snapshot_id: preview.id });
-  assert.equal(delivered.status, 200);
-  assert.equal(f.sent, 1);
-});
-
-test("an old confirmed-empty review cannot change an unconfirmed-medication preview", async t => {
-  const f = fixture(t);
+test("direct preview and actual email use the medication attachment without requiring a list selection", async t => {
+  const f = fixture(t, { assessmentMedications: ["Medication A", "Medication B"], intakeHistory: "Historical medication", fileName: "Medication list.docx" });
   const preview = await f.prepare();
-  const none = { ...f.body.medication_review, status: "none" };
-  const delivered = await f.post({ medication_review: none, snapshot_id: preview.id });
-  assert.equal(delivered.status, 200);
+  assert.match(preview.html, /Please refer to the medication file in the attached admission packet/);
+  assert.doesNotMatch(preview.html, /Medication A|Medication B|Historical medication|Current medications not confirmed/);
+  const sent = await f.post({ snapshot_id: preview.id });
+  assert.equal(sent.status, 200);
   assert.equal(f.sent, 1);
+  assert.equal(f.sendInput.preparedContent.html, preview.html);
+  assert.match(f.sendInput.preparedContent.text, /Please refer to the medication file in the attached admission packet/);
+  assert.equal(f.sendInput.attachments[1].name, "Medication list.docx");
+  assert.equal(f.sendInput.attachments[1].contentType, "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+  assert.deepEqual(f.blobs.get(f.sendInput.attachments[1].sourceUrl.replace("https://storage.invalid/", "")).bytes, f.bytes);
 });
 
 test("unseen changes to message, recipients, date, same-size original bytes or ownership never send", async t => {

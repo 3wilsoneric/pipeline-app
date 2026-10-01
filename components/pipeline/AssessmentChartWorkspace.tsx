@@ -24,7 +24,7 @@ import type { CommunicationView } from "@/lib/notifications/communication-contra
 import type { OutlookDraftView } from "@/lib/notifications/outlook-draft-contract";
 import type { MeetClientMessage } from "@/lib/notifications/meet-client-message";
 import { meetClientIdentityIssues } from "@/lib/notifications/meet-client-identity";
-import { medicationListFileNames, unconfirmedMedicationReview, type MedicationReview } from "@/lib/notifications/meet-client-medications";
+import { medicationAttachmentReference } from "@/lib/notifications/meet-client-medications";
 import { formatClientIdentityTitle, resolveClientCommunity } from "@/lib/pipeline/client-identity-presentation.mjs";
 
 import { toPipelinePath } from "@/lib/pipeline/base-path";
@@ -154,10 +154,8 @@ export default function AssessmentChartWorkspace({ referralId, active = true, so
   const emailMeetClient = async (outlookToken: string, delivery: "outlook" | "assessor" = "outlook") => {
     if (!canStartMeetClientSend(payload, acceptedReferralId === referralId, confirmed, sendInFlight.current)) return;
     if (!handoffDraftReady(emailDraft)) return;
-    if (!payload.report) throw new Error("A signed assessment is needed to prepare the handoff.");
-    const medicationReview = unconfirmedMedicationReview(payload.report.assessmentId, payload.report.assessmentVersion, payload.report.meetClient.medications, payload.referral.currentMedications || "");
     const recipientList = recipients;
-    const requestKey = handoffRequestKey(payload, recipientList, ccRecipients, emailDraft.fields.message, medicationReview);
+    const requestKey = handoffRequestKey(payload, recipientList, ccRecipients, emailDraft.fields.message);
     if (sendRequest.current?.key !== requestKey) sendRequest.current = { key: requestKey, mutationId: crypto.randomUUID() };
     const mutationId = sendRequest.current.mutationId;
     sendInFlight.current = true;
@@ -182,7 +180,6 @@ export default function AssessmentChartWorkspace({ referralId, active = true, so
             client_mutation_id: mutationId,
             packet_revision: payload.email.admission_packet.revision,
             message: emailDraft.fields.message,
-            medication_review: medicationReview,
           }),
         },
         { timeoutMs: 300_000 },
@@ -210,9 +207,7 @@ export default function AssessmentChartWorkspace({ referralId, active = true, so
 
   const prepareDirect = async (snapshotId?: string): Promise<CommunicationView> => {
     if (!payload || !handoffDraftReady(emailDraft) || !confirmed || sendInFlight.current) throw new Error("Finish reviewing the recipients before preparing this email.");
-    if (!payload.report) throw new Error("A signed assessment is needed to prepare the handoff.");
-    const medicationReview = unconfirmedMedicationReview(payload.report.assessmentId, payload.report.assessmentVersion, payload.report.meetClient.medications, payload.referral.currentMedications || "");
-    const key = handoffRequestKey(payload, recipients, ccRecipients, emailDraft.fields.message, medicationReview);
+    const key = handoffRequestKey(payload, recipients, ccRecipients, emailDraft.fields.message);
     if (sendRequest.current?.key !== key) sendRequest.current = { key, mutationId: crypto.randomUUID() };
     sendInFlight.current = true; setSending(true); onSendingChange?.(true); setError("");
     try {
@@ -221,7 +216,7 @@ export default function AssessmentChartWorkspace({ referralId, active = true, so
         method: "POST", body: JSON.stringify({ recipients, cc_recipients: ccRecipients, confirmed: true,
           if_match: payload.referral.version, assessment_id: payload.report?.assessmentId, if_match_assessment: payload.report?.assessmentVersion,
           client_mutation_id: sendRequest.current.mutationId, packet_revision: payload.email.admission_packet.revision,
-          message: emailDraft.fields.message, medication_review: medicationReview, ...(snapshotId ? { snapshot_id: snapshotId } : {}) }),
+          message: emailDraft.fields.message, ...(snapshotId ? { snapshot_id: snapshotId } : {}) }),
       }, { timeoutMs: 300_000 });
       if (result.communication.status === "submitted") setAcceptedReferralId(payload.referral.id);
       return result.communication;
@@ -385,7 +380,7 @@ export function HandoffClinicalSummary({ report, showMedicationHistory = true }:
         <HandoffSection title="Daily support & diet" items={Array.from(new Map([...summary.supportSnapshot, ...(summary.dietaryNotes ?? [])].map((item) => [item.label, item])).values())} />
         <HandoffSection title="Billing & benefits" items={summary.billingNotes ?? []} />
         {summary.bio.length ? <HandoffSection title="Getting to know the client" items={[]}><ul className={styles.medicationList}>{summary.bio.map((line, index) => <li key={index}><ReadableChartText value={line} /></li>)}</ul></HandoffSection> : null}
-        <p className={styles.sourceNote}>From signed assessment version {report.assessmentVersion}. Correct the chart there; use the attached medication list as the community reference.</p>
+        <p className={styles.sourceNote}>From signed assessment version {report.assessmentVersion}. Correct the chart there; current medications are selected separately for the email.</p>
     </div>;
 }
 
@@ -412,21 +407,14 @@ function MeetClientComposeDialog({ step, compact, sending, onClose, children }: 
   </dialog>;
 }
 
-function handoffRequestKey(payload: ChartPayload, recipientList: string[], ccRecipients: string[], message: MeetClientMessage, medicationReview: MedicationReview | null) {
+function handoffRequestKey(payload: ChartPayload, recipientList: string[], ccRecipients: string[], message: MeetClientMessage) {
   return JSON.stringify([
       payload.referral.id, payload.referral.version, payload.report?.assessmentId, payload.report?.assessmentVersion,
       [...new Set(recipientList.map((recipient) => recipient.toLowerCase()))].sort(),
       [...ccRecipients].sort(),
       payload.email.admission_packet.files.map((file) => file.document_id).sort(),
       message,
-      medicationReview,
     ]);
-}
-
-function handoffMedicationSummary(report: AssessmentSummaryReport | null, email: ChartPayload["email"]) {
-  if (!report) return undefined;
-  return { ...report.meetClient, medications: [], medicationStatus: "unconfirmed" as const,
-    medicationReferenceFiles: medicationListFileNames(email.admission_packet.files) };
 }
 
 function handoffDraftReady(draft?: HandoffRecipients): draft is HandoffRecipients {
@@ -541,7 +529,7 @@ function HandoffReviewStep({ step, payload, draft, confirmed, onConfirmed, onBac
   return <div className={styles.composer}>
     <div className={styles.composeScroll}>
       {payload.email.example_only ? <p role="status" className={styles.demoNotice}>Demo only — no email will be sent.</p> : null}
-      {step === 1 ? <HandoffSummaryReview report={payload.report} email={payload.email} onOpenFiles={onOpenFiles} onOpenAssessment={onOpenAssessment} /> : null}
+      {step === 1 ? <HandoffSummaryReview report={payload.report} onOpenAssessment={onOpenAssessment} /> : null}
       {step === 2 ? <AdmissionPacketReview email={payload.email} referral={payload.referral} onOpenFiles={onOpenFiles} /> : null}
       {step === 3 ? <HandoffRecipientReview draft={draft} community={payload.referral.community} editable={payload.email.can_edit_recipients} confirmed={confirmed} onConfirmed={onConfirmed} /> : null}
       {step !== 3 ? <HandoffDraftError value={draft} /> : null}
@@ -555,15 +543,9 @@ function HandoffReviewStep({ step, payload, draft, confirmed, onConfirmed, onBac
   </div>;
 }
 
-function HandoffSummaryReview({ report, email, onOpenFiles, onOpenAssessment }: { report: AssessmentSummaryReport | null; email: ChartPayload["email"]; onOpenFiles?: () => void; onOpenAssessment?: () => void }) {
-  const listFiles = email.admission_packet.files.filter((file) => file.category === "Medication list");
+function HandoffSummaryReview({ report, onOpenAssessment }: { report: AssessmentSummaryReport | null; onOpenAssessment?: () => void }) {
   return <div className={styles.reviewContent}>
-        <section className={styles.medicationReview} aria-label="Medication list for community">
-          <h3>Medication list for the community</h3>
-          {listFiles.length ? <ul>{listFiles.map((file) => <li key={file.document_id}>{file.ready ? <a href={toPipelinePath(`/api/files/${encodeURIComponent(file.document_id)}/preview`)} target="_blank" rel="noopener noreferrer">{file.name}</a> : <>{file.name} — awaiting packet readiness</>}</li>)}</ul> : <p>No separate medication list is attached yet. The email will say current medications are not confirmed.</p>}
-          <p>The email points to the attached list; it does not copy older typed medication entries as current orders.</p>
-          {onOpenFiles ? <button type="button" className={styles.textButton} onClick={onOpenFiles}>Add or update medication list</button> : null}
-        </section>
+        <p className={styles.reviewInstruction}>{medicationAttachmentReference}</p>
         {report ? <HandoffClinicalSummary report={report} showMedicationHistory={false} /> : null}
         {onOpenAssessment ? <button type="button" className={styles.textButton} onClick={onOpenAssessment}>Correct the assessment</button> : null}
       </div>;
@@ -586,7 +568,7 @@ function HandoffRecipientReview({ draft, community, editable, confirmed, onConfi
 function AdmissionPacketReview({ email, referral, onOpenFiles }: { email: ChartPayload["email"]; referral: Referral; onOpenFiles?: () => void }) {
   return <section data-guide-target="packet-attachments" className={`${styles.attachments} ${styles.packetReview}`} aria-label="Referral packet attachments">
     <div className={styles.attachmentHeading}><h3>Everything in the packet</h3><span><Paperclip size={15} aria-hidden="true" />{email.admission_packet.files.length} files · {formatBytes(email.admission_packet.total_bytes)}</span></div>
-    <p>Check that the right files are included. These files will be attached to the email.</p>
+    <p>Check that the medication file and all other admission documents are included. These files will be attached to the email.</p>
     <ul className={styles.attachmentList}>{email.admission_packet.files.map((file) => <li key={file.document_id}>
       <a className={styles.attachment} href={toPipelinePath(file.generated ? `/api/referrals/${referral.id}/admission-summary?download=chart` : `/api/files/${encodeURIComponent(file.document_id)}/download`)} target="_blank" rel="noopener noreferrer" aria-label={`Open ${file.name}`}>
         <FileText size={23} aria-hidden="true" /><span><strong>{file.name}</strong><small>{file.generated ? "Client data sheet · created automatically" : file.ready ? formatBytes(file.byte_size) : "Safety review needed before live delivery"}</small></span>
@@ -604,10 +586,9 @@ function MeetClientEmailPreview({ preparedDraft, onExistingDraft, email, report,
   onPrepareDirect: (snapshotId?: string) => Promise<CommunicationView>;
   onPrepareOutlook: (token: string, delivery?: "outlook" | "assessor") => Promise<OutlookDraftView | undefined>; onOutlookSent: () => void;
 }) {
-  const medicationSummary = handoffMedicationSummary(report, email);
   if (!preparedDraft && !email.example_only) return <div className={styles.composeScroll} style={{ padding: "20px 24px" }}>
     <DirectHandoffPreview refresh={refresh} prepare={onPrepareDirect} onBack={onBack} onDone={onReviewComplete} ready={email.ready && confirmed && handoffDraftReady(emailDraft)} sending={sending} readinessReasons={handoffReadinessReasons(email, emailDraft, confirmed, false)}
-      editor={<MeetClientMessageEditor initialEditing summary={medicationSummary} preview={email.preview} preparedBy={email.prepared_by ?? ""}
+      editor={<MeetClientMessageEditor initialEditing summary={report?.meetClient} preview={email.preview} preparedBy={email.prepared_by ?? ""}
         attachments={email.admission_packet.files.map(file => file.name)} draft={emailDraft} admissionDate={getPlannedAdmissionDate(referral)} disabled={sending} />} />
   </div>;
   const composerReadOnly = [!email.can_edit_recipients, sending, sent, Boolean(preparedDraft)].some(Boolean);
@@ -615,7 +596,7 @@ function MeetClientEmailPreview({ preparedDraft, onExistingDraft, email, report,
         <div className={styles.addressRow}><span>Final sender</span><strong>You, from your own email</strong></div>
         <div className={styles.addressRow}><span>To</span><span>{emailDraft?.fields.to.map((contact) => contact.email).join("; ") || "No recipients"}</span></div>
         {emailDraft?.fields.cc.length ? <div className={styles.addressRow}><span>Cc</span><span>{emailDraft.fields.cc.map((contact) => contact.email).join("; ")}</span></div> : null}
-        <MeetClientMessageEditor demo={email.example_only} summary={medicationSummary} preview={email.preview} preparedBy={email.prepared_by ?? ""}
+        <MeetClientMessageEditor demo={email.example_only} summary={report?.meetClient} preview={email.preview} preparedBy={email.prepared_by ?? ""}
           attachments={email.admission_packet.files.map((file) => file.name)} draft={emailDraft} admissionDate={getPlannedAdmissionDate(referral)} disabled={composerReadOnly} />
         {!email.example_only ? <details className={styles.deliveryDetails}><summary>Delivery details</summary>
           {email.blockers.length ? <ul>{email.blockers.map((blocker) => <li key={blocker}>{blocker}</li>)}</ul> : null}
@@ -707,7 +688,7 @@ function PreparedDraftDetails({ draft }: { draft: OutlookDraftView }) {
   return <section className={styles.recipientSection} style={{ overflowWrap: "anywhere" }} aria-label="Prepared handoff details">
     <h3>{draft.delivery_method === "assessor_email" ? "Recipients for your forward" : "Prepared handoff"}</h3>
     <p>{draft.delivery_method === "assessor_email" ? `Forward the Alamo Admissions email in ${draft.mailbox} with every attachment. Copy the reviewed addresses below.` : `Use the prepared message in ${draft.mailbox}. To change the message, recipients or files, prepare a replacement below.`}</p>
-    <p>Check the attached medication list in this prepared copy before sending. Later changes in Pipeline do not update an email already prepared.</p>
+    <p>Check the current-medication list in this prepared copy before sending. Later changes in Pipeline do not update an email already prepared.</p>
     {draft.to_recipients ? <>
       {addressRow("To", draft.to_recipients)}
       {addressRow("Cc", draft.cc_recipients ?? [])}

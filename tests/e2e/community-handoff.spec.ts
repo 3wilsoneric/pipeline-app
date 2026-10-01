@@ -33,7 +33,7 @@ test("community defaults, To/Cc edits, reload and community replacement use the 
   await expect(cc).toContainText("Admissions");
   const endpoint = `/api/referrals/${referral.id}/handoff-recipients`;
   const initial = await (await page.request.get(endpoint)).json();
-  expect(initial.draft.medicationReview.status).toBe("unconfirmed");
+  expect(initial.draft).toBeNull();
   await page.getByRole("button", { name: "Remove Medication team from To", exact: true }).click();
   const input = page.getByRole("combobox", { name: /^Cc/ });
   await input.fill("Transport <transport@example.invalid>");

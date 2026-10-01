@@ -19,14 +19,10 @@ export async function openSummary(page: Page) {
 }
 export async function openFiles(page: Page) {
   await openSummary(page);
-  await reviewCurrentMedications(page);
   await page.getByRole("button", { name: "Confirm summary", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Check admission packet", exact: true });
   await expect(dialog).toBeVisible();
   return dialog;
-}
-export async function reviewCurrentMedications(page: Page) {
-  await expect(page.getByRole("region", { name: "Medication list for community" })).toBeVisible();
 }
 export async function openRecipients(page: Page) {
   await openFiles(page);

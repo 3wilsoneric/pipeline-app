@@ -33,8 +33,6 @@ export type MeetClientSummary = {
   admissionDate: string;
   bio: string[];
   medications: string[];
-  medicationReferenceFiles?: string[];
-  medicationStatus?: "none" | "unconfirmed";
   medicationNotes: AssessmentSummaryItem[];
   supportSnapshot: AssessmentSummaryItem[];
   admissionNotes?: AssessmentSummaryItem[];
