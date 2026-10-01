@@ -288,6 +288,7 @@ test("three competing tab drafts remain available for selection", async ({ page 
     }
     for (const [index, tab] of tabs.entries()) {
       await tab.locator("#assessment-prior_placements").fill(["First draft", "Second draft", "Third draft"][index]);
+      if (index === 0) await tab.getByRole("textbox", { name: "Hospitalization history", exact: true }).fill("First tab's separate history");
       await tab.waitForTimeout(800);
     }
     await Promise.all(tabs.map((tab) => tab.close({ runBeforeUnload: false })));
@@ -297,12 +298,14 @@ test("three competing tab drafts remain available for selection", async ({ page 
       await expect(reopened.locator("#assessment-prior_placements")).toHaveValue("Third draft");
       await expect(reopened.getByText("First draft")).toBeVisible();
       await expect(reopened.getByText("Second draft")).toBeVisible();
-      await reopened.getByRole("button", { name: "Use other answer 2" }).click();
+      await expect(reopened.getByRole("textbox", { name: "Hospitalization history", exact: true })).toHaveValue("First tab's separate history");
+      await reopened.getByRole("button", { name: "Use answer: Second draft" }).click();
       await expect.poll(async () => (await (await reopened.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment.prior_placements)
         .toBe("Second draft");
       await reopened.reload();
       await expect(reopened.locator("#assessment-prior_placements")).toHaveValue("Second draft");
       await expect(reopened.getByText("First draft")).not.toBeVisible();
+      await expect(reopened.getByRole("textbox", { name: "Hospitalization history", exact: true })).toHaveValue("First tab's separate history");
     } finally {
       await reopened.close();
     }

@@ -83,6 +83,18 @@ type StoredRecord = EncryptedPayload & {
   expiresAt: number;
 };
 
+type StoredAssessmentResolution = {
+  id: string;
+  principal: string;
+  kind: "assessment-resolution";
+  assessmentKey: string;
+  field: AssessmentToolFieldKey;
+  updatedAt: number;
+  expiresAt: number;
+};
+
+type OfflineAssessmentResolvedFields = Partial<Record<AssessmentToolFieldKey, number>>;
+
 type StoredActiveAssessment = {
   id: typeof activeAssessmentKey;
   principal: string;
@@ -178,8 +190,10 @@ export async function loadOfflineAssessmentDraft(principalId: string, assessment
   try {
     const principal = await hashValue(principalId);
     const sessionId = await currentOfflineRecoverySessionId();
-    const records = (await recordsForPrincipal<StoredRecord>(database, recordsStore, principal))
-      .filter((record) => record.kind === "assessment-draft" && record.expiresAt > Date.now())
+    const allRecords = await recordsForPrincipal<StoredRecord | StoredAssessmentResolution>(database, recordsStore, principal);
+    const resolved = resolvedAssessmentFields(allRecords, await hashValue(assessmentId));
+    const records = allRecords
+      .filter((record): record is StoredRecord => record.kind === "assessment-draft" && record.expiresAt > Date.now())
       .sort((left, right) => Number(right.sessionId === sessionId) - Number(left.sessionId === sessionId) || right.updatedAt - left.updatedAt);
     if (!records.length) return null;
     const key = await getOrCreateKey(database, principal);
@@ -189,7 +203,9 @@ export async function loadOfflineAssessmentDraft(principalId: string, assessment
     for (const record of records) {
       let draft: PipelineAssessmentDraft;
       try {
-        draft = await decryptPayload<PipelineAssessmentDraft>(key, principal, record.id, record);
+        draft = discardResolvedAssessmentAnswers(
+          await decryptPayload<PipelineAssessmentDraft>(key, principal, record.id, record), resolved, record.updatedAt,
+        );
       } catch (error) {
         unreadable ??= error;
         continue;
@@ -230,8 +246,12 @@ export async function saveOfflineAssessmentWorkingSet(
   const key = await getOrCreateKey(database, principal);
   const sessionId = await currentOfflineRecoverySessionId();
   const id = await recordId(principal, "assessment-working-set", `${draft.assessmentId}:${sessionId}`);
+  const assessmentKey = await hashValue(draft.assessmentId);
   const workingSet = createWorkingSet(draft, returnPath, options.editable);
   const encrypted = await encryptPayload(key, principal, id, workingSet);
+  const resolutionIds = await Promise.all((options.resolvedFields ?? []).map(async (field) => ({
+    field, id: await recordId(principal, "assessment-resolution", `${draft.assessmentId}:${field}`),
+  })));
   const now = Date.now();
   const transaction = database.transaction([recordsStore, activeStore], "readwrite");
   const activeRequest = transaction.objectStore(activeStore).get(activeAssessmentKey);
@@ -240,6 +260,17 @@ export async function saveOfflineAssessmentWorkingSet(
     // A late save acknowledgment can refresh the active offline copy, but must
     // never reactivate an old assessment or remove the one now being worked on.
     if (options.activate === false && previousActive?.recordId !== id) return;
+    for (const { field, id: resolutionId } of resolutionIds) {
+      transaction.objectStore(recordsStore).put({
+        id: resolutionId,
+        principal,
+        kind: "assessment-resolution",
+        assessmentKey,
+        field,
+        updatedAt: now,
+        expiresAt: now + expiryMs,
+      } satisfies StoredAssessmentResolution);
+    }
     // Another live tab may still need its encrypted working set. Old slots
     // expire with the store instead of being replaced by this tab's snapshot.
     transaction.objectStore(recordsStore).put({
@@ -268,8 +299,10 @@ export async function loadOfflineAssessmentWorkingSet(principalId: string, asses
   try {
     const principal = await hashValue(principalId);
     const sessionId = await currentOfflineRecoverySessionId();
-    const records = (await recordsForPrincipal<StoredRecord>(database, recordsStore, principal))
-      .filter((record) => record.kind === "assessment-working-set" && record.expiresAt > Date.now())
+    const allRecords = await recordsForPrincipal<StoredRecord | StoredAssessmentResolution>(database, recordsStore, principal);
+    const resolved = resolvedAssessmentFields(allRecords, await hashValue(assessmentId));
+    const records = allRecords
+      .filter((record): record is StoredRecord => record.kind === "assessment-working-set" && record.expiresAt > Date.now())
       .sort((left, right) => Number(right.sessionId === sessionId) - Number(left.sessionId === sessionId) || right.updatedAt - left.updatedAt);
     if (!records.length) return null;
     const key = await getOrCreateKey(database, principal);
@@ -281,7 +314,11 @@ export async function loadOfflineAssessmentWorkingSet(principalId: string, asses
       if (stored.sessionId !== sessionId && await isActiveOtherRecoverySession(stored.sessionId)) continue;
       try {
         const workingSet = await decryptPayload<OfflineAssessmentWorkingSet>(key, principal, stored.id, stored);
-        if (workingSet.draft.assessmentId === assessmentId) available.push(workingSet);
+        if (workingSet.draft.assessmentId === assessmentId) available.push({
+          ...workingSet,
+          draft: discardResolvedAssessmentAnswers(workingSet.draft, resolved, stored.updatedAt),
+          conflictingAnswers: workingSet.conflictingAnswers?.filter(({ field }) => (resolved[field] ?? 0) <= stored.updatedAt),
+        });
       } catch (error) {
         unreadable ??= error;
       }
@@ -296,6 +333,33 @@ export async function loadOfflineAssessmentWorkingSet(principalId: string, asses
   } finally {
     database.close();
   }
+}
+
+function resolvedAssessmentFields(records: Array<StoredRecord | StoredAssessmentResolution>, assessmentKey: string): OfflineAssessmentResolvedFields {
+  const resolved: OfflineAssessmentResolvedFields = {};
+  for (const record of records) {
+    if (record.kind !== "assessment-resolution" || record.assessmentKey !== assessmentKey || record.expiresAt <= Date.now()) continue;
+    resolved[record.field] = Math.max(resolved[record.field] ?? 0, record.updatedAt);
+  }
+  return resolved;
+}
+
+function discardResolvedAssessmentAnswers(
+  draft: PipelineAssessmentDraft,
+  resolved: OfflineAssessmentResolvedFields,
+  writtenAt = Date.parse(draft.savedAt),
+): PipelineAssessmentDraft {
+  const stale = assessmentToolFieldDefinitions.filter(({ key }) => (resolved[key] ?? 0) > writtenAt);
+  if (!stale.length) return draft;
+  const data = { ...draft.data };
+  const workbookSources = { ...draft.workbookSources };
+  for (const { key } of stale) {
+    data[key] = draft.baseData[key] as never;
+    delete workbookSources[key];
+  }
+  const dirtySections = draft.dirtySections.filter((section) => assessmentToolFieldDefinitions.some(({ key, section: fieldSection }) =>
+    fieldSection === section && JSON.stringify(data[key]) !== JSON.stringify(draft.baseData[key])));
+  return { ...draft, data, workbookSources, dirtySections };
 }
 
 function mergeOfflineWorkingSets(primary: OfflineAssessmentWorkingSet, other: OfflineAssessmentWorkingSet): OfflineAssessmentWorkingSet {
@@ -431,8 +495,9 @@ export async function pendingOfflineRecoveryDrafts(principalId: string) {
   const database = await openDatabase();
   try {
     const principal = await hashValue(principalId);
-    const records = await recordsForPrincipal<StoredRecord>(database, recordsStore, principal);
-    return records.filter((record) => record.kind !== "assessment-working-set" && record.expiresAt > Date.now()).length;
+    const records = await recordsForPrincipal<StoredRecord | StoredAssessmentResolution>(database, recordsStore, principal);
+    return records.filter((record) => record.kind !== "assessment-working-set"
+      && record.kind !== "assessment-resolution" && record.expiresAt > Date.now()).length;
   } finally {
     database.close();
   }
