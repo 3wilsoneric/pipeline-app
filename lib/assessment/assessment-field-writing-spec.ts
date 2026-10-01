@@ -63,10 +63,10 @@ const writingSpecs: Partial<Record<AssessmentToolFieldKey, WritingSpecInput>> = 
   },
   prior_placements: {
     preferredFormat: "dated_history",
-    lengthGuidance: "One line per placement",
+    lengthGuidance: "Earlier placements, newest first; one line per placement",
     formatTemplate: "Setting | Approximate dates or duration | Why it ended | Source | What supported stability",
     instructionSteps: [
-      { title: "Name the setting", instruction: "Identify the type of placement. Add the facility name only when it helps distinguish the episode." },
+      { title: "Name the setting", instruction: "List earlier care placements without repeating the most recent setting above. Add a facility name only when it helps distinguish the episode." },
       { title: "Bound the timeframe", instruction: "Give dates or duration. If the record is incomplete, state that the timeframe is approximate." },
       { title: "Explain why it ended", instruction: "Describe the specific event, care need, or transition. Do not use 'failed placement' as the explanation." },
       { title: "Attribute the history", instruction: "Name the client, collateral contact, or record that supplied the information, and preserve any disagreement." },
@@ -582,7 +582,7 @@ const writingSpecs: Partial<Record<AssessmentToolFieldKey, WritingSpecInput>> = 
   },
   housing_history: {
     preferredFormat: "dated_history",
-    lengthGuidance: "Most recent first; one line per period",
+    lengthGuidance: "Home and housing periods, most recent first; one line per period",
     formatTemplate: "Timeframe | Housing type | Duration/stability | Why it changed | Support/barrier | Source",
     requiredElements: ["Timeframe", "Housing type", "Duration", "Reason for change", "Support or barrier", "Source"],
     strongExample: "2024 to early 2025 | supportive housing | approximately ten months | lease ended after repeated unpaid rent | representative payee support was not in place | case-manager report.",

@@ -36,7 +36,6 @@ const canonicalReferralFields: ReadonlyArray<{
   },
   { target: "referrer_contact", source: "referral.contact", value: referralReferrerContact },
   { target: "county", source: "referral.county", value: (referral) => referral.county?.trim() || null, canvasSource: "county" },
-  { target: "medications_at_intake", source: "referral.current_medications", value: (referral) => medicationList(referral.currentMedications), canvasSource: "currentMedications" },
   { target: "conservatorship_type", source: "referral.conserved", value: (referral) => referral.conserved === "no" ? "non_conserved" : null },
 ];
 
@@ -97,31 +96,6 @@ function isoDateOrNull(value: string) {
   return /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(`${value}T00:00:00.000Z`))
     ? value
     : null;
-}
-
-function medicationList(value: string | undefined) {
-  const raw = value?.trim();
-  if (!raw) return null;
-  if (raw.startsWith("[")) {
-    try {
-      const parsed = JSON.parse(raw) as unknown;
-      if (Array.isArray(parsed)) {
-        const entries = parsed
-          .map((entry) => typeof entry === "string" ? entry.trim() : "")
-          .filter(Boolean)
-          .slice(0, 100);
-        return entries.length > 0 ? entries : null;
-      }
-    } catch {
-      // Fall through to text parsing so a malformed machine value can still be reviewed.
-    }
-  }
-  const entries = raw
-    .split(/\r?\n|;/)
-    .map((entry) => entry.replace(/^[\s*-]+/, "").trim())
-    .filter(Boolean)
-    .slice(0, 100);
-  return entries.length > 0 ? entries : null;
 }
 
 function cloneProvenance(

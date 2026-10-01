@@ -12,6 +12,14 @@ export function medicationInventory(assessmentMedications: readonly string[], in
   return [...new Map(entries.map((entry) => [entry.toLocaleLowerCase(), entry])).values()];
 }
 
+export function medicationListFileNames(files: readonly { category: string; name: string; ready?: boolean }[]): string[] {
+  return files.filter((file) => file.category === "Medication list").map((file) => file.name);
+}
+
+export function unconfirmedMedicationReview(assessmentId: string, assessmentVersion: number, assessmentMedications: readonly string[], intakeHistory: string): MedicationReview {
+  return { assessmentId, assessmentVersion, inventory: medicationInventory(assessmentMedications, intakeHistory), selected: [], status: "unconfirmed" };
+}
+
 export function parseMedicationReview(value: unknown): MedicationReview | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const review = value as Record<string, unknown>;

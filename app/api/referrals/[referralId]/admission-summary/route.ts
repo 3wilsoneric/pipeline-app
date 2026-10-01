@@ -6,6 +6,7 @@ import { jsonError } from "@/lib/extraction/contracts";
 import { getMeetClientAttachmentInventory } from "@/lib/notifications/meet-client-attachments";
 import { meetClientIdentityIssues } from "@/lib/notifications/meet-client-identity";
 import { renderMeetClientEmail } from "@/lib/notifications/meet-client-email-template";
+import { medicationListFileNames } from "@/lib/notifications/meet-client-medications";
 import { clientDataSheetName, renderClientDataSheet } from "@/lib/notifications/client-data-sheet";
 import { getGraphMailReadiness, isMeetClientLive } from "@/lib/notifications/microsoft-graph-mail";
 import { withApiLogging } from "@/lib/observability/api-logging";
@@ -89,7 +90,7 @@ export async function GET(
           sender: mail.sender,
           prepared_by: auth.user.name,
           preview: report ? renderMeetClientEmail(
-            { ...report.meetClient, medications: [] }, auth.user.name, "Preview — assigned when sent",
+            { ...report.meetClient, medications: [], medicationStatus: "unconfirmed", medicationReferenceFiles: medicationListFileNames(admissionPacket.files) }, auth.user.name, "Preview — assigned when sent",
             admissionPacket.files.map((file) => file.name),
             undefined, { demo: exampleOnly },
           ) : null,

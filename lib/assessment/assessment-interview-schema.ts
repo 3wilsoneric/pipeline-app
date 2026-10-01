@@ -140,7 +140,7 @@ const fieldDefinitionByKey = new Map(assessmentToolFieldDefinitions.map((definit
 
 export const assessmentInterviewSections: readonly AssessmentInterviewSectionDefinition[] = [
   section("identity", "Client & referral", "Confirm identity, source, and where the client can be reached."),
-  section("prior_placement", "Placement", "Record the current setting and prior placement context."),
+  section("prior_placement", "Placement", "Record the most recent setting first, then list earlier care placements."),
   section("prior_history", "History", "Capture hospitalization, crisis, and placement trajectory."),
   section("diagnosis_clinical", "Clinical", "Document diagnoses, symptoms, cognition, and current presentation."),
   section("functional_adl", "Function", "Assess ADLs, communication, mobility, and participation."),
@@ -161,13 +161,13 @@ export const assessmentInterviewQuestions: readonly AssessmentInterviewQuestion[
   q("referral_received_date", "Referral source", "date"),
   q("referrer_name", "Referral source", "text"),
   q("referrer_contact", "Referral source", "text", { placeholder: "Phone, email, and best contact method" }),
-  q("current_location", "Interview logistics", "text"),
-  q("time_at_current_location", "Interview logistics", "text", { placeholder: "For example, 3 weeks" }),
+  q("current_location", "Interview logistics", "text", { placeholder: "Where the client is now, such as a facility or home" }),
+  q("time_at_current_location", "Interview logistics", "text", { placeholder: "Time there, such as 3 weeks" }),
 
   q("county", "Current placement", "text"),
-  q("prior_setting_bucket", "Current placement", "select", { options: priorSettingOptions }),
-  q("referring_facility", "Current placement", "text", { placeholder: "Name of the prior placement" }),
-  q("prior_placements", "Placement trajectory", "textarea", { span: "full" }),
+  q("prior_setting_bucket", "Most recent setting", "select", { options: priorSettingOptions, help: "Choose the setting the client is coming from for this referral." }),
+  q("referring_facility", "Most recent setting", "text", { placeholder: "Facility or program name, if applicable" }),
+  q("prior_placements", "Earlier care placements", "textarea", { span: "full", placeholder: "One earlier placement per line, newest first: setting | approximate dates or duration | why it ended. Do not repeat the most recent setting above." }),
   q("prior_awol_failed_placements", "Placement trajectory", "textarea", { span: "full" }),
 
   q("hospitalization_history", "Hospitalization history", "textarea", { span: "full", placeholder: "Describe hospital stays, holds, and crisis or ER visits. Approximate dates and unknowns are okay." }),
@@ -217,7 +217,7 @@ export const assessmentInterviewQuestions: readonly AssessmentInterviewQuestion[
   q("last_medication_refusal_date", "Medication refusals", "date", { showWhen: equals("medication_adherence", "no"), requiredWhen: equals("medication_adherence", "no") }),
   q("medication_refused", "Medication refusals", "text", { showWhen: equals("medication_adherence", "no"), requiredWhen: equals("medication_adherence", "no") }),
   q("medication_refusals_30_days", "Medication refusals", "number", { showWhen: equals("medication_adherence", "no"), requiredWhen: equals("medication_adherence", "no"), min: 0 }),
-  q("medications_at_intake", "Medication profile", "textarea", { help: "Enter one medication per line.", span: "full" }),
+  q("medications_at_intake", "Medication profile", "textarea", { help: "Earlier entered medication history. Attach the current medication list in Files for the community handoff.", span: "full" }),
   q("prn_patterns", "Medication profile", "textarea"),
   q("im_injections", "Medication profile", "yes_no", { options: yesNo }),
   q("im_injections_details", "Medication profile", "textarea", { showWhen: equals("im_injections", "yes"), span: "full", placeholder: "Medication, dose if known, and reason for injection" }),
@@ -285,7 +285,7 @@ export const assessmentInterviewQuestions: readonly AssessmentInterviewQuestion[
   q("family_involvement", "Support system", "textarea", { span: "full" }),
   q("friendships_social_connections", "Support system", "textarea", { span: "full" }),
   q("prior_living_situation", "Living history", "textarea", { span: "full" }),
-  q("housing_history", "Living history", "textarea", { span: "full" }),
+  q("housing_history", "Living history", "textarea", { span: "full", placeholder: "Describe home and housing stability, who lives with or supports the client, and relevant earlier housing. No need to repeat the facility named above." }),
   q("benefits_income_status", "Living history", "textarea"),
   q("preferred_facility_characteristics", "Preferences and goals", "textarea", { span: "full" }),
   q("discharge_planning_goals", "Preferences and goals", "textarea", { span: "full" }),
@@ -326,6 +326,12 @@ export function getRequiredAssessmentInterviewQuestions(data: AssessmentToolData
 }
 
 export function isAssessmentQuestionVisible(question: AssessmentInterviewQuestion, data: AssessmentToolData) {
+  // New interviews use the attached medication list; retain previously entered
+  // medication history in the interview so it remains accessible and editable.
+  if (question.field === "medications_at_intake" && !hasAssessmentInterviewValue(data.medications_at_intake)) return false;
+  // New interviews use one living-history answer. Keep an older separate answer
+  // visible and editable when a prior assessment already recorded it.
+  if (question.field === "prior_living_situation" && !hasAssessmentInterviewValue(data.prior_living_situation)) return false;
   return getAssessmentQuestionConditions(question).every((rule) => matchesRule(rule, data));
 }
 

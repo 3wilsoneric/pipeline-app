@@ -277,11 +277,11 @@ export const assessmentToolFieldDefinitions: readonly AssessmentToolFieldDefinit
   field("referral_received_date", "Date referral received", "identity", "date", true, ["referral.received_date"]),
   field("referrer_name", "Referrer", "identity", "string", true, ["referral.referrer_name", "referral.contact_name"]),
   field("referrer_contact", "Referrer contact", "identity", "string", true, ["referral.referring_phone", "referral.referrer_contact"]),
-  field("current_location", "Current location", "identity", "string", true, ["referral.current_location"]),
+  field("current_location", "Where the client is now", "identity", "string", true, ["referral.current_location"]),
   field("time_at_current_location", "Time at current location", "identity", "string", false),
 
-  field("referring_facility", "Prior placement name", "prior_placement", "string", false, ["referral.referring_facility"]),
-  field("prior_setting_bucket", "Prior setting type", "prior_placement", "string", false),
+  field("referring_facility", "Most recent facility or program", "prior_placement", "string", false, ["referral.referring_facility"]),
+  field("prior_setting_bucket", "Most recent setting type", "prior_placement", "string", false),
   field("county", "County", "prior_placement", "string", false, ["referral.county"]),
   field("admit_date", "Admit date", "prior_placement", "date", false, ["resident.admit_date"]),
 
@@ -290,7 +290,7 @@ export const assessmentToolFieldDefinitions: readonly AssessmentToolFieldDefinit
   field("prior_5150_5250_holds", "Prior 5150 / 5250 holds", "prior_history", "string", false),
   field("hospitalization_history", "Hospitalization history", "prior_history", "string", false),
   field("hospitalization_timeline", "Hospitalization timeline", "prior_history", "string_list", false),
-  field("prior_placements", "Prior placements", "prior_history", "string", false),
+  field("prior_placements", "Earlier care placements", "prior_history", "string", false),
   field("crisis_er_utilization", "Crisis / ER utilization", "prior_history", "string", false),
   field("prior_awol_failed_placements", "Prior AWOL / failed placements", "prior_history", "string", false),
 
@@ -430,8 +430,8 @@ export const assessmentToolFieldDefinitions: readonly AssessmentToolFieldDefinit
   field("additional_health_notes", "Additional health information", "physical_health", "string", false),
 
   field("family_involvement", "Family involvement", "social_support", "string", false),
-  field("housing_history", "Housing history", "social_support", "string", false),
-  field("prior_living_situation", "Prior living situation", "social_support", "string", false),
+  field("housing_history", "Home and housing history", "social_support", "string", false),
+  field("prior_living_situation", "Earlier living-situation answer", "social_support", "string", false),
   field("benefits_income_status", "Benefits / income status", "social_support", "string", false),
   field("discharge_planning_goals", "Discharge planning goals", "social_support", "string", false),
   field("friendships_social_connections", "Friendships and social connections", "social_support", "string", false),

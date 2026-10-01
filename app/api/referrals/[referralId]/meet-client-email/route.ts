@@ -9,7 +9,7 @@ import { buildAssessmentSummaryReport, buildMeetClientSummary, selectSignedAsses
 import type { PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
 import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
 import { parseMeetClientMessage, type MeetClientMessage } from "@/lib/notifications/meet-client-message";
-import { medicationInventory, medicationReviewMatches, parseMedicationReview, type MedicationReview } from "@/lib/notifications/meet-client-medications";
+import { medicationInventory, medicationListFileNames, medicationReviewMatches, parseMedicationReview, type MedicationReview } from "@/lib/notifications/meet-client-medications";
 import { meetClientIdentityIssues } from "@/lib/notifications/meet-client-identity";
 import { prepareAdmissionPacketLink } from "@/lib/notifications/admission-packet-files";
 import { renderMeetClientEmail } from "@/lib/notifications/meet-client-email-template";
@@ -83,16 +83,15 @@ export async function POST(
     const chartSummary = buildMeetClientSummary(assessment, handoffReferral);
     const inventory = medicationInventory(chartSummary.medications, handoffReferral.currentMedications || "");
     if (!medicationReviewMatches(prepared.medicationReview, assessment.assessment_id, assessment.version, inventory)) {
-      return jsonError("Medication history changed or has not been reviewed. Recheck current medications in Meet the Client before sending.", 409);
+      return jsonError("Medication history changed while the handoff was open. Refresh Meet the Client before sending.", 409);
     }
-    const summary = { ...chartSummary, medications: prepared.medicationReview.selected,
-      medicationStatus: prepared.medicationReview.status === "confirmed" ? undefined : prepared.medicationReview.status };
-    const unselected = inventory.filter((entry) => !summary.medications.includes(entry));
-    if (prepared.message.body && unselected.some((entry) => prepared.message.body?.toLocaleLowerCase().includes(entry.toLocaleLowerCase()))) {
-      return jsonError("The edited message names a medication not selected as current. Review the message and medication choices before sending.", 422);
+    if (prepared.message.body && inventory.some((entry) => prepared.message.body?.toLocaleLowerCase().includes(entry.toLocaleLowerCase()))) {
+      return jsonError("The edited message names a medication from older chart entries. Refer to the attached medication list instead.", 422);
     }
     const attachmentContext = await loadAdmissionPacket(handoffReferral, assessment, prepared.packetRevision, outlook, outlook || assessorEmail || direct);
     if (!attachmentContext.ok) return attachmentContext.response;
+    const summary = { ...chartSummary, medications: [], medicationStatus: "unconfirmed" as const,
+      medicationReferenceFiles: medicationListFileNames(attachmentContext.inventory.files) };
     if (assessorEmail) {
       try { requireAssessorEmailCapacity(attachmentContext.inventory); }
       catch (error) { return outlookFailure(error); }

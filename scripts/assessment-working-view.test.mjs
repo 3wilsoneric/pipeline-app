@@ -79,6 +79,25 @@ test("conditional answers are shown only with their parent, without deleting sto
   assert.equal(data.im_injections_details, "Synthetic injection details");
 });
 
+test("new interviews use one living-history answer and an attached medication list while preserving older answers", () => {
+  const data = tool.createEmptyAssessmentToolData();
+  const fields = (section) => schema.getAssessmentInterviewQuestions(section, data).map((entry) => entry.field);
+  assert.ok(!fields("social_support").includes("prior_living_situation"));
+  assert.ok(fields("social_support").includes("housing_history"));
+  assert.ok(!fields("medication").includes("medications_at_intake"));
+  data.prior_living_situation = "Earlier living history";
+  data.medications_at_intake = ["Earlier recorded medication"];
+  assert.ok(fields("social_support").includes("prior_living_situation"));
+  assert.ok(fields("medication").includes("medications_at_intake"));
+});
+
+test("placement questions identify the most recent setting before earlier placements", () => {
+  assert.equal(tool.assessmentToolFieldDefinitions.find((field) => field.key === "prior_setting_bucket")?.label, "Most recent setting type");
+  assert.ok(question("prior_setting_bucket").options.some((option) => option.label === "Independent or family home"));
+  assert.match(question("prior_placements").placeholder, /earlier placement per line, newest first/i);
+  assert.match(question("housing_history").placeholder, /No need to repeat the facility/i);
+});
+
 test("captured answers use the schema's labels without truncating notes", () => {
   const data = { ...tool.createEmptyAssessmentToolData(), diagnosis_categories: ["schizoaffective", "other"], current_symptoms: "Synthetic source-backed note. ".repeat(40), prior_hospitalizations_count: 0 };
   assert.equal(view.capturedAssessmentAnswer(question("diagnosis_categories"), data), "Schizoaffective disorder; Other");

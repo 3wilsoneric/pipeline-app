@@ -27,7 +27,7 @@ export async function renderClientDataSheet(report: AssessmentSummaryReport | nu
   sheet.section("Admission", admissionItems(referral));
   const sections = report?.sections ?? [{ title: "Intake notes", items: [
     { label: "Summary", value: referral.note || "Not recorded" },
-    { label: "Medications", value: referral.currentMedications || "Not recorded" },
+    { label: "Earlier typed medication history", value: referral.currentMedications || "Not recorded" },
   ] }];
   for (const section of sections) sheet.section(section.title, section.items.map((item) => ({ ...item, value: formatMeetClientDate(item.value) })));
   sheet.section("About this copy", [{ label: "Source record", value:

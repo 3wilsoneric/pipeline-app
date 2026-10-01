@@ -106,27 +106,28 @@ test("exact prepared snapshot supplies the actual email, assigned assessor Cc/Re
   assert.equal((await f.store.listAdmissionPacketLinks(6)).length, 0);
 });
 
-test("changing current-medication choices invalidates a prepared direct email", async t => {
+test("older medication-review choices cannot change the prepared direct email", async t => {
   const f = fixture(t, { assessmentMedications: ["Medication A", "Medication B"] });
   const selectedA = { ...f.body.medication_review, selected: ["Medication A"], status: "confirmed" };
   const previewResponse = await f.post({ medication_review: selectedA });
   assert.equal(previewResponse.status, 200);
   const preview = (await previewResponse.json()).communication;
-  assert.match(preview.html, /Medication A/);
+  assert.match(preview.html, /Current medications not confirmed/);
+  assert.doesNotMatch(preview.html, /Medication A/);
   assert.doesNotMatch(preview.html, /Medication B/);
   const selectedB = { ...selectedA, selected: ["Medication B"] };
-  const stale = await f.post({ medication_review: selectedB, snapshot_id: preview.id });
-  assert.equal(stale.status, 409);
-  assert.equal(f.sent, 0);
+  const delivered = await f.post({ medication_review: selectedB, snapshot_id: preview.id });
+  assert.equal(delivered.status, 200);
+  assert.equal(f.sent, 1);
 });
 
-test("confirming no medications cannot reuse an unconfirmed-medication preview", async t => {
+test("an old confirmed-empty review cannot change an unconfirmed-medication preview", async t => {
   const f = fixture(t);
   const preview = await f.prepare();
   const none = { ...f.body.medication_review, status: "none" };
-  const stale = await f.post({ medication_review: none, snapshot_id: preview.id });
-  assert.equal(stale.status, 409);
-  assert.equal(f.sent, 0);
+  const delivered = await f.post({ medication_review: none, snapshot_id: preview.id });
+  assert.equal(delivered.status, 200);
+  assert.equal(f.sent, 1);
 });
 
 test("unseen changes to message, recipients, date, same-size original bytes or ownership never send", async t => {

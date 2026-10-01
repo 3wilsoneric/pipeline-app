@@ -57,7 +57,7 @@ test("Meet the Client shows assessment-current medications and month/day/year da
   assert.equal(summary.medicationNotes.find((item) => item.label === "Next injection due")?.value, "10/08/2026");
   const email = templateOwner.renderMeetClientEmail(summary, "Synthetic Assessor", "fixture");
   for (const value of ["06/12/1980", "09/28/2026", "10/01/2026", "09/10/2026", "10/08/2026"]) assert.match(email.html, new RegExp(value));
-  assert.match(email.html, /Current medications for handoff/);
+  assert.match(email.html, /Medication list reference/);
   assert.doesNotMatch(email.html, /Historical medication|1980-06-12|2026-10-01/);
   const unconfirmed = summaryOwner.buildMeetClientSummary({ ...assessment, medications_at_intake: [] }, referral);
   assert.deepEqual(unconfirmed.medications, []);
@@ -217,18 +217,21 @@ test("delivery and its generated chart use fresh agreement work items and the ca
   assert.match(summary.admissionNotes.find(({ label }) => label === "Signed admission agreement").value, /signatures still need review/);
   assert.equal(summary.medicationNotes.find(({ label }) => label === "Last injection given").value, "Synthetic injection - date unknown");
   assert.equal(summary.safetyNotes.find(({ label }) => label === "Last reported assault \/ context").value, "Synthetic historical incident");
-  assert.deepEqual(JSON.parse(JSON.stringify(fixture.packetReports[0].meetClient)), JSON.parse(JSON.stringify(summary)));
-  assert.deepEqual(summary.medications, ["Current fixture medication"]);
+  assert.deepEqual(Array.from(fixture.packetReports[0].meetClient.medications), ["Current fixture medication"]);
+  assert.deepEqual(Array.from(summary.medications), []);
+  assert.deepEqual(Array.from(summary.medicationReferenceFiles), ["one.pdf"]);
+  assert.equal(summary.medicationStatus, "unconfirmed");
   assert.doesNotMatch(JSON.stringify(summary), /Historical fixture medication/);
 });
 
-test("handoff sends only explicitly selected current medications while retaining full chart history", async () => {
+test("handoff references the attached medication list even when an old draft selected typed history", async () => {
   const fixture = deliveryFixture();
   const review = { assessmentId: "synthetic-assessment", assessmentVersion: 7,
     inventory: ["Current fixture medication", "Historical fixture medication"], selected: ["Historical fixture medication"], status: "confirmed" };
   assert.equal((await fixture.send("6", { medication_review: review })).status, 200);
-  assert.deepEqual(fixture.messages[0].summary.medications, ["Historical fixture medication"]);
-  assert.deepEqual(fixture.packetReports[0].meetClient.medications, ["Current fixture medication"]);
+  assert.deepEqual(Array.from(fixture.messages[0].summary.medications), []);
+  assert.deepEqual(Array.from(fixture.messages[0].summary.medicationReferenceFiles), ["one.pdf"]);
+  assert.deepEqual(Array.from(fixture.packetReports[0].meetClient.medications), ["Current fixture medication"]);
 });
 
 test("missing and stale medication reviews cannot reserve or deliver a handoff", async () => {
@@ -250,13 +253,13 @@ test("an edited message cannot reintroduce a medication omitted from the current
   assert.equal(fixture.reservationCalls(), 0);
 });
 
-test("a confirmed empty list stays distinct from an unconfirmed list", async () => {
+test("a legacy confirmed-empty review does not override the attached-list reference", async () => {
   const fixture = deliveryFixture();
   const review = { assessmentId: "synthetic-assessment", assessmentVersion: 7,
     inventory: ["Current fixture medication", "Historical fixture medication"], selected: [], status: "none" };
   assert.equal((await fixture.send("6", { medication_review: review })).status, 200);
-  assert.equal(fixture.messages[0].summary.medicationStatus, "none");
-  assert.match(templateOwner.renderMeetClientEmail(fixture.messages[0].summary, "Fixture", "id").html, /No current medications reported/);
+  assert.equal(fixture.messages[0].summary.medicationStatus, "unconfirmed");
+  assert.match(templateOwner.renderMeetClientEmail(fixture.messages[0].summary, "Fixture", "id").html, /Medication list file\(s\) selected for the packet: one.pdf/);
 });
 
 test("edited message reaches the provider unchanged, and malformed edits never reserve a send", async () => {
@@ -321,7 +324,7 @@ function deliveryFixture({ secureLink = false, rejectedSize = false, exampleOnly
     "@/lib/assessment/assessment-summary": summaryOwner,
     "@/lib/extraction/contracts": { jsonError, readJsonBody: async (request) => ({ ok: true, value: await request.json() }) },
     "@/lib/notifications/meet-client-attachments": {
-      getMeetClientAttachmentInventory: async (_referral, { report }) => { packetReports.push(report); return { ready: true, revision: "1".repeat(64), totalBytes: 800, blockers: [], deliveryMode: secureLink ? "secure_link" : "direct", files: [{ name: "one.pdf", byteSize: 300 }, { name: "two.pdf", byteSize: 500 }] }; },
+      getMeetClientAttachmentInventory: async (_referral, { report }) => { packetReports.push(report); return { ready: true, revision: "1".repeat(64), totalBytes: 800, blockers: [], deliveryMode: secureLink ? "secure_link" : "direct", files: [{ name: "one.pdf", category: "Medication list", ready: true, byteSize: 300 }, { name: "two.pdf", category: "Referral packet", ready: true, byteSize: 500 }] }; },
       prepareMeetClientMailAttachments: async () => [{ byteSize: 300 }, { byteSize: 500 }],
     },
     "@/lib/notifications/microsoft-graph-mail": {

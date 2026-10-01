@@ -26,10 +26,7 @@ export async function openFiles(page: Page) {
   return dialog;
 }
 export async function reviewCurrentMedications(page: Page) {
-  const review = page.getByRole("group", { name: "Which medications are current for this handoff?" });
-  const options = review.getByRole("checkbox");
-  if (await options.count()) await options.first().check();
-  else await review.getByRole("radio", { name: "Current medications cannot be confirmed yet" }).check();
+  await expect(page.getByRole("region", { name: "Medication list for community" })).toBeVisible();
 }
 export async function openRecipients(page: Page) {
   await openFiles(page);

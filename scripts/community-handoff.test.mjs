@@ -56,7 +56,7 @@ test("editable handoff text keeps linked admission details, source provenance, a
   const message = { subject: "Arrival arrangements", body: "Hello team,\nPlease call first. <img src=x onerror=alert(1)>" };
   const email = emailOwner.renderMeetClientEmail(summary, "Synthetic sender", "preview", ["Admission packet.pdf", "Client data sheet.pdf"], message);
   assert.equal(email.subject, message.subject);
-  assert.match(email.text, /Current medications for handoff\nRecorded medication/);
+  assert.match(email.text, /Medication reference\nRecorded medication/);
   for (const value of ["10/01/2026", "Admission packet.pdf", "Client data sheet.pdf", "Sender-edited handoff", "&lt;img"]) assert.ok(email.html.includes(value), value);
   const images = email.html.match(/<img\b[^>]*>/g) ?? [];
   assert.equal(images.length, 1);
@@ -65,7 +65,7 @@ test("editable handoff text keeps linked admission details, source provenance, a
   const changed = emailOwner.renderMeetClientEmail({ ...summary, admissionDate: "2026-10-02" }, "Synthetic sender", "preview", [], message);
   assert.ok(changed.html.includes("10/02/2026"));
   assert.ok(!changed.html.includes("10/01/2026"));
-  assert.match(changed.text, /Current medications for handoff\nRecorded medication/);
+  assert.match(changed.text, /Medication reference\nRecorded medication/);
 });
 
 test("injection handoff preserves named dates and exposes missing details without calculating a due date", () => {
