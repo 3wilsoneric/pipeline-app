@@ -103,12 +103,6 @@ export function useHandoffRecipients(referralId: number | undefined, community: 
     if (messageSaveTimer.current) clearTimeout(messageSaveTimer.current);
     messageSaveTimer.current = setTimeout(() => { messageSaveTimer.current = null; save(); }, 400);
   };
-  const changeMedicationReview = (next: MedicationReview | null) => {
-    const current = session.current;
-    if (!current || !endpoint || loading || !current.saved) return;
-    current.fields = { ...current.fields, medicationReview: next }; setFields(current.fields); setMessage(current.error ? "Changes not saved. Retry saving." : "Saving handoff draft...");
-    save();
-  };
   const changeRecipientInput = (lane: keyof RecipientFields, input: string) => {
     const current = session.current;
     if (!current || loading || !current.saved) return;
@@ -224,7 +218,7 @@ export function useHandoffRecipients(referralId: number | undefined, community: 
     window.addEventListener("beforeunload", leave);
     return () => window.removeEventListener("beforeunload", leave);
   }, []);
-  return { fields: loading ? empty() : fields, recipientInput: loading ? emptyInput() : recipientInput, inputError, changeRecipientInput, hasPendingRecipients: !loading && Object.values(recipientInput).some(value => value.trim()), lists: loading ? [] : lists, loading, message: loading ? "Loading recipients..." : message, error: loading ? "" : error, change, changeMessage, changeMedicationReview, flush, leave, retry, applyCommunityList, reload: () => setReloadKey((value) => value + 1), editable: Boolean(referralId) && !loading && Boolean(session.current?.saved) };
+  return { fields: loading ? empty() : fields, recipientInput: loading ? emptyInput() : recipientInput, inputError, changeRecipientInput, hasPendingRecipients: !loading && Object.values(recipientInput).some(value => value.trim()), lists: loading ? [] : lists, loading, message: loading ? "Loading recipients..." : message, error: loading ? "" : error, change, changeMessage, flush, leave, retry, applyCommunityList, reload: () => setReloadKey((value) => value + 1), editable: Boolean(referralId) && !loading && Boolean(session.current?.saved) };
 }
 
 export type HandoffRecipients = ReturnType<typeof useHandoffRecipients>;
