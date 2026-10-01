@@ -407,16 +407,16 @@ function PracticeQuestionGuide({ question }: { question: AssessmentInterviewQues
       <summary aria-label={`Answer help for ${label}`} className="flex w-fit cursor-pointer list-none items-center gap-1 text-[9px] font-black uppercase tracking-[0.06em] text-[#0f7d69] outline-none hover:text-[#0a6555] focus-visible:ring-2 focus-visible:ring-[#0f8b73] [&::-webkit-details-marker]:hidden">
         Answer help <ChevronDown size={12} className="transition-transform group-open:rotate-180" aria-hidden="true" />
       </summary>
-      <div className="mt-2 border-l-2 border-[#84b9aa] bg-white px-4 py-3 shadow-[0_8px_20px_rgba(28,52,45,0.10)]">
+      <div className="mt-2 min-w-0 border-l-2 border-[#84b9aa] bg-white px-4 py-3 shadow-[0_8px_20px_rgba(28,52,45,0.10)]">
         <p className="text-[12px] leading-5 text-[#4f5954]">{narrativeGuide.purpose}</p>
-        <div className="mt-3 grid gap-3 border-t border-[#e1e4e2] pt-3 lg:grid-cols-2">
-          <div>
+        <div className="mt-3 flex min-w-0 flex-col gap-3 border-t border-[#e1e4e2] pt-3">
+          <div className="min-w-0">
             <div className="text-[9px] font-black uppercase tracking-[0.08em] text-[#6b746f]">Use this order</div>
-            <p className="mt-1 text-[11px] font-semibold leading-5 text-[#303a36]">{specification.formatTemplate}</p>
+            <p className="mt-1 break-words text-[11px] font-semibold leading-5 text-[#303a36]">{specification.formatTemplate}</p>
           </div>
-          <div className="border-l-2 border-[#0f8b73] pl-3">
+          <div className="min-w-0 border-t border-[#e1e4e2] pt-3">
             <div className="text-[10px] font-black uppercase tracking-[0.08em] text-[#52615b]">Example</div>
-            <p className="mt-1.5 text-[13px] font-semibold leading-6 text-[#24312c]">{specification.strongExample}</p>
+            <p className="mt-1.5 break-words text-[13px] font-semibold leading-6 text-[#24312c]">{specification.strongExample}</p>
           </div>
         </div>
       </div>
