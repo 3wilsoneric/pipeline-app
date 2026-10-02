@@ -52,7 +52,7 @@ export default function ApplicationActivityCard() {
     <span id={descriptionId} className="sr-only">
       {people ? people.map((person) => `${person.name}: ${statusPresentation[person.status].label}`).join("; ") : unavailable ? "Team status is temporarily unavailable." : "Loading team status."}
     </span>
-    <div className="my-3 grid items-stretch gap-2 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+    <div className="my-3 grid items-stretch gap-2 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] xl:grid-cols-[minmax(0,28rem)_minmax(0,1fr)]">
       <button type="button" aria-label="Open application activity" aria-describedby={descriptionId} onClick={() => setOpen(true)} className="flex min-w-0 flex-col items-stretch justify-start rounded-paper border border-card-border bg-paper px-4 py-2.5 text-left hover:bg-sheet focus-visible:outline-2 focus-visible:outline-focus">
         <span className="flex min-w-0 items-start gap-2">
           <span className="min-w-0 flex-1"><span className="block text-sm font-semibold leading-5">Application activity</span><span className="block text-xs leading-4 text-ink-muted">Only you · green now · blue today · gray none</span></span>

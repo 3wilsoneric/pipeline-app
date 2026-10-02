@@ -58,7 +58,10 @@ for (const width of [1440, 1024, 390]) test(`owner activity is readable, filtera
     expect(Math.abs(activityTitle.y - usageTitle.y)).toBeLessThanOrEqual(2);
     expect(Math.abs(cardBox.y - meterBox.y)).toBeLessThan(2);
     expect(meterBox.x).toBeGreaterThanOrEqual(cardBox.x + cardBox.width - 2);
-    if (width === 1440) expect(Math.max(cardBox.height, meterBox.height)).toBeLessThan(150);
+    if (width === 1440) {
+      expect(cardBox.width).toBeLessThanOrEqual(450);
+      expect(Math.max(cardBox.height, meterBox.height)).toBeLessThan(150);
+    }
   } else {
     expect(meterBox.y).toBeGreaterThanOrEqual(cardBox.y + cardBox.height);
   }
