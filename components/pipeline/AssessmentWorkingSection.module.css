@@ -137,7 +137,7 @@
   .book .editor [data-working-field] textarea { min-height: 150px; }
   .book .editor [data-working-field] [role="group"] { height: auto; min-height: 48px; }
   .book .editor [data-working-field] [role="group"] :is(button, label) { min-height: 48px; font-size: 15px; font-weight: 500; }
-  .book .editor [data-working-field] [role="group"]:has(input[type="checkbox"]) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .book .editor [data-working-field] [role="group"]:has(input[type="checkbox"]) { grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); }
   .book .editor [data-working-field] p { font-size: 14px; line-height: 1.6; }
   .book .editor [data-guide-target="assessment-answer-help"] { min-height: 44px; }
   .book .editor [data-guide-target="assessment-answer-help"] > span { font-size: 12px; }
@@ -646,7 +646,7 @@
   .book .editor [data-working-field] textarea { min-height: 150px; }
   .book .editor [data-working-field] [role="group"] { height: auto; min-height: 48px; }
   .book .editor [data-working-field] [role="group"] :is(button, label) { min-height: 48px; font-size: 15px; font-weight: 500; }
-  .book .editor [data-working-field] [role="group"]:has(input[type="checkbox"]) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .book .editor [data-working-field] [role="group"]:has(input[type="checkbox"]) { grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); }
   /* Single-choice answers are separate pills; the chosen one takes the primary tint. */
   .book .editor [data-working-field] [role="group"]:not(:has(input[type="checkbox"])) { display: flex; flex-wrap: wrap; gap: 8px; }
   .book .editor [data-working-field] [role="group"]:not(:has(input[type="checkbox"])) > button { flex: 1 1 0; min-width: 96px; padding: 8px 16px; border: 1px solid var(--color-control-border); border-radius: var(--radius-pill); background: var(--color-paper); color: var(--color-ink-2); transition: background var(--duration-fade) ease, border-color var(--duration-fade) ease; }
@@ -953,3 +953,6 @@
   .chartScheduling button:hover { border-color: var(--color-focus); color: #0f6f5e; }
   .chartScheduling button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 }
+
+/* Give the PRN writing prompt the full preparation width in both designs. */
+.preparing .fields > div:has([data-working-field="prn_patterns"]) { grid-column: 1 / -1; }

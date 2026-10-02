@@ -220,12 +220,12 @@ export function AssessmentFieldWritingGuidePanel({ field, initiallyOpen }: { fie
   if (!specification) return null;
 
   return (
-    <details open={initiallyOpen} className="pipeline-details-feedback mt-2 border border-[#d9dfdb] bg-[#f8faf9]">
+    <details open={initiallyOpen} className="pipeline-details-feedback mt-2 min-w-0 border border-[#d9dfdb] bg-[#f8faf9]">
       <summary data-guide-target="assessment-answer-help" aria-label={`Language Lab for ${specification.label}`} className="flex min-h-9 cursor-pointer list-none flex-wrap items-center justify-between gap-x-3 gap-y-1 px-3 py-2 marker:hidden">
         <span className="flex items-center gap-2 text-[10px] font-black text-[#315e50]"><Sparkles size={12} /> Language Lab</span>
         <span className="text-[9px] font-semibold text-[#7b837e]">{specification.formatLabel} · {specification.lengthGuidance}</span>
       </summary>
-      <div className="border-t border-[#d9dfdb] px-3 py-3">
+      <div className="min-w-0 border-t border-[#d9dfdb] px-3 py-3">
         <AssessmentFieldWritingGuide specification={specification} />
       </div>
     </details>
@@ -235,23 +235,23 @@ export function AssessmentFieldWritingGuidePanel({ field, initiallyOpen }: { fie
 function AssessmentFieldWritingGuide({ specification }: { specification: NonNullable<ReturnType<typeof getAssessmentFieldWritingSpec>> }) {
   return (
     <>
-      <div className="border-l-2 border-[#0f8b73] bg-white px-3 py-2.5">
+      <div className="min-w-0 border-l-2 border-[#0f8b73] bg-white px-3 py-2.5">
         <div className="text-[9px] font-black uppercase tracking-[0.08em] text-[#315e50]">Use this order</div>
-        <p className="mt-1.5 text-[10px] font-semibold leading-4 text-[#3f4a45]">{specification.formatTemplate}</p>
+        <p className="mt-1.5 break-words text-[10px] font-semibold leading-4 text-[#3f4a45]">{specification.formatTemplate}</p>
       </div>
-      <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,0.9fr)_minmax(260px,1.1fr)]">
-        <div>
+      <div className="mt-3 flex min-w-0 flex-col gap-3">
+        <div className="min-w-0">
           <div className="text-[9px] font-black uppercase tracking-[0.08em] text-[#595959]">Include</div>
-          <ul className="mt-2 grid gap-1.5 text-[10px] leading-4 text-[#595959] sm:grid-cols-2 lg:grid-cols-1">
-            {specification.requiredElements.map((item) => <li key={item} className="flex items-start gap-2"><Check size={11} className="mt-0.5 shrink-0 text-[#0f8b73]" />{item}</li>)}
+          <ul className="mt-2 grid gap-1.5 text-[10px] leading-4 text-[#595959]">
+            {specification.requiredElements.map((item) => <li key={item} className="flex min-w-0 items-start gap-2 break-words"><Check size={11} className="mt-0.5 shrink-0 text-[#0f8b73]" /><span className="min-w-0">{item}</span></li>)}
           </ul>
         </div>
-        <div className="border-l border-[#d9dfdb] pl-3">
+        <div className="min-w-0 border-t border-[#d9dfdb] pt-3">
           <div className="text-[9px] font-black uppercase tracking-[0.08em] text-[#595959]">Example format</div>
-          <p className="mt-2 text-[10px] leading-4 text-[#4f5652]">{specification.strongExample}</p>
+          <p className="mt-2 break-words text-[10px] leading-4 text-[#4f5652]">{specification.strongExample}</p>
         </div>
       </div>
-      <p className="mt-3 border-l-2 border-[#d2a759] bg-[#f7faf9] px-2 py-1.5 text-[9px] leading-4 text-[#59645e]">{specification.guardrail}</p>
+      <p className="mt-3 break-words border-l-2 border-[#d2a759] bg-[#f7faf9] px-2 py-1.5 text-[9px] leading-4 text-[#59645e]">{specification.guardrail}</p>
     </>
   );
 }

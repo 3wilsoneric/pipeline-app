@@ -22,24 +22,24 @@ export default function AzureUsageMeter() {
     return () => { controller.abort(); window.clearInterval(interval); document.removeEventListener("visibilitychange", refresh); };
   }, []);
 
-  return <section aria-label="Live database usage" className="rounded-paper border border-card-border bg-paper px-4 py-3">
-    <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+  return <section aria-label="Live database usage" className="min-w-0 rounded-paper border border-card-border bg-paper px-4 py-3">
+    <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
       <h3 className="text-sm font-semibold">Database usage</h3>
       <p className="text-xs text-ink-muted">{usage && !unavailable ? `Azure sample ${new Date(usage.sampledAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} · refreshes every minute` : unavailable ? "Usage temporarily unavailable" : "Loading usage…"}</p>
     </div>
-    {usage && !unavailable ? <div className="mt-3 grid gap-3 sm:grid-cols-3">
+    {usage && !unavailable ? <div className="mt-2 grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-start gap-x-3 gap-y-1.5">
       <UsageValue label="CPU" value={usage.cpuPercent} />
       <UsageValue label="Memory" value={usage.memoryPercent} />
-      <div className="text-sm"><span className="text-ink-muted">Active connections</span><strong className="mt-1 block text-lg leading-none">{Math.round(usage.activeConnections)}</strong></div>
-      <p className="text-xs text-ink-muted sm:col-span-3">Highest 1-minute CPU average in the past hour: {usage.cpuPeakHourPercent.toFixed(1)}%. Azure publishes these readings after collection.</p>
+      <div className="text-xs"><span className="text-ink-muted">Active connections</span><strong className="block text-sm leading-5">{Math.round(usage.activeConnections)}</strong></div>
+      <p className="col-span-3 text-xs text-ink-muted">Highest 1-minute CPU average in the past hour: {usage.cpuPeakHourPercent.toFixed(1)}%. Azure publishes these readings after collection.</p>
     </div> : null}
   </section>;
 }
 
 function UsageValue({ label, value }: { label: string; value: number }) {
   const percentage = Math.max(0, Math.min(100, value));
-  return <div className="text-sm">
+  return <div className="min-w-0 text-xs">
     <div className="flex items-baseline justify-between gap-2"><label htmlFor={`azure-usage-${label.toLowerCase()}`} className="text-ink-muted">{label}</label><strong>{value.toFixed(1)}%</strong></div>
-    <meter id={`azure-usage-${label.toLowerCase()}`} min="0" max="100" value={percentage} aria-label={`Database ${label}`} className="mt-1 h-2 w-full" />
+    <meter id={`azure-usage-${label.toLowerCase()}`} min="0" max="100" value={percentage} aria-label={`Database ${label}`} className="mt-1 h-1.5 w-full" />
   </div>;
 }
