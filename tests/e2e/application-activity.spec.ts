@@ -14,9 +14,12 @@ for (const width of [1440, 1024, 390]) test(`owner activity is readable, filtera
     activeConnections: 9, cpuPeakHourPercent: 34.4,
   } }));
   await page.route("**/api/operations/assessor-status?*", (route) => route.fulfill({ json: { people: [
-    { id: "online", name: "Andrew", status: "online" },
-    { id: "today", name: "Jazmine", status: "today" },
-    { id: "away", name: "Vince", status: "away" },
+    { id: "online", name: "Andrew Dominici", status: "online" },
+    { id: "annette", name: "Annette Everhart", status: "today" },
+    { id: "eric", name: "Eric Wilson", status: "online" },
+    { id: "today", name: "Jazmine Saldana", status: "today" },
+    { id: "sandeep", name: "Sandeep Singh", status: "today" },
+    { id: "away", name: "Vince Ceja", status: "away" },
   ] } }));
   const queries: URLSearchParams[] = [];
   await page.route("**/api/operations/application-activity?*", (route) => {
@@ -38,14 +41,21 @@ for (const width of [1440, 1024, 390]) test(`owner activity is readable, filtera
   });
   expect(meterViolations).toEqual([]);
   const card = page.getByRole("button", { name: "Open application activity" });
-  await expect(card.locator('[data-status="online"]')).toContainText("Andrew");
-  await expect(card.locator('[data-status="today"]')).toContainText("Jazmine");
+  await expect(card.locator('[data-status="online"]')).toHaveCount(2);
+  await expect(card.locator('[data-status="online"]').filter({ hasText: "Andrew" })).toContainText("Andrew Dominici");
+  await expect(card.locator('[data-status="today"]')).toHaveCount(3);
+  await expect(card.locator('[data-status="today"]').filter({ hasText: "Jazmine" })).toContainText("Jazmine Saldana");
   await expect(card.locator('[data-status="away"]')).toContainText("Vince");
   await expect(card).toHaveAttribute("aria-describedby", /.+/);
   expect(await card.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
   const cardBox = (await card.boundingBox())!;
   const meterBox = (await meter.boundingBox())!;
+  const activityTitle = (await card.getByText("Application activity", { exact: true }).boundingBox())!;
+  const usageTitle = (await meter.getByText("Database usage", { exact: true }).boundingBox())!;
+  expect(activityTitle.y - cardBox.y).toBeLessThanOrEqual(18);
+  expect(usageTitle.y - meterBox.y).toBeLessThanOrEqual(18);
   if (width >= 1024) {
+    expect(Math.abs(activityTitle.y - usageTitle.y)).toBeLessThanOrEqual(2);
     expect(Math.abs(cardBox.y - meterBox.y)).toBeLessThan(2);
     expect(meterBox.x).toBeGreaterThanOrEqual(cardBox.x + cardBox.width - 2);
     if (width === 1440) expect(Math.max(cardBox.height, meterBox.height)).toBeLessThan(150);
