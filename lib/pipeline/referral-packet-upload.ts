@@ -94,20 +94,19 @@ async function uploadFileOnce(referral: Referral, file: File, sha256: string, ca
     throw new Error("Files in this imported chart are read-only. Add new files to the current referral.");
   }
   // Stable across retries/reloads, but never deduplicated across referrals or file roles.
-  const packetId = await uploadIdentity(referral.id, file, sha256, category, processingIntent);
-  const existing = activeUploads.get(packetId);
+  const key = JSON.stringify(["pipeline-file-v1", referral.id, sha256, file.name, file.size, getPacketContentType(file), category, processingIntent ?? "extract_referral"]);
+  const existing = activeUploads.get(key);
   if (existing) return existing;
-  const operation = writeUpload(referral, file, sha256, category, packetId, processingIntent);
-  activeUploads.set(packetId, operation);
+  const operation = uploadIdentity(key).then((packetId) => writeUpload(referral, file, sha256, category, packetId, processingIntent));
+  activeUploads.set(key, operation);
   try {
     return await operation;
   } finally {
-    activeUploads.delete(packetId);
+    activeUploads.delete(key);
   }
 }
 
-async function uploadIdentity(referralId: number, file: File, sha256: string, category: DocumentCategory, processingIntent?: "preview_only") {
-  const key = JSON.stringify(["pipeline-file-v1", referralId, sha256, file.name, file.size, getPacketContentType(file), category, processingIntent ?? "extract_referral"]);
+async function uploadIdentity(key: string) {
   const digest = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(key));
   const hex = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-5${hex.slice(13, 16)}-8${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
