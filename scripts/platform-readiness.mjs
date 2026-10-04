@@ -237,6 +237,11 @@ const checks = [
     args: ["--test", "scripts/clean-local-artifacts.test.mjs"],
   },
   {
+    name: "Next ESLint dependency and rule regression",
+    command: "node",
+    args: ["--test", "scripts/next-eslint-glob.test.mjs"],
+  },
+  {
     name: "Desktop distribution boundary",
     command: "node",
     args: ["scripts/desktop-readiness.mjs"],
