@@ -144,6 +144,8 @@ test("assessment edits survive review and return", async ({ page }) => {
 });
 
 test("sign, accept, preview and simulate send stay local without confirming admission", async ({ page }, info) => {
+  // Admission can share the signing date; verify its labeled row, not any date cell.
+  await page.clock.setFixedTime(new Date("2026-10-04T12:00:00Z"));
   const writes = observeLiveWrites(page);
   await page.goto("/tutorials/referral?task=review-chart");
   await page.locator('[data-guide-target="assessment-sign"]').click();
@@ -155,7 +157,9 @@ test("sign, accept, preview and simulate send stay local without confirming admi
   await page.getByLabel("Planned admission date", { exact: true }).fill("2026-10-04");
   await page.getByRole("button", { name: "Review email & packet", exact: true }).click();
   await expect(page.locator("#tutorial-step")).toHaveValue("6");
-  await expect(page.frameLocator('iframe[title="Sample Meet the Client email"]').getByText("10/04/2026", { exact: true })).toBeVisible();
+  const email = page.frameLocator('iframe[title="Sample Meet the Client email"]');
+  const admission = email.locator("tr").filter({ has: email.getByText("Admission date", { exact: true }) });
+  await expect(admission.getByText("10/04/2026", { exact: true })).toBeVisible();
   await page.getByRole("checkbox", { name: "Recipients checked" }).check();
   await page.getByRole("button", { name: "Simulate send", exact: true }).click();
   await expect(page.getByRole("status")).toContainText("No email was sent");
