@@ -59,6 +59,7 @@ test("the unchanged Next/React/TypeScript config still reports real violations",
 });
 
 test("the scoped replacement matches its reviewed source and sole upstream caller", () => {
+  execFileSync("npm", ["ls", "fast-glob", "--json"], { cwd: root, stdio: "pipe" });
   const sourceRoot = path.join(root, "scripts/vendor/next-eslint-glob");
   for (const file of ["index.cjs", "package.json", "README.md"]) {
     assert.equal(
