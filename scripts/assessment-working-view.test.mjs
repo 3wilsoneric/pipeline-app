@@ -79,6 +79,25 @@ test("conditional answers are shown only with their parent, without deleting sto
   assert.equal(data.im_injections_details, "Synthetic injection details");
 });
 
+test("new interviews use one living-history answer and an attached medication list while preserving older answers", () => {
+  const data = tool.createEmptyAssessmentToolData();
+  const fields = (section) => schema.getAssessmentInterviewQuestions(section, data).map((entry) => entry.field);
+  assert.ok(!fields("social_support").includes("prior_living_situation"));
+  assert.ok(fields("social_support").includes("housing_history"));
+  assert.ok(!fields("medication").includes("medications_at_intake"));
+  data.prior_living_situation = "Earlier living history";
+  data.medications_at_intake = ["Earlier recorded medication"];
+  assert.ok(fields("social_support").includes("prior_living_situation"));
+  assert.ok(fields("medication").includes("medications_at_intake"));
+});
+
+test("placement questions identify the most recent setting before earlier placements", () => {
+  assert.equal(tool.assessmentToolFieldDefinitions.find((field) => field.key === "prior_setting_bucket")?.label, "Most recent setting type");
+  assert.ok(question("prior_setting_bucket").options.some((option) => option.label === "Independent or family home"));
+  assert.match(question("prior_placements").placeholder, /earlier placement per line, newest first/i);
+  assert.match(question("housing_history").placeholder, /No need to repeat the facility/i);
+});
+
 test("captured answers use the schema's labels without truncating notes", () => {
   const data = { ...tool.createEmptyAssessmentToolData(), diagnosis_categories: ["schizoaffective", "other"], current_symptoms: "Synthetic source-backed note. ".repeat(40), prior_hospitalizations_count: 0 };
   assert.equal(view.capturedAssessmentAnswer(question("diagnosis_categories"), data), "Schizoaffective disorder; Other");
@@ -103,6 +122,10 @@ test("older hospitalization and forensic answers carry into the new overviews un
   assert.equal(carried.most_recent_arrest_charge, "Synthetic charge");
   assert.equal(tool.pickAssessmentToolData({ ...carried, hospitalization_history: "Updated history" }).hospitalization_history, "Updated history");
   assert.equal(tool.pickAssessmentToolData({ ...carried, hospitalization_history: "" }).hospitalization_history, "");
-  assert.equal(question("hospitalization_timeline").control, "timeline");
-  assert.equal(question("forensic_timeline").control, "timeline");
+  assert.equal(question("hospitalization_timeline"), undefined);
+  assert.equal(question("forensic_timeline"), undefined);
+  assert.equal(question("preferred_facility_characteristics"), undefined);
+  assert.equal(question("placement_preferences_concerns").control, "textarea");
+  assert.match(question("hospitalization_history").placeholder, /dates and outcomes when known/i);
+  assert.match(question("forensic_history").placeholder, /dates and outcomes when known/i);
 });

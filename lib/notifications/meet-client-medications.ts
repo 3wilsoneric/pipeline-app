@@ -1,3 +1,7 @@
+export const medicationAttachmentReference = "Refer to the medication list in the admission packet if attached; otherwise confirm the current list with the referring team.";
+
+// Retain the old draft payload when recipients or message edits are saved.
+// New handoffs use the original attachment, not these historical selections.
 export type MedicationReview = {
   assessmentId: string;
   assessmentVersion: number;
@@ -5,12 +9,6 @@ export type MedicationReview = {
   selected: string[];
   status: "confirmed" | "none" | "unconfirmed";
 };
-
-export function medicationInventory(assessmentMedications: readonly string[], intakeHistory: string): string[] {
-  const entries = [...assessmentMedications, ...intakeHistory.split(/\r?\n/u)]
-    .map((entry) => entry.trim()).filter(Boolean);
-  return [...new Map(entries.map((entry) => [entry.toLocaleLowerCase(), entry])).values()];
-}
 
 export function parseMedicationReview(value: unknown): MedicationReview | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
@@ -29,9 +27,4 @@ export function parseMedicationReview(value: unknown): MedicationReview | null {
     || (review.status === "confirmed" && !selected.length)
     || (review.status !== "confirmed" && selected.length)) return null;
   return { assessmentId: review.assessmentId, assessmentVersion: Number(review.assessmentVersion), inventory, selected, status: review.status as MedicationReview["status"] };
-}
-
-export function medicationReviewMatches(review: MedicationReview | null, assessmentId: string, assessmentVersion: number, inventory: string[]): review is MedicationReview {
-  return Boolean(review && review.assessmentId === assessmentId && review.assessmentVersion === assessmentVersion
-    && JSON.stringify(review.inventory) === JSON.stringify(inventory));
 }

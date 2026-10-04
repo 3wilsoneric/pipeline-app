@@ -1,5 +1,5 @@
 import { readPdfText } from "./support/pdf";
-import { openAdmitDate, openSummary, openFiles, openRecipients, confirmRecipients, reviewCurrentMedications } from "./support/handoff-review";
+import { openAdmitDate, openSummary, openFiles, openRecipients, confirmRecipients } from "./support/handoff-review";
 import { confirmReferralFileLabels } from "./support/referral-upload";
 import { randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
@@ -154,7 +154,6 @@ test("a changed admit date must be reloaded and the confirmed date populates the
   await summary.getByRole("button", { name: "Back", exact: true }).click();
   await page.getByLabel("Planned admit date", { exact: true }).fill("2026-10-05");
   await page.getByRole("button", { name: "Confirm admit date", exact: true }).click();
-  await reviewCurrentMedications(page);
   await page.getByRole("button", { name: "Confirm summary", exact: true }).click();
   await page.getByRole("button", { name: "Confirm packet", exact: true }).click();
   await addRecipient(page); await confirmRecipients(page);
@@ -162,20 +161,21 @@ test("a changed admit date must be reloaded and the confirmed date populates the
   await expect(email).toContainText("10/05/2026"); await expect(email).not.toContainText("10/04/2026");
 });
 
-test("current-medication choices remain in the handoff draft after reopening", async ({ page }) => {
+test("summary proceeds to the medication file without list selection, including after reopening", async ({ page }) => {
   const { referral } = await referralWithAssessment(page);
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
-  const summary = await openSummary(page);
-  const review = summary.getByRole("group", { name: "Which medications are current for this handoff?" });
-  await expect(summary.getByRole("button", { name: "Confirm summary", exact: true })).toBeDisabled();
-  await review.getByRole("checkbox", { name: "Synthetic recorded medication" }).check();
-  await summary.getByRole("button", { name: "Confirm summary", exact: true }).click();
-  const saved = await page.request.get(`/api/referrals/${referral.id}/handoff-recipients`);
-  expect(saved.status()).toBe(200);
-  expect((await saved.json()).draft.medicationReview.selected).toEqual(["Synthetic recorded medication"]);
-  await page.reload();
-  const reopened = await openSummary(page);
-  await expect(reopened.getByRole("checkbox", { name: "Synthetic recorded medication" })).toBeChecked();
+  for (let visit = 0; visit < 2; visit++) {
+    const summary = await openSummary(page);
+    await expect(summary.getByRole("group", { name: "Which medications are current for this handoff?" })).toHaveCount(0);
+    await expect(summary).toContainText("Refer to the medication list in the admission packet if attached; otherwise confirm the current list with the referring team.");
+    await expect(summary).not.toContainText("Synthetic recorded medication");
+    await expect(summary.getByRole("button", { name: "Confirm summary", exact: true })).toBeEnabled();
+    await summary.getByRole("button", { name: "Confirm summary", exact: true }).click();
+    const files = page.getByRole("dialog", { name: "Check admission packet", exact: true });
+    await expect(files).toBeVisible();
+    await expect(files).toContainText("Check that the medication file and all other admission documents are included.");
+    await page.reload();
+  }
 });
 
 test("Decision previews before an admit date and carries a saved date into the first handoff check", async ({ page }) => {
@@ -196,7 +196,6 @@ test("Decision previews before an admit date and carries a saved date into the f
   await date.getByRole("button", { name: "Review without admit date", exact: true }).click();
   const summary = page.getByRole("dialog", { name: "Check client summary", exact: true });
   await expect(summary).toBeVisible();
-  await reviewCurrentMedications(page);
   await summary.getByRole("button", { name: "Confirm summary", exact: true }).click();
   const files = page.getByRole("dialog", { name: "Check admission packet", exact: true });
   await expect(files).toBeVisible();
@@ -258,12 +257,13 @@ for (const width of [1440, 1280, 834, 390, 320]) test(`guided checks lead to the
   await page.keyboard.press("Escape");
   await expect(overview).not.toContainText("Checked");
   const summary = await openSummary(page);
-  await expect(summary.getByRole("group", { name: "Which medications are current for this handoff?" })).toContainText("Synthetic recorded medication");
+  await expect(summary).toContainText("Refer to the medication list in the admission packet if attached; otherwise confirm the current list with the referring team.");
+  await expect(summary).not.toContainText("Synthetic recorded medication");
   await expect(summary.getByRole("region", { name: "Injection & med-room notes" })).toContainText("Synthetic injection and recorded dose");
   await expect(summary.getByRole("region", { name: "Behavior & safety" })).toContainText("Historical incident");
   await expect(summary.getByRole("button", { name: "Confirm summary", exact: true })).toBeInViewport();
   expect(await checkA11y(page, 'dialog[aria-label="Check client summary"]')).toEqual([]);
-  await summary.screenshot({ path: info.outputPath(`guided-medication-review-${width}.png`), animations: "disabled" });
+  await summary.screenshot({ path: info.outputPath(`guided-summary-${width}.png`), animations: "disabled" });
   await page.keyboard.press("Escape");
   await expect(summary).toHaveCount(0);
   await expect(overview.getByRole("button", { name: "Continue review", exact: true })).toBeFocused();
@@ -290,8 +290,8 @@ for (const width of [1440, 1280, 834, 390, 320]) test(`guided checks lead to the
   await expect(preview.locator("body")).not.toContainText("one-time code");
   await expect(preview.locator("body")).not.toContainText("secure packet");
   await expect(preview.locator("body")).toContainText("Client data sheet.pdf");
-  await expect(preview.locator("body")).toContainText("Current medications for handoff");
-  await expect(preview.locator("body")).toContainText("Synthetic recorded medication");
+  await expect(preview.locator("body")).toContainText("Refer to the medication list in the admission packet if attached; otherwise confirm the current list with the referring team.");
+  await expect(preview.locator("body")).not.toContainText("Synthetic recorded medication");
   await expect(preview.locator("body")).toContainText("10/01/2026");
   await expect(preview.locator("body")).toContainText('Synthetic facility <img src=x onerror="alert(1)">');
   await expect(preview.locator("body")).toContainText("Received; signatures still need review.");

@@ -1628,7 +1628,7 @@ function assessmentSchemaResults() {
         new Set(assessmentSchema.assessmentToolFieldDefinitions.map((definition) => definition.key)).size === assessmentSchema.assessmentToolFieldDefinitions.length,
         "Every governed assessment field must be defined exactly once",
       );
-      assert(assessmentInterview.assessmentInterviewQuestions.length === 119, "Expected 119 user-facing questions after consolidating hospitalization and forensic history");
+      assert(assessmentInterview.assessmentInterviewQuestions.length === 116, "Expected 116 user-facing questions after removing repeated timelines and placement preferences");
       assert(
         new Set(assessmentInterview.assessmentInterviewQuestions.map((question) => question.field)).size === assessmentInterview.assessmentInterviewQuestions.length,
         "Every interview field must appear exactly once",
@@ -1640,7 +1640,7 @@ function assessmentSchemaResults() {
       assert(
         JSON.stringify(nonInterviewFields) === JSON.stringify([
           "resident_number", "assessor", "admit_date", "prior_hospitalizations_count", "most_recent_hospitalization",
-          "prior_5150_5250_holds", "crisis_er_utilization", "primary_diagnosis", "acuity_level", "triggers", "aggression_risk",
+          "prior_5150_5250_holds", "hospitalization_timeline", "crisis_er_utilization", "primary_diagnosis", "acuity_level", "triggers", "aggression_risk",
           "responds_to_internal_stimuli", "auditory_hallucinations", "auditory_hallucination_nature",
           "auditory_hallucination_frequency", "auditory_hallucination_triggers", "visual_hallucinations",
           "visual_hallucination_details", "visual_hallucination_recent", "olfactory_hallucinations",
@@ -1648,9 +1648,9 @@ function assessmentSchemaResults() {
           "tactile_hallucination_details", "tactile_hallucination_frequency", "gustatory_hallucinations",
           "gustatory_hallucination_details", "hallucination_coping_strategies", "hallucination_distress_impairment",
           "hallucination_functional_impact", "hallucination_treatment_history", "forensic_involvement", "forensic_involvement_details",
-          "arrest_history", "most_recent_arrest_date", "most_recent_arrest_charge", "most_recent_arrest_jail_time",
+          "forensic_timeline", "arrest_history", "most_recent_arrest_date", "most_recent_arrest_charge", "most_recent_arrest_jail_time",
           "arrest_in_last_two_years", "arrest_last_two_years_details", "total_arrests", "lai_vs_oral", "longest_sobriety_months",
-          "unable_to_assess_reasons", "source_file", "match_confidence", "assessment_notes", "extraction_date",
+          "preferred_facility_characteristics", "unable_to_assess_reasons", "source_file", "match_confidence", "assessment_notes", "extraction_date",
         ]),
         "Only the approved consolidated legacy questions, assignment, unable-response support, legacy notes, and extraction metadata may stay outside the interview",
       );
@@ -1673,9 +1673,9 @@ function assessmentSchemaResults() {
       const interviewQuestion = (field) => assessmentInterview.assessmentInterviewQuestions.find((question) => question.field === field);
       assert(
         interviewQuestion("hospitalization_history")?.control === "textarea"
-          && interviewQuestion("hospitalization_timeline")?.control === "timeline"
+          && !interviewQuestion("hospitalization_timeline")
           && interviewQuestion("forensic_history")?.control === "textarea"
-          && interviewQuestion("forensic_timeline")?.control === "timeline"
+          && !interviewQuestion("forensic_timeline")
           && !interviewQuestion("prior_hospitalizations_count")
           && !interviewQuestion("arrest_history"),
         "Consolidated history questions must replace exact legacy prompts while retaining those stored fields",
@@ -1701,9 +1701,9 @@ function assessmentSchemaResults() {
       );
       assert(
         ["prompting_level", "self_care_status"].every((field) => interviewQuestion(field)?.control === "text")
-          && ["special_diet_details", "preferred_facility_characteristics", "placement_preferences_concerns"]
+          && ["special_diet_details", "placement_preferences_concerns"]
             .every((field) => interviewQuestion(field)?.control === "textarea"),
-        "Interpretive clinical, diet, and placement narratives must not be reduced to speculative option lists",
+        "Interpretive clinical, diet, and placement narratives must remain writable without a repeated placement prompt",
       );
     }),
     run("assessment extraction maps known values and banks unknown values", () => {

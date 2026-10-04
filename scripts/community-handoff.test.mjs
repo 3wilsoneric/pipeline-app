@@ -52,11 +52,13 @@ test("email copy follows admission handoff sections without inventing example-cl
 test("editable handoff text keeps linked admission details, source provenance, and escaped content", () => {
   const summary = summaryOwner.buildMeetClientSummary(assessment, { ...referral, plannedAdmissionDate: "2026-10-01" });
   const defaults = emailOwner.renderMeetClientEmail(summary, "Synthetic sender", "preview");
-  assert.match(defaults.text, /Recorded medication/);
+  assert.match(defaults.text, /Refer to the medication list in the admission packet if attached; otherwise confirm the current list with the referring team/);
+  assert.doesNotMatch(defaults.text, /Recorded medication/);
   const message = { subject: "Arrival arrangements", body: "Hello team,\nPlease call first. <img src=x onerror=alert(1)>" };
   const email = emailOwner.renderMeetClientEmail(summary, "Synthetic sender", "preview", ["Admission packet.pdf", "Client data sheet.pdf"], message);
   assert.equal(email.subject, message.subject);
-  assert.match(email.text, /Current medications for handoff\nRecorded medication/);
+  assert.doesNotMatch(email.html, /Recorded medication/);
+  assert.match(email.text, /Refer to the medication list in the admission packet if attached; otherwise confirm the current list with the referring team/);
   for (const value of ["10/01/2026", "Admission packet.pdf", "Client data sheet.pdf", "Sender-edited handoff", "&lt;img"]) assert.ok(email.html.includes(value), value);
   const images = email.html.match(/<img\b[^>]*>/g) ?? [];
   assert.equal(images.length, 1);
@@ -65,7 +67,48 @@ test("editable handoff text keeps linked admission details, source provenance, a
   const changed = emailOwner.renderMeetClientEmail({ ...summary, admissionDate: "2026-10-02" }, "Synthetic sender", "preview", [], message);
   assert.ok(changed.html.includes("10/02/2026"));
   assert.ok(!changed.html.includes("10/01/2026"));
-  assert.match(changed.text, /Current medications for handoff\nRecorded medication/);
+  assert.match(changed.text, /Refer to the medication list in the admission packet if attached; otherwise confirm the current list with the referring team/);
+});
+
+test("editing generated handoff text keeps one medication-file reference", () => {
+  const summary = summaryOwner.buildMeetClientSummary(assessment, referral);
+  const defaults = emailOwner.renderMeetClientEmail(summary, "Synthetic sender", "preview");
+  const edited = emailOwner.renderMeetClientEmail(summary, "Synthetic sender", "preview", ["Medication list.pdf"], {
+    subject: null, body: defaults.text + "\n\nPlease call before arrival.",
+  });
+  for (const content of [edited.html, edited.text]) {
+    assert.equal((content.match(/Refer to the medication list in the admission packet if attached; otherwise confirm the current list with the referring team/g) ?? []).length, 1);
+    assert.doesNotMatch(content, /Recorded medication/);
+    assert.match(content, /Please call before arrival/);
+  }
+});
+
+test("older timelines stay in the chart and data sheet while both placement answers reach the handoff", async () => {
+  const recorded = {
+    ...assessment,
+    hospitalization_timeline: ["Spring 2025 — hospital stay — discharged"],
+    forensic_timeline: ["2024 — court appearance — resolved"],
+    current_location: "Synthetic current location",
+    programming_notes: "Synthetic routine",
+    family_involvement: "Synthetic family support",
+    discharge_planning_goals: "Synthetic goal",
+    placement_preferences_concerns: "Near family",
+    preferred_facility_characteristics: "Quiet common area",
+  };
+  const report = summaryOwner.buildAssessmentSummaryReport(recorded, referral);
+  const items = report.sections.flatMap((section) => section.items);
+  assert.equal(items.find(({ label }) => label === "Hospitalization timeline")?.value, "Spring 2025 — hospital stay — discharged");
+  assert.equal(items.find(({ label }) => label === "Forensic timeline")?.value, "2024 — court appearance — resolved");
+  assert.equal(items.find(({ label }) => label === "Preferred facility characteristics")?.value, "Quiet common area");
+  assert.equal(report.meetClient.bio.length, 5);
+  assert.match(report.meetClient.bio[4], /Near family\nQuiet common area/);
+  const email = emailOwner.renderMeetClientEmail(report.meetClient, "Synthetic sender", "preview");
+  assert.match(email.text, /Near family/);
+  assert.match(email.text, /Quiet common area/);
+  const sheet = await pdfText(await sheetOwner.renderClientDataSheet(report, referral));
+  assert.match(sheet, /Spring 2025/);
+  assert.match(sheet, /2024/);
+  assert.match(sheet, /Quiet common area/);
 });
 
 test("injection handoff preserves named dates and exposes missing details without calculating a due date", () => {
@@ -81,7 +124,7 @@ test("injection handoff preserves named dates and exposes missing details withou
   const unknown = summaryOwner.buildMeetClientSummary({ ...assessment, im_injections: null }, referral);
   assert.match(unknown.medicationNotes.find(({ label }) => label === "IM injections").value, /Not recorded; confirm/);
   const email = emailOwner.renderMeetClientEmail(summaryOwner.buildMeetClientSummary({ ...assessment, medications_at_intake: [] }, referral), "Fixture", "fixture");
-  assert.match(email.html, /Current medications not confirmed/);
+  assert.match(email.html, /Refer to the medication list in the admission packet if attached; otherwise confirm the current list with the referring team/);
 });
 
 test("safety handoff keeps history and current support distinct, preserves zero, and never assumes no violence", () => {

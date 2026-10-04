@@ -441,7 +441,9 @@ check("a documented non-conserved status populates legal questions without guess
   notConserved.data.conservatorship_type === "non_conserved"
   && notConserved.field_provenance.conservatorship_type?.at(-1)?.source_field_key === "referral.conserved"
   && conservedTypeUnknown.data.conservatorship_type === null);
-check("pre-assessment medications seed the assessment medication profile", seededAssessment.data.medications_at_intake.join("|") === "Olanzapine 10 mg|Metformin 500 mg");
+check("earlier typed intake medications do not become a current assessment medication list",
+  seededAssessment.data.medications_at_intake.length === 0
+  && !seededAssessment.field_provenance.medications_at_intake);
 check("paused autofill does not attach unused packet evidence to answers", !seededAssessment.field_provenance.mobility);
 check("referral-owned packet duplicates do not enter assessment review", !seededAssessment.field_provenance.community?.some((entry) => entry.review_status === "pending"));
 const riskAnswerGuide = narrativeGuide.getAssessmentNarrativeGuide("behavioral_history");
@@ -508,7 +510,7 @@ check("the chart includes secondary answers without relabeling the existing prim
   signedAssessmentReport.sections.some((section) => section.items.some((item) => item.label === "Primary diagnosis" && item.value === "Recorded primary condition"))
   && signedAssessmentReport.sections.some((section) => section.items.some((item) => item.label === "Secondary diagnosis" && item.value === "Recorded secondary condition\nAnother recorded condition")));
 check("assessment reports render governed option labels instead of storage tokens",
-  signedAssessmentReport.sections.some((section) => section.items.some((item) => item.label === "Prior setting type" && item.value === "Residential program"))
+  signedAssessmentReport.sections.some((section) => section.items.some((item) => item.label === "Most recent setting type" && item.value === "Residential program"))
   && signedAssessmentReport.sections.some((section) => section.items.some((item) => item.label === "Conserved status" && item.value === "TCon"))
   && !signedAssessmentReport.sections.some((section) => section.items.some((item) => item.label === "LAI vs oral")));
 check("Meet the Client is generated from structured identity, medication, and bio fields", signedAssessmentReport.meetClient.name === referral.name && signedAssessmentReport.meetClient.medications.length === 2 && signedAssessmentReport.meetClient.bio.length >= 2);
@@ -679,8 +681,8 @@ const outlookDraftControls = read("components/pipeline/OutlookHandoffControls.ts
 check("staff reviews the exact packet and verified recipients before saving the Outlook draft", assessmentChartWorkspace.includes('aria-label="Referral packet attachments"')
   && assessmentChartWorkspace.includes("email.admission_packet.files.map")
   && assessmentChartWorkspace.includes("I verified that each recipient is authorized to receive this summary and the packet files.")
-  && assessmentChartWorkspace.includes('ready={canSendHandoff(email, emailDraft, confirmed, sending) && medicationsReady}')
-  && assessmentChartWorkspace.includes('const medicationsReady = medicationReviewReady(report, referral, emailDraft)')
+  && assessmentChartWorkspace.includes('ready={canSendHandoff(email, emailDraft, confirmed, sending)}')
+  && !assessmentChartWorkspace.includes('medicationReviewReady')
   && assessmentChartWorkspace.includes('return !sending && email.ready && confirmed && Boolean(draft?.fields.to.length) && handoffDraftReady(draft)')
   && outlookDraftControls.includes('const preparationDisabled = disabled || !ready || isDemo || state.occupied')
   && outlookDraftControls.includes('disabled={preparationDisabled}')
