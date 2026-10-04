@@ -170,7 +170,7 @@ test.describe("interview layout", () => {
         await route.continue();
       });
       const answer = "Synthetic location prepared before the interview.";
-      await page.getByRole("textbox", { name: "Current location", exact: true }).fill(answer);
+      await page.getByRole("textbox", { name: "Where the client is now", exact: true }).fill(answer);
       await begin.click({ timeout: 2_000 });
       const dialog = page.getByRole("dialog", { name: "Begin interview", exact: true });
       await expect(dialog).toBeVisible({ timeout: 1_000 });
@@ -178,7 +178,7 @@ test.describe("interview layout", () => {
       expect((await read()).started_at).toBeNull();
       await dialog.getByRole("button", { name: "Keep preparing", exact: true }).click();
       await expect(dialog).toHaveCount(0);
-      await expect(page.getByRole("textbox", { name: "Current location", exact: true })).toHaveValue(answer);
+      await expect(page.getByRole("textbox", { name: "Where the client is now", exact: true })).toHaveValue(answer);
       releaseSave();
       await expect.poll(async () => (await read()).current_location).toBe(answer);
       await page.unroute(`**/api/assessments/${assessment.assessment_id}`);

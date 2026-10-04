@@ -56,7 +56,7 @@ test.describe("uninterrupted workflow", () => {
       const editor = page.locator("[data-assessment-view]");
       await expect(editor).toBeVisible();
       await editor.getByRole("combobox", { name: "Assessment section", exact: true }).selectOption("prior_history");
-      const answer = editor.getByRole("textbox", { name: "Prior placements", exact: true });
+      const answer = editor.getByRole("textbox", { name: "Earlier care placements", exact: true });
       let rejectWrites = true;
       let syncCommitted = () => {};
       const committed = new Promise<void>(resolve => { syncCommitted = resolve; });

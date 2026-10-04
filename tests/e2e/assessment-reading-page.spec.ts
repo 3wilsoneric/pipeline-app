@@ -24,7 +24,7 @@ for (const width of [1440, 1024, 834, 640, 390, 320]) {
       else if (width < 960) await reference.getByRole("button", { name: "Current information", exact: true }).click();
     };
     await openReference();
-    const recorded = reference.getByRole("button", { name: `${phone ? "Review" : "Edit"} Prior placements`, exact: true });
+    const recorded = reference.getByRole("button", { name: `${phone ? "Review" : "Edit"} Earlier care placements`, exact: true });
     const text = recorded.getByText(note, { exact: true });
     await expect(text).toBeVisible();
     await expect(text).toHaveCSS("font-size", "19px");
@@ -37,7 +37,7 @@ for (const width of [1440, 1024, 834, 640, 390, 320]) {
     await page.screenshot({ path: info.outputPath(`reading-page-${width}.png`), animations: "disabled" });
 
     await recorded.click();
-    const editor = page.getByRole("textbox", { name: "Prior placements", exact: true });
+    const editor = page.getByRole("textbox", { name: "Earlier care placements", exact: true });
     if (phone) {
       // Phone navigation focuses the question heading without opening the keyboard.
       await expect(page.locator('[data-phone-question-scroll] [tabindex="-1"]')).toBeFocused();
@@ -63,11 +63,11 @@ test("iPad reading page supports touch editing and leaves section navigation int
     const reference = page.getByRole("complementary", { name: "Current information", exact: true });
     // The tablet shows a compact reference summary; open it before reading answers.
     await reference.getByRole("button", { name: /^Current information/ }).tap();
-    const recorded = reference.getByRole("button", { name: "Edit Prior placements", exact: true });
+    const recorded = reference.getByRole("button", { name: "Edit Earlier care placements", exact: true });
     await expect(recorded).toBeVisible();
     await page.screenshot({ path: info.outputPath("reading-page-ipad.png"), animations: "disabled" });
     await recorded.tap();
-    await expect(page.getByRole("textbox", { name: "Prior placements", exact: true })).toBeFocused();
+    await expect(page.getByRole("textbox", { name: "Earlier care placements", exact: true })).toBeFocused();
     await page.getByRole("combobox", { name: "Assessment section", exact: true }).selectOption("medication");
     await expect(reference).not.toContainText("facility discharge note");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

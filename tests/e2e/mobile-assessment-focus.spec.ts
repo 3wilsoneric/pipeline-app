@@ -34,23 +34,23 @@ for (const [width, height] of [[320, 650], [390, 844], [437, 536]]) {
     await expect(page.getByRole("button", { name: "Workspace files", exact: true })).not.toBeVisible();
     expect((await page.getByTestId("workspace-folder-header").boundingBox())!.height).toBeLessThanOrEqual(64);
     expect((await pocket.locator("[data-working-field]").boundingBox())!.y).toBeLessThan(235);
-    await expect(pocket.getByRole("button", { name: "Next", exact: true })).toBeInViewport();
+    await expect(pocket.getByRole("button", { name: "Next section", exact: true })).toBeInViewport();
     await page.screenshot({ path: info.outputPath(`mobile-focus-${width}.png`), animations: "disabled" });
 
     const answer = pocket.getByRole("textbox", { name: "Prior AWOL / failed placements", exact: true });
     await answer.fill("Synthetic interview answer retained through navigation.");
-    await pocket.getByRole("button", { name: "Next", exact: true }).click();
+    await pocket.getByRole("button", { name: "Next section", exact: true }).click();
     await expect.poll(async () => (await read()).prior_awol_failed_placements).toBe("Synthetic interview answer retained through navigation.");
     await pocket.getByRole("button", { name: "Previous question", exact: true }).click();
-    await expect(answer).toHaveValue("Synthetic interview answer retained through navigation.");
+    await expect(pocket.getByRole("textbox", { name: "Hospitalization history", exact: true })).toBeVisible();
     await pocket.getByRole("button", { name: "Client info", exact: true }).click();
     const reference = page.getByRole("dialog", { name: "Client information", exact: true });
-    await expect(reference).toContainText("Synthetic placement notes for reference.");
+    await expect(reference).toContainText("Synthetic history.");
     await reference.getByRole("searchbox", { name: "Find recorded information" }).fill("interview answer");
     await expect(reference.getByRole("button", { name: "Review Prior AWOL / failed placements", exact: true })).toBeVisible();
-    await expect(reference.getByRole("button", { name: "Review Prior placements", exact: true })).toHaveCount(0);
-    await reference.getByRole("button", { name: "Close information panel", exact: true }).click();
-    await expect(pocket.getByRole("button", { name: "Client info", exact: true })).toBeFocused();
+    await expect(reference.getByRole("button", { name: "Review Earlier care placements", exact: true })).toHaveCount(0);
+    await reference.getByRole("button", { name: "Review Prior AWOL / failed placements", exact: true }).click();
+    await expect(answer).toHaveValue("Synthetic interview answer retained through navigation.");
 
     await view.selectOption("files");
     await expect(view).toHaveValue("files");
@@ -117,7 +117,7 @@ test("phone keyboard viewport keeps the question and next control reachable", as
   });
   await expect(page.locator("[data-mobile-keyboard]").filter({ has: page.locator("[data-phone-header]") })).toHaveAttribute("data-mobile-keyboard", "true");
   await expect(page.locator("[data-phone-header]")).not.toBeVisible();
-  const next = (await page.locator("[data-phone-interview]").getByRole("button", { name: "Next", exact: true }).boundingBox())!;
+  const next = (await page.locator("[data-phone-interview]").getByRole("button", { name: "Next section", exact: true }).boundingBox())!;
   expect(next.y + next.height).toBeLessThanOrEqual(430);
   expect((await page.locator("[data-phone-question-scroll]").boundingBox())!.height).toBeGreaterThan(100);
   await page.screenshot({ path: info.outputPath("assessment-keyboard-open.png"), animations: "disabled" });
@@ -130,9 +130,12 @@ test("phone retains offline answers and syncs when reconnected", async ({ page }
   const answer = pocket.getByRole("textbox", { name: "Prior AWOL / failed placements", exact: true });
   await page.context().setOffline(true);
   await answer.fill("Synthetic offline mobile answer.");
-  await pocket.getByRole("button", { name: "Next", exact: true }).click();
+  await pocket.getByRole("button", { name: "Next section", exact: true }).click();
   await expect(page.locator('[data-guide-target="assessment-save-status"]')).toContainText(/offline|device|queued/i);
   await pocket.getByRole("button", { name: "Previous question", exact: true }).click();
+  await expect(pocket.getByRole("textbox", { name: "Hospitalization history", exact: true })).toBeVisible();
+  await pocket.getByRole("button", { name: "Client info", exact: true }).click();
+  await page.getByRole("dialog", { name: "Client information", exact: true }).getByRole("button", { name: "Review Prior AWOL / failed placements", exact: true }).click();
   await expect(answer).toHaveValue("Synthetic offline mobile answer.");
   await page.context().setOffline(false);
   await expect.poll(async () => (await read()).prior_awol_failed_placements, { timeout: 15_000 }).toBe("Synthetic offline mobile answer.");
@@ -155,7 +158,7 @@ test("iPhone WebKit supports portrait, landscape and iPad without replacing answ
     await expect(page.getByRole("region", { name: "Assessment progress", exact: true })).not.toBeVisible();
     expect((await page.locator("[data-phone-question-scroll]").boundingBox())!.height).toBeGreaterThanOrEqual(120);
     await page.screenshot({ path: info.outputPath("mobile-landscape.png") });
-    await expect(page.locator("[data-phone-interview]").getByRole("button", { name: "Next", exact: true })).toBeInViewport();
+    await expect(page.locator("[data-phone-interview]").getByRole("button", { name: "Next section", exact: true })).toBeInViewport();
     await page.setViewportSize({ width: 834, height: 1194 });
     await expect(page.getByRole("complementary", { name: "Current information", exact: true })).toBeVisible();
     await expect(page.getByRole("combobox", { name: "Workspace view", exact: true })).not.toBeVisible();

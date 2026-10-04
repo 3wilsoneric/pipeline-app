@@ -84,8 +84,8 @@ test("accepting first leaves the unsigned assessment editable and signable", asy
     expect((await read()).signed_at).toBeNull();
     await assessmentTab.click();
     const answer = "Synthetic answer finished after acceptance.";
-    await page.getByRole("textbox", { name: "Current location", exact: true }).fill(answer);
-    await page.getByRole("textbox", { name: "Current location", exact: true }).blur();
+    await page.getByRole("textbox", { name: "Where the client is now", exact: true }).fill(answer);
+    await page.getByRole("textbox", { name: "Where the client is now", exact: true }).blur();
     await expect.poll(async () => (await read()).current_location).toBe(answer);
     await page.getByRole("button", { name: "Begin interview", exact: true }).click();
     await page.getByRole("dialog", { name: "Begin interview", exact: true }).getByRole("button", { name: "Begin interview", exact: true }).click();

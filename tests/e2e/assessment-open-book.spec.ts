@@ -132,7 +132,7 @@ for (const width of [1440, 1024, 768, 640]) {
     expect(await book.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
     await chooseSection(page, "prior_history");
     if (width < 960) await reference.getByRole("button", { name: /^Current information/ }).click();
-    await expect(reference.getByRole("button", { name: "Edit Prior placements", exact: true })).toBeVisible();
+    await expect(reference.getByRole("button", { name: "Edit Earlier care placements", exact: true })).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath(`open-book-${width}.png`), animations: "disabled" });
     await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
     const violations = await page.evaluate(async () => {
@@ -163,7 +163,7 @@ test("reading pane and questions share page scrolling and section changes return
   expect(await questions.evaluate((el) => el.scrollTop)).toBe(0);
   await chooseSection(page, "prior_history");
   await expect.poll(() => canvas.evaluate((el) => el.scrollTop)).toBe(0);
-  await expect(reference.getByRole("button", { name: "Edit Prior placements", exact: true })).toBeVisible();
+  await expect(reference.getByRole("button", { name: "Edit Earlier care placements", exact: true })).toBeVisible();
   await chooseSection(page, "medication");
   await expect.poll(() => questions.evaluate((el) => el.scrollTop)).toBe(0);
   await expect(reference).not.toContainText(original!);

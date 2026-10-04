@@ -209,7 +209,7 @@ test("queued answers stay visible across chart review and sync after recovery", 
   await expect(page.locator('[data-guide-target="assessment-save-status"]')).not.toHaveText("All changes saved");
   expect((await (await page.request.get(`/api/assessments/${id}`)).json()).assessment.current_location).not.toBe("Unsaved but retained referral notes");
   await returnToAssessmentQuestions(page);
-  await editPreparedAnswer(page, "Current location");
+  await editPreparedAnswer(page, "Where the client is now");
   await expect(page.locator('#assessment-current_location')).toHaveValue("Unsaved but retained referral notes");
   await page.unroute(endpoint);
   await page.evaluate(() => window.dispatchEvent(new Event("online")));

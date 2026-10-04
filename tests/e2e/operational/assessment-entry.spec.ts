@@ -154,7 +154,7 @@ test.describe("assessment editing entry and return paths", () => {
       await page.goto(`${workspacePath(referral.id)}&workspaceStage=assessment&assessmentSection=prior_history`);
       const full = page.locator("[data-assessment-view]");
       await expect(full).toBeVisible();
-      const placements = full.getByRole("textbox", { name: "Prior placements", exact: true });
+      const placements = full.getByRole("textbox", { name: "Earlier care placements", exact: true });
       await expect(placements).toBeEditable();
       await expect(full.getByRole("button", { name: "Add note", exact: true })).toHaveCount(0);
       const signedAnswer = "Synthetic placement correction after signing, before sending.";

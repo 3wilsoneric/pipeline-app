@@ -320,8 +320,8 @@ test.describe("workflow interaction and durable feedback", () => {
         }
         await route.continue();
       });
-      await chart.getByRole("textbox", { name: "Prior placements", exact: true }).fill(answer);
-      await chart.getByRole("textbox", { name: "Prior placements", exact: true }).blur();
+      await chart.getByRole("textbox", { name: "Earlier care placements", exact: true }).fill(answer);
+      await chart.getByRole("textbox", { name: "Earlier care placements", exact: true }).blur();
       // Hold an actual in-flight save before testing navigation during it.
       // Immediate-exit recovery has separate coverage below and cross-tab.
       await expect.poll(() => saving).toBe(true);
@@ -340,8 +340,8 @@ test.describe("workflow interaction and durable feedback", () => {
       await board.getByRole("button", { name: `Open ${referral.name}`, exact: true }).getByText(referral.name, { exact: true }).click();
       await expect(page).toHaveURL(new RegExp(`referralId=${referral.id}.*assessmentSection=prior_history`));
       await expect(chart).toBeVisible();
-      if (!redesign) await chart.getByRole("button", { name: "Edit Prior placements", exact: true }).click();
-      await expect(chart.getByRole("textbox", { name: "Prior placements", exact: true })).toHaveValue(answer);
+      if (!redesign) await chart.getByRole("button", { name: "Edit Earlier care placements", exact: true }).click();
+      await expect(chart.getByRole("textbox", { name: "Earlier care placements", exact: true })).toHaveValue(answer);
       await exit.click();
       await page.getByRole("button", { name: "Open referrals", exact: true }).click();
       await page.getByRole("searchbox", { name: "Search all workspaces", exact: true }).fill(referral.name);
@@ -373,7 +373,7 @@ test.describe("workflow interaction and durable feedback", () => {
         IDBDatabase.prototype.transaction = () => { throw new DOMException("Synthetic storage unavailable", "QuotaExceededError"); };
       });
       const answer = "Synthetic unsaved answer must remain visible.";
-      await chart.getByRole("textbox", { name: "Prior placements", exact: true }).fill(answer);
+      await chart.getByRole("textbox", { name: "Earlier care placements", exact: true }).fill(answer);
       await leaveInterviewFullScreen(page);
       await page.getByRole("button", { name: "Open referrals", exact: true }).click();
       await expect(chart).toHaveCount(0);
@@ -381,7 +381,7 @@ test.describe("workflow interaction and durable feedback", () => {
       await page.getByRole("searchbox", { name: "Search all workspaces", exact: true }).fill(referral.name);
       await page.getByRole("button", { name: new RegExp(referral.name) }).first().click();
       await expect(chart).toBeVisible();
-      await expect(chart.getByRole("textbox", { name: "Prior placements", exact: true })).toHaveValue(answer);
+      await expect(chart.getByRole("textbox", { name: "Earlier care placements", exact: true })).toHaveValue(answer);
       await page.unroute(`**/api/assessments/${assessmentId}`);
       await leaveInterviewFullScreen(page);
       await page.getByRole("button", { name: "Open referrals", exact: true }).click();

@@ -31,7 +31,7 @@ test("creating a workspace then editing preparation keeps the saved referral add
     const id = new URL(page.url()).searchParams.get("referralId");
     await returnToAssessmentQuestions(page);
     await page.getByRole("button", { name: "Prepare assessment", exact: true }).click();
-    const answer = page.getByRole("textbox", { name: "Current location", exact: true });
+    const answer = page.getByRole("textbox", { name: "Where the client is now", exact: true });
     await answer.fill("Synthetic preparation immediately after creation");
     await openAssessmentChart(page);
     expect(new URL(page.url()).searchParams.get("referralId")).toBe(id);
@@ -76,7 +76,7 @@ test("existing topic notes become one editable note without losing their saved o
     await panel.getByRole("button", { name: "Close notes" }).click();
     await returnToAssessmentQuestions(page);
     await openAllQuestions(page);
-    const answer = page.getByRole("textbox", { name: "Current location", exact: true });
+    const answer = page.getByRole("textbox", { name: "Where the client is now", exact: true });
     await answer.fill("Synthetic assessment answer beside many notes");
     await openAssessmentChart(page);
     await returnToAssessmentQuestions(page);
@@ -218,7 +218,7 @@ test("another person's note conflict preserves local typing and allows Chart nav
     await page.keyboard.press("Escape");
     await returnToAssessmentQuestions(page);
     await openAllQuestions(page);
-    await page.getByRole("textbox", { name: "Current location", exact: true }).fill("Synthetic work continues during note conflict");
+    await page.getByRole("textbox", { name: "Where the client is now", exact: true }).fill("Synthetic work continues during note conflict");
     await openAssessmentChart(page);
     await toggle.click();
     await expect(await openNote(panel, "notes")).toHaveValue("Synthetic local draft must remain visible");
