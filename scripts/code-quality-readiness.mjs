@@ -88,8 +88,9 @@ function parseWorktrees() {
       records.push(current);
     } else if (current && line.startsWith("HEAD ")) current.head = line.slice(5);
     else if (current && line.startsWith("branch refs/heads/")) current.branch = line.slice(18);
+    else if (current && line.startsWith("prunable ")) current.prunable = true;
   }
-  return records.map((record) => {
+  return records.filter((record) => !record.prunable).map((record) => {
     let divergence = ["0", "0"];
     if (record.branch !== "detached") {
       try { divergence = git(["rev-list", "--left-right", "--count", `main...${record.branch}`]).split(/\s+/u); } catch { divergence = ["0", "0"]; }
