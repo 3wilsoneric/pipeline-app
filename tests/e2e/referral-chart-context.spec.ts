@@ -6,7 +6,7 @@ import { unifiedProfileFixture } from "./support/pipeline-clinical-fixtures";
 // The internal resident number stays out of the chart; see chart-field-editing.
 const residentFields = ["Unit", "Admission date", "Length of stay", "Care level"];
 
-test("intake referrer details appear on the chart and seed the assessment", async ({ page }) => {
+test("intake referrer details seed the assessment without copying earlier medication history", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 800 });
   const created = await createOperationalReferral(page.request, "assessmentCoordinator", {
     name: `Referrer Handoff ${randomUUID()}`,
@@ -30,7 +30,8 @@ test("intake referrer details appear on the chart and seed the assessment", asyn
   expect(saved.referrer_name).toBe("County coordinator");
   expect(saved.referrer_contact).toBe("555-0101 · coordinator@example.org");
   expect(saved.referring_facility).toBeNull();
-  expect(saved.medications_at_intake).toEqual(["Olanzapine 10 mg", "Metformin 500 mg"]);
+  expect(saved.medications_at_intake).toEqual([]);
+  expect(saved.field_provenance.medications_at_intake).toBeUndefined();
   expect(saved.conservatorship_type).toBe("non_conserved");
   expect(saved.field_provenance.conservatorship_type.at(-1).source_field_key).toBe("referral.conserved");
 });

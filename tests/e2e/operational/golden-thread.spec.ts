@@ -145,10 +145,11 @@ test.describe("role-separated referral golden thread", () => {
       const seededAssessmentResponse = await assessor.get(`/api/assessments/${assessment.assessment_id}`);
       expect(seededAssessmentResponse.status()).toBe(200);
       const seededAssessment = asRecord(asRecord(await seededAssessmentResponse.json()).assessment);
-      expect(seededAssessment.medications_at_intake).toEqual([
-        "Lithium 300 mg twice daily",
-        "Risperidone 2 mg nightly",
-      ]);
+      const savedReferralResponse = await assessor.get(`/api/referrals/${referral.id}`);
+      expect(savedReferralResponse.status()).toBe(200);
+      expect(asRecord(asRecord(await savedReferralResponse.json()).referral).currentMedications).toBe("Lithium 300 mg twice daily; Risperidone 2 mg nightly");
+      expect(seededAssessment.medications_at_intake).toEqual([]);
+      expect(asRecord(seededAssessment.field_provenance).medications_at_intake).toBeUndefined();
 
       assessment = await scheduleOperationalAssessment(assessor, assessment);
       const scheduledCalendarResponse = await assessor.get(calendarPath);

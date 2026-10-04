@@ -242,7 +242,7 @@ test("drop previews the populated chart, cancel is neutral, and commit replaces 
   const dialog = page.locator('dialog[aria-describedby="excel-preview-description"]');
   const preview = dialog.getByRole("region", { name: "Populated assessment preview" });
   const awol = dialog.getByLabel("Use workbook answer for Prior AWOL / failed placements", { exact: true });
-  const clearing = dialog.getByLabel("Use workbook answer for Prior placements", { exact: true });
+  const clearing = dialog.getByLabel("Use workbook answer for Earlier care placements", { exact: true });
   await page.locator("[data-excel-strip]").dispatchEvent("drop", { dataTransfer: transfer });
   await expect(dialog.getByRole("heading", { name: "3 proposed changes" })).toBeVisible();
   await expect(preview).toContainText("Referral received from the community care team.");

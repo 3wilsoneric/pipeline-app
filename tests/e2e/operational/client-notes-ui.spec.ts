@@ -66,7 +66,7 @@ test("client notes stay together, save while typing, and fit beside the question
   await picker.selectOption("identity");
   await expect(split.locator("[data-split-topic]")).toHaveCount(1);
   await expect(split.locator('[data-split-topic="identity"]')).toBeVisible();
-  await page.getByRole("textbox", { name: "Current location" }).fill("Board and care in Turlock");
+  await page.getByRole("textbox", { name: "Where the client is now" }).fill("Board and care in Turlock");
   await page.keyboard.press("Tab");
   await expect(split.locator('[data-split-topic="identity"]')).toContainText("Board and care in Turlock");
   // Interview layout (docs/design/DECISIONS.md, "Interview layout"): the record rail is tucked away; the

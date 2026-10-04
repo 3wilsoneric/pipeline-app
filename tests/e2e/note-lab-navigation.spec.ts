@@ -22,9 +22,9 @@ test("the former language route resolves to the combined question workflow", asy
 
   await rail.getByRole("button", { name: /^History\b/ }).click();
   await expect(rail.getByRole("button", { name: /^History\b/ })).toHaveAttribute("aria-current", "step");
-  const priorPlacementGuide = page.locator("details").filter({ has: page.getByLabel("Answer help for Prior placements") });
+  const priorPlacementGuide = page.locator("details").filter({ has: page.getByLabel("Answer help for Earlier care placements") });
   await expect(priorPlacementGuide).not.toHaveAttribute("open", "");
-  await page.getByLabel("Answer help for Prior placements").click();
+  await page.getByLabel("Answer help for Earlier care placements").click();
   await expect(priorPlacementGuide).toHaveAttribute("open", "");
   await expect(priorPlacementGuide.getByText("Use this order", { exact: true })).toBeVisible();
   await expect(priorPlacementGuide.getByText("Example", { exact: true })).toBeVisible();
@@ -33,7 +33,7 @@ test("the former language route resolves to the combined question workflow", asy
   await expect(page.getByText("How to answer", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Note structure", { exact: true })).toHaveCount(0);
 
-  await page.getByLabel("Answer help for Prior placements").click();
+  await page.getByLabel("Answer help for Earlier care placements").click();
   await expect(priorPlacementGuide).not.toHaveAttribute("open", "");
   const priorAwolGuide = page.locator("details").filter({ has: page.getByLabel("Answer help for Prior AWOL / failed placements") });
   await expect(priorAwolGuide).not.toHaveAttribute("open", "");

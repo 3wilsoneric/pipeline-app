@@ -197,7 +197,7 @@ test("an assessment chart pencil resumes its exact answer and saves it back to t
   await expect(record).not.toContainText("SYN-INTERNAL-71");
   await expect(record.locator('[data-chart-fact="Longest sobriety in the last five years"]')).toContainText("12");
   await expect(record.getByRole("button", { name: "Edit Longest sobriety in the last five years", exact: true })).toHaveCount(0);
-  const edit = record.getByRole("button", { name: "Edit Prior placements", exact: true });
+  const edit = record.getByRole("button", { name: "Edit Earlier care placements", exact: true });
   await expect(edit.locator("svg")).toBeVisible();
   await edit.click();
   await expect(answer).toBeFocused();

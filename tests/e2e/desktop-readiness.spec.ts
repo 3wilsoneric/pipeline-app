@@ -473,8 +473,10 @@ test.describe("desktop feature enabled", () => {
     const assessmentWorkspace = page.locator('[data-assessment-view="assessment"]');
     await expect(assessmentWorkspace).toBeVisible({ timeout: 15_000 });
     await expect(page.getByRole("dialog", { name: "Begin assessment" })).toHaveCount(0);
-    const location = page.getByRole("textbox", { name: "Current location", exact: true });
+    const location = page.getByRole("textbox", { name: "Where the client is now", exact: true });
     await expect(location).toBeVisible();
+    await page.evaluate(async () => navigator.serviceWorker.ready);
+    await expect.poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller))).toBeTruthy();
 
     const offlineValue = `Offline location ${token}`;
     await context.setOffline(true);
@@ -571,7 +573,7 @@ test.describe("desktop feature enabled", () => {
     try {
       await page.reload({ waitUntil: "domcontentloaded" });
       await expect(page.getByRole("heading", { name: new RegExp(`^${clientName} assessment$`, "i") })).toBeVisible();
-      await expect(page.getByRole("textbox", { name: "Current location *", exact: true })).toHaveValue(localCollisionValue);
+      await expect(page.getByRole("textbox", { name: "Where the client is now *", exact: true })).toHaveValue(localCollisionValue);
       const duration = page.getByRole("textbox", { name: "Time at current location" });
       await duration.fill(coldStartValue);
       await expect(page.getByText("Saved on this device · reconnect, then choose Return to Pipeline and sync", { exact: true })).toBeVisible();

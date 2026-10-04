@@ -65,7 +65,7 @@ for (const width of [1440, 834, 390]) {
     await expect(record).toContainText("Synthetic assessed diagnosis");
     await expect(record).toContainText(narrative);
     const body = await record.innerText();
-    const fact = record.locator('[data-chart-fact="Prior placements"]');
+    const fact = record.locator('[data-chart-fact="Earlier care placements"]');
     const style = await readingStyle(fact);
     expect(style.answer).toBe("16px");
     expect(style.label).toBe("13px");
@@ -82,9 +82,9 @@ for (const width of [1440, 834, 390]) {
     await expect(workspaceRecord).toContainText("Synthetic assessed diagnosis");
     await expect(workspaceRecord).toHaveCount(1);
     expect(await workspaceRecord.innerText()).toBe(body);
-    expect(await readingStyle(workspaceRecord.locator('[data-chart-fact="Prior placements"]'))).toEqual(style);
+    expect(await readingStyle(workspaceRecord.locator('[data-chart-fact="Earlier care placements"]'))).toEqual(style);
     await expect(workspace.getByText("Signed assessment record", { exact: true })).toHaveCount(0);
-    await workspaceRecord.locator('[data-chart-fact="Prior placements"]').scrollIntoViewIfNeeded();
+    await workspaceRecord.locator('[data-chart-fact="Earlier care placements"]').scrollIntoViewIfNeeded();
     expect(await workspace.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: info.outputPath(`workspace-chart-${width}.png`) });
@@ -150,7 +150,7 @@ test("recovered edits to signed answers are not presented as signed clinical inf
   expect(updated.status()).toBe(200);
   await signOperationalAssessment(page.request, (await updated.json()).assessment);
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=prior_history`);
-  await page.getByRole("button", { name: "Edit Prior placements", exact: true }).click();
+  await page.getByRole("button", { name: "Edit Earlier care placements", exact: true }).click();
   await page.route(`**/api/assessments/${created.assessment_id}`, (route) => route.request().method() === "PATCH"
     ? route.fulfill({ status: 503, json: { error: "Synthetic save unavailable" } }) : route.continue());
   await page.locator("#assessment-prior_placements").fill(narrative);

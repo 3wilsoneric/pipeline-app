@@ -96,9 +96,9 @@ test.describe("Assessment practice lab", () => {
 
     const sectionRail = page.getByRole("complementary", { name: "Assessment section navigation" });
     await sectionRail.getByRole("button", { name: /^History\b/ }).click();
-    const guidance = page.locator("details").filter({ has: page.getByLabel("Answer help for Prior placements") });
+    const guidance = page.locator("details").filter({ has: page.getByLabel("Answer help for Earlier care placements") });
     await expect(guidance).not.toHaveAttribute("open", "");
-    await page.getByLabel("Answer help for Prior placements").click();
+    await page.getByLabel("Answer help for Earlier care placements").click();
     await expect(guidance).toHaveAttribute("open", "");
     await expect(guidance.getByText(/Explain where the client lived, how long, why each setting ended/)).toBeVisible();
     await expect(guidance.getByText(/Board-and-care; approximately 8 months/)).toBeVisible();
@@ -170,8 +170,8 @@ test.describe("Assessment practice lab", () => {
     await expect(page.getByLabel("Resident name *", { exact: true })).toHaveValue("Jordan Practice");
     await expect(page.getByRole("button", { name: /Open guide for/ })).toHaveCount(0);
     await page.getByLabel("Assessment section", { exact: true }).selectOption("prior_history");
-    const guidance = page.locator("details").filter({ has: page.getByLabel("Answer help for Prior placements") });
-    await page.getByLabel("Answer help for Prior placements").click();
+    const guidance = page.locator("details").filter({ has: page.getByLabel("Answer help for Earlier care placements") });
+    await page.getByLabel("Answer help for Earlier care placements").click();
     await expect(guidance).toHaveAttribute("open", "");
     await expect(guidance.getByText("Example", { exact: true })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
