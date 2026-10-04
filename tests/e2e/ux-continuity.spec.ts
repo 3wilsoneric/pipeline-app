@@ -30,7 +30,7 @@ for (const width of [1440, 834, 390]) {
     await searched;
     const sort = cabinet.getByRole("combobox", { name: "Sort clients", exact: true });
     await sort.selectOption("recent_admission");
-    const row = cabinet.getByRole("button", { name: "Open profile for Avery P", exact: true });
+    const row = cabinet.getByRole("button", { name: "Open profile for Avery Example P", exact: true });
     await row.scrollIntoViewIfNeeded();
     const scroll = () => row.evaluate((element) => {
       let parent = element.parentElement;
@@ -82,7 +82,7 @@ test("the folder-to-chart animation still completes with the retained directory 
     };
   });
   // Stacked folders expose their name tabs; the next folder covers the preview's center.
-  await page.getByRole("button", { name: "Open profile for Avery A", exact: true }).getByText("Avery A", { exact: true }).click();
+  await page.getByRole("button", { name: "Open profile for Avery Example A", exact: true }).getByText("Avery Example A", { exact: true }).click();
   await expect(page.getByTestId("client-profile-folder")).toBeVisible();
   await page.evaluate(async () => {
     const ready = (window as unknown as { continuityTransition: Promise<void> }).continuityTransition;

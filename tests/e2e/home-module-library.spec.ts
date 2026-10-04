@@ -125,10 +125,11 @@ test("keeps optional Home modules below the focus deck on a warm responsive canv
   await expect(page.getByRole("region", { name: "Current work", exact: true })).toBeVisible();
 
   await expect(page.locator('[data-home-surface="true"]')).toHaveCount(6);
-  await expect(page.locator('[data-home-module="current-work"]')).toHaveCSS("border-top-width", "1px");
+  const redesigned = await page.locator("html").getAttribute("data-design") === "v2";
+  await expect(page.locator('[data-home-module="current-work"]')).toHaveCSS("border-top-width", redesigned ? "0px" : "1px");
   await expect(page.getByTestId("home-focus-deck").locator("[inert][aria-hidden=true]")).toHaveCount(2);
   await expect(page.getByTestId("home-module-grid").locator("[data-home-module]")).toHaveCount(3);
-  await expect(page.locator('[data-guide-target="home-workspace"]')).toHaveCSS("background-color", "rgb(238, 238, 231)");
+  await expect(page.locator('[data-guide-target="home-workspace"]')).toHaveCSS("background-color", redesigned ? "rgb(244, 245, 247)" : "rgb(238, 238, 231)");
   await page.screenshot({ path: testInfo.outputPath("home-surfaces-desktop.png"), animations: "disabled", fullPage: true });
 
   await page.setViewportSize({ width: 390, height: 844 });

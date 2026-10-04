@@ -66,7 +66,7 @@ for (const mode of ["local_file", "postgres"]) {
         }, `trace-referral-${key}`, starter)).referral);
       }
       const [first, second] = created;
-      assert.equal((await referrals.getReferral(first.id)).name, "Pending Review", "the stored source value is not rewritten");
+      assert.equal((await referrals.getReferral(first.id)).name, "Pending Packet Review", "the stored source value retains all words");
       assert.notEqual(first.id, second.id);
       assert.equal(formatClientIdentityTitle(first), "Name not recorded");
       assert.equal(formatClientIdentityTitle(second), "Name not recorded");

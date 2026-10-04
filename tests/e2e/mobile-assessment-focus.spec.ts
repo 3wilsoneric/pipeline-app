@@ -115,7 +115,7 @@ test("phone keyboard viewport keeps the question and next control reachable", as
     Object.defineProperty(window.visualViewport!, "height", { configurable: true, value: 430 });
     window.visualViewport!.dispatchEvent(new Event("resize"));
   });
-  await expect(page.locator("[data-mobile-keyboard]")).toHaveAttribute("data-mobile-keyboard", "true");
+  await expect(page.locator("[data-mobile-keyboard]").filter({ has: page.locator("[data-phone-header]") })).toHaveAttribute("data-mobile-keyboard", "true");
   await expect(page.locator("[data-phone-header]")).not.toBeVisible();
   const next = (await page.locator("[data-phone-interview]").getByRole("button", { name: "Next", exact: true }).boundingBox())!;
   expect(next.y + next.height).toBeLessThanOrEqual(430);

@@ -1,0 +1,11 @@
+{
+  "name": "next-eslint-glob",
+  "version": "1.0.0",
+  "private": true,
+  "license": "MIT",
+  "main": "index.cjs",
+  "files": ["index.cjs"],
+  "dependencies": {
+    "tinyglobby": "0.2.15"
+  }
+}

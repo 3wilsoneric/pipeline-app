@@ -309,6 +309,9 @@ test.describe("workflow interaction and durable feedback", () => {
       await expect(chart).toBeVisible();
       const exit = page.getByRole("button", { name: "Open referrals", exact: true });
       const answer = "Synthetic final answer, entered immediately before closing.";
+      // Filling an inert textarea can succeed without delivering input events.
+      // Wait for initial workspace restoration, not for the save under test.
+      await expect(page.getByTestId("packet-workspace")).toHaveAttribute("aria-busy", "false");
       let saving = false;
       await page.route(`**/api/assessments/${assessmentId}`, async (route) => {
         if (route.request().method() === "PATCH") {
@@ -318,8 +321,11 @@ test.describe("workflow interaction and durable feedback", () => {
         await route.continue();
       });
       await chart.getByRole("textbox", { name: "Prior placements", exact: true }).fill(answer);
-      await exit.click();
+      await chart.getByRole("textbox", { name: "Prior placements", exact: true }).blur();
+      // Hold an actual in-flight save before testing navigation during it.
+      // Immediate-exit recovery has separate coverage below and cross-tab.
       await expect.poll(() => saving).toBe(true);
+      await exit.click();
       // A durable recovery copy releases navigation before the canonical write completes.
       await expect(chart).toHaveCount(0);
       const recovery = await api.get(`/api/me/assessment-drafts/${assessmentId}`);

@@ -13,6 +13,7 @@ import {
 } from "@/lib/assessment/assessment-tool-schema";
 import type { PipelineAssessmentDraft } from "@/lib/pipeline/user-workspace-state-types";
 import type { ClientNoteDraft } from "@/lib/pipeline/client-notes";
+import type { StaffProfileDraft } from "@/lib/pipeline/staff-profile";
 
 const databaseName = "pipeline-offline-v1";
 const databaseVersion = 2;
@@ -77,7 +78,7 @@ type StoredKey = { id: string; key: CryptoKey; createdAt: number };
 type StoredRecord = EncryptedPayload & {
   id: string;
   principal: string;
-  kind: "assessment-draft" | "assessment-working-set" | "referral-draft" | "client-notes-draft";
+  kind: "assessment-draft" | "assessment-working-set" | "referral-draft" | "client-notes-draft" | "staff-profile-draft";
   sessionId?: string;
   updatedAt: number;
   expiresAt: number;
@@ -591,6 +592,43 @@ function decryptBytes(key: CryptoKey, principal: string, record: string, value: 
 
 async function decryptPayload<T>(key: CryptoKey, principal: string, record: string, value: EncryptedPayload) {
   return JSON.parse(new TextDecoder().decode(await decryptBytes(key, principal, record, value))) as T;
+}
+
+// Profile edits use the same account/tab ownership, encryption and expiry as
+// clinical drafts. Never adopt or remove a different tab's active copy.
+export async function saveOfflineStaffProfile(principalId: string, draft: StaffProfileDraft | null, recoveredId?: string) {
+  const database = await openDatabase();
+  try {
+    const principal = await hashValue(principalId);
+    const key = await getOrCreateKey(database, principal);
+    const sessionId = await currentOfflineRecoverySessionId();
+    const id = await recordId(principal, "staff-profile-draft", sessionId);
+    const encrypted = draft ? await encryptPayload(key, principal, id, draft) : null;
+    const transaction = database.transaction(recordsStore, "readwrite");
+    const store = transaction.objectStore(recordsStore);
+    if (encrypted) store.put({ id, principal, kind: "staff-profile-draft", sessionId,
+      updatedAt: Date.now(), expiresAt: Date.now() + expiryMs, ...encrypted } satisfies StoredRecord);
+    else store.delete(id);
+    if (recoveredId && recoveredId !== id) store.delete(recoveredId);
+    await transactionDone(transaction);
+  } finally { database.close(); }
+}
+
+export async function loadOfflineStaffProfile(principalId: string) {
+  const database = await openDatabase();
+  try {
+    const principal = await hashValue(principalId);
+    const key = await getOrCreateKey(database, principal);
+    const sessionId = await currentOfflineRecoverySessionId();
+    const records = (await recordsForPrincipal<StoredRecord>(database, recordsStore, principal))
+      .filter((record) => record.kind === "staff-profile-draft" && record.expiresAt > Date.now())
+      .sort((a, b) => Number(b.sessionId === sessionId) - Number(a.sessionId === sessionId) || b.updatedAt - a.updatedAt);
+    for (const record of records) {
+      if (await isActiveOtherRecoverySession(record.sessionId)) continue;
+      return { draft: await decryptPayload<StaffProfileDraft>(key, principal, record.id, record), recoveredId: record.id };
+    }
+    return null;
+  } finally { database.close(); }
 }
 
 // Notes reuse the same encrypted, expiring, account- and tab-scoped recovery store.

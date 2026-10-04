@@ -12,6 +12,31 @@ export type StaffProfile = StaffProfilePreferences & {
   updated_at: string | null;
 };
 
+export type StaffProfileDraft = {
+  base: StaffProfile;
+  form: StaffProfilePreferences;
+  sent?: StaffProfilePreferences;
+  conflict?: boolean;
+};
+
+export function profilePreferences(profile: StaffProfilePreferences): StaffProfilePreferences {
+  return Object.fromEntries(Object.keys(fieldRules).map((key) => [key, profile[key as keyof StaffProfilePreferences]])) as StaffProfilePreferences;
+}
+
+export function reconcileProfileDraft(draft: StaffProfileDraft, latest: StaffProfile): StaffProfileDraft {
+  const form = profilePreferences(latest);
+  let conflict = Boolean(draft.conflict);
+  for (const key of Object.keys(form) as Array<keyof StaffProfilePreferences>) {
+    // Returning to the original value while a write is pending is still an
+    // edit. A lost acknowledgment must not put the submitted value back.
+    const changedAfterSend = draft.sent && draft.form[key] !== draft.sent[key];
+    if (draft.form[key] === draft.base[key] && !changedAfterSend) continue;
+    form[key] = draft.form[key];
+    if (latest[key] !== draft.base[key] && latest[key] !== draft.form[key] && latest[key] !== draft.sent?.[key]) conflict = true;
+  }
+  return { base: latest, form, conflict };
+}
+
 export const emptyStaffProfile: StaffProfile = {
   preferred_name: null,
   job_title: null,

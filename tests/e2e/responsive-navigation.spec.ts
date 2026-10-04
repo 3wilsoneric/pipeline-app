@@ -26,6 +26,7 @@ test.describe("Responsive application navigation", () => {
       for (const name of ["Open referrals", "Open calendar", "Open client profiles", "Open reports", "Create new referral"]) {
         await expect(page.getByRole("button", { name })).toBeVisible();
       }
+      const redesigned = await page.locator("html").getAttribute("data-design") === "v2";
       for (const [name, color] of [
         ["Open referrals", "rgb(12, 112, 95)"],
         ["Open calendar", "rgb(23, 107, 120)"],
@@ -33,11 +34,11 @@ test.describe("Responsive application navigation", () => {
         ["Open reports", "rgb(89, 101, 45)"],
         ["Create new referral", "rgb(169, 71, 61)"],
       ]) {
-        await expect(page.getByRole("button", { name, exact: true })).toHaveCSS("color", color);
+        await expect(page.getByRole("button", { name, exact: true })).toHaveCSS("color", redesigned ? (name === "Open referrals" || name === "Create new referral" ? "rgb(15, 110, 86)" : phone ? "rgb(53, 58, 67)" : "rgb(93, 100, 112)") : color);
       }
-      await expect(page.getByRole("button", { name: "Open referrals", exact: true })).toHaveCSS("background-color", "rgb(231, 243, 238)");
-      await expect(page.getByRole("complementary", { name: "Workspace navigation", exact: true })).toHaveCSS("border-top-left-radius", "12px");
-      await expect(page.locator('[data-guide-target="workspace-search"]')).toHaveCSS("border-top-left-radius", "5px");
+      await expect(page.getByRole("button", { name: "Open referrals", exact: true })).toHaveCSS("background-color", redesigned ? "rgb(236, 247, 242)" : "rgb(231, 243, 238)");
+      await expect(page.getByRole("complementary", { name: "Workspace navigation", exact: true })).toHaveCSS("border-top-left-radius", redesigned ? "10px" : "12px");
+      await expect(page.locator('[data-guide-target="workspace-search"]')).toHaveCSS("border-top-left-radius", redesigned ? "6px" : "5px");
       await expect(page.getByRole("button", { name: "Pipeline home" })).toBeVisible();
       await expect(page.getByRole("button", { name: /Open profile menu/ })).toBeVisible();
       await expectNoDocumentOverflow(page);

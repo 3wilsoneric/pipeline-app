@@ -5,6 +5,7 @@ FROM node:22-alpine AS dependencies
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 COPY package.json package-lock.json ./
+COPY scripts/vendor/next-eslint-glob/next-eslint-glob-1.0.0.tgz ./scripts/vendor/next-eslint-glob/
 RUN npm ci
 
 # Next.js standalone tracing follows the web entry point and therefore omits
