@@ -113,6 +113,11 @@
 .notificationCenter .phoneUpdates [role="alert"] { padding: 12px; border-left: 3px solid #ae5549; background: #fff6f3; }
 .notificationCenter .phoneUpdates [role="alert"] button { display: block; color: #125c47; font-size: 15px; text-decoration: underline; }
 .shell[data-mobile-keyboard="true"] .phoneHeader { display: none; }
+
+/* Keep the 44px targets, but give a short landscape interview its padding back. */
+@media (max-height: 500px) and (orientation: landscape) {
+  .shell:has([data-phone-interview]) .phoneBar { min-height: 44px; padding-block: 0; }
+}
 .body:has([data-phone-header]) [data-guide-target="workspace-stage-nav"] { gap: 0; border-bottom: 1px solid #dce5de; padding: 0; background: #fff; }
 .body:has([data-phone-header]) [data-folder-stage] { flex: 1 1 auto; min-height: 44px; margin: 0; padding: 8px; border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: #fff; color: #56665c; transform: none; box-shadow: none; font-weight: 550; }
 .body:has([data-phone-header]) [data-folder-stage][aria-current="page"] { border-bottom-color: #167452; color: #166844; font-weight: 650; }

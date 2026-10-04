@@ -1,32 +1,17 @@
 "use client";
 
-import { useEffect, useEffectEvent, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { ArrowRight, BookUser, ChevronDown, LayoutDashboard, LoaderCircle, Mail, Save } from "lucide-react";
 
-import { fetchPipelineJson, PipelineApiError } from "@/lib/auth/authenticated-fetch";
 import type { StaffProfilePreferences } from "@/lib/pipeline/staff-profile";
 import type { WorkspaceMember } from "@/lib/pipeline/workspace-members";
 import { canAccessOperationsReports, canAccessSupervisorOperations } from "@/lib/pipeline/report-access";
 import ContactDirectoryImport from "@/components/pipeline/ContactDirectoryImport";
 import OutlookConnectionSetup from "./OutlookConnectionSetup";
-import { usePipelineShell } from "./pipeline-shell-context";
-import { useConfirmationDialog } from "./useConfirmationDialog";
+import { useStaffProfile } from "./useStaffProfile";
 import { usePersonaSwitchSave } from "@/lib/demo/persona-switch-save";
 import styles from "./StaffProfileSettings.module.css";
-
-type ProfileResponse = { member: WorkspaceMember };
-
-const blankProfile: StaffProfilePreferences = {
-  preferred_name: null,
-  job_title: null,
-  team: null,
-  work_phone: null,
-  time_zone: null,
-  status_message: null,
-};
 
 const timeZones = [
   ["America/Los_Angeles", "Pacific time"],
@@ -37,111 +22,13 @@ const timeZones = [
 ];
 
 export default function StaffProfileSettings() {
-  const [member, setMember] = useState<WorkspaceMember | null>(null);
-  const [form, setForm] = useState<StaffProfilePreferences>(blankProfile);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [loadAttempt, setLoadAttempt] = useState(0);
-  const [conflict, setConflict] = useState(false);
-  const pending = useRef(false);
-  const { beforeNavigationRef } = usePipelineShell();
-  const { confirm, confirmationDialog } = useConfirmationDialog();
-  const router = useRouter();
-  const dirty = Boolean(member && JSON.stringify(form) !== JSON.stringify(profilePreferences(member)));
-  const [message, setMessage] = useState<{ tone: "success" | "error"; text: string } | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetchPipelineJson<ProfileResponse>("/api/me/profile", { cache: "no-store" })
-      .then((payload) => {
-        if (cancelled) return;
-        setMember(payload.member);
-        setForm(profilePreferences(payload.member));
-      })
-      .catch((error) => {
-        if (!cancelled) setMessage({ tone: "error", text: profileErrorMessage(error, "Your profile settings could not be loaded.") });
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [loadAttempt]);
-
-  const updateField = (field: keyof StaffProfilePreferences, value: string) => {
-    setMessage(null);
-    setForm((current) => ({ ...current, [field]: value || null }));
-  };
-
-  const save = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!member || pending.current || (!dirty && !conflict)) return;
-    pending.current = true;
-    setSaving(true);
-    setMessage(null);
-    try {
-      const payload = await fetchPipelineJson<ProfileResponse>("/api/me/profile", {
-        method: "PATCH",
-        body: JSON.stringify({ if_match: member.profile.version, profile: form }),
-      });
-      setMember(payload.member);
-      setForm(profilePreferences(payload.member));
-      setConflict(false);
-      setMessage({ tone: "success", text: "Profile saved." });
-    } catch (error) {
-      if (error instanceof PipelineApiError && error.status === 409) {
-        const latest = (error.payload as Partial<ProfileResponse> | undefined)?.member;
-        if (latest) {
-          // Keep locally edited fields; carry forward remote changes to untouched fields.
-          const next = mergeProfileEdits(member, latest, form);
-          setMember(latest);
-          setForm(next);
-          setConflict(true);
-          setMessage({ tone: "error", text: "Your profile changed in another session. Your edits are still here. Review them, then save again." });
-          return;
-        }
-      }
-      setMessage({ tone: "error", text: profileErrorMessage(error, "Your profile could not be saved. Your edits are still here.") });
-    } finally {
-      pending.current = false;
-      setSaving(false);
-    }
-  };
-
-  const beforeLeave = async () => {
-    if (pending.current) {
-      setMessage({ tone: "error", text: "Your profile is saving. Please wait before leaving." });
-      throw new Error("Profile save in progress.");
-    }
-    if (!dirty && !conflict) return;
-    if (!await confirm({ title: "Leave without saving?", message: "Your profile changes have not been saved.", confirmLabel: "Discard changes", cancelLabel: "Keep editing", destructive: true })) {
-      throw new Error("Unsaved profile changes.");
-    }
-    setForm(profilePreferences(member!));
-    setConflict(false);
-  };
-  const beforeLeaveLatest = useEffectEvent(beforeLeave);
-  usePersonaSwitchSave(beforeLeave);
-  useEffect(() => {
-    const guard = () => beforeLeaveLatest();
-    beforeNavigationRef.current = guard;
-    return () => { if (beforeNavigationRef.current === guard) beforeNavigationRef.current = null; };
-  }, [beforeNavigationRef]);
-  useEffect(() => {
-    if (!dirty && !saving && !conflict) return;
-    const leave = (event: BeforeUnloadEvent) => event.preventDefault();
-    const link = (event: MouseEvent) => {
-      if (!isPlainProfileClick(event)) return;
-      const anchor = event.target instanceof Element ? event.target.closest<HTMLAnchorElement>("a[href]") : null;
-      if (!anchor || anchor.target === "_blank" || anchor.hasAttribute("download") || anchor.origin !== window.location.origin) return;
-      event.preventDefault(); event.stopPropagation();
-      void beforeLeaveLatest().then(() => router.push(`${anchor.pathname}${anchor.search}${anchor.hash}`)).catch(() => undefined);
-    };
-    window.addEventListener("beforeunload", leave);
-    document.addEventListener("click", link, true);
-    return () => { window.removeEventListener("beforeunload", leave); document.removeEventListener("click", link, true); };
-  }, [dirty, saving, conflict, router]);
+  const { member, draft, loading, saving, message, controller, reload } = useStaffProfile();
+  const form = draft.form;
+  const conflict = Boolean(draft.conflict);
+  const dirty = controller?.dirty() ?? false;
+  const updateField = (field: keyof StaffProfilePreferences, value: string) => controller?.change(field, value);
+  const save = (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); controller?.save(); };
+  usePersonaSwitchSave(async () => { await controller?.finish(); });
 
   const renderSaveBar = (member: WorkspaceMember) => (
             <footer className={styles.saveBar}>
@@ -157,7 +44,7 @@ export default function StaffProfileSettings() {
   const renderProfileForm = (member: WorkspaceMember) => (
           <form onSubmit={save} className={styles.card} aria-label="Profile settings" aria-busy={saving}>
             <div className={styles.sectionHeader}><h2>Your profile</h2><p>How your team recognizes and reaches you.</p></div>
-            <fieldset disabled={saving} className={styles.fields}>
+            <fieldset className={styles.fields}>
               <legend className="sr-only">Profile details</legend>
               <TextField label="Preferred name" value={form.preferred_name} maxLength={80} placeholder={member.display_name} autoComplete="nickname" onChange={(value) => updateField("preferred_name", value)} />
               <TextField label="Work phone" value={form.work_phone} maxLength={40} type="tel" autoComplete="tel" onChange={(value) => updateField("work_phone", value)} />
@@ -177,7 +64,6 @@ export default function StaffProfileSettings() {
   );
 
   return <div className={`${styles.page} pipeline-page-surface`}>
-    {confirmationDialog}
     <div className={styles.content}>
       <header className={styles.header}>
         <h1>Settings</h1>
@@ -186,7 +72,7 @@ export default function StaffProfileSettings() {
       {loading ? <div className={styles.loading} role="status"><LoaderCircle size={20} className="animate-spin motion-reduce:animate-none" aria-hidden="true" /> Loading settings</div>
         : !member ? <div className={styles.card}>
           <p role="alert" className={styles.error}>{message?.text ?? "Your settings could not be loaded."}</p>
-          <button className={styles.secondary} onClick={() => { setLoading(true); setMessage(null); setLoadAttempt((value) => value + 1); }}>Try again</button>
+          <button className={styles.secondary} onClick={reload}>Try again</button>
         </div> : <>
           <ContactSettings member={member} />
           <OutlookConnectionSetup mode="settings" />
@@ -244,17 +130,6 @@ function ReadOnlyField({ label, value }: { label: string; value: string }) {
   return <div><dt>{label}</dt><dd>{value}</dd></div>;
 }
 
-function profilePreferences(member: WorkspaceMember): StaffProfilePreferences {
-  return {
-    preferred_name: member.profile.preferred_name,
-    job_title: member.profile.job_title,
-    team: member.profile.team,
-    work_phone: member.profile.work_phone,
-    time_zone: member.profile.time_zone,
-    status_message: member.profile.status_message,
-  };
-}
-
 function roleLabel(role: string) {
   if (role === "assessment_coordinator") return "Assessment coordinator";
   return role.charAt(0).toUpperCase() + role.slice(1).replaceAll("_", " ");
@@ -266,26 +141,9 @@ function identityLabel(status: WorkspaceMember["identity_status"]) {
   return "Merged account";
 }
 
-function profileErrorMessage(error: unknown, fallback: string) {
-  return error instanceof Error && error.message ? error.message : fallback;
-}
-
 function formatUpdatedAt(value: string) {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? "recently" : date.toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
-}
-
-function mergeProfileEdits(member: WorkspaceMember, latest: WorkspaceMember, form: StaffProfilePreferences) {
-  const previous = profilePreferences(member);
-  const next = profilePreferences(latest);
-  for (const key of Object.keys(previous) as Array<keyof StaffProfilePreferences>) {
-    if (form[key] !== previous[key]) next[key] = form[key];
-  }
-  return next;
-}
-
-function isPlainProfileClick(event: MouseEvent) {
-  return !event.defaultPrevented && event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey;
 }
 
 function profileSaveStatus(saving: boolean, message: string | undefined, dirty: boolean, updatedAt: string | null) {

@@ -162,8 +162,13 @@ test.describe("mobile assessment", () => {
     const field = surface(page).getByRole("textbox", { name: "Current symptoms", exact: true });
     const answer = "Synthetic mobile assessment note";
     await field.fill(answer);
-    await page.waitForTimeout(1200);
-    expect((await read()).current_symptoms).toBeNull();
+    if (await page.locator('html').getAttribute('data-design') === 'v2') {
+      await expect.poll(async () => (await read()).current_symptoms).toBe(answer);
+      await expect(field).toBeFocused();
+    } else {
+      await page.waitForTimeout(1200);
+      expect((await read()).current_symptoms).toBeNull();
+    }
     await surface(page).getByRole("button", { name: "Next", exact: true }).tap();
     await expect.poll(async () => (await read()).current_symptoms).toBe(answer);
     await findPhoneQuestion(page, "IM injections");

@@ -318,8 +318,11 @@ test.describe("workflow interaction and durable feedback", () => {
         await route.continue();
       });
       await chart.getByRole("textbox", { name: "Prior placements", exact: true }).fill(answer);
-      await exit.click();
+      await chart.getByRole("textbox", { name: "Prior placements", exact: true }).blur();
+      // Hold an actual in-flight save before testing navigation during it.
+      // Immediate-exit recovery has separate coverage below and cross-tab.
       await expect.poll(() => saving).toBe(true);
+      await exit.click();
       // A durable recovery copy releases navigation before the canonical write completes.
       await expect(chart).toHaveCount(0);
       const recovery = await api.get(`/api/me/assessment-drafts/${assessmentId}`);

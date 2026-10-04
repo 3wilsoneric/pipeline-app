@@ -10,7 +10,7 @@ const queryKeys = [...readFileSync("infra/azure/operational-alerts.bicep", "utf8
 function inventory() {
   return {
     scheduled: queryKeys.map((key) => ({ name: `pipeline-prod-${key}`, enabled: true, actions: { actionGroups: [groupId] } })),
-    metrics: ["postgres-connections", "postgres-storage", "blob-capacity", "web-restarts", "web-timeouts"].map((key) => ({ name: `pipeline-prod-${key}`, enabled: true, actions: [{ actionGroupId: groupId }] })),
+    metrics: ["postgres-connections", "postgres-memory-50", "postgres-cpu-50", "postgres-storage", "blob-capacity", "web-restarts", "web-timeouts"].map((key) => ({ name: `pipeline-prod-${key}`, enabled: true, actions: [{ actionGroupId: groupId }] })),
     groups: [{ id: groupId.toUpperCase(), enabled: true, emailReceivers: [{ name: "synthetic-operator" }] }],
   };
 }
@@ -36,7 +36,7 @@ test("all alerts linked to enabled receivers pass configuration, not delivery", 
   assert.equal(code, 0);
   assert.equal(report.notification_configuration_ready, true);
   assert.equal(report.delivery_verified, false);
-  assert.equal(report.expected.metric_alerts, 5);
+  assert.equal(report.expected.metric_alerts, 7);
 });
 
 test("unattached runtime alerts fail even when other alerts have receivers", () => {
@@ -64,6 +64,16 @@ test("missing runtime rule fails coverage", () => {
   data.metrics.pop();
   assert.deepEqual(audit(data).report.missing_metric_alerts, ["pipeline-prod-web-timeouts"]);
 });
+
+for (const key of ["postgres-memory-50", "postgres-cpu-50"]) {
+  test(`missing ${key} alert fails coverage`, () => {
+    const data = inventory();
+    data.metrics = data.metrics.filter((item) => item.name !== `pipeline-prod-${key}`);
+    const { code, report } = audit(data);
+    assert.equal(code, 1);
+    assert.deepEqual(report.missing_metric_alerts, [`pipeline-prod-${key}`]);
+  });
+}
 
 test("disabled expected alert fails", () => {
   const data = inventory();

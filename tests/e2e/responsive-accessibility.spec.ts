@@ -86,6 +86,10 @@ test.describe("Responsive and accessible application shell", () => {
     await expectNoSeriousAxeViolations(page);
 
     await expect(stepNavigation.getByRole("button", { name: "Assessment", exact: true })).toHaveCount(0);
+    if (!compactSteps && await page.locator("html").getAttribute("data-design") === "v2") {
+      await stepNavigation.getByRole("button", { name: "Intake", exact: true }).click();
+      await expect(page.getByRole("textbox", { name: "NAME", exact: true })).not.toHaveValue("");
+    }
     await page.getByRole("button", { name: "Create referral", exact: true }).click();
     await expect(page).toHaveURL(/referralId=\d+/);
     const createdDialog = page.getByRole("dialog", { name: "Workspace created" });

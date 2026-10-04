@@ -8,6 +8,26 @@ const { activityEventLabel, activityEventProvenance } = loadTypeScriptModule(pro
 // Modules run in a separate VM realm; compare plain copies.
 const clean = (value) => JSON.parse(JSON.stringify(value));
 
+test("manual names retain all identity parts while import metadata stays separate", () => {
+  for (const [name, expected] of [
+    ["Synthetic Audit Client", "Synthetic Audit Client"],
+    ["María de la Cruz", "María De La Cruz"],
+    ["de la Cruz, María Elena", "María Elena De La Cruz"],
+    ["Jean-Luc Van Damme", "Jean-Luc Van Damme"],
+    ["Avery Q. Example", "Avery Q. Example"],
+    ["Robert James Smith Jr.", "Robert James Smith Jr."],
+    ["Smith, Robert James, Jr.", "Robert James Smith Jr."],
+    ["Robert James Smith, Jr.", "Robert James Smith, Jr."],
+    ["Robert Smith III", "Robert Smith III"],
+    ["李 小明", "李 小明"],
+    ["Xin Quan Lin -- San Francisco", "Xin Quan Lin"],
+  ]) {
+    assert.equal(identity.normalizeClientName(name), expected);
+    assert.equal(identity.normalizeClientName(expected), expected);
+  }
+  assert.equal(identity.isPersonOnlyClientName("Avery Q. Example"), true);
+});
+
 test("system name placeholders do not expose referral IDs or rewrite source values", () => {
   const first = { id: 2718, name: "Pending Review", community: "Turlock" };
   const second = { id: 2719, name: "Pending Review", community: "Turlock" };
@@ -22,7 +42,7 @@ test("system name placeholders do not expose referral IDs or rewrite source valu
   assert.equal(identity.formatClientIdentityTitle({ name: "Pending Review" }), "Name not recorded");
   assert.equal(identity.presentClientName("Pending Review", 31), "Name not recorded");
   // Storage normalization is unchanged, so creating from the canvas default still succeeds.
-  assert.equal(identity.normalizeClientName("Pending packet review"), "Pending Review");
+  assert.equal(identity.normalizeClientName("Pending packet review"), "Pending Packet Review");
 });
 
 test("real names, including ones containing placeholder words, are never reclassified", () => {

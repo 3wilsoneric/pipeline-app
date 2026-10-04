@@ -145,49 +145,135 @@ test("failed profile load can retry and failed saves keep the entered text", asy
   await expect(page.getByText("Profile saved.", { exact: true })).toBeVisible();
 });
 
-test("pending profile save blocks navigation and further editing until the response arrives", async ({ page }) => {
+test("slow profile saves keep editing and navigation open and do not overwrite newer typing", async ({ page }) => {
   const original = profileFixture();
+  let latest = original;
   let release!: () => void;
   const gate = new Promise<void>((resolve) => { release = resolve; });
-  let writes = 0;
+  const writes: Array<{ if_match: number; profile: typeof original.member.profile }> = [];
   await page.route("**/api/me/profile", async (route) => {
-    if (route.request().method() === "GET") return route.fulfill({ json: original });
-    writes++;
-    await gate;
-    return route.fulfill({ json: { member: { ...original.member, profile: { ...route.request().postDataJSON().profile, version: 2 } } } });
+    if (route.request().method() === "GET") return route.fulfill({ json: latest });
+    const input = route.request().postDataJSON();
+    writes.push(input);
+    if (writes.length === 1) await gate;
+    latest = { member: { ...original.member, profile: { ...input.profile, version: input.if_match + 1 } } };
+    return route.fulfill({ json: latest });
   });
   try {
     await page.goto("/settings");
     await page.getByLabel("Preferred name", { exact: true }).fill("Saving name");
     await page.getByRole("button", { name: "Save changes", exact: true }).click();
-    await expect(page.getByLabel("Preferred name", { exact: true })).toBeDisabled();
-    await page.getByRole("button", { name: "Open referrals", exact: true }).click();
-    await expect(page).toHaveURL(/\/settings$/);
-    await page.getByRole("link", { name: "Edit Home", exact: true }).click();
-    await expect(page).toHaveURL(/\/settings$/);
-    expect(writes).toBe(1);
-    release();
-    await expect(page.getByText("Profile saved.", { exact: true })).toBeVisible();
+    await expect.poll(() => writes.length).toBe(1);
     await expect(page.getByLabel("Preferred name", { exact: true })).toBeEnabled();
+    await page.getByLabel("Preferred name", { exact: true }).fill("Newer typing");
+    await page.getByRole("button", { name: "Open referrals", exact: true }).click();
+    await expect(page).not.toHaveURL(/\/settings$/);
+    await page.goBack();
+    await expect(page.getByLabel("Preferred name", { exact: true })).toHaveValue("Newer typing");
+    await page.getByRole("link", { name: "Edit Home", exact: true }).click();
+    await expect(page).toHaveURL(/editHome=1/);
+    expect(writes).toHaveLength(1);
+    release();
+    await expect.poll(() => latest.member.profile.preferred_name).toBe("Newer typing");
+    expect(writes).toHaveLength(2);
+    expect(writes[1].if_match).toBe(2);
+    await page.goBack();
+    await expect(page.getByLabel("Preferred name", { exact: true })).toHaveValue("Newer typing");
+    await expect(page.getByText("Profile saved.", { exact: true })).toBeVisible();
   } finally { release(); }
 });
 
-test("leaving unsaved profile edits requires an explicit discard in the site dialog", async ({ page }) => {
-  let writes = 0;
+test("unsaved profile edits follow navigation without a discard dialog", async ({ page }) => {
+  let latest = profileFixture();
   await page.route("**/api/me/profile", async (route) => {
-    if (route.request().method() === "PATCH") writes++;
-    return route.fulfill({ json: profileFixture() });
+    if (route.request().method() === "PATCH") {
+      const body = route.request().postDataJSON();
+      latest = { member: { ...latest.member, profile: { ...body.profile, version: body.if_match + 1 } } };
+    }
+    return route.fulfill({ json: latest });
   });
   await page.goto("/settings");
   await page.getByLabel("Preferred name", { exact: true }).fill("Keep this");
-  await page.getByRole("button", { name: "Open referrals", exact: true }).click();
-  const dialog = page.getByRole("alertdialog", { name: "Leave without saving?", exact: true });
-  await dialog.getByRole("button", { name: "Keep editing", exact: true }).click();
-  await expect(page.getByLabel("Preferred name", { exact: true })).toHaveValue("Keep this");
   await page.getByRole("link", { name: "Edit Home", exact: true }).click();
-  await dialog.getByRole("button", { name: "Discard changes", exact: true }).click();
   await expect(page).toHaveURL(/editHome=1/);
-  expect(writes).toBe(0);
+  await expect(page.getByRole("alertdialog")).toHaveCount(0);
+  await expect.poll(() => latest.member.profile.preferred_name).toBe("Keep this");
+  await page.goBack();
+  await expect(page.getByLabel("Preferred name", { exact: true })).toHaveValue("Keep this");
+});
+
+test("failed profile saves survive navigation and reload then retry without blocking", async ({ page }) => {
+  let latest = profileFixture();
+  let fail = true;
+  await page.route("**/api/me/profile", async (route) => {
+    if (route.request().method() === "PATCH") {
+      if (fail) return route.fulfill({ status: 503, json: { error: "Save unavailable" } });
+      const body = route.request().postDataJSON();
+      latest = { member: { ...latest.member, profile: { ...body.profile, version: body.if_match + 1 } } };
+    }
+    return route.fulfill({ json: latest });
+  });
+  await page.goto("/settings");
+  await page.getByLabel("Preferred name", { exact: true }).fill("Recover after reload");
+  await expect(page.locator("main").getByRole("alert")).toContainText("Save unavailable");
+  await page.getByRole("link", { name: "Edit Home", exact: true }).click();
+  await expect(page).toHaveURL(/editHome=1/);
+  await page.goBack();
+  await expect(page.getByLabel("Preferred name", { exact: true })).toHaveValue("Recover after reload");
+  page.on("dialog", (dialog) => dialog.accept());
+  await page.reload();
+  await expect(page.getByLabel("Preferred name", { exact: true })).toHaveValue("Recover after reload");
+  await expect(page.getByLabel("Preferred name", { exact: true })).toBeEnabled();
+  fail = false;
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await expect(page.getByText("Profile saved.", { exact: true })).toBeVisible();
+  expect(latest.member.profile.preferred_name).toBe("Recover after reload");
+});
+
+test("a lost profile reply reads back the committed version without duplicate updates", async ({ page }) => {
+  let latest = profileFixture();
+  let writes = 0;
+  await page.route("**/api/me/profile", async (route) => {
+    if (route.request().method() === "GET") return route.fulfill({ json: latest });
+    writes++;
+    const body = route.request().postDataJSON();
+    latest = { member: { ...latest.member, profile: { ...body.profile, version: body.if_match + 1 } } };
+    await route.abort("failed");
+  });
+  await page.goto("/settings");
+  await page.getByLabel("Preferred name", { exact: true }).fill("Reply lost");
+  await expect(page.getByText("Profile saved.", { exact: true })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByLabel("Preferred name", { exact: true })).toHaveValue("Reply lost");
+  expect(writes).toBe(1);
+});
+
+test("undoing an edit during a lost save reply keeps the undo and saves the latest value", async ({ page }) => {
+  let latest = profileFixture();
+  const original = latest.member.profile.preferred_name;
+  let writes = 0;
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  await page.route("**/api/me/profile", async (route) => {
+    if (route.request().method() === "GET") return route.fulfill({ json: latest });
+    writes++;
+    const body = route.request().postDataJSON();
+    expect(body.if_match).toBe(latest.member.profile.version);
+    latest = { member: { ...latest.member, profile: { ...body.profile, version: body.if_match + 1 } } };
+    if (writes === 1) { await gate; return route.abort("failed"); }
+    return route.fulfill({ json: latest });
+  });
+  try {
+    await page.goto("/settings");
+    const name = page.getByLabel("Preferred name", { exact: true });
+    await name.fill("Temporary edit");
+    await expect.poll(() => writes).toBe(1);
+    await name.fill(original ?? "");
+    release();
+    await expect(page.getByText("Profile saved.", { exact: true })).toBeVisible({ timeout: 15_000 });
+    await expect(name).toHaveValue(original ?? "");
+    expect(latest.member.profile.preferred_name).toBe(original);
+    expect(writes).toBe(2);
+  } finally { release(); }
 });
 
 for (const account of [

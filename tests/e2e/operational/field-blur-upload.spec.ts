@@ -15,6 +15,49 @@ async function actorPage(browser: Browser, actor: "assessorA", baseURL: string) 
 }
 
 test.describe("field exit saves and single uploads", () => {
+  test("full client names survive creation, chart edits, navigation and reload", async ({ browser, baseURL }) => {
+    const url = requireOperationalBaseURL(baseURL);
+    const api = await actorApiContext("assessorA", url);
+    const { page, context } = await actorPage(browser, "assessorA", url);
+    try {
+      const created = await api.post("/api/referrals", { data: { client_mutation_id: randomUUID(),
+        referral: syntheticReferralInput("assessorA", { name: "Avery Quinn De La Test Jr.", documentName: "", documentStatus: "Missing" }),
+      } });
+      expect(created.status()).toBe(201);
+      const { referral } = await created.json();
+      expect(referral.name).toBe("Avery Quinn De La Test Jr.");
+      await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=chart`);
+      await page.getByRole("button", { name: "Edit referral details", exact: true }).click();
+      const name = page.getByRole("textbox", { name: "NAME", exact: true });
+      await expect(name).toHaveValue("Avery Quinn De La Test Jr.");
+      await name.fill("Avery Q. De La Test III");
+      await name.blur();
+      await expect.poll(async () => (await readReferral(api, referral.id)).name).toBe("Avery Q. De La Test III");
+      await page.reload();
+      await expect(name).toHaveValue("Avery Q. De La Test III");
+    } finally { await context.close(); await api.dispose(); }
+  });
+
+  test("profile recovery stays with its account on a shared browser", async ({ browser, baseURL }) => {
+    const url = requireOperationalBaseURL(baseURL);
+    const { page, context } = await actorPage(browser, "assessorA", url);
+    try {
+      page.on("dialog", (dialog) => dialog.accept());
+      await page.route("**/api/me/profile", (route) => route.request().method() === "PATCH"
+        ? route.fulfill({ status: 503, json: { error: "Synthetic profile save unavailable" } }) : route.continue());
+      await page.goto("/settings");
+      const field = page.getByRole("textbox", { name: "Status message", exact: true });
+      await field.fill("Account A private recovery");
+      await expect(page.locator("main").getByRole("alert")).toContainText("Synthetic profile save unavailable");
+      await context.setExtraHTTPHeaders(operationalActorHeaders("assessorB", url));
+      await page.reload();
+      await expect(field).not.toHaveValue("Account A private recovery");
+      await context.setExtraHTTPHeaders(operationalActorHeaders("assessorA", url));
+      await page.reload();
+      await expect(field).toHaveValue("Account A private recovery");
+    } finally { await context.close(); }
+  });
+
   test.skip(process.env.PIPELINE_OPERATIONAL_E2E !== "true", "Requires isolated operational stores.");
   test.setTimeout(90_000);
 
@@ -245,7 +288,12 @@ test.describe("field exit saves and single uploads", () => {
       await confirmReferralFileLabels(page, {}, "face_sheet");
       const creation = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname === "/api/referrals" && response.ok());
       await page.getByRole("button", { name: "Create referral", exact: true }).click();
-      const created = [(await (await creation).json()).referral.id];
+      expect((await creation).status()).toBe(201);
+      // The shell may finish navigation before Chromium exposes the response
+      // body. Read back the durable record by the resulting workspace URL.
+      await expect.poll(() => new URL(page.url()).searchParams.get("referralId")).not.toBeNull();
+      const created = [Number(new URL(page.url()).searchParams.get("referralId"))];
+      expect((await readReferral(api, created[0])).name.toLowerCase()).toBe(name.toLowerCase());
       expect(creations).toHaveLength(1);
       await expect(redesign ? page.locator("[data-save-center]") : page.getByTestId("workspace-save-status")).toContainText(redesign ? "All changes saved" : "Packet uploaded and ready for review", { timeout: 20_000 });
       const files = (await (await api.get(`/api/files?referral_id=${created[0]}`)).json()).files;
