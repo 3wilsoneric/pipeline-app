@@ -2046,7 +2046,7 @@ test.describe("Referral home and packet canvas", () => {
     await page.getByTestId("document-checklist-toggle").click();
     if (!referralDocumentAutofillEnabled) {
       await expect(extractionReview).toHaveCount(0);
-      await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toHaveValue("Pending Review");
+      await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toHaveValue("Pending Packet Review");
       await expect(page.getByLabel("Date of birth", { exact: true })).toHaveValue("");
       const referralId = new URL(page.url()).searchParams.get("referralId");
       const saved = await (await page.request.get(`/api/referrals/${referralId}`)).json();
@@ -2063,7 +2063,7 @@ test.describe("Referral home and packet canvas", () => {
     await expect(extractionReview.getByText("1980-01-15", { exact: true })).toBeVisible();
     await expect(extractionReview.getByText("North County Behavioral Health", { exact: true })).toBeVisible();
     await expect(extractionReview.getByText("Schizoaffective disorder", { exact: true })).toHaveCount(0);
-    await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toHaveValue("Pending Review");
+    await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toHaveValue("Pending Packet Review");
     for (const value of [clientName, "1980-01-15"]) {
       await extractionReview.locator("div.grid").filter({ has: page.getByText(value, { exact: true }) }).getByRole("button", { name: "Confirm", exact: true }).click();
       await expect(page.getByTestId("workspace-save-status")).toContainText("Extracted value confirmed");

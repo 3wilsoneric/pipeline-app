@@ -43,7 +43,7 @@ test.describe("interview layout", () => {
       await picker.selectOption("identity");
 
       // The information follows the topic: only that topic, only what is filled in.
-      await expect(info.locator('[data-split-topic="identity"]')).toContainText("Operational Referral");
+      await expect(info.locator('[data-split-topic="identity"]')).toContainText("Operational Test Referral");
       await picker.selectOption("medication");
       await expect(info.locator("[data-split-topic]")).toHaveCount(1);
       await expect(info.locator('[data-split-topic="medication"]')).toBeVisible();

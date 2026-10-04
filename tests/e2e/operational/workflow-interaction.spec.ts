@@ -309,6 +309,9 @@ test.describe("workflow interaction and durable feedback", () => {
       await expect(chart).toBeVisible();
       const exit = page.getByRole("button", { name: "Open referrals", exact: true });
       const answer = "Synthetic final answer, entered immediately before closing.";
+      // Filling an inert textarea can succeed without delivering input events.
+      // Wait for initial workspace restoration, not for the save under test.
+      await expect(page.getByTestId("packet-workspace")).toHaveAttribute("aria-busy", "false");
       let saving = false;
       await page.route(`**/api/assessments/${assessmentId}`, async (route) => {
         if (route.request().method() === "PATCH") {
