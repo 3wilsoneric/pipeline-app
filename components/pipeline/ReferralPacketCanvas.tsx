@@ -3145,9 +3145,9 @@ export default function ReferralPacketCanvas({
 
                 <ChartSection title="Medication list" complete={workspaceFiles.some((file) => file.category === "Medication list") ? 1 : 0} total={1}>
                   <div className="px-5 py-4 sm:px-6">
-                    <p className="text-[13px] text-[#52655d]">Attach the medication list in Files. You can add a newer list there later; the handoff packet includes the uploaded files.</p>
-                    <button type="button" className="mt-3 min-h-11 rounded-md border border-[#087d66] px-4 text-[13px] font-semibold text-[#087d66]" onClick={() => void navigatePage("files")}>Open Files</button>
-                    {fields.currentMedications.value.trim() ? <details className="mt-4"><summary className="cursor-pointer text-[12px] font-semibold text-[#52655d]">Earlier typed medication history</summary><div className="mt-3" data-workspace-field="currentMedications" onFocusCapture={() => focusWorkspaceField("currentMedications")}><MedicationProfileField field={fields.currentMedications} onChange={(value) => updateField("currentMedications", value)} /></div></details> : null}
+                    <p className="text-[13px] text-ink-muted">Attach the medication list in Files. You can add a newer list there later; the handoff packet includes the uploaded files.</p>
+                    <button type="button" className="mt-3 min-h-11 rounded-md border border-primary px-4 text-[13px] font-semibold text-primary" onClick={() => void navigatePage("files")}>Open Files</button>
+                    {fields.currentMedications.value.trim() ? <details className="mt-4"><summary className="cursor-pointer text-[12px] font-semibold text-ink-muted">Earlier typed medication history</summary><div className="mt-3" data-workspace-field="currentMedications" onFocusCapture={() => focusWorkspaceField("currentMedications")}><MedicationProfileField field={fields.currentMedications} onChange={(value) => updateField("currentMedications", value)} /></div></details> : null}
                   </div>
                 </ChartSection>
               </div>
