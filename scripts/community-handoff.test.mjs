@@ -52,13 +52,13 @@ test("email copy follows admission handoff sections without inventing example-cl
 test("editable handoff text keeps linked admission details, source provenance, and escaped content", () => {
   const summary = summaryOwner.buildMeetClientSummary(assessment, { ...referral, plannedAdmissionDate: "2026-10-01" });
   const defaults = emailOwner.renderMeetClientEmail(summary, "Synthetic sender", "preview");
-  assert.match(defaults.text, /Please refer to the medication file in the attached admission packet/);
+  assert.match(defaults.text, /Refer to the medication list in the admission packet if attached; otherwise confirm the current list with the referring team/);
   assert.doesNotMatch(defaults.text, /Recorded medication/);
   const message = { subject: "Arrival arrangements", body: "Hello team,\nPlease call first. <img src=x onerror=alert(1)>" };
   const email = emailOwner.renderMeetClientEmail(summary, "Synthetic sender", "preview", ["Admission packet.pdf", "Client data sheet.pdf"], message);
   assert.equal(email.subject, message.subject);
   assert.doesNotMatch(email.html, /Recorded medication/);
-  assert.match(email.text, /Please refer to the medication file in the attached admission packet/);
+  assert.match(email.text, /Refer to the medication list in the admission packet if attached; otherwise confirm the current list with the referring team/);
   for (const value of ["10/01/2026", "Admission packet.pdf", "Client data sheet.pdf", "Sender-edited handoff", "&lt;img"]) assert.ok(email.html.includes(value), value);
   const images = email.html.match(/<img\b[^>]*>/g) ?? [];
   assert.equal(images.length, 1);
@@ -67,7 +67,7 @@ test("editable handoff text keeps linked admission details, source provenance, a
   const changed = emailOwner.renderMeetClientEmail({ ...summary, admissionDate: "2026-10-02" }, "Synthetic sender", "preview", [], message);
   assert.ok(changed.html.includes("10/02/2026"));
   assert.ok(!changed.html.includes("10/01/2026"));
-  assert.match(changed.text, /Please refer to the medication file in the attached admission packet/);
+  assert.match(changed.text, /Refer to the medication list in the admission packet if attached; otherwise confirm the current list with the referring team/);
 });
 
 test("editing generated handoff text keeps one medication-file reference", () => {
@@ -77,7 +77,7 @@ test("editing generated handoff text keeps one medication-file reference", () =>
     subject: null, body: defaults.text + "\n\nPlease call before arrival.",
   });
   for (const content of [edited.html, edited.text]) {
-    assert.equal((content.match(/Please refer to the medication file in the attached admission packet/g) ?? []).length, 1);
+    assert.equal((content.match(/Refer to the medication list in the admission packet if attached; otherwise confirm the current list with the referring team/g) ?? []).length, 1);
     assert.doesNotMatch(content, /Recorded medication/);
     assert.match(content, /Please call before arrival/);
   }
@@ -124,7 +124,7 @@ test("injection handoff preserves named dates and exposes missing details withou
   const unknown = summaryOwner.buildMeetClientSummary({ ...assessment, im_injections: null }, referral);
   assert.match(unknown.medicationNotes.find(({ label }) => label === "IM injections").value, /Not recorded; confirm/);
   const email = emailOwner.renderMeetClientEmail(summaryOwner.buildMeetClientSummary({ ...assessment, medications_at_intake: [] }, referral), "Fixture", "fixture");
-  assert.match(email.html, /Please refer to the medication file in the attached admission packet/);
+  assert.match(email.html, /Refer to the medication list in the admission packet if attached; otherwise confirm the current list with the referring team/);
 });
 
 test("safety handoff keeps history and current support distinct, preserves zero, and never assumes no violence", () => {

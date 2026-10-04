@@ -1,4 +1,4 @@
-export const medicationAttachmentReference = "Please refer to the medication file in the attached admission packet.";
+export const medicationAttachmentReference = "Refer to the medication list in the admission packet if attached; otherwise confirm the current list with the referring team.";
 
 // Retain the old draft payload when recipients or message edits are saved.
 // New handoffs use the original attachment, not these historical selections.

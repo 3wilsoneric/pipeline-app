@@ -167,7 +167,7 @@ test("summary proceeds to the medication file without list selection, including 
   for (let visit = 0; visit < 2; visit++) {
     const summary = await openSummary(page);
     await expect(summary.getByRole("group", { name: "Which medications are current for this handoff?" })).toHaveCount(0);
-    await expect(summary).toContainText("Please refer to the medication file in the attached admission packet.");
+    await expect(summary).toContainText("Refer to the medication list in the admission packet if attached; otherwise confirm the current list with the referring team.");
     await expect(summary).not.toContainText("Synthetic recorded medication");
     await expect(summary.getByRole("button", { name: "Confirm summary", exact: true })).toBeEnabled();
     await summary.getByRole("button", { name: "Confirm summary", exact: true }).click();
@@ -257,7 +257,7 @@ for (const width of [1440, 1280, 834, 390, 320]) test(`guided checks lead to the
   await page.keyboard.press("Escape");
   await expect(overview).not.toContainText("Checked");
   const summary = await openSummary(page);
-  await expect(summary).toContainText("Please refer to the medication file in the attached admission packet.");
+  await expect(summary).toContainText("Refer to the medication list in the admission packet if attached; otherwise confirm the current list with the referring team.");
   await expect(summary).not.toContainText("Synthetic recorded medication");
   await expect(summary.getByRole("region", { name: "Injection & med-room notes" })).toContainText("Synthetic injection and recorded dose");
   await expect(summary.getByRole("region", { name: "Behavior & safety" })).toContainText("Historical incident");
@@ -290,7 +290,7 @@ for (const width of [1440, 1280, 834, 390, 320]) test(`guided checks lead to the
   await expect(preview.locator("body")).not.toContainText("one-time code");
   await expect(preview.locator("body")).not.toContainText("secure packet");
   await expect(preview.locator("body")).toContainText("Client data sheet.pdf");
-  await expect(preview.locator("body")).toContainText("Please refer to the medication file in the attached admission packet.");
+  await expect(preview.locator("body")).toContainText("Refer to the medication list in the admission packet if attached; otherwise confirm the current list with the referring team.");
   await expect(preview.locator("body")).not.toContainText("Synthetic recorded medication");
   await expect(preview.locator("body")).toContainText("10/01/2026");
   await expect(preview.locator("body")).toContainText('Synthetic facility <img src=x onerror="alert(1)">');

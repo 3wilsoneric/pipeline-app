@@ -41,12 +41,12 @@ for (const width of [1440, 768, 390, 320]) {
       const reference = folder.getByRole("complementary", { name: "Current information" });
       const referenceToggle = reference.getByRole("button", { name: /^Current information/ });
       if (await referenceToggle.isVisible() && await referenceToggle.getAttribute("aria-expanded") === "false") await referenceToggle.click();
-      const recorded = reference.getByRole("button", { name: "Edit Prior placements", exact: true });
+      const recorded = reference.getByRole("button", { name: "Edit Earlier care placements", exact: true });
       await expect(recorded).toBeInViewport();
       const reading = reference.locator("[data-assessment-reference-page]");
       expect((await recorded.boundingBox())!.y - (await reading.boundingBox())!.y).toBeLessThan(40);
       await recorded.click();
-      await expect(folder.getByRole("textbox", { name: "Prior placements", exact: true })).toBeFocused();
+      await expect(folder.getByRole("textbox", { name: "Earlier care placements", exact: true })).toBeFocused();
     } else {
       await expect(folder.getByRole("navigation", { name: "Question steps" })).toContainText(/1\s*\/\s*1/);
       await expect(folder.getByText(/gaps this visit|3 in the chart|to finish here/)).toHaveCount(0);

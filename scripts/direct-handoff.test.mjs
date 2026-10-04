@@ -106,13 +106,13 @@ test("exact prepared snapshot supplies the actual email, assigned assessor Cc/Re
 test("direct preview and actual email use the medication attachment without requiring a list selection", async t => {
   const f = fixture(t, { assessmentMedications: ["Medication A", "Medication B"], intakeHistory: "Historical medication", fileName: "Medication list.docx" });
   const preview = await f.prepare();
-  assert.match(preview.html, /Please refer to the medication file in the attached admission packet/);
+  assert.match(preview.html, /Refer to the medication list in the admission packet if attached; otherwise confirm the current list with the referring team/);
   assert.doesNotMatch(preview.html, /Medication A|Medication B|Historical medication|Current medications not confirmed/);
   const sent = await f.post({ snapshot_id: preview.id });
   assert.equal(sent.status, 200);
   assert.equal(f.sent, 1);
   assert.equal(f.sendInput.preparedContent.html, preview.html);
-  assert.match(f.sendInput.preparedContent.text, /Please refer to the medication file in the attached admission packet/);
+  assert.match(f.sendInput.preparedContent.text, /Refer to the medication list in the admission packet if attached; otherwise confirm the current list with the referring team/);
   assert.equal(f.sendInput.attachments[1].name, "Medication list.docx");
   assert.equal(f.sendInput.attachments[1].contentType, "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
   assert.deepEqual(f.blobs.get(f.sendInput.attachments[1].sourceUrl.replace("https://storage.invalid/", "")).bytes, f.bytes);

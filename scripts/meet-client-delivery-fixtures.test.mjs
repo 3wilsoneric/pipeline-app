@@ -55,12 +55,12 @@ test("Meet the Client refers to the original medication file and keeps clinical 
   assert.equal(summary.medicationNotes.find((item) => item.label === "Next injection due")?.value, "10/08/2026");
   const email = templateOwner.renderMeetClientEmail(summary, "Synthetic Assessor", "fixture");
   for (const value of ["06/12/1980", "09/28/2026", "10/01/2026", "09/10/2026", "10/08/2026"]) assert.match(email.html, new RegExp(value));
-  assert.match(email.html, /Please refer to the medication file in the attached admission packet/);
+  assert.match(email.html, /Refer to the medication list in the admission packet if attached; otherwise confirm the current list with the referring team/);
   assert.doesNotMatch(email.html, /Current medication 10 mg|Current medications for handoff/);
   assert.doesNotMatch(email.html, /Historical medication|1980-06-12|2026-10-01/);
   const unconfirmed = summaryOwner.buildMeetClientSummary({ ...assessment, medications_at_intake: [] }, referral);
   assert.deepEqual(unconfirmed.medications, []);
-  assert.match(templateOwner.renderMeetClientEmail(unconfirmed, "Synthetic Assessor", "fixture").html, /Please refer to the medication file in the attached admission packet/);
+  assert.match(templateOwner.renderMeetClientEmail(unconfirmed, "Synthetic Assessor", "fixture").html, /Refer to the medication list in the admission packet if attached; otherwise confirm the current list with the referring team/);
   assert.equal(summaryOwner.formatMeetClientDate("2026-02-30"), "2026-02-30");
   assert.equal(summaryOwner.formatMeetClientDate("Date unknown"), "Date unknown");
 });
@@ -232,7 +232,7 @@ test("a handoff needs no medication selection and ignores historical selections 
     assert.equal(fixture.providerCalls(), 1);
     assert.deepEqual(fixture.packetReports[0].meetClient.medications, ["Current fixture medication"]);
     const email = templateOwner.renderMeetClientEmail(fixture.messages[0].summary, "Fixture", "id");
-    assert.match(email.html, /Please refer to the medication file in the attached admission packet/);
+    assert.match(email.html, /Refer to the medication list in the admission packet if attached; otherwise confirm the current list with the referring team/);
     assert.doesNotMatch(email.html, /Current fixture medication|Historical fixture medication|No current medications reported|Current medications not confirmed/);
   }
 });
