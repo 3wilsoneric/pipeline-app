@@ -21,3 +21,13 @@ export function resolveWorkspaceMonth(value?: WorkspaceMonthInput | null): {
   basis: WorkspaceMonthBasis;
 };
 export function workspaceMonthKey(value?: WorkspaceMonthInput | null): string;
+export type WorkspaceCarryoverInput = WorkspaceMonthInput & {
+  workspaceStatus?: "active" | "archived" | "historical" | null;
+  deletedAt?: string | null;
+  stage?: string | null;
+  admissionDecision?: { outcome?: "accepted" | "declined" | null } | null;
+  actualAdmissionDate?: string | null;
+};
+export function isWorkspaceCarryoverOpen(value?: WorkspaceCarryoverInput | null): boolean;
+export function currentWorkspaceMonth(now?: Date): string;
+export function workspaceDirectoryMonthKeys(value?: WorkspaceCarryoverInput | null, currentMonth?: string): string[];

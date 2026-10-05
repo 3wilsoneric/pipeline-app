@@ -107,7 +107,7 @@ export function calendarMonthBounds(month: string) {
 }
 
 export function buildReferralParams(filter: ReferralFilter, searchTerm: string, cursor?: string, scope: WorkspaceScope = "team") {
-  const params = new URLSearchParams({ limit: String(workspacePageSize), sort: "updated_desc", scope });
+  const params = new URLSearchParams({ limit: String(workspacePageSize), sort: "updated_desc", scope, carryover: "true" });
   const query = searchTerm.trim();
   if (query) {
     params.set("q", query);
