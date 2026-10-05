@@ -25,6 +25,7 @@ type ReferralQueryValues = {
   priority?: string;
   tag?: string;
   month?: string;
+  carryover?: string;
   active?: string;
   workspace: string;
   queue?: string;
@@ -59,6 +60,7 @@ export function parseReferralListQuery(searchParams: URLSearchParams): QueryResu
       priority: values.priority as Priority | undefined,
       tag: values.tag,
       month: values.month,
+      includeCarryover: values.carryover === "true",
       activeOnly: values.active === "true",
       workspaceStatus: values.workspace as ReferralListOptions["workspaceStatus"],
       queue: values.queue as ReferralQueueView | undefined,
@@ -81,6 +83,7 @@ function readReferralQueryValues(searchParams: URLSearchParams): ReferralQueryVa
     priority: trimmedParameter(searchParams, "priority") || undefined,
     tag: trimmedParameter(searchParams, "tag") || undefined,
     month: trimmedParameter(searchParams, "month") || undefined,
+    carryover: searchParams.get("carryover")?.trim(),
     active: searchParams.get("active")?.trim(),
     workspace: trimmedParameter(searchParams, "workspace") || "active",
     queue: trimmedParameter(searchParams, "queue") || undefined,
@@ -119,6 +122,7 @@ function validateReferralQueryValues(values: ReferralQueryValues): string | unde
       message: "tag is invalid.",
     },
     { invalid: Boolean(values.month && !/^\d{4}-(0[1-9]|1[0-2])$/.test(values.month)), message: "month must use YYYY-MM." },
+    { invalid: values.carryover !== undefined && !["", "true", "false"].includes(values.carryover), message: "carryover must be true or false." },
     {
       invalid: values.active !== undefined && values.active !== "" && values.active !== "true" && values.active !== "false",
       message: "active must be true or false.",

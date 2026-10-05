@@ -282,7 +282,7 @@ function DirectoryResults(props: ReferralHomeDirectoryProps) {
 function ReferralDirectoryResults(props: ReferralHomeDirectoryProps) {
   return (
     <>
-      <ReferralWorklist referrals={props.visibleReferrals} onOpenPacket={props.onOpenPacket} progressByReferral={props.progressByReferral} />
+      <ReferralWorklist referrals={props.visibleReferrals} onOpenPacket={props.onOpenPacket} progressByReferral={props.progressByReferral} selectedMonth={props.filter.month} />
       {hasReferralPagination(props.referralPage, props.referralNextCursor) ? (
         <div className="flex items-center justify-between border-t border-[#d9d9d9] px-5 py-3">
           <button type="button" disabled={props.referralPage === 0 || props.isLoading} onClick={props.onReferralPrevious} className="h-8 px-2 text-[11px] font-black text-[#096f54] disabled:text-[#b3b3b3]">Previous</button>

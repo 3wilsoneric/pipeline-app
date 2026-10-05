@@ -25,10 +25,12 @@ export default function ReferralWorklist({
   referrals,
   onOpenPacket,
   progressByReferral = {},
+  selectedMonth,
 }: {
   referrals: Referral[];
   onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">) => void;
   progressByReferral?: Record<number, ReferralProgress>;
+  selectedMonth?: string;
 }) {
   const designV2 = useDesignV2();
   // Ask once for every listed referral's latest note; each row reads its own.
@@ -40,19 +42,21 @@ export default function ReferralWorklist({
       progress,
       identityTitle: formatClientIdentityTitle(referral),
       county: getWorkspaceCounty(referral),
+      carriedOver: Boolean(selectedMonth && workspaceMonthKey(referral) < selectedMonth),
     };
   });
 
   return (
     <div role="region" aria-label="Referral worklist">
       <div className="divide-y divide-[#e2e2e2] lg:hidden">
-        {rows.map(({ referral, progress, identityTitle, county }) => (
+        {rows.map(({ referral, progress, identityTitle, county, carriedOver }) => (
           <CompactReferralRow
             key={referral.id}
             referral={referral}
             progress={progress}
             identityTitle={identityTitle}
             county={county}
+            carriedOver={carriedOver}
             onOpen={() => onOpenPacket(referral)}
           />
         ))}
@@ -68,7 +72,7 @@ export default function ReferralWorklist({
           <span className="sr-only">Open</span>
         </div>
         <div className="divide-y divide-[#e2e2e2]">
-          {rows.map(({ referral, progress, identityTitle, county }) => (
+          {rows.map(({ referral, progress, identityTitle, county, carriedOver }) => (
             <button
               key={referral.id}
               type="button"
@@ -84,6 +88,7 @@ export default function ReferralWorklist({
                 <WorkspaceChartThumbnail referral={referral} />
                 <span className="min-w-0 pt-0.5">
                   <span data-workspace-name className="block truncate text-[13px] font-bold text-[#111111]" title={identityTitle}>{identityTitle}</span>
+                  {carriedOver ? <span className="mt-1 block text-[10px] font-semibold text-ink-muted">Carried over</span> : null}
                   {workspaceIdentityDetail(referral, county) ? (
                     <span className="mt-1 block truncate text-[9px] text-[#737373]">{workspaceIdentityDetail(referral, county)}</span>
                   ) : null}
@@ -115,12 +120,14 @@ function CompactReferralRow({
   progress,
   identityTitle,
   county,
+  carriedOver,
   onOpen,
 }: {
   referral: Referral;
   progress: ReferralProgress;
   identityTitle: string;
   county: string;
+  carriedOver: boolean;
   onOpen: () => void;
 }) {
   const designV2 = useDesignV2();
@@ -140,6 +147,7 @@ function CompactReferralRow({
           <WorkspaceChartThumbnail referral={referral} />
           <span className="min-w-0 pt-0.5">
             <span data-workspace-name className="block truncate text-[13px] font-bold text-[#111111]" title={identityTitle}>{identityTitle}</span>
+            {carriedOver ? <span className="mt-1 block text-[10px] font-semibold text-ink-muted">Carried over</span> : null}
             {workspaceIdentityDetail(referral, county) ? (
               <span className="mt-1 block truncate text-[10px] text-[#737373]">{workspaceIdentityDetail(referral, county)}</span>
             ) : null}

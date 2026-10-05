@@ -57,7 +57,7 @@ import {
   resolveWorkspaceCounty,
   visibleWorkspaceTags,
 } from "@/lib/pipeline/workspace-presentation";
-import { resolveWorkspaceMonth, workspaceMonthKey } from "@/lib/pipeline/workspace-month.mjs";
+import { currentWorkspaceMonth, resolveWorkspaceMonth, workspaceDirectoryMonthKeys, workspaceMonthKey } from "@/lib/pipeline/workspace-month.mjs";
 import { assertPersonaDemoIsolation } from "@/shared/persona-demo-config.mjs";
 import { documentMutationDisposition, detachDocument, documentUndoMilliseconds, restoreDocumentLinks, type LocalUploadedDocument } from "./document-lifecycle-policy";
 
@@ -124,6 +124,8 @@ export type ReferralListOptions = {
   priority?: Priority;
   tag?: string;
   month?: string;
+  /** Workspaces month browsing includes still-open referrals from earlier months. */
+  includeCarryover?: boolean;
   workflowStatus?: ReferralWorkflowStatus;
   activeOnly?: boolean;
   /** Internal operational filter for assessments deliberately created after an outcome. */
@@ -261,7 +263,7 @@ export type ReferralChangeMetadata = {
 export interface ReferralStore {
   revision(): Promise<number>;
   list(options?: ReferralListOptions): Promise<ReferralListResult>;
-  facets(query?: string, access?: Pick<ReferralListOptions, "assignedOwnerId" | "assignedOwnerNames" | "workspaceStatus">): Promise<ReferralFacets>;
+  facets(query?: string, access?: Pick<ReferralListOptions, "assignedOwnerId" | "assignedOwnerNames" | "workspaceStatus" | "includeCarryover">): Promise<ReferralFacets>;
   get(id: number): Promise<Referral | null>;
   getDeleted(id: number): Promise<Referral | null>;
   getByPacketId(packetId: string): Promise<Referral | null>;
@@ -452,7 +454,7 @@ export async function getReferralStoreRevision() {
 
 export async function listReferralFacets(
   query = "",
-  access: Pick<ReferralListOptions, "assignedOwnerId" | "assignedOwnerNames" | "workspaceStatus"> = {},
+  access: Pick<ReferralListOptions, "assignedOwnerId" | "assignedOwnerNames" | "workspaceStatus" | "includeCarryover"> = {},
 ) {
   return getReferralStore().facets(query, access);
 }
@@ -853,7 +855,7 @@ async function getLocalReferralRevision() {
 
 async function listLocalReferralFacets(
   query = "",
-  access: Pick<ReferralListOptions, "assignedOwnerId" | "assignedOwnerNames" | "workspaceStatus"> = {},
+  access: Pick<ReferralListOptions, "assignedOwnerId" | "assignedOwnerNames" | "workspaceStatus" | "includeCarryover"> = {},
 ): Promise<ReferralFacets> {
   await ensureLoaded();
   const queryTokens = normalizedSearchTokens(query);
@@ -863,7 +865,7 @@ async function listLocalReferralFacets(
       && matchesWorkspaceStatus(referral, access.workspaceStatus)
       && matchesAssignmentScope(referral, access),
   );
-  return buildReferralFacets(referrals);
+  return buildReferralFacets(referrals, access.includeCarryover === true);
 }
 
 async function getLocalReferral(id: number): Promise<Referral | null> {
@@ -1373,6 +1375,8 @@ async function listPostgresReferrals(options: ReferralListOptions = {}): Promise
   const priority = options.priority ?? null;
   const tag = options.tag?.trim() || null;
   const month = options.month?.trim() || null;
+  const includeCarryover = options.includeCarryover === true;
+  const throughMonth = currentWorkspaceMonth();
   const workflowStatus = options.workflowStatus ?? null;
   const activeOnly = options.activeOnly === true;
   const postOutcomeAssessment = options.postOutcomeAssessment === true;
@@ -1426,6 +1430,17 @@ async function listPostgresReferrals(options: ReferralListOptions = {}): Promise
           ${month}::text is null
           or (${month} = 'unknown' and r.workspace_month is null)
           or to_char(r.workspace_month, 'YYYY-MM') = ${month}
+          or (
+            ${includeCarryover} and r.workspace_status = 'active' and r.workspace_origin = 'pipeline'
+            and r.workspace_month < to_date(${month}, 'YYYY-MM')
+            and to_date(${month}, 'YYYY-MM') <= to_date(${throughMonth}, 'YYYY-MM')
+            and r.stage not in ('Declined', 'Accepted / Admitted')
+            and coalesce(r.data->'admissionDecision'->>'outcome', '') <> 'declined'
+            and not (
+              coalesce(r.data->'admissionDecision'->>'outcome', '') = 'accepted'
+              and nullif(btrim(coalesce(r.data->>'actualAdmissionDate', '')), '') is not null
+            )
+          )
         )
         and (${workflowStatus}::text is null or r.workflow_status = ${workflowStatus})
         and (${activeOnly} = false or r.closed_at is null)
@@ -1503,13 +1518,14 @@ type FacetRow = { value: string; count: number | string };
 
 async function listPostgresReferralFacets(
   query = "",
-  access: Pick<ReferralListOptions, "assignedOwnerId" | "assignedOwnerNames" | "workspaceStatus"> = {},
+  access: Pick<ReferralListOptions, "assignedOwnerId" | "assignedOwnerNames" | "workspaceStatus" | "includeCarryover"> = {},
 ): Promise<ReferralFacets> {
   const sql = getPipelineSql();
   const queryTokens = normalizedSearchTokens(query);
   const assignedOwnerId = access.assignedOwnerId?.trim() || null;
   const assignedOwnerNames = access.assignedOwnerNames ?? [];
   const workspaceStatus = access.workspaceStatus ?? "active";
+  const throughMonth = currentWorkspaceMonth();
   const searchClause = sql`(${queryTokens.length === 0} or not exists (
     select 1 from unnest(${queryTokens}::text[]) as search_term(value)
     where r.search_text not ilike ('%' || search_term.value || '%')
@@ -1567,9 +1583,28 @@ async function listPostgresReferralFacets(
             and lower(trim(r.community)) not in ('unassigned', 'unknown', 'not recorded', 'community not recorded')),
           '[]'::jsonb) as communities
       from (
-        select r.workspace_month, r.community, count(*) as count
-        from pipeline.referrals r where ${searchClause}
-        group by r.workspace_month, r.community
+        select month_bucket.month as workspace_month, r.community, count(*) as count
+        from pipeline.referrals r
+        cross join lateral (
+          select r.workspace_month as month
+          union all
+          select carried.month::date
+          from generate_series(
+            (r.workspace_month + interval '1 month')::date,
+            to_date(${throughMonth}, 'YYYY-MM'),
+            interval '1 month'
+          ) carried(month)
+          where ${access.includeCarryover === true}
+            and r.workspace_status = 'active' and r.workspace_origin = 'pipeline'
+            and r.stage not in ('Declined', 'Accepted / Admitted')
+            and coalesce(r.data->'admissionDecision'->>'outcome', '') <> 'declined'
+            and not (
+              coalesce(r.data->'admissionDecision'->>'outcome', '') = 'accepted'
+              and nullif(btrim(coalesce(r.data->>'actualAdmissionDate', '')), '') is not null
+            )
+        ) month_bucket
+        where ${searchClause}
+        group by month_bucket.month, r.community
       ) r
       group by r.workspace_month order by r.workspace_month desc nulls last
     `,
@@ -3164,7 +3199,9 @@ function matchesReferralIdentity(referral: Referral, options: ReferralListOption
 function matchesReferralLabels(referral: Referral, options: ReferralListOptions) {
   if (options.priority && referral.priority !== options.priority) return false;
   if (options.tag && !(referral.tags ?? []).includes(options.tag)) return false;
-  if (options.month && workspaceMonthKey(referral) !== options.month) return false;
+  if (options.month && !(options.includeCarryover
+    ? workspaceDirectoryMonthKeys(referral).includes(options.month)
+    : workspaceMonthKey(referral) === options.month)) return false;
   return true;
 }
 
@@ -3216,13 +3253,14 @@ function matchesReferralQueue(referral: Referral, queue: ReferralQueueView) {
   return true;
 }
 
-function buildReferralFacets(referrals: Referral[]): ReferralFacets {
+function buildReferralFacets(referrals: Referral[], includeCarryover = false): ReferralFacets {
   const monthCommunities = new Map<string, string[]>();
   for (const referral of referrals) {
-    const month = workspaceMonthKey(referral);
-    const communities = monthCommunities.get(month) ?? [];
-    communities.push(referral.community);
-    monthCommunities.set(month, communities);
+    for (const month of includeCarryover ? workspaceDirectoryMonthKeys(referral) : [workspaceMonthKey(referral)]) {
+      const communities = monthCommunities.get(month) ?? [];
+      communities.push(referral.community);
+      monthCommunities.set(month, communities);
+    }
   }
   return {
     communities: countFacet(referrals
@@ -3233,14 +3271,15 @@ function buildReferralFacets(referrals: Referral[]): ReferralFacets {
     owners: countFacet(referrals.map((referral) => normalizeOwnerName(referral.owner))),
     priorities: countFacet(referrals.map((referral) => referral.priority)),
     tags: countFacet(referrals.flatMap((referral) => referral.tags ?? [])),
-    months: countFacet(referrals.map(workspaceMonthKey)).sort((left, right) => {
+    months: [...monthCommunities].map(([value, communities]) => ({
+      value,
+      count: communities.length,
+      communities: countFacet(communities.filter(isRecordedWorkspaceCommunity)),
+    })).sort((left, right) => {
       if (left.value === "unknown") return 1;
       if (right.value === "unknown") return -1;
       return right.value.localeCompare(left.value);
-    }).map((month) => ({
-      ...month,
-      communities: countFacet((monthCommunities.get(month.value) ?? []).filter(isRecordedWorkspaceCommunity)),
-    })),
+    }),
   };
 }
 

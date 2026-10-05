@@ -32,6 +32,7 @@ export async function GET(request: Request) {
     const facetAccess = scopeReferralListOptions(auth.user, {
       workspaceStatus: "all",
       scope: query.value.scope,
+      includeCarryover: query.value.includeCarryover,
     });
 
     const [result, facets, files] = await Promise.all([

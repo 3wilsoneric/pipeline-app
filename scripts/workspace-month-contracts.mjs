@@ -7,6 +7,8 @@ import {
   resolveWorkspaceMonth,
   workspaceMonthFromProjectName,
   workspaceMonthKey,
+  workspaceDirectoryMonthKeys,
+  currentWorkspaceMonth,
 } from "../lib/pipeline/workspace-month.mjs";
 
 const checks = [];
@@ -67,6 +69,29 @@ check(
   normalizeWorkspaceMonth("2026-09") === "2026-09"
     && normalizeWorkspaceMonth("2026-13") === null
     && normalizeWorkspaceMonth("26-09") === null,
+);
+check(
+  "workspace rollover follows Pacific business time instead of UTC midnight",
+  currentWorkspaceMonth(new Date("2026-10-01T02:00:00Z")) === "2026-09"
+    && currentWorkspaceMonth(new Date("2026-10-01T07:00:00Z")) === "2026-10",
+);
+check(
+  "unfinished Pipeline intakes appear in every month through the current month without changing their filing month",
+  JSON.stringify(workspaceDirectoryMonthKeys({ workspaceOrigin: "pipeline", workspaceStatus: "active", workspaceMonth: "2026-09", stage: "Assessment" }, "2026-11"))
+    === JSON.stringify(["2026-09", "2026-10", "2026-11"])
+    && workspaceMonthKey({ workspaceOrigin: "pipeline", workspaceMonth: "2026-09" }) === "2026-09",
+);
+check(
+  "denied, admitted, historical, and undated workspaces do not carry forward",
+  [
+    { stage: "Declined" },
+    { stage: "Accepted / Admitted" },
+    { admissionDecision: { outcome: "declined" } },
+    { admissionDecision: { outcome: "accepted" }, actualAdmissionDate: "2026-10-03" },
+    { workspaceStatus: "historical" },
+  ].every((details) => JSON.stringify(workspaceDirectoryMonthKeys({ workspaceOrigin: "pipeline", workspaceStatus: "active", workspaceMonth: "2026-09", ...details }, "2026-11")) === JSON.stringify(["2026-09"]))
+    && JSON.stringify(workspaceDirectoryMonthKeys({ workspaceOrigin: "allo", sourceProjectName: "Unknown import" }, "2026-11")) === JSON.stringify(["unknown"])
+    && JSON.stringify(workspaceDirectoryMonthKeys({ workspaceOrigin: "pipeline", workspaceStatus: "active", workspaceMonth: "2026-09", admissionDecision: { outcome: "accepted" }, plannedAdmissionDate: "2026-10-03" }, "2026-10")) === JSON.stringify(["2026-09", "2026-10"]),
 );
 
 const migration = readFileSync("database/migrations/0024_workspace_month_provenance.sql", "utf8");

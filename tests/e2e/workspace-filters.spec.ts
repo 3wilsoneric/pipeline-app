@@ -61,6 +61,7 @@ for (const width of [1440, 390]) {
       expect(searchBox.y - directoryBox.y).toBeLessThanOrEqual(32);
     }
     expect(directoryParams.get("scope")).toBe("team");
+    expect(directoryParams.get("carryover")).toBe("true");
     await expect(page.getByRole("tab", { name: "Activity", exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: /Show workspaces as/ })).toHaveCount(0);
     await page.getByRole("button", { name: "Next", exact: true }).click();
@@ -118,6 +119,38 @@ for (const width of [1440, 390]) {
     expect(fileParams.getAll("owner")).toEqual([]);
   });
 }
+
+test("month browsing identifies unfinished referrals carried from an earlier month", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.route("**/api/me/referral-drafts", (route) => route.fulfill({ json: { drafts: [] } }));
+  await page.route(/\/api\/referrals\/changes\?/, (route) => route.fulfill({ json: { changed: false, sequence: 1 } }));
+  let requestedMonth = "";
+  await page.route(/\/api\/referrals(?:\/directory)?\?/, (route) => {
+    requestedMonth = new URL(route.request().url()).searchParams.get("month") ?? "";
+    const september = { id: 910002, name: "September Carryover", date: "2026-09-17", workspaceMonth: "2026-09", stage: "Assessment", community: "San Pablo", owner: "Alex Assessor", priority: "standard", source: "Synthetic", requirements: [], documentName: "filter.pdf", documentStatus: "Uploaded", note: "", createdAt: "2026-09-17T12:00:00Z" };
+    const october = { ...september, id: 910003, name: "October Intake", date: "2026-10-01", workspaceMonth: "2026-10", createdAt: "2026-10-01T12:00:00Z" };
+    const referrals = requestedMonth === "2026-09" ? [september] : requestedMonth === "2026-10" ? [september, october] : [september, october];
+    return route.fulfill({ json: {
+      referrals, total: referrals.length, revision: 1, progress: {}, file_total: 0,
+      facets: {
+        communities: [{ value: "San Pablo", count: 2 }], counties: [], stages: [{ value: "Assessment", count: 2 }], owners: [], priorities: [], tags: [],
+        months: [
+          { value: "2026-10", count: 2, communities: [{ value: "San Pablo", count: 2 }] },
+          { value: "2026-09", count: 1, communities: [{ value: "San Pablo", count: 1 }] },
+        ],
+      },
+    } });
+  });
+  await page.goto("/?view=referrals");
+  const archive = page.getByRole("navigation", { name: "Browse workspaces by date and community" });
+  await archive.getByRole("button", { name: /October 2026/ }).click();
+  await expect.poll(() => requestedMonth).toBe("2026-10");
+  await expect(page.getByRole("button", { name: "Open September Carryover referral workspace" }).getByText("Carried over")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Open October Intake referral workspace" }).getByText("Carried over")).toHaveCount(0);
+  await archive.getByRole("button", { name: /September 2026/ }).click();
+  await expect.poll(() => requestedMonth).toBe("2026-09");
+  await expect(page.getByRole("button", { name: "Open September Carryover referral workspace" }).getByText("Carried over")).toHaveCount(0);
+});
 
 test("HTTP query validation rejects invalid additional filter values", async ({ request }) => {
   for (const path of ["/api/referrals", "/api/referrals/directory", "/api/files"]) {

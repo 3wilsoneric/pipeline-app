@@ -292,7 +292,7 @@ function ReferralHome({
     setExpandedMonth((current) => monthOptions.includes(current) ? current : monthOptions[0] ?? "");
   }, [activeMonth, monthOptions]);
 
-  const allPacketTotal = useMemo(() => facets.months.reduce((total, entry) => total + entry.count, 0), [facets.months]);
+  const allPacketTotal = useMemo(() => (facets.stages.length ? facets.stages : facets.months).reduce((total, entry) => total + entry.count, 0), [facets]);
   const isFileLoading = filter.kind === "files" && files === null;
   const visibleFiles = files ?? [];
   const visibleImportItems = importItems ?? [];
