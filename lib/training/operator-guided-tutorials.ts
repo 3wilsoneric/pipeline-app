@@ -126,11 +126,10 @@ const expectedGuideResults: Readonly<Record<string, string>> = {
   "calendar-filters": "The current assessor and date scope, limited to what your account can access.",
   "calendar-workspace": "Appointment details and a route back to its linked referral.",
   "client-directory": "Matching client charts, with identity details to distinguish similar names.",
-  "operations-report-select": "The selected report and its available controls.",
-  "operations-summary": "The period and grouping that will be used for the report.",
-  "operations-report-apply": "Updated results for the applied filters, or an error to resolve before relying on them.",
-  "operations-report-results": "Report totals and supporting rows for the scope shown on the page.",
-  "operations-report-export": "A CSV download only after you explicitly choose Export CSV.",
+  "operations-briefing-header": "The current census date and snapshot update time.",
+  "operations-briefing-metrics": "Current census and reconciliation status; unavailable values are never treated as zero.",
+  "operations-briefing-communities": "The current census count by community and any data-quality warnings.",
+  "operations-briefing-source": "The census source and any limits on interpreting the snapshot.",
 };
 
 // Acknowledging a tooltip is not evidence that a clinical or delivery action occurred.
@@ -250,13 +249,12 @@ export const operatorGuidedTutorials: readonly OperatorGuidedTutorial[] = [
       step("team-search", "/?view=referrals", "workspace-search", "Find a team referral", "Search by client or referral details after choosing the intended scope. Clear filters when the expected referral is not listed."),
       step("team-calendar", "/?screen=calendar", "calendar-filters", "Review appointment coverage", "Use the permitted assessor scope and date filters to review the team schedule."),
     ] }),
-  tutorial({ id: "run-report", title: "View reports", context: "app", persona: "supervisor", audiences: supervisorRoles, summary: "Choose a report and the dates you need.",
+  tutorial({ id: "run-report", title: "View reports", context: "app", persona: "supervisor", audiences: supervisorRoles, summary: "Read the current census briefing.",
     steps: [
-      step("report-choose", "/?screen=operations", "operations-report-select", "Choose a report", "Choose from this dropdown. Only reports permitted for your account are available."),
-      step("report-scope", "/?screen=operations", "operations-summary", "Set the scope", "Set available period and grouping controls. Review the scope before interpreting totals."),
-      step("report-apply", "/?screen=operations", "operations-report-apply", "Apply changed filters", "Apply refreshes results for your filters. If nothing changed, no refresh may be needed."),
-      step("report-results", "/?screen=operations", "operations-report-results", "Read the result", "Review results and supporting rows. Empty results are not evidence that the filters include all work."),
-      step("report-export", "/?screen=operations", "operations-report-export", "Export deliberately", "Export CSV downloads the report. Confirm scope before downloading or sharing. This tutorial does not export for you."),
+      step("briefing-period", "/?screen=operations", "operations-briefing-header", "Check the snapshot date", "Confirm the data date and update time before using the figures."),
+      step("briefing-metrics", "/?screen=operations", "operations-briefing-metrics", "Read the census", "Use the current census and reconciliation status together. Unavailable is not zero.", "confirm", true),
+      step("briefing-communities", "/?screen=operations", "operations-briefing-communities", "Review communities", "Review each community count and its reconciliation status. Missing values are not inferred.", "confirm", true),
+      step("briefing-source", "/?screen=operations", "operations-briefing-source", "Check availability", "This briefing uses Pipeline's current-census feed. It does not report a weekly change because a prior-period snapshot is not stored here."),
     ] }),
 ];
 
@@ -287,7 +285,7 @@ export const operatorGuideNextActions: Readonly<Record<string, { message: string
   "calendar": { message: "Open an appointment to return to its referral. New appointments can also be scheduled from the client's Home Board card.", tutorials: ["assessor-shift", "start-assessment"] },
   "clients": { message: "Use the client's chart for their information. For an active referral, use the Home Board or Workspaces.", tutorials: ["assessor-shift", "find-workspace"] },
   "supervisor-shift": { message: "Open the relevant referral to see its details. Board visibility does not change anyone's editing permissions.", tutorials: ["run-report", "find-workspace"] },
-  "run-report": { message: "Check the dates and filters in the report. Export only when you need a copy; this help has not exported anything.", tutorials: ["supervisor-shift"] },
+  "run-report": { message: "Check the snapshot date before relying on census figures. This help has not changed or exported anything.", tutorials: ["supervisor-shift"] },
 };
 export const operatorGuideTargetIds = [...new Set(operatorGuidedTutorials.flatMap((item) => item.steps.map((item) => item.target)))];
 export const operatorGuideVerifiedActionTargets: Readonly<Record<Exclude<OperatorGuideAdvance, "confirm">, readonly string[]>> = {
@@ -332,11 +330,10 @@ export const operatorGuideTargetSources: Readonly<Record<string, string>> = {
   "calendar-filters": "components/pipeline/PipelineCalendarPresentation.tsx",
   "calendar-workspace": "components/pipeline/PipelineCalendar.tsx",
   "client-directory": "components/pipeline/ClientProfileDirectory.tsx",
-  "operations-report-select": "components/pipeline/OperationsDashboard.tsx",
-  "operations-summary": "components/pipeline/OperationsDashboard.tsx",
-  "operations-report-apply": "components/pipeline/OperationsDashboard.tsx",
-  "operations-report-results": "components/pipeline/OperationsDashboard.tsx",
-  "operations-report-export": "components/pipeline/OperationsDashboard.tsx"
+  "operations-briefing-header": "components/pipeline/PipelineCensusBriefing.tsx",
+  "operations-briefing-metrics": "components/pipeline/PipelineCensusBriefing.tsx",
+  "operations-briefing-communities": "components/pipeline/PipelineCensusBriefing.tsx",
+  "operations-briefing-source": "components/pipeline/PipelineCensusBriefing.tsx"
 };
 
 export function getOperatorGuidedTutorial(id: string | null | undefined) {

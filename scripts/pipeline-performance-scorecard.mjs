@@ -377,29 +377,7 @@ await measureJourney("calendar_to_operations", "navigation", async () => {
   await activate(page.getByRole("button", { name: "Open reports", exact: true }));
   await page.getByRole("main", { name: "Reports", exact: true }).waitFor({ state: "visible" });
 });
-await measureJourney("report_tab_change", "tab", async () => {
-  await page.getByRole("combobox", { name: "Report", exact: true }).selectOption("assessor_workload");
-  await waitForReport(page, "Assessor workload");
-});
-await page.getByRole("combobox", { name: "Report", exact: true }).selectOption("assessment_schedule");
-await waitForReport(page, "Assessment calendar");
-await page.getByLabel("Report community", { exact: true }).selectOption("San Pablo");
-await measureJourney("report_filter_apply", "filter", async () => {
-  const reportResponse = page.waitForResponse((candidate) => {
-    const url = new URL(candidate.url());
-    return candidate.request().method() === "GET"
-      && candidate.ok()
-      && url.pathname === "/api/operations/reports"
-      && url.searchParams.get("community") === "San Pablo";
-  });
-  await activate(page.getByRole("button", { name: "Apply", exact: true }));
-  await reportResponse;
-});
-await measureJourney("report_csv_export", "export", async () => {
-  const download = page.waitForEvent("download");
-  await activate(page.getByRole("button", { name: "Export CSV", exact: true }));
-  await download;
-});
+await page.locator('[data-guide-target="operations-briefing-header"]').waitFor({ state: "visible" });
 await measureJourney("operations_to_referrals", "navigation", async () => {
   await activate(page.getByRole("button", { name: "Open referrals", exact: true }));
   await page.getByRole("heading", { name: "Referral workspaces", exact: true }).waitFor({ state: "visible" });
@@ -554,16 +532,6 @@ async function retainDocumentInteractions() {
 
 async function activate(locator) {
   await locator.click();
-}
-
-async function waitForReport(targetPage, label) {
-  await targetPage.waitForFunction((expectedLabel) => {
-    const reportReady = [...document.querySelectorAll("article")]
-      .some((article) => article.getAttribute("aria-label") === `${expectedLabel} report`);
-    const controlsReady = [...document.querySelectorAll('section[aria-label="Report controls"] button')]
-      .some((button) => button.textContent?.trim() === "Apply");
-    return reportReady && controlsReady;
-  }, label);
 }
 
 function summarizeApi(samples) {

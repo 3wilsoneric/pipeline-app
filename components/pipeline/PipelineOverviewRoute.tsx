@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useDesignV2 } from "@/components/design/DesignSwitch";
 
 import ClientProfileDirectory, { preloadCurrentClientDirectory } from "@/components/pipeline/ClientProfileDirectory";
-import OperationsDashboard from "@/components/pipeline/OperationsDashboard";
+import PipelineCensusBriefing from "@/components/pipeline/PipelineCensusBriefing";
 import PipelineCalendar from "@/components/pipeline/PipelineCalendar";
 import PipelineTrash from "@/components/pipeline/PipelineTrash";
 import ReferralHome from "@/components/pipeline/ReferralHome";
@@ -448,13 +448,7 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
     };
     page = deferredWorkSurfaces ? <deferredWorkSurfaces.ClientProfileView {...profileProps} /> : <DeferredScreenLoading />;
   } else if (screen === "operations") {
-    page = reportAccess === true ? (
-      <OperationsDashboard
-        onOpenPacket={(referral) => navigate("packet", referral)}
-        onOpenProfile={(clientId) => navigate("profile", undefined, clientId)}
-        onOpenProfiles={() => navigate("profiles")}
-      />
-    ) : null;
+    page = reportAccess === true ? <PipelineCensusBriefing /> : null;
   } else if (screen === "calendar") {
     page = <PipelineCalendar onOpenPacket={(referral, location) => void navigate("packet", referral, undefined, location, false)} />;
   } else if (screen === "trash") {

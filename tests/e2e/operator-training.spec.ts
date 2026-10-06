@@ -115,51 +115,19 @@ test.describe("Pipeline Learning Center", () => {
     await expect(name).toHaveValue("Synthetic Help Draft");
   });
 
-  test("guides report selection, unapplied filters, and the export checkpoint", async ({ page }) => {
-    const queries: URLSearchParams[] = [];
-    const exports: string[] = [];
-    const catalog = [
-      { id: "clients_by_community", label: "Clients by community", description: "Current clients", cadence: "Current", audience: "Supervisors", filters: ["community", "client_scope"] },
-      { id: "assessment_completion", label: "Assessment completion", description: "Completed assessments", cadence: "Monthly", audience: "Supervisors", filters: ["month", "community"] },
-    ];
+  test("guides the current census briefing without old report controls", async ({ page }) => {
     await mockTrainingProgress(page);
-    await page.route("**/api/operations/reports**", (route) => {
-      const request = route.request();
-      if (request.method() !== "GET") exports.push(request.method());
-      const query = new URL(request.url()).searchParams;
-      queries.push(query);
-      const definition = catalog.find((item) => item.id === query.get("report_id")) ?? catalog[0];
-      return route.fulfill({ json: {
-        catalog,
-        facets: { communities: [{ value: "Turlock", count: 1 }], owners: [] },
-        filters: { report_id: definition.id, month: query.get("month") ?? "", community: query.get("community") ?? "", owner: "", county: "", client_scope: query.get("client_scope") ?? "all" },
-        report: { definition, columns: [], metrics: [], rows: [], row_count: 0, truncated: false, generated_at: "2026-09-13T12:00:00Z" },
-      } });
-    });
     await startGuide(page, "View reports");
     const coach = page.getByRole("complementary", { name: "View reports tutorial", exact: true });
-    const report = page.getByRole("combobox", { name: "Report", exact: true });
-    await expect(coach.getByRole("heading", { name: "Choose a report" })).toBeVisible();
-    await report.click();
-    await report.press("Escape");
-    await expect(coach.getByRole("heading", { name: "Choose a report" })).toBeVisible();
-    // Commit an actual selection, not just focus/open the dropdown.
-    await report.selectOption("assessment_completion");
+    await expect(coach.getByRole("heading", { name: "Check the snapshot date" })).toBeVisible();
+    await expect(page.getByRole("main", { name: "Reports" })).toBeVisible();
+    await expect(page.getByRole("combobox", { name: "Report", exact: true })).toHaveCount(0);
     await coach.getByRole("button", { name: "Next", exact: true }).click();
-    await expect(coach.getByRole("heading", { name: "Set the scope" })).toBeVisible();
-    await page.getByLabel("Report month", { exact: true }).fill("2026-08");
+    await expect(coach.getByRole("heading", { name: "Read the census" })).toBeVisible();
     await coach.getByRole("button", { name: "Next", exact: true }).click();
-    await expect(coach.getByRole("heading", { name: "Apply changed filters" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Export CSV", exact: true })).toBeDisabled();
-    expect(queries.at(-1)?.get("month")).not.toBe("2026-08");
-    await page.getByRole("button", { name: "Apply", exact: true }).click();
+    await expect(coach.getByRole("heading", { name: "Review communities" })).toBeVisible();
     await coach.getByRole("button", { name: "Next", exact: true }).click();
-    await expect(coach.getByRole("heading", { name: "Read the result" })).toBeVisible();
-    await expect.poll(() => queries.at(-1)?.get("month")).toBe("2026-08");
-    await expect(page.getByRole("button", { name: "Export CSV", exact: true })).toBeEnabled();
-    await coach.getByRole("button", { name: "Next", exact: true }).click();
-    await expect(coach).toContainText("This tutorial does not export for you.");
-    expect(exports).toEqual([]);
+    await expect(coach.getByRole("heading", { name: "Check availability" })).toBeVisible();
   });
 
   test("keeps the referral upload guide clear at a narrow viewport", async ({ page }) => {
