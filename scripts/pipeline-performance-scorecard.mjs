@@ -650,6 +650,11 @@ async function installSanitizedClinicalFixtures(page) {
     "content-type": "application/json",
     "x-pipeline-test-fixture": "sanitized",
   };
+  await page.route(/\/api\/clinical\/census(?:\?|$)/, (route) => route.fulfill({
+    status: 200,
+    headers: fixtureHeaders,
+    body: JSON.stringify(clinical.census),
+  }));
   await page.route("**/api/profiles/**", (route) => route.fulfill({
     status: 200,
     headers: fixtureHeaders,
