@@ -602,7 +602,7 @@ function AdmissionPacketReview({ email, referral, selectedFileIds, onSelectedFil
     <div className={styles.attachmentHeading}><h3>Choose files for the community</h3><span><Paperclip size={15} aria-hidden="true" />{selected.length} selected · {formatBytes(bytes)}</span></div>
     <p>Only checked files will be included. The client data sheet is always included; referral packets, MARs, and other files stay unchecked unless you choose them.</p>
     <ul className={styles.attachmentList}>{email.admission_packet.files.map((file) => <li key={file.document_id}>
-      <div className="flex items-center gap-3 rounded border border-[#dce4df] bg-white p-3">
+      <div className="flex items-center gap-3 rounded border border-[var(--color-paper-rule)] bg-[var(--color-sheet)] p-3">
         <input type="checkbox" aria-label={`Include ${file.name}`} checked={selectedFileIds.includes(file.document_id)} disabled={file.generated} onChange={(event) => {
           const next = new Set(selectedFileIds);
           if (event.target.checked) next.add(file.document_id); else next.delete(file.document_id);
