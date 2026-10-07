@@ -60,7 +60,14 @@ function fixture(t, options = {}) {
     "@/lib/notifications/admission-packet-store": store, "@/lib/notifications/admission-packet-files": files,
     "@/lib/notifications/microsoft-graph-mail": mail, "@/lib/notifications/meet-client-email-template": template,
     "@/lib/notifications/outlook-mail": {}, "@/lib/notifications/outlook-handoff": {}, "@/lib/notifications/assessor-email-handoff": {},
-    "@/lib/notifications/meet-client-attachments": { getMeetClientAttachmentInventory: async () => inventory },
+    "@/lib/notifications/meet-client-attachments": {
+      getMeetClientAttachmentInventory: async () => inventory,
+      selectMeetClientAttachmentInventory: (all, ids) => {
+        const selected = all.files.filter(file => ids.includes(file.documentId));
+        return selected.length === new Set(ids).size && selected.some(file => file.generatedContent)
+          ? { ...all, files: selected, totalBytes: selected.reduce((sum, file) => sum + file.byteSize, 0) } : null;
+      },
+    },
     "@/lib/pipeline/meet-client-delivery-audit": audit, "@/lib/pipeline/workflow-store": { getReferralWorkflowSnapshot: async () => ({ referral, work_items: [], decision: { outcome: "accepted", decisionId: "decision", assessmentId: "assessment" } }) },
     "@/lib/observability/api-logging": { withApiLogging: (_r, _n, action) => action() }, "@/lib/observability/pipeline-metrics": { recordPipelineMetric: () => {} },
   };
@@ -68,6 +75,7 @@ function fixture(t, options = {}) {
   const history = loadEntry("app/api/communications/route.ts", dependencies, { ...globals, fetch: async url => { const b = blobs.get(url.replace("https://storage.invalid/", "")); return b ? new Response(new Uint8Array(b.bytes)) : new Response(null, { status: 404 }); } });
   const body = { recipients: ["care@outlook.com"], cc_recipients: ["team@example.invalid"], confirmed: true,
     if_match: 4, assessment_id: "assessment", if_match_assessment: 7, client_mutation_id: randomUUID(), packet_revision: inventory.revision,
+    selected_file_ids: ["sheet", "original"],
     message: { subject: "Reviewed subject", body: "Exact reviewed text <literal>" } };
   const post = (patch = {}, origin) => route.POST(new Request("http://localhost/api/referrals/6/meet-client-email?delivery=direct", { method: "POST", headers: origin ? { origin } : {}, body: JSON.stringify({ ...body, ...patch }) }), { params: Promise.resolve({ referralId: "6" }) });
   return { store, direct, inventory, body, blobs, bytes, post, get: query => history.GET(new Request(`http://localhost/api/communications?${query}`)),
@@ -116,6 +124,25 @@ test("direct preview and actual email use the medication attachment without requ
   assert.equal(f.sendInput.attachments[1].name, "Medication list.docx");
   assert.equal(f.sendInput.attachments[1].contentType, "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
   assert.deepEqual(f.blobs.get(f.sendInput.attachments[1].sourceUrl.replace("https://storage.invalid/", "")).bytes, f.bytes);
+});
+
+test("community handoff sends only the reviewed files, with the client data sheet required", async t => {
+  const f = fixture(t);
+  assert.equal((await f.post({ selected_file_ids: ["original"] })).status, 409);
+  assert.equal((await f.post({ selected_file_ids: ["sheet", "unknown"] })).status, 409);
+  assert.equal(f.sent, 0);
+  const prepared = await f.post({ selected_file_ids: ["sheet"] });
+  assert.equal(prepared.status, 200);
+  const preview = (await prepared.json()).communication;
+  assert.deepEqual(Array.from(preview.files, (file) => file.name), ["Client data sheet.pdf"]);
+  assert.doesNotMatch(preview.html, /Original\.docx/);
+  assert.equal((await f.post({ selected_file_ids: ["sheet", "original"], snapshot_id: preview.id })).status, 409,
+    "a changed selection cannot send an older preview with extra files");
+  assert.equal(f.sent, 0);
+  const sent = await f.post({ selected_file_ids: ["sheet"], snapshot_id: preview.id });
+  assert.equal(sent.status, 200);
+  assert.equal(f.sent, 1);
+  assert.deepEqual(Array.from(f.sendInput.attachments, (file) => file.name), ["Client data sheet.pdf"]);
 });
 
 test("unseen changes to message, recipients, date, same-size original bytes or ownership never send", async t => {

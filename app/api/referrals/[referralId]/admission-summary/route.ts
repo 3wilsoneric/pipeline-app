@@ -3,7 +3,7 @@ import { requirePipelineUser, type PipelineUser } from "@/lib/auth/pipeline-auth
 import { listAssessments, requireAssessmentStore } from "@/lib/assessment/assessment-store";
 import { buildAssessmentSummaryReport, selectSignedAssessment } from "@/lib/assessment/assessment-summary";
 import { jsonError } from "@/lib/extraction/contracts";
-import { getMeetClientAttachmentInventory } from "@/lib/notifications/meet-client-attachments";
+import { defaultMeetClientAttachmentIds, getMeetClientAttachmentInventory, selectMeetClientAttachmentInventory } from "@/lib/notifications/meet-client-attachments";
 import { meetClientIdentityIssues } from "@/lib/notifications/meet-client-identity";
 import { renderMeetClientEmail } from "@/lib/notifications/meet-client-email-template";
 import { clientDataSheetName, renderClientDataSheet } from "@/lib/notifications/client-data-sheet";
@@ -17,7 +17,6 @@ import { getReferralWorkflowSnapshot } from "@/lib/pipeline/workflow-store";
 
 import { getOutlookMailReadiness } from "@/lib/notifications/outlook-mail";
 import { workspaceOutlookState } from "@/lib/notifications/outlook-handoff";
-import { meetClientAttachmentDeliveryMode } from "@/lib/notifications/meet-client-attachment-policy";
 
 export const runtime = "nodejs";
 
@@ -70,11 +69,16 @@ export async function GET(
         mail.largeAttachmentDeliveryConfigured,
         chartReport,
       );
+      const defaultSelectedIds = defaultMeetClientAttachmentIds(admissionPacket.files);
+      const defaultPacket = selectMeetClientAttachmentInventory(admissionPacket, defaultSelectedIds);
+      const baseBlockers = meetClientEmailBlockers(
+        report, snapshot.decision?.outcome, mail.configured, [], getPlannedAdmissionDate(snapshot.referral),
+      );
       const emailBlockers = meetClientEmailBlockers(
         report,
         snapshot.decision?.outcome,
         mail.configured,
-        admissionPacket.blockers,
+        defaultPacket?.blockers ?? admissionPacket.blockers,
         getPlannedAdmissionDate(snapshot.referral),
       );
       const canSend = !exampleOnly && canSendAdmissionSummary(auth.user, access.referral);
@@ -90,7 +94,7 @@ export async function GET(
           prepared_by: auth.user.name,
           preview: report ? renderMeetClientEmail(
             report.meetClient, auth.user.name, "Preview — assigned when sent",
-            admissionPacket.files.map((file) => file.name),
+            defaultPacket?.files.map((file) => file.name) ?? [],
             undefined, { demo: exampleOnly },
           ) : null,
           eligible: snapshot.decision?.outcome === "accepted",
@@ -99,8 +103,10 @@ export async function GET(
           ready: canSend && emailBlockers.length === 0,
           sent_at: assessment?.meet_client_sent_at ?? null,
           blockers: emailBlockers,
+          base_blockers: baseBlockers,
           admission_packet: {
             revision: admissionPacket.revision,
+            default_selected_ids: defaultSelectedIds,
             files: admissionPacket.files.map((file) => ({
               document_id: file.documentId,
               name: file.name,
@@ -109,9 +115,9 @@ export async function GET(
               ready: file.ready,
               generated: file.generatedContent !== undefined,
             })),
-            total_bytes: admissionPacket.totalBytes,
-            ready: admissionPacket.ready,
-            delivery_mode: meetClientAttachmentDeliveryMode(admissionPacket.files),
+            total_bytes: defaultPacket?.totalBytes ?? 0,
+            ready: defaultPacket?.ready ?? false,
+            delivery_mode: defaultPacket?.deliveryMode ?? null,
           },
         },
       }, { headers: privateHeaders() });

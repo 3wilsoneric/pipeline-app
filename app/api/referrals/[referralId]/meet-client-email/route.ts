@@ -20,6 +20,7 @@ import { communicationView, ownedDirectHandoff, prepareDirectHandoff, sendDirect
 import {
   getMeetClientAttachmentInventory,
   prepareMeetClientMailAttachments,
+  selectMeetClientAttachmentInventory,
 } from "@/lib/notifications/meet-client-attachments";
 import {
   GraphMailDeliveryError,
@@ -80,7 +81,7 @@ export async function POST(
     const { assessment, snapshot } = contextResult;
     const handoffReferral = { ...snapshot.referral, requirements: snapshot.work_items };
     const summary = buildMeetClientSummary(assessment, handoffReferral);
-    const attachmentContext = await loadAdmissionPacket(handoffReferral, assessment, prepared.packetRevision, outlook, outlook || assessorEmail || direct);
+    const attachmentContext = await loadAdmissionPacket(handoffReferral, assessment, prepared.packetRevision, prepared.selectedFileIds, outlook, outlook || assessorEmail || direct);
     if (!attachmentContext.ok) return attachmentContext.response;
     if (assessorEmail) {
       try { requireAssessorEmailCapacity(attachmentContext.inventory); }
@@ -113,8 +114,9 @@ export async function POST(
           const communication = prepared.snapshotId ? await sendDirectHandoff(prepared.snapshotId, input, async () => {
             const fresh = await loadMeetClientContext(referralId, prepared.referralVersion, prepared.assessmentId, prepared.assessmentVersion);
             if (!fresh.ok) throw new PacketAccessError("The admission or assessment changed after preview. Review the updated handoff before sending.", 409);
-            const files = await getMeetClientAttachmentInventory(handoffReferral, { report: buildAssessmentSummaryReport(assessment, handoffReferral) });
-            if (!files.ready || files.revision !== prepared.packetRevision) throw new PacketAccessError("The packet changed after preview. Review the updated files before sending.", 409);
+            const allFiles = await getMeetClientAttachmentInventory(handoffReferral, { report: buildAssessmentSummaryReport(assessment, handoffReferral) });
+            const files = selectMeetClientAttachmentInventory(allFiles, prepared.selectedFileIds);
+            if (!files?.ready || allFiles.revision !== prepared.packetRevision) throw new PacketAccessError("The packet changed after preview. Review the updated files before sending.", 409);
           }) : await prepareDirectHandoff(input);
           return Response.json({ communication }, { headers: privateHeaders() });
         } catch (error) { return outlookFailure(error, true); }
@@ -154,8 +156,9 @@ export async function POST(
         beforeSend: async () => {
           const fresh = await getReferralWorkflowSnapshot(referralId);
           if (!fresh || fresh.referral.version !== prepared.referralVersion || fresh.decision?.outcome !== "accepted" || fresh.decision.decisionId !== contextResult.decisionId) throw new PacketAccessError("The admission details changed while preparing the packet. Refresh and review them before sending.", 409);
-          const currentFiles = await getMeetClientAttachmentInventory(handoffReferral, { largeAttachmentDeliveryConfigured: getGraphMailReadiness().largeAttachmentDeliveryConfigured, report: buildAssessmentSummaryReport(assessment, handoffReferral) });
-          if (!currentFiles.ready || currentFiles.revision !== prepared.packetRevision) throw new PacketAccessError("The packet files changed while preparing the email. Refresh and review them before sending.", 409);
+          const allFiles = await getMeetClientAttachmentInventory(handoffReferral, { largeAttachmentDeliveryConfigured: getGraphMailReadiness().largeAttachmentDeliveryConfigured, report: buildAssessmentSummaryReport(assessment, handoffReferral) });
+          const currentFiles = selectMeetClientAttachmentInventory(allFiles, prepared.selectedFileIds);
+          if (!currentFiles?.ready || allFiles.revision !== prepared.packetRevision) throw new PacketAccessError("The packet files changed while preparing the email. Refresh and review them before sending.", 409);
         },
         message: prepared.message,
       });
@@ -259,7 +262,7 @@ type PreparedEmailRequest = {
 };
 
 async function prepareEmailRequest(request: Request): Promise<
-  | { ok: true; mutationId: string; recipients: string[]; ccRecipients: string[]; referralVersion: number; message: MeetClientMessage; assessmentId: string; assessmentVersion: number; packetRevision: string; snapshotId?: string }
+  | { ok: true; mutationId: string; recipients: string[]; ccRecipients: string[]; referralVersion: number; message: MeetClientMessage; assessmentId: string; assessmentVersion: number; packetRevision: string; selectedFileIds: string[]; snapshotId?: string }
   | { ok: false; response: Response }
 > {
   const body = await readJsonBody(request, 256_000);
@@ -273,6 +276,11 @@ async function prepareEmailRequest(request: Request): Promise<
   if (!message) return { ok: false, response: jsonError("Use a subject up to 200 characters and message up to 20,000 characters, without unsupported control characters.") };
   const packetRevision = body.value.packet_revision;
   if (!validPacketRevision(packetRevision)) return { ok: false, response: jsonError("Refresh the preview before sending the packet.", 409) };
+  const selectedFileIds = body.value.selected_file_ids;
+  if (!Array.isArray(selectedFileIds) || selectedFileIds.length < 1
+    || !selectedFileIds.every((id) => typeof id === "string" && id.length <= 160)) {
+    return { ok: false, response: jsonError("Refresh the packet review and choose the files to send.", 409) };
+  }
   const mutationId = body.value.client_mutation_id;
   if (!isMutationId(mutationId)) return { ok: false, response: jsonError("client_mutation_id is invalid.") };
   const referralVersion = body.value.if_match;
@@ -289,7 +297,7 @@ async function prepareEmailRequest(request: Request): Promise<
     return { ok: false, response: jsonError("Refresh and review the assessment summary before sending.", 409) };
   }
   const audience = prepareHandoffAudience(body.value);
-  return audience.ok ? { ...audience, mutationId, referralVersion, message, assessmentId: assessmentId as string, assessmentVersion: assessmentVersion as number, packetRevision, snapshotId: snapshotId as string | undefined } : audience;
+  return audience.ok ? { ...audience, mutationId, referralVersion, message, assessmentId: assessmentId as string, assessmentVersion: assessmentVersion as number, packetRevision, selectedFileIds: selectedFileIds as string[], snapshotId: snapshotId as string | undefined } : audience;
 }
 
 function prepareHandoffAudience(body: Record<string, unknown>) {
@@ -338,17 +346,17 @@ async function loadMeetClientContext(referralId: number, referralVersion: number
   };
 }
 
-async function loadAdmissionPacket(referral: Referral, assessment: PipelineAssessmentRecord, packetRevision: string, outlook = false, attachmentsOnly = outlook) {
+async function loadAdmissionPacket(referral: Referral, assessment: PipelineAssessmentRecord, packetRevision: string, selectedFileIds: string[], outlook = false, attachmentsOnly = outlook) {
   try {
     const readiness = handoffMailReadiness(outlook);
-    const inventory = await getMeetClientAttachmentInventory(referral, {
+    const allFiles = await getMeetClientAttachmentInventory(referral, {
       largeAttachmentDeliveryConfigured: readiness.largeAttachmentDeliveryConfigured,
       report: buildAssessmentSummaryReport(assessment, referral),
     });
-    if (!inventory.ready) {
-      return { ok: false as const, response: jsonError(inventory.blockers.join(" "), 422) };
-    }
-    if (inventory.revision !== packetRevision) return { ok: false as const, response: jsonError("The packet files changed. Refresh the preview to include every current file before sending.", 409) };
+    if (allFiles.revision !== packetRevision) return { ok: false as const, response: jsonError("The packet files changed. Refresh and review the selection before sending.", 409) };
+    const inventory = selectMeetClientAttachmentInventory(allFiles, selectedFileIds);
+    if (!inventory) return { ok: false as const, response: jsonError("The file selection changed. Refresh and review the packet before sending.", 409) };
+    if (!inventory.ready) return { ok: false as const, response: jsonError(inventory.blockers.join(" "), 422) };
     const attachments = attachmentsOnly || inventory.deliveryMode === "secure_link" ? [] : await prepareMeetClientMailAttachments(inventory);
     return { ok: true as const, inventory, attachments };
   } catch {

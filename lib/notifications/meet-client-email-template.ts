@@ -63,7 +63,7 @@ function meetClientMessageText(summary: MeetClientSummary) {
 }
 function admissionIntroduction(summary: MeetClientSummary) {
   const arrival = summary.admissionDate ? `scheduled for admission on ${formatMeetClientDate(summary.admissionDate)}` : "being prepared for admission (date to be confirmed)";
-  return `<p>Hello team,</p><p>The admission packet includes every file uploaded to this workspace, along with the client data sheet for <strong>${escapeHtml(summary.name)}</strong>, ${escapeHtml(arrival)}${summary.community ? ` at ${escapeHtml(summary.community)}` : ""}.</p><p>Please review the handoff details below and the admission packet. Unrecorded information is marked for confirmation, not assumed.</p>`;
+  return `<p>Hello team,</p><p>The admission packet includes the selected documents and client data sheet for <strong>${escapeHtml(summary.name)}</strong>, ${escapeHtml(arrival)}${summary.community ? ` at ${escapeHtml(summary.community)}` : ""}.</p><p>Please review the handoff details below and the admission packet. Unrecorded information is marked for confirmation, not assumed.</p>`;
 }
 
 function table(rows: string[][]) {
