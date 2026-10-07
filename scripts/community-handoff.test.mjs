@@ -230,9 +230,26 @@ test("packet includes chart documents, assessment attachments and data sheet wit
   assert.ok((await pdfText(inventory.files[0].generatedContent)).includes("Synthetic placement note"));
   assert.equal(inventory.files[0].contentType, "application/pdf");
   assert.deepEqual((await attachmentOwner.prepareMeetClientMailAttachments(inventory))[0].contentBytes, inventory.files[0].generatedContent);
+  const defaultIds = attachmentOwner.defaultMeetClientAttachmentIds([
+    inventory.files[0],
+    { documentId: "agreement", category: "Admission agreement", name: "Admission agreement.pdf" },
+    { documentId: "medication", category: "Medication list", name: "Signed Medication List.pdf" },
+    { documentId: "mar", category: "Medication list", name: "MAR.pdf" },
+    { documentId: "referral", category: "Referral packet", name: "Referral pack.pdf" },
+    { documentId: "tb", category: "TB test", name: "TB test.pdf" },
+    { documentId: "lic602", category: "LIC 602", name: "LIC 602.pdf" },
+    { documentId: "lic603", category: "LIC 601/603", name: "LIC 603.pdf" },
+    { documentId: "conservator", category: "Conservatorship", name: "Conservator document.pdf" },
+  ]);
+  assert.deepEqual(defaultIds, [inventory.files[0].documentId, "agreement", "medication", "tb", "lic602", "lic603", "conservator"]);
   status = "infected";
   const blocked = await attachmentOwner.getMeetClientAttachmentInventory(referral);
   assert.equal(blocked.ready, false);
+  const sheetOnly = attachmentOwner.selectMeetClientAttachmentInventory(blocked, [blocked.files[0].documentId]);
+  assert.equal(sheetOnly.ready, true, "an unselected unsafe upload does not enter the outgoing packet");
+  assert.deepEqual(Array.from(sheetOnly.files, (file) => file.documentId), [blocked.files[0].documentId]);
+  assert.equal(attachmentOwner.selectMeetClientAttachmentInventory(blocked, [blocked.files[1].documentId]), null, "the data sheet is required");
+  assert.equal(attachmentOwner.selectMeetClientAttachmentInventory(blocked, [blocked.files[0].documentId, "unknown"]), null, "unknown files cannot be added");
   await assert.rejects(() => attachmentOwner.prepareMeetClientMailAttachments(blocked), /safety review/);
 });
 
@@ -243,7 +260,7 @@ test("demo messages clearly identify the packet as not live without changing liv
   assert.match(demo.subject, /^\[DEMO\] Meet the Client/);
   assert.match(demo.html, /Not production yet/);
   assert.match(demo.html, /no email will be sent. This admission packet is a demo/);
-  assert.match(demo.html, /every file uploaded to this workspace/);
+  assert.match(demo.html, /selected documents and client data sheet/);
   for (const name of names) assert.ok(demo.html.includes(name));
   const live = emailOwner.renderMeetClientEmail(summary, "Synthetic sender", "delivery", names);
   assert.doesNotMatch(live.subject, /DEMO/);

@@ -69,7 +69,6 @@ export async function getMeetClientAttachmentInventory(
     : null;
   const largeAttachmentDeliveryConfigured = options.largeAttachmentDeliveryConfigured === true;
   const blockers = files.some((file) => !file.ready) ? ["A packet file is missing, empty, or awaiting a safety review. Review the listed files and try again."] : [];
-  if (candidates.size === 0) blockers.unshift("Upload at least one file to this workspace before sending the admission packet.");
   return {
     files,
     revision: createHash("sha256").update(JSON.stringify(files.map((file) => [file.documentId, file.name, file.byteSize, file.contentType, file.ready]).sort((a, b) => String(a[0]).localeCompare(String(b[0]))))).digest("hex"),
@@ -79,6 +78,31 @@ export async function getMeetClientAttachmentInventory(
     deliveryMode,
     largeAttachmentDeliveryConfigured,
   };
+}
+
+/** Only admission handoff documents are suggested; staff review the exact set. */
+export function defaultMeetClientAttachmentIds(files: readonly MeetClientAttachmentItem[]): string[] {
+  return files.filter((file) => {
+    if (file.generatedContent !== undefined) return true;
+    if (file.category === "Medication list") return /\bsigned\b/i.test(file.name) && !/\bMAR\b|medication administration record/i.test(file.name);
+    if (file.category === "LIC 601/603") return /\b603\b/.test(file.name);
+    return ["Admission agreement", "TB test", "LIC 602", "Conservatorship"].includes(file.category);
+  }).map((file) => file.documentId);
+}
+
+export function selectMeetClientAttachmentInventory(
+  inventory: MeetClientAttachmentInventory,
+  selectedIds: readonly string[],
+): MeetClientAttachmentInventory | null {
+  const ids = new Set(selectedIds);
+  if (ids.size !== selectedIds.length || ids.size > inventory.files.length) return null;
+  const files = inventory.files.filter((file) => ids.has(file.documentId));
+  if (files.length !== ids.size || !files.some((file) => file.generatedContent !== undefined)) return null;
+  const blockers = files.some((file) => !file.ready)
+    ? ["A selected file is missing, empty, or awaiting a safety review. Deselect it or wait until it is ready."] : [];
+  const totalBytes = files.reduce((total, file) => total + file.byteSize, 0);
+  return { ...inventory, files, totalBytes, ready: blockers.length === 0, blockers,
+    deliveryMode: blockers.length ? null : admissionPacketDeliveryMode(files, inventory.largeAttachmentDeliveryConfigured) };
 }
 
 export async function prepareMeetClientMailAttachments(

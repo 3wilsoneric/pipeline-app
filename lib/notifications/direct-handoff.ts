@@ -39,7 +39,8 @@ function requestKey(input: Input, assessor: Awaited<ReturnType<typeof directHand
     referralId: input.audit.referralId, referralVersion: input.referralVersion,
     assessmentId: input.assessment.assessment_id, assessmentVersion: input.assessment.version,
     decisionId: input.audit.decisionId, reviewId: input.audit.reviewId, reviewVersion: input.audit.reviewVersion,
-    packetRevision: input.packetRevision, to: input.recipients, cc: input.ccRecipients,
+    packetRevision: input.packetRevision, selectedFileIds: input.inventory.files.map((file) => file.documentId).sort(),
+    to: input.recipients, cc: input.ccRecipients,
     message: input.message, assessor, from: getGraphMailReadiness().sender,
   })).digest("hex");
 }

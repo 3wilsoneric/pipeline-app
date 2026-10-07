@@ -254,7 +254,10 @@ function handoffFixture() {
     "@/lib/pipeline/meet-client-delivery-audit": { completeMeetClientDelivery: async (_audit, status) => audits.push(status) },
     "@/lib/pipeline/workflow-store": { getReferralWorkflowSnapshot: async () => ({ referral: { version: changed === "referral" ? 2 : 1 }, decision: { decisionId: "decision", outcome: "accepted" }, work_items: [] }) },
     "@/lib/assessment/assessment-summary": { buildAssessmentSummaryReport: () => ({}) },
-    "./meet-client-attachments": { getMeetClientAttachmentInventory: async () => ({ ...inventory, revision: changed === "files" ? "new" : "revision" }) },
+    "./meet-client-attachments": {
+      getMeetClientAttachmentInventory: async () => ({ ...inventory, revision: changed === "files" ? "new" : "revision" }),
+      selectMeetClientAttachmentInventory: (all, ids) => all.files.every(file => ids.includes(file.id)) ? all : null,
+    },
     "./admission-packet-files": { admissionPacketUrl: () => url, prepareAdmissionPacketRecord: async (input) => {
       packet = { ...input, createdAt: "2026-09-21T00:00:00Z", files: inventory.files, recipients: input.recipients.map(email => ({ email, sessions: [] })), events: [] }; return packet;
     } },

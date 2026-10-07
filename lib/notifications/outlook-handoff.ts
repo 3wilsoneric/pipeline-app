@@ -4,7 +4,7 @@ import { deliverAssessmentPacket, getAssessment } from "@/lib/assessment/assessm
 import { completeMeetClientDelivery, type DeliveryAudit } from "@/lib/pipeline/meet-client-delivery-audit";
 import { getReferralWorkflowSnapshot } from "@/lib/pipeline/workflow-store";
 import { buildAssessmentSummaryReport, type MeetClientSummary } from "@/lib/assessment/assessment-summary";
-import { getMeetClientAttachmentInventory, type MeetClientAttachmentInventory } from "./meet-client-attachments";
+import { getMeetClientAttachmentInventory, selectMeetClientAttachmentInventory, type MeetClientAttachmentInventory } from "./meet-client-attachments";
 import type { MeetClientMessage } from "./meet-client-message";
 import { admissionPacketUrl, prepareAdmissionPacketRecord } from "./admission-packet-files";
 import { findWorkspaceOutlookDraft, withAdmissionPacket, PacketAccessError, type AdmissionPacket } from "./admission-packet-store";
@@ -191,8 +191,9 @@ export async function currentSource(packet: AdmissionPacket) {
   if (snapshot?.referral.version !== draft.referralVersion || snapshot.decision?.decisionId !== draft.audit.decisionId || snapshot.decision?.outcome !== "accepted") return { assessment, issue: "Admission details changed after this draft was prepared." };
   if (!assessment?.signed_at || assessment.version !== packet.assessmentVersion) return { assessment, issue: "The assessment changed after this draft was prepared." };
   const referral = { ...snapshot.referral, requirements: snapshot.work_items };
-  const inventory = await getMeetClientAttachmentInventory(referral, { report: buildAssessmentSummaryReport(assessment, referral) });
-  return { assessment, issue: !inventory.ready || inventory.revision !== draft.packetRevision ? "The packet files changed after this draft was prepared." : null };
+  const allFiles = await getMeetClientAttachmentInventory(referral, { report: buildAssessmentSummaryReport(assessment, referral) });
+  const selected = selectMeetClientAttachmentInventory(allFiles, packet.files.map((file) => file.id));
+  return { assessment, issue: !selected?.ready || allFiles.revision !== draft.packetRevision ? "The packet files changed after this draft was prepared." : null };
 }
 async function finishSentPacket(packet: AdmissionPacket, message: OutlookMessage) {
   if (packet.outlook!.status !== "sent") await completeMeetClientDelivery(packet.outlook!.audit, "sent");

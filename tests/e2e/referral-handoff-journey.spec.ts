@@ -201,7 +201,7 @@ test("reviewed handoffs prepare an exact email preview without sending automatic
   await page.route(`**/api/referrals/${referral.id}/admission-summary`, async route => {
     const response = await route.fetch();
     const payload = await response.json();
-    payload.email = { ...payload.email, example_only: false, configured: true, eligible: true, can_send: true, ready: true, blockers: [] };
+    payload.email = { ...payload.email, example_only: false, configured: true, eligible: true, can_send: true, ready: true, blockers: [], base_blockers: [] };
     await route.fulfill({ response, json: payload });
   });
   let previews = 0;

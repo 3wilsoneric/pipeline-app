@@ -299,8 +299,13 @@ function deliveryFixture({ secureLink = false, rejectedSize = false, exampleOnly
     "@/lib/assessment/assessment-summary": summaryOwner,
     "@/lib/extraction/contracts": { jsonError, readJsonBody: async (request) => ({ ok: true, value: await request.json() }) },
     "@/lib/notifications/meet-client-attachments": {
-      getMeetClientAttachmentInventory: async (_referral, { report }) => { packetReports.push(report); return { ready: true, revision: "1".repeat(64), totalBytes: 800, blockers: [], deliveryMode: secureLink ? "secure_link" : "direct", files: [{ name: "one.pdf", byteSize: 300 }, { name: "two.pdf", byteSize: 500 }] }; },
-      prepareMeetClientMailAttachments: async () => [{ byteSize: 300 }, { byteSize: 500 }],
+      getMeetClientAttachmentInventory: async (_referral, { report }) => { packetReports.push(report); return { ready: true, revision: "1".repeat(64), totalBytes: 800, blockers: [], deliveryMode: secureLink ? "secure_link" : "direct", files: [{ documentId: "sheet", name: "one.pdf", byteSize: 300, generatedContent: Buffer.from("%PDF-qa") }, { documentId: "admission", name: "two.pdf", byteSize: 500 }] }; },
+      selectMeetClientAttachmentInventory: (all, ids) => {
+        const files = all.files.filter(file => ids.includes(file.documentId));
+        return files.length === new Set(ids).size && files.some(file => file.generatedContent)
+          ? { ...all, files, totalBytes: files.reduce((sum, file) => sum + file.byteSize, 0) } : null;
+      },
+      prepareMeetClientMailAttachments: async (selected) => selected.files.map(file => ({ byteSize: file.byteSize })),
     },
     "@/lib/notifications/microsoft-graph-mail": {
       GraphMailDeliveryError,
@@ -346,7 +351,7 @@ function deliveryFixture({ secureLink = false, rejectedSize = false, exampleOnly
   return {
     auditStates, metrics, audits, messages, packetReports, providerCalls: () => calls, reservationCalls: () => reservations,
     send: (referralId = "6", body = {}, delivery = "") => exports.POST(new Request(`http://localhost/api/referrals/6/meet-client-email${delivery ? `?delivery=${delivery}` : ""}`, {
-      method: "POST", body: JSON.stringify({ confirmed: true, if_match: previewVersion, assessment_id: "synthetic-assessment", if_match_assessment: previewAssessmentVersion, recipients: ["synthetic@example.invalid"], client_mutation_id: "synthetic-delivery-fixture", packet_revision: "1".repeat(64), ...body }),
+      method: "POST", body: JSON.stringify({ confirmed: true, if_match: previewVersion, assessment_id: "synthetic-assessment", if_match_assessment: previewAssessmentVersion, recipients: ["synthetic@example.invalid"], client_mutation_id: "synthetic-delivery-fixture", packet_revision: "1".repeat(64), selected_file_ids: ["sheet", "admission"], ...body }),
     }), { params: Promise.resolve({ referralId }) }),
   };
 }

@@ -173,7 +173,7 @@ test("summary proceeds to the medication file without list selection, including 
     await summary.getByRole("button", { name: "Confirm summary", exact: true }).click();
     const files = page.getByRole("dialog", { name: "Check admission packet", exact: true });
     await expect(files).toBeVisible();
-    await expect(files).toContainText("Check that the medication file and all other admission documents are included.");
+    await expect(files).toContainText("Only checked files will be included.");
     await page.reload();
   }
 });
@@ -436,24 +436,48 @@ for (const width of [1440, 390]) test(`review shows the record and opens an unre
   expect(saved.medications_at_intake).toEqual(["Synthetic recorded medication"]);
 });
 
-for (const width of [390, 834]) test(`packet check includes every uploaded file before email preview at ${width}px`, async ({ page }, info) => {
+for (const width of [390, 834]) test(`packet check selects admission files and excludes referral files at ${width}px`, async ({ page }, info) => {
   await page.setViewportSize({ width, height: 900 });
   const { referral } = await referralWithAssessment(page);
-  const uploaded = ["Admission note.txt", "Assessment notes.txt", "Medication list.txt"];
+  const uploaded = ["Admission note.txt", "Assessment notes.txt", "Signed Medication list.txt", "MAR.txt"];
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=files`);
   await page.getByLabel("Choose referral documents", { exact: true }).setInputFiles(uploaded.map(name => ({ name, mimeType: "text/plain", buffer: Buffer.from(`Synthetic ${name}`) })));
-  await confirmReferralFileLabels(page, { "Admission note.txt": "referral_packet", "Assessment notes.txt": "assessment", "Medication list.txt": "medication_list" });
+  await confirmReferralFileLabels(page, { "Admission note.txt": "referral_packet", "Assessment notes.txt": "assessment", "Signed Medication list.txt": "medication_list", "MAR.txt": "medication_list" });
   await expect.poll(async () => (await (await page.request.get(`/api/referrals/${referral.id}/admission-summary`)).json()).email.admission_packet.files.filter((file: { generated: boolean }) => !file.generated).map((file: { name: string }) => file.name).sort()).toEqual([...uploaded].sort());
+  const packet = (await (await page.request.get(`/api/referrals/${referral.id}/admission-summary`)).json()).email.admission_packet;
+  expect(packet.default_selected_ids).toContain(packet.files.find((file: { generated: boolean }) => file.generated).document_id);
+  // Local uploads await malware scanning; mark only the browser fixture's
+  // presentation ready so the packet review can continue without sending mail.
+  await page.route(`**/api/referrals/${referral.id}/admission-summary`, async route => {
+    const response = await route.fetch(); const payload = await response.json();
+    payload.email.admission_packet.files = payload.email.admission_packet.files.map((file: { ready: boolean }) => ({ ...file, ready: true }));
+    await route.fulfill({ response, json: payload });
+  });
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
   const dialog = await openFiles(page);
   for (const name of uploaded) await expect(dialog.getByRole("link", { name: `Open ${name}`, exact: true })).toBeVisible();
-  await expect(dialog.getByRole("link")).toHaveCount(4);
+  await expect(dialog.getByRole("link")).toHaveCount(5);
+  await expect(dialog.getByRole("checkbox", { name: "Include Client data sheet.pdf" })).toBeChecked();
+  await expect(dialog.getByRole("checkbox", { name: "Include Admission note.txt" })).not.toBeChecked();
+  await expect(dialog.getByRole("checkbox", { name: "Include Assessment notes.txt" })).not.toBeChecked();
+  await expect(dialog.getByRole("checkbox", { name: "Include Signed Medication list.txt" })).toBeChecked();
+  await expect(dialog.getByRole("checkbox", { name: "Include MAR.txt" })).not.toBeChecked();
+  if (width === 834) {
+    await dialog.getByRole("checkbox", { name: "Include Admission note.txt" }).check();
+    await dialog.getByRole("checkbox", { name: "Include Signed Medication list.txt" }).uncheck();
+  }
   await expect(page.locator("iframe")).toHaveCount(0);
+  expect(await checkA11y(page, 'dialog[aria-label="Check admission packet"]')).toEqual([]);
+  expect(await dialog.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
   await page.screenshot({ path: info.outputPath(`guided-packet-${width}.png`), animations: "disabled" });
   await dialog.getByRole("button", { name: "Confirm packet", exact: true }).click();
   await addRecipient(page); await confirmRecipients(page);
   const body = page.frameLocator('iframe[title="Meet the Client email preview"]').locator("body");
-  for (const name of ["Client data sheet.pdf", ...uploaded]) await expect(body).toContainText(name);
+  await expect(body).toContainText("Client data sheet.pdf");
+  await expect(body).toContainText(width === 834 ? "Admission note.txt" : "Signed Medication list.txt");
+  await expect(body).not.toContainText("Assessment notes.txt");
+  await expect(body).not.toContainText("MAR.txt");
+  await expect(body).not.toContainText(width === 834 ? "Signed Medication list.txt" : "Admission note.txt");
   await expect(body).not.toContainText("one-time code");
   await expect(body).not.toContainText("secure packet");
   await expect(body).toContainText("Not production yet — no email will be sent.");
@@ -527,7 +551,7 @@ test("workspace recovery blocks entry and refreshing requires checks without los
   await expect(page.getByRole("checkbox", { name: /I verified/ })).not.toBeChecked();
 });
 
-for (const width of [1440, 390]) test(`email readiness explains a missing upload before preparing at ${width}px`, async ({ page }, info) => {
+for (const width of [1440, 390]) test(`the client data sheet can be the only selected file at ${width}px`, async ({ page }, info) => {
   await page.setViewportSize({ width, height: 900 });
   const { referral } = await referralWithAssessment(page);
   // Exercise real attachment readiness, with only the demo presentation flag overridden.
@@ -538,14 +562,20 @@ for (const width of [1440, 390]) test(`email readiness explains a missing upload
   });
   await page.route(`**/api/referrals/${referral.id}/outlook-draft`, route => route.fulfill({ json: { occupied: false, draft: null } }));
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
-  const composer = await openPreview(page);
+  const files = await openFiles(page);
+  await expect(files.getByRole("checkbox", { name: "Include Client data sheet.pdf" })).toBeChecked();
+  await expect(files.getByRole("checkbox")).toHaveCount(1);
+  await expect(files.getByRole("button", { name: "Confirm packet" })).toBeEnabled();
+  await files.getByRole("button", { name: "Confirm packet" }).click();
+  await addRecipient(page);
+  const composer = await confirmRecipients(page);
   const outlook = composer;
-  await expect(outlook.getByText("Upload at least one file to this workspace before sending the admission packet.", { exact: true })).toBeVisible();
+  await expect(outlook).not.toContainText("Upload at least one file to this workspace before sending the admission packet.");
+  await expect(outlook).toContainText("Alamo Admissions email is not configured yet.");
   await expect(outlook).not.toContainText("Finish the email review and verify recipients");
   await expect(outlook).not.toContainText("Go back to recipients");
   expect(await outlook.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
   expect(await checkA11y(page, 'dialog[open]')).toEqual([]);
-  await outlook.getByText("Upload at least one file to this workspace before sending the admission packet.", { exact: true }).scrollIntoViewIfNeeded();
   await page.screenshot({ path: info.outputPath(`outlook-readiness-${width}.png`), animations: "disabled" });
 });
 
@@ -560,7 +590,7 @@ for (const width of [1440, 834, 390]) test(`existing inbox packet: reload and fo
   let outlookConnects = 0;
   await page.route(`**/api/referrals/${referral.id}/admission-summary`, async route => {
     const response = await route.fetch(); const payload = await response.json();
-    payload.email = { ...payload.email, example_only: false, can_send: true, ready: true, blockers: [], outlook_draft: draft };
+    payload.email = { ...payload.email, example_only: false, can_send: true, ready: true, blockers: [], base_blockers: [], outlook_draft: draft };
     await route.fulfill({ json: payload });
   });
   await page.route(`**/api/referrals/${referral.id}/outlook-draft`, async route => {
@@ -611,7 +641,7 @@ test.describe("direct email history", () => {
     let summary: Parameters<typeof renderMeetClientEmail>[0];
     await page.route(`**/api/referrals/${referral.id}/admission-summary`, async route => {
       const response = await route.fetch(); const payload = await response.json(); summary = payload.report.meetClient;
-      payload.email = { ...payload.email, example_only: false, can_send: true, ready: true, blockers: [], outlook_draft: null, sent_at: record?.submittedAt ?? null };
+      payload.email = { ...payload.email, example_only: false, can_send: true, ready: true, blockers: [], base_blockers: [], outlook_draft: null, sent_at: record?.submittedAt ?? null };
       await route.fulfill({ json: payload });
     });
     await page.route("**/api/communications?**", async route => {
