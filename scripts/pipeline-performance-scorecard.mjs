@@ -323,16 +323,16 @@ await measureJourney("guide_library_open", "guide", async () => {
 });
 await measureJourney("guide_walkthrough_start", "guide", async () => {
   await activate(tutorialLibrary.getByRole("button", { name: "View reports", exact: true }));
-  await reportGuide.getByRole("heading", { name: "Choose a report", exact: true }).waitFor({ state: "visible" });
+  await reportGuide.getByRole("heading", { name: "Check the snapshot date", exact: true }).waitFor({ state: "visible" });
   await page.getByRole("main", { name: "Reports", exact: true }).waitFor({ state: "visible" });
 });
 await measureJourney("guide_step_advance", "guide", async () => {
   await activate(reportGuide.getByRole("button", { name: "Next", exact: true }));
-  await reportGuide.getByRole("heading", { name: "Set the scope", exact: true }).waitFor({ state: "visible" });
+  await reportGuide.getByRole("heading", { name: "Read the census", exact: true }).waitFor({ state: "visible" });
 });
 await measureJourney("guide_step_back", "guide", async () => {
   await activate(reportGuide.getByRole("button", { name: "Previous tutorial step", exact: true }));
-  await reportGuide.getByRole("heading", { name: "Choose a report", exact: true }).waitFor({ state: "visible" });
+  await reportGuide.getByRole("heading", { name: "Check the snapshot date", exact: true }).waitFor({ state: "visible" });
 });
 await measureJourney("guide_pause", "guide", async () => {
   await activate(reportGuide.getByRole("button", { name: "Pause tutorial", exact: true }));
@@ -345,7 +345,7 @@ await measureJourney("guide_library_reopen", "guide", async () => {
 // The current library restarts the selected task; it no longer offers Resume.
 await measureJourney("guide_restart", "guide", async () => {
   await activate(tutorialLibrary.getByRole("button", { name: "View reports", exact: true }));
-  await reportGuide.getByRole("heading", { name: "Choose a report", exact: true }).waitFor({ state: "visible" });
+  await reportGuide.getByRole("heading", { name: "Check the snapshot date", exact: true }).waitFor({ state: "visible" });
 });
 await measureJourney("guide_return_to_library", "guide", async () => {
   await activate(reportGuide.getByRole("button", { name: "Tutorials", exact: true }));
