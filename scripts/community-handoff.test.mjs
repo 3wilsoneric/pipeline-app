@@ -247,7 +247,7 @@ test("packet includes chart documents, assessment attachments and data sheet wit
   assert.equal(blocked.ready, false);
   const sheetOnly = attachmentOwner.selectMeetClientAttachmentInventory(blocked, [blocked.files[0].documentId]);
   assert.equal(sheetOnly.ready, true, "an unselected unsafe upload does not enter the outgoing packet");
-  assert.deepEqual(sheetOnly.files.map((file) => file.documentId), [blocked.files[0].documentId]);
+  assert.deepEqual(Array.from(sheetOnly.files, (file) => file.documentId), [blocked.files[0].documentId]);
   assert.equal(attachmentOwner.selectMeetClientAttachmentInventory(blocked, [blocked.files[1].documentId]), null, "the data sheet is required");
   assert.equal(attachmentOwner.selectMeetClientAttachmentInventory(blocked, [blocked.files[0].documentId, "unknown"]), null, "unknown files cannot be added");
   await assert.rejects(() => attachmentOwner.prepareMeetClientMailAttachments(blocked), /safety review/);
