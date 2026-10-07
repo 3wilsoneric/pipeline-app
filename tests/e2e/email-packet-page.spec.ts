@@ -439,10 +439,10 @@ for (const width of [1440, 390]) test(`review shows the record and opens an unre
 for (const width of [390, 834]) test(`packet check selects admission files and excludes referral files at ${width}px`, async ({ page }, info) => {
   await page.setViewportSize({ width, height: 900 });
   const { referral } = await referralWithAssessment(page);
-  const uploaded = ["Admission note.txt", "Assessment notes.txt", "Signed Medication list.txt", "MAR.txt"];
+  const uploaded = ["Admission note.txt", "Assessment notes.txt", "Signed Medication list.txt", "MAR.txt", "Provider form.txt", "Face sheet.txt", "LIC 601.txt", "LIC 602.txt"];
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=files`);
   await page.getByLabel("Choose referral documents", { exact: true }).setInputFiles(uploaded.map(name => ({ name, mimeType: "text/plain", buffer: Buffer.from(`Synthetic ${name}`) })));
-  await confirmReferralFileLabels(page, { "Admission note.txt": "referral_packet", "Assessment notes.txt": "assessment", "Signed Medication list.txt": "medication_list", "MAR.txt": "medication_list" });
+  await confirmReferralFileLabels(page, { "Admission note.txt": "referral_packet", "Assessment notes.txt": "assessment", "Signed Medication list.txt": "medication_list", "MAR.txt": "medication_list", "Provider form.txt": "provider_form", "Face sheet.txt": "face_sheet", "LIC 601.txt": "lic_601_603", "LIC 602.txt": "lic_602" });
   await expect.poll(async () => (await (await page.request.get(`/api/referrals/${referral.id}/admission-summary`)).json()).email.admission_packet.files.filter((file: { generated: boolean }) => !file.generated).map((file: { name: string }) => file.name).sort()).toEqual([...uploaded].sort());
   const packet = (await (await page.request.get(`/api/referrals/${referral.id}/admission-summary`)).json()).email.admission_packet;
   expect(packet.default_selected_ids).toContain(packet.files.find((file: { generated: boolean }) => file.generated).document_id);
@@ -456,15 +456,22 @@ for (const width of [390, 834]) test(`packet check selects admission files and e
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
   const dialog = await openFiles(page);
   for (const name of uploaded) await expect(dialog.getByRole("link", { name: `Open ${name}`, exact: true })).toBeVisible();
-  await expect(dialog.getByRole("link")).toHaveCount(5);
+  await expect(dialog.getByRole("link")).toHaveCount(9);
   await expect(dialog.getByRole("checkbox", { name: "Include Client data sheet.pdf" })).toBeChecked();
   await expect(dialog.getByRole("checkbox", { name: "Include Admission note.txt" })).not.toBeChecked();
   await expect(dialog.getByRole("checkbox", { name: "Include Assessment notes.txt" })).not.toBeChecked();
   await expect(dialog.getByRole("checkbox", { name: "Include Signed Medication list.txt" })).toBeChecked();
   await expect(dialog.getByRole("checkbox", { name: "Include MAR.txt" })).not.toBeChecked();
+  await expect(dialog.getByRole("checkbox", { name: "Include Provider form.txt" })).not.toBeChecked();
+  await expect(dialog.getByRole("checkbox", { name: "Include Face sheet.txt" })).not.toBeChecked();
+  const licForms = dialog.getByRole("checkbox", { name: "Include LIC 601, LIC 602, LIC 603 files" });
+  await expect(licForms).toBeChecked();
+  await expect(dialog.getByRole("checkbox", { name: "Include LIC 601.txt" })).toHaveCount(0);
+  await expect(dialog.getByRole("checkbox", { name: "Include LIC 602.txt" })).toHaveCount(0);
   if (width === 834) {
     await dialog.getByRole("checkbox", { name: "Include Admission note.txt" }).check();
     await dialog.getByRole("checkbox", { name: "Include Signed Medication list.txt" }).uncheck();
+    await licForms.uncheck();
   }
   await expect(page.locator("iframe")).toHaveCount(0);
   expect(await checkA11y(page, 'dialog[aria-label="Check admission packet"]')).toEqual([]);
@@ -477,6 +484,10 @@ for (const width of [390, 834]) test(`packet check selects admission files and e
   await expect(body).toContainText(width === 834 ? "Admission note.txt" : "Signed Medication list.txt");
   await expect(body).not.toContainText("Assessment notes.txt");
   await expect(body).not.toContainText("MAR.txt");
+  await expect(body).not.toContainText("Provider form.txt");
+  await expect(body).not.toContainText("Face sheet.txt");
+  if (width === 834) { await expect(body).not.toContainText("LIC 601.txt"); await expect(body).not.toContainText("LIC 602.txt"); }
+  else { await expect(body).toContainText("LIC 601.txt"); await expect(body).toContainText("LIC 602.txt"); }
   await expect(body).not.toContainText(width === 834 ? "Signed Medication list.txt" : "Admission note.txt");
   await expect(body).not.toContainText("one-time code");
   await expect(body).not.toContainText("secure packet");

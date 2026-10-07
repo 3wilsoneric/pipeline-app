@@ -21,6 +21,7 @@ export type MeetClientAttachmentItem = {
   contentType: string;
   byteSize: number;
   ready: boolean;
+  uploadedAt?: string;
   generatedContent?: Buffer;
   issue?: "missing_source" | "scan_pending" | "scan_failed" | "infected" | "empty";
 };
@@ -82,11 +83,15 @@ export async function getMeetClientAttachmentInventory(
 
 /** Only admission handoff documents are suggested; staff review the exact set. */
 export function defaultMeetClientAttachmentIds(files: readonly MeetClientAttachmentItem[]): string[] {
+  // File labels cannot prove clinical currency. Suggest only the most recently
+  // uploaded signed list; staff confirm it is current before sending.
+  const signedMedicationList = files
+    .filter((file) => file.category === "Medication list" && /\bsigned\b/i.test(file.name) && !/\bMAR\b|medication administration record/i.test(file.name))
+    .reduce<MeetClientAttachmentItem | undefined>((latest, file) => !latest || (file.uploadedAt ?? "") > (latest.uploadedAt ?? "") ? file : latest, undefined);
   return files.filter((file) => {
     if (file.generatedContent !== undefined) return true;
-    if (file.category === "Medication list") return /\bsigned\b/i.test(file.name) && !/\bMAR\b|medication administration record/i.test(file.name);
-    if (file.category === "LIC 601/603") return /\b603\b/.test(file.name);
-    return ["Admission agreement", "TB test", "LIC 602", "Conservatorship"].includes(file.category);
+    if (file.category === "Medication list") return file.documentId === signedMedicationList?.documentId;
+    return ["Admission agreement", "TB test", "LIC 602", "LIC 601/603", "Conservatorship"].includes(file.category);
   }).map((file) => file.documentId);
 }
 
@@ -143,6 +148,7 @@ async function toAttachmentItem(file: ReferralFile): Promise<MeetClientAttachmen
       contentType: metadata.content_type,
       byteSize: metadata.byte_size,
       ready: issue === undefined,
+      uploadedAt: file.uploadedAt,
       ...(issue ? { issue } : {}),
     };
   } catch {
@@ -158,6 +164,7 @@ function unavailableItem(file: ReferralFile, issue: MeetClientAttachmentItem["is
     contentType: file.contentType ?? "application/octet-stream",
     byteSize: file.sizeBytes ?? 0,
     ready: false,
+    uploadedAt: file.uploadedAt,
     issue,
   };
 }

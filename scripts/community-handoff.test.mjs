@@ -233,15 +233,19 @@ test("packet includes chart documents, assessment attachments and data sheet wit
   const defaultIds = attachmentOwner.defaultMeetClientAttachmentIds([
     inventory.files[0],
     { documentId: "agreement", category: "Admission agreement", name: "Admission agreement.pdf" },
-    { documentId: "medication", category: "Medication list", name: "Signed Medication List.pdf" },
+    { documentId: "medication-old", category: "Medication list", name: "Signed Medication List - older.pdf", uploadedAt: "2026-08-01T00:00:00Z" },
+    { documentId: "medication", category: "Medication list", name: "Signed Medication List.pdf", uploadedAt: "2026-09-01T00:00:00Z" },
     { documentId: "mar", category: "Medication list", name: "MAR.pdf" },
     { documentId: "referral", category: "Referral packet", name: "Referral pack.pdf" },
+    { documentId: "provider", category: "Provider form", name: "Provider form.pdf" },
+    { documentId: "face", category: "Face sheet", name: "Face sheet.pdf" },
     { documentId: "tb", category: "TB test", name: "TB test.pdf" },
     { documentId: "lic602", category: "LIC 602", name: "LIC 602.pdf" },
+    { documentId: "lic601", category: "LIC 601/603", name: "LIC 601.pdf" },
     { documentId: "lic603", category: "LIC 601/603", name: "LIC 603.pdf" },
     { documentId: "conservator", category: "Conservatorship", name: "Conservator document.pdf" },
   ]);
-  assert.deepEqual(defaultIds, [inventory.files[0].documentId, "agreement", "medication", "tb", "lic602", "lic603", "conservator"]);
+  assert.deepEqual(defaultIds, [inventory.files[0].documentId, "agreement", "medication", "tb", "lic602", "lic601", "lic603", "conservator"]);
   status = "infected";
   const blocked = await attachmentOwner.getMeetClientAttachmentInventory(referral);
   assert.equal(blocked.ready, false);

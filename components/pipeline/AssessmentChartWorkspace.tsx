@@ -595,24 +595,40 @@ function HandoffRecipientReview({ draft, community, editable, confirmed, onConfi
 function AdmissionPacketReview({ email, referral, selectedFileIds, onSelectedFileIdsChange, onOpenFiles }: {
   email: ChartPayload["email"]; referral: Referral; selectedFileIds: string[]; onSelectedFileIdsChange: (ids: string[]) => void; onOpenFiles?: () => void;
 }) {
+  const files = email.admission_packet.files;
+  const isLicForm = (file: (typeof files)[number]) => file.category === "LIC 602" || file.category === "LIC 601/603";
+  const licForms = files.filter(isLicForm);
+  const rows = files.filter((file) => !isLicForm(file) || file === licForms[0]);
   const selected = selectedPacketFiles(email, selectedFileIds);
   const bytes = selected.reduce((total, file) => total + file.byte_size, 0);
   const issue = packetSelectionIssue(email, selectedFileIds);
   return <section data-guide-target="packet-attachments" className={`${styles.attachments} ${styles.packetReview}`} aria-label="Referral packet attachments">
     <div className={styles.attachmentHeading}><h3>Choose files for the community</h3><span><Paperclip size={15} aria-hidden="true" />{selected.length} selected · {formatBytes(bytes)}</span></div>
-    <p>Only checked files will be included. The client data sheet is always included; referral packets, MARs, and other files stay unchecked unless you choose them.</p>
-    <ul className={styles.attachmentList}>{email.admission_packet.files.map((file) => <li key={file.document_id}>
-      <div className="flex items-center gap-3 rounded border border-[var(--color-paper-rule)] bg-[var(--color-sheet)] p-3">
-        <input type="checkbox" aria-label={`Include ${file.name}`} checked={selectedFileIds.includes(file.document_id)} disabled={file.generated} onChange={(event) => {
-          const next = new Set(selectedFileIds);
-          if (event.target.checked) next.add(file.document_id); else next.delete(file.document_id);
-          onSelectedFileIdsChange(email.admission_packet.files.filter((item) => next.has(item.document_id)).map((item) => item.document_id));
-        }} />
-        <a className={styles.attachment} href={toPipelinePath(file.generated ? `/api/referrals/${referral.id}/admission-summary?download=chart` : `/api/files/${encodeURIComponent(file.document_id)}/download`)} target="_blank" rel="noopener noreferrer" aria-label={`Open ${file.name}`}>
-          <FileText size={23} aria-hidden="true" /><span><strong>{file.name}</strong><small>{file.generated ? "Client data sheet · always included" : file.ready ? `${file.category} · ${formatBytes(file.byte_size)}` : "Safety review needed before live delivery"}</small></span>
-        </a>
-      </div>
-    </li>)}</ul>
+    <p>Only checked files will be included. The client data sheet is always included. Confirm the selected medication list is current and signed; provider forms, face sheets, referral packets, MARs, and other files stay unchecked unless you choose them.</p>
+    <ul className={styles.attachmentList}>{rows.map((file) => {
+      const groupedLicForms = isLicForm(file);
+      const rowFiles = groupedLicForms ? licForms : [file];
+      const selectedCount = rowFiles.filter((item) => selectedFileIds.includes(item.document_id)).length;
+      return <li key={groupedLicForms ? "lic-forms" : file.document_id}>
+        <div className="flex items-center gap-3 rounded border border-[var(--color-paper-rule)] bg-[var(--color-sheet)] p-3">
+          <input type="checkbox" aria-label={groupedLicForms ? "Include LIC 601, LIC 602, LIC 603 files" : `Include ${file.name}`}
+            checked={selectedCount === rowFiles.length} ref={groupedLicForms ? (input) => { if (input) input.indeterminate = selectedCount > 0 && selectedCount < rowFiles.length; } : undefined}
+            disabled={file.generated} onChange={(event) => {
+              const next = new Set(selectedFileIds);
+              for (const item of rowFiles) { if (event.target.checked) next.add(item.document_id); else next.delete(item.document_id); }
+              onSelectedFileIdsChange(files.filter((item) => next.has(item.document_id)).map((item) => item.document_id));
+            }} />
+          {groupedLicForms ? <div className="min-w-0 flex-1"><strong>LIC 601, LIC 602, LIC 603</strong><small className="block">{licForms.length} {licForms.length === 1 ? "file" : "files"} available · selected together</small>
+            <ul className="mt-2 grid gap-1">{licForms.map((item) => <li key={item.document_id}>
+              <a className="block break-all text-[var(--color-link)] underline" href={toPipelinePath(`/api/files/${encodeURIComponent(item.document_id)}/download`)} target="_blank" rel="noopener noreferrer" aria-label={`Open ${item.name}`}>{item.name}</a>
+              {!item.ready ? <small className="block">Safety review needed before live delivery</small> : null}
+            </li>)}</ul>
+          </div> : <a className={styles.attachment} href={toPipelinePath(file.generated ? `/api/referrals/${referral.id}/admission-summary?download=chart` : `/api/files/${encodeURIComponent(file.document_id)}/download`)} target="_blank" rel="noopener noreferrer" aria-label={`Open ${file.name}`}>
+            <FileText size={23} aria-hidden="true" /><span><strong>{file.name}</strong><small>{file.generated ? "Client data sheet · always included" : file.ready ? `${file.category} · ${formatBytes(file.byte_size)}` : "Safety review needed before live delivery"}</small></span>
+          </a>}
+        </div>
+      </li>;
+    })}</ul>
     {issue ? <p role="alert">{issue}</p> : null}
     {onOpenFiles ? <button type="button" className={styles.textButton} onClick={onOpenFiles}>Change packet files</button> : null}
   </section>;
