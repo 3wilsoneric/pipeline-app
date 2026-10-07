@@ -102,12 +102,13 @@ test("concurrent receipt or replacement cannot interrupt an active send", async 
   release(); await sending; assert.equal(f.sent, 1);
 });
 
-test("large packets have no Pipeline count or size cap and still require a configured sender", t => {
+test("assessor inbox copies stay below the safe message size and require a configured sender", t => {
   const f = fixture(t, { large: false });
   assert.throws(() => f.owner.requireAssessorEmailCapacity({ ...f.inventory, totalBytes: 3e6, files: [{ byteSize: 3e6 }] }), /large-file/);
   const configured = fixture(t);
   const packet = { ...configured.inventory, totalBytes: 51 * 512 * 1024, files: Array.from({ length: 51 }, () => ({ byteSize: 512 * 1024 })) };
-  assert.doesNotThrow(() => configured.owner.requireAssessorEmailCapacity(packet));
+  assert.throws(() => configured.owner.requireAssessorEmailCapacity(packet), /too large/);
+  assert.doesNotThrow(() => configured.owner.requireAssessorEmailCapacity({ ...packet, files: packet.files.slice(0, 30) }));
   assert.equal(packet.files.length, 51);
   assert.equal(f.sent, 0);
 });

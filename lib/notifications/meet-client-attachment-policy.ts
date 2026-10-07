@@ -1,17 +1,24 @@
 export const graphInlineAttachmentLimitBytes = 3 * 1024 * 1024 - 1;
 export const graphDirectSendPayloadLimitBytes = 2 * 1024 * 1024;
 export const graphUploadChunkBytes = 12 * 320 * 1024;
+// Binary files expand when encoded in a message. Leave room below recipient
+// mailboxes' 36 MB message limit for encoding, headers, and the email body.
+export const mailAttachmentByteLimit = 20 * 1024 * 1024;
 
 export type MailAttachmentSize = {
   byteSize: number;
 };
+
+export function mailAttachmentsExceedSafeLimit(attachments: readonly MailAttachmentSize[]) {
+  return attachments.reduce((sum, file) => sum + file.byteSize, 0) > mailAttachmentByteLimit;
+}
 
 export type MeetClientAttachmentDeliveryMode = "direct" | "draft_upload" | "secure_link";
 
 export function admissionPacketDeliveryMode(attachments: readonly MailAttachmentSize[], largeAttachmentDeliveryConfigured: boolean): MeetClientAttachmentDeliveryMode {
   const mode = meetClientAttachmentDeliveryMode(attachments);
   const count = deliveryThreshold(process.env.PIPELINE_MEET_CLIENT_MAX_ATTACHMENT_COUNT, 50);
-  const bytes = deliveryThreshold(process.env.PIPELINE_MEET_CLIENT_MAX_ATTACHMENT_BYTES, 20 * 1024 * 1024);
+  const bytes = deliveryThreshold(process.env.PIPELINE_MEET_CLIENT_MAX_ATTACHMENT_BYTES, mailAttachmentByteLimit);
   return attachments.length > count || attachments.reduce((sum, file) => sum + file.byteSize, 0) > bytes
     || (mode === "draft_upload" && !largeAttachmentDeliveryConfigured) ? "secure_link" : mode;
 }

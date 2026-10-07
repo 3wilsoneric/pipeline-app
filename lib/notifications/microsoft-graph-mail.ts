@@ -5,6 +5,7 @@ import type { MeetClientSummary } from "@/lib/assessment/assessment-summary";
 import {
   graphInlineAttachmentLimitBytes,
   graphUploadRanges,
+  mailAttachmentsExceedSafeLimit,
   meetClientAttachmentDeliveryMode,
 } from "@/lib/notifications/meet-client-attachment-policy";
 import type { MeetClientMailAttachment } from "@/lib/notifications/meet-client-attachments";
@@ -80,6 +81,9 @@ export async function sendMeetClientMail(input: {
   if (!readiness.configured) throw new Error("Microsoft 365 email is not configured.");
   if (input.attachments.length === 0 && !input.packetUrl) {
     throw new GraphMailDeliveryError("admission_packet_empty", "The admission packet has no files.");
+  }
+  if (!input.packetUrl && mailAttachmentsExceedSafeLimit(input.attachments)) {
+    throw new GraphMailDeliveryError("packet_size_rejected", "This packet is too large for an attachment email. Select fewer files before sending.", 413);
   }
   const accessToken = await graphAccessToken().catch(() => { throw new GraphMailDeliveryError("mail_preparation_failed", "Microsoft 365 authentication could not be completed. No email was sent."); });
   const packetFiles = input.packetFiles ?? input.attachments;

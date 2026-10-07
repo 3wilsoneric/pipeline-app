@@ -13,6 +13,7 @@ import { findPreparedCommunication, PacketAccessError, withAdmissionPacket, type
 import { packetMailAttachment, prepareAdmissionPacketRecord } from "./admission-packet-files";
 import { getGraphMailReadiness, GraphMailDeliveryError, sendMeetClientMail, validateMeetClientRecipients } from "./microsoft-graph-mail";
 import { renderMeetClientEmail } from "./meet-client-email-template";
+import { mailAttachmentsExceedSafeLimit } from "./meet-client-attachment-policy";
 import { requireAssessorEmailCapacity } from "./assessor-email-handoff";
 import type { MeetClientAttachmentInventory, MeetClientMailAttachment } from "./meet-client-attachments";
 import type { MeetClientMessage } from "./meet-client-message";
@@ -64,6 +65,7 @@ export async function ownedDirectHandoff(id: string, referralId: number, userId:
 }
 
 export async function prepareDirectHandoff(input: Input) {
+  requireDirectAttachmentCapacity(input.inventory.files);
   requireAssessorEmailCapacity(input.inventory);
   const assessor = await directHandoffAssessor(input.assessment, input.user);
   const key = requestKey(input, assessor);
@@ -128,6 +130,7 @@ export async function sendDirectHandoff(id: string, input: Input, beforeSend: ()
   if (existing.communication!.status === "submitted") return communicationView(existing, true);
   const assessor = await directHandoffAssessor(input.assessment, input.user);
   if (existing.communication!.requestKey !== requestKey(input, assessor)) throw new PacketAccessError("The handoff changed after preview. Review the updated email before sending.", 409);
+  requireDirectAttachmentCapacity(existing.files);
   const packet = await withAdmissionPacket(id, stored => {
     if (stored!.communication!.status !== "ready") throw new PacketAccessError("This handoff already has a send attempt. Open Email history to check its outcome.", 409);
     stored!.communication!.status = "sending";
@@ -186,6 +189,12 @@ export async function sendDirectHandoff(id: string, input: Input, beforeSend: ()
     throw new PacketAccessError(submitted ? "Microsoft accepted the email; history is still syncing. Do not resend."
       : rejected ? "The email was not sent. Check the handoff and try again."
       : "The send outcome is uncertain. Open Email history; another copy has not been sent.", 503);
+  }
+}
+
+function requireDirectAttachmentCapacity(files: readonly { byteSize: number }[]) {
+  if (mailAttachmentsExceedSafeLimit(files)) {
+    throw new PacketAccessError("This packet is too large for an attachment email. Select fewer files and preview the email again. No email was sent.", 413);
   }
 }
 
