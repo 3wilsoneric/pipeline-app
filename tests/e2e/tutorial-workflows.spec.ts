@@ -400,9 +400,11 @@ test("reports guide remains read-only with two navigation buttons", async ({ pag
   const coach = page.getByTestId("guided-coach-panel");
   await expect(coach).toBeVisible();
   await expect(page).toHaveURL(/screen=operations/);
-  for (let step = 0; step < 5; step++) {
+  const steps = ["Check the snapshot date", "Read the census", "Review communities", "Check availability"];
+  for (const [step, title] of steps.entries()) {
+    await expect(coach.getByRole("heading", { name: title, exact: true })).toBeVisible();
     await expect(coach.locator("footer button")).toHaveCount(2);
-    await coach.locator("footer").getByRole("button", { name: step === 4 ? "Done" : "Next", exact: true }).click();
+    await coach.locator("footer").getByRole("button", { name: step === steps.length - 1 ? "Done" : "Next", exact: true }).click();
   }
   expect(downloads).toBe(0);
   expect(writes).toEqual([]);

@@ -39,7 +39,7 @@ const evidence = [
     'measureJourney("guide_library_close", "guide"',
   ]),
   item("interaction.learning", "Learning Center navigation and first actions are timed", "scripts/pipeline-performance-scorecard.mjs", ["referrals_to_learning_center", "learning_workflow_open", "learning_task_open"]),
-  item("interaction.operations", "Calendar, report filtering, export, and history navigation are timed", "scripts/pipeline-performance-scorecard.mjs", ["calendar_view_change", "report_filter_apply", "report_csv_export", "history_back_to_operations"]),
+  item("interaction.operations", "Calendar, briefing entry, and history navigation are timed", "scripts/pipeline-performance-scorecard.mjs", ["calendar_view_change", "calendar_to_operations", "operations-briefing-header", "history_back_to_operations"]),
   item("referral.concurrent", "Two authenticated sessions coordinate edits and conflicts", "tests/e2e/pipeline-smoke.spec.ts", "coordinates section edits, presence leases, and remote conflicts across two sessions"),
   item("referral.drafts", "Draft recovery and section autosave survive refresh", "tests/e2e/pipeline-smoke.spec.ts", "recovers a tab-scoped draft after refresh and then section-autosaves it"),
   item("assessment.journey", "Assessment scheduling, completion, signature, and recall are verified", "tests/e2e/pipeline-smoke.spec.ts", "schedules, completes, signs, and recalls an assessment"),

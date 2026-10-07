@@ -362,17 +362,12 @@ async function checkSharedPicker(page: Page, select: Locator, height: number) {
   await expect(select).toBeFocused();
 }
 
-test("shares Clients picker styling with compact Reports and Calendar controls", async ({ page }, testInfo) => {
+test("keeps Reports free of filter pickers and preserves Calendar picker styling", async ({ page }) => {
   await page.goto("/?screen=operations");
-  await expect(page.getByLabel("Report clients")).toBeVisible();
+  await expect(page.getByRole("main", { name: "Reports" })).toBeVisible();
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 900 });
-    for (const name of ["Report", "Report clients", "Report period", "Report community", "Report county"]) {
-      await checkSharedPicker(page, page.getByLabel(name, { exact: true }), 36);
-    }
-    await page.getByLabel("Report", { exact: true }).click();
-    await page.screenshot({ path: testInfo.outputPath(`reports-picker-${width}.png`) });
-    await page.keyboard.press("Escape");
+    await expect(page.getByRole("combobox", { name: "Report", exact: true })).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   }
   await page.goto("/?screen=calendar");

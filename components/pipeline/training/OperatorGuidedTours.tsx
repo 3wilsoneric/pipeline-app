@@ -45,7 +45,7 @@ const taskPresentation: Readonly<Record<string, { description: string; icon: Rea
   "find-workspace": { description: "Search and reopen it.", icon: <FolderSearch2 size={26} aria-hidden="true" /> },
   "supervisor-shift": { description: "Find unassigned or stuck work.", icon: <BarChart3 size={26} aria-hidden="true" /> },
   "review-chart": { description: "Check the signed record.", icon: <FileSearch size={26} aria-hidden="true" /> },
-  "run-report": { description: "Choose, review, and export.", icon: <BarChart3 size={26} aria-hidden="true" /> },
+  "run-report": { description: "Read the current census briefing.", icon: <BarChart3 size={26} aria-hidden="true" /> },
 };
 
 export default function OperatorGuidedTours({ assignedRoles, progress, onExpandedChange }: { assignedRoles: readonly string[]; progress: OperatorTrainingProgress; onExpandedChange?: (expanded: boolean) => void }) {

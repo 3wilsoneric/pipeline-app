@@ -323,16 +323,16 @@ await measureJourney("guide_library_open", "guide", async () => {
 });
 await measureJourney("guide_walkthrough_start", "guide", async () => {
   await activate(tutorialLibrary.getByRole("button", { name: "View reports", exact: true }));
-  await reportGuide.getByRole("heading", { name: "Choose a report", exact: true }).waitFor({ state: "visible" });
+  await reportGuide.getByRole("heading", { name: "Check the snapshot date", exact: true }).waitFor({ state: "visible" });
   await page.getByRole("main", { name: "Reports", exact: true }).waitFor({ state: "visible" });
 });
 await measureJourney("guide_step_advance", "guide", async () => {
   await activate(reportGuide.getByRole("button", { name: "Next", exact: true }));
-  await reportGuide.getByRole("heading", { name: "Set the scope", exact: true }).waitFor({ state: "visible" });
+  await reportGuide.getByRole("heading", { name: "Read the census", exact: true }).waitFor({ state: "visible" });
 });
 await measureJourney("guide_step_back", "guide", async () => {
   await activate(reportGuide.getByRole("button", { name: "Previous tutorial step", exact: true }));
-  await reportGuide.getByRole("heading", { name: "Choose a report", exact: true }).waitFor({ state: "visible" });
+  await reportGuide.getByRole("heading", { name: "Check the snapshot date", exact: true }).waitFor({ state: "visible" });
 });
 await measureJourney("guide_pause", "guide", async () => {
   await activate(reportGuide.getByRole("button", { name: "Pause tutorial", exact: true }));
@@ -345,7 +345,7 @@ await measureJourney("guide_library_reopen", "guide", async () => {
 // The current library restarts the selected task; it no longer offers Resume.
 await measureJourney("guide_restart", "guide", async () => {
   await activate(tutorialLibrary.getByRole("button", { name: "View reports", exact: true }));
-  await reportGuide.getByRole("heading", { name: "Choose a report", exact: true }).waitFor({ state: "visible" });
+  await reportGuide.getByRole("heading", { name: "Check the snapshot date", exact: true }).waitFor({ state: "visible" });
 });
 await measureJourney("guide_return_to_library", "guide", async () => {
   await activate(reportGuide.getByRole("button", { name: "Tutorials", exact: true }));
@@ -377,29 +377,7 @@ await measureJourney("calendar_to_operations", "navigation", async () => {
   await activate(page.getByRole("button", { name: "Open reports", exact: true }));
   await page.getByRole("main", { name: "Reports", exact: true }).waitFor({ state: "visible" });
 });
-await measureJourney("report_tab_change", "tab", async () => {
-  await page.getByRole("combobox", { name: "Report", exact: true }).selectOption("assessor_workload");
-  await waitForReport(page, "Assessor workload");
-});
-await page.getByRole("combobox", { name: "Report", exact: true }).selectOption("assessment_schedule");
-await waitForReport(page, "Assessment calendar");
-await page.getByLabel("Report community", { exact: true }).selectOption("San Pablo");
-await measureJourney("report_filter_apply", "filter", async () => {
-  const reportResponse = page.waitForResponse((candidate) => {
-    const url = new URL(candidate.url());
-    return candidate.request().method() === "GET"
-      && candidate.ok()
-      && url.pathname === "/api/operations/reports"
-      && url.searchParams.get("community") === "San Pablo";
-  });
-  await activate(page.getByRole("button", { name: "Apply", exact: true }));
-  await reportResponse;
-});
-await measureJourney("report_csv_export", "export", async () => {
-  const download = page.waitForEvent("download");
-  await activate(page.getByRole("button", { name: "Export CSV", exact: true }));
-  await download;
-});
+await page.locator('[data-guide-target="operations-briefing-header"]').waitFor({ state: "visible" });
 await measureJourney("operations_to_referrals", "navigation", async () => {
   await activate(page.getByRole("button", { name: "Open referrals", exact: true }));
   await page.getByRole("heading", { name: "Referral workspaces", exact: true }).waitFor({ state: "visible" });
@@ -556,16 +534,6 @@ async function activate(locator) {
   await locator.click();
 }
 
-async function waitForReport(targetPage, label) {
-  await targetPage.waitForFunction((expectedLabel) => {
-    const reportReady = [...document.querySelectorAll("article")]
-      .some((article) => article.getAttribute("aria-label") === `${expectedLabel} report`);
-    const controlsReady = [...document.querySelectorAll('section[aria-label="Report controls"] button')]
-      .some((button) => button.textContent?.trim() === "Apply");
-    return reportReady && controlsReady;
-  }, label);
-}
-
 function summarizeApi(samples) {
   const successful = samples.filter((sample) => sample.status >= 200 && sample.status < 400);
   const ordinary = summarizeApiClass(successful.filter((sample) => sample.kind === "ordinary"));
@@ -682,6 +650,11 @@ async function installSanitizedClinicalFixtures(page) {
     "content-type": "application/json",
     "x-pipeline-test-fixture": "sanitized",
   };
+  await page.route(/\/api\/clinical\/census(?:\?|$)/, (route) => route.fulfill({
+    status: 200,
+    headers: fixtureHeaders,
+    body: JSON.stringify(clinical.census),
+  }));
   await page.route("**/api/profiles/**", (route) => route.fulfill({
     status: 200,
     headers: fixtureHeaders,

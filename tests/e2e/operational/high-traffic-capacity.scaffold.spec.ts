@@ -405,18 +405,13 @@ async function verifyProductDemoSurfaces(
           name: `Open ${expectedClientName} referral workspace`,
         }).first()).toBeVisible({ timeout: 15_000 });
       } else {
-        await page.getByRole("combobox", { name: "Report", exact: true }).selectOption("assessment_schedule");
-        const reportMonth = page.getByRole("textbox", { name: "Report month", exact: true });
+        await expect(page.getByRole("main", { name: "Reports" })).toBeVisible({ timeout: 15_000 });
         const scheduledMonth = isoToOperationalInput(new Date(Date.now() + 24 * 60 * 60 * 1_000).toISOString()).slice(0, 7);
-        if (await reportMonth.inputValue() !== scheduledMonth) {
-          await reportMonth.fill(scheduledMonth);
-          await page.getByRole("button", { name: "Apply", exact: true }).click();
-        }
-        const results = page.getByRole("region", { name: "Report results" });
-        await expect(results).toBeVisible({ timeout: 15_000 });
-        const totalLabel = results.getByRole("status").filter({ hasText: /^[\d,]+ total/ });
-        await expect(totalLabel).toBeVisible();
-        await expect.poll(async () => Number((await totalLabel.textContent())?.match(/^[\d,]+/)?.[0].replaceAll(",", "") ?? Number.NaN))
+        await expect.poll(async () => {
+          const report = await page.request.get(`/api/operations/reports?report_id=assessment_schedule&month=${scheduledMonth}`);
+          if (!report.ok()) return Number.NaN;
+          return Number((await report.json()).report.row_count);
+        })
           .toBeGreaterThanOrEqual(expectedMinimumAssessments);
       }
       await expect(page.getByText("Application error", { exact: false })).toHaveCount(0);

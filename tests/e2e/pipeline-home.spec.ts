@@ -899,16 +899,15 @@ test.describe("Pipeline home", () => {
     await expect(page.getByRole("heading", { name: "Referral history", exact: true })).toHaveCount(0);
   });
 
-  test("opens the report runner from primary navigation", async ({ page }) => {
+  test("opens the Platform briefing from primary navigation", async ({ page }) => {
     await page.goto("/");
     await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "Open reports" }).click();
     await expect(page.getByRole("main", { name: "Reports" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Reports", exact: true })).toHaveAttribute("aria-pressed", "true");
-    await expect(page.getByRole("combobox", { name: "Report", exact: true })).toHaveValue("clients_by_community");
-    await expect(page.getByRole("region", { name: "Report results" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Export CSV" })).toBeVisible();
+    await expect(page.getByTestId("operations-workspace")).toBeVisible();
+    await expect(page.getByRole("combobox", { name: "Report", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Export CSV" })).toHaveCount(0);
     await expect(page.getByText("Work queue", { exact: true })).toHaveCount(0);
     await expect(page.getByText("Data gaps", { exact: true })).toHaveCount(0);
   });

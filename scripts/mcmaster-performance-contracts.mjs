@@ -54,7 +54,7 @@ for (const journey of ["guide_library_open", "guide_walkthrough_start", "guide_s
 }
 assert.match(scorecard, /await retainDocumentInteractions\(\);[\s\S]+documentInteractions\.values\(\)/, "Full-document tutorial navigation must retain earlier interaction samples.");
 assert.match(scorecard, /referrals_to_learning_center/, "Learning Center navigation must be timed.");
-assert.match(scorecard, /report_csv_export/, "Report export must be timed.");
+assert.match(scorecard, /operations-briefing-header/, "The current briefing must render in the timed Reports journey.");
 assert.match(scorecard, /history_back_to_operations/, "Back and forward navigation must be timed.");
 assert.match(header, /aria-label="Open guided tutorials"[\s\S]+dispatchOperatorGuide\(\{ type: "open-library" \}\)/, "Help must open the in-app Learning Center without a document navigation.");
 assert.doesNotMatch(scorecard, /Filter profiles by admission date|Open Assessor's Workshop presentation|Guided tutorial library|Check team work guided tutorial|Continue where you stopped|End tutorial/, "Performance journeys must exercise current controls, not retired filters, presentations or tutorial controls.");

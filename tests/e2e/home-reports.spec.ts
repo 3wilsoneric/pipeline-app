@@ -1,14 +1,15 @@
 import { expect, test } from "@playwright/test";
 import { defaultPipelineHomeDashboardLayout } from "../../lib/pipeline/home-dashboard-layout";
-import type { SupervisorExceptionItem } from "../../lib/pipeline/operations-types";
 
 // Home customization is persisted on the server in desktop mode, not just in
 // this test context. Reset it so ordering and previous specs cannot change Home.
-test.beforeEach(async ({ request }) => {
+test.beforeEach(async ({ request }, testInfo) => {
+  if (testInfo.title === "shows only the Pipeline census briefing in Reports") return;
   const response = await request.put("/api/me/home-layout", { data: { layout: defaultPipelineHomeDashboardLayout() } });
   expect(response.ok()).toBe(true);
 });
-test.afterEach(async ({ request }) => {
+test.afterEach(async ({ request }, testInfo) => {
+  if (testInfo.title === "shows only the Pipeline census briefing in Reports") return;
   const response = await request.put("/api/me/home-layout", { data: { layout: defaultPipelineHomeDashboardLayout() } });
   expect(response.ok()).toBe(true);
 });
@@ -39,18 +40,18 @@ test.describe("role-scoped home and reports", () => {
       });
       let reportRequests = 0;
       page.on("request", (request) => {
-        if (new URL(request.url()).pathname === "/api/operations/reports") reportRequests += 1;
+        if (new URL(request.url()).pathname === "/api/clinical/census") reportRequests += 1;
       });
       await page.goto("/?screen=operations");
       const allowed = role === "admin" || role === "assessment_coordinator";
       if (allowed) {
         await expect(page.getByRole("button", { name: "Open reports", exact: true })).toBeVisible();
-        await expect(page.getByLabel("Report", { exact: true })).toBeVisible();
-        await expect.poll(() => reportRequests).toBeGreaterThan(0);
+        await expect(page.getByRole("main", { name: "Reports" })).toBeVisible();
+        await expect(page.getByTestId("operations-workspace")).toBeVisible();
       } else {
         await expect(page).not.toHaveURL(/screen=operations/);
         await expect(page.getByRole("button", { name: "Open reports", exact: true })).toHaveCount(0);
-        await expect(page.getByLabel("Report", { exact: true })).toHaveCount(0);
+        await expect(page.getByTestId("operations-workspace")).toHaveCount(0);
         expect(reportRequests).toBe(0);
       }
     });
@@ -483,221 +484,46 @@ test.describe("role-scoped home and reports", () => {
     await expect(board.locator("[data-board-card]")).toHaveCount(12);
   });
 
-  test("runs a report, exposes only contextual filters, and exports the current scope", async ({ page }) => {
-    await page.goto("/");
-    await page.getByRole("button", { name: "Open reports" }).click();
-
-    await expect(page.getByRole("main", { name: "Reports" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Reports", exact: true })).toHaveAttribute("aria-pressed", "true");
-    await expect(page.getByRole("combobox", { name: "Report", exact: true })).toHaveValue("clients_by_community");
-    await expect(page.getByRole("region", { name: "Report results" })).toBeVisible();
-
-    await expect(page.getByRole("button", { name: "Export CSV" })).toBeEnabled();
-    let releaseReport!: () => void;
-    const reportGate = new Promise<void>((resolve) => { releaseReport = resolve; });
-    await page.route("**/api/operations/reports**", async (route) => {
-      await reportGate;
-      await route.continue();
+  test("shows only the Pipeline census briefing in Reports", async ({ page }) => {
+    let legacyReportRequests = 0;
+    let censusRequests = 0;
+    let censusAvailable = true;
+    page.on("request", (request) => {
+      const path = new URL(request.url()).pathname;
+      if (path === "/api/operations/reports" || path === "/api/operations/briefing") legacyReportRequests += 1;
+      if (path === "/api/clinical/census") censusRequests += 1;
     });
-    try {
-      await page.getByRole("combobox", { name: "Report", exact: true }).selectOption("assessment_schedule");
-      await expect(page.getByRole("status").filter({ hasText: "Updating report..." })).toBeVisible();
-      await expect(page.getByRole("button", { name: "Export CSV" })).toBeDisabled();
-    } finally {
-      releaseReport();
-    }
-    await expect(page.getByRole("button", { name: "Export CSV" })).toBeEnabled();
-    await expect(page.getByRole("region", { name: "Report results" }).locator("time")).toBeVisible();
-    await page.unroute("**/api/operations/reports**");
-    await expect(page.getByLabel("Report month")).toBeVisible();
-    await expect(page.getByRole("combobox", { name: "Report community" })).toBeVisible();
-    await expect(page.getByRole("combobox", { name: "Report owner" })).toBeVisible();
-
-    await page.getByRole("combobox", { name: "Report", exact: true }).selectOption("assessment_completion");
-    await expect(page.getByLabel("Report month")).toBeVisible();
-    await expect(page.getByRole("combobox", { name: "Report community" })).toHaveCount(0);
-    await expect(page.getByRole("combobox", { name: "Report owner" })).toHaveCount(0);
-
-    const downloadPromise = page.waitForEvent("download");
-    await page.getByRole("button", { name: "Export CSV" }).click();
-    const download = await downloadPromise;
-    expect(download.suggestedFilename()).toMatch(/^pipeline-assessment_completion-\d{4}-\d{2}\.csv$/);
-    const results = page.getByRole("region", { name: "Report results" });
-    const generatedAt = await results.locator("time").getAttribute("datetime");
-    await page.route("**/api/operations/reports**", (route) => route.fulfill({
-      status: 500, json: { error: "Report unavailable." },
-    }));
-    await page.getByLabel("Report month").fill("2020-01");
-    await page.getByRole("button", { name: "Apply", exact: true }).click();
-    await expect(page.getByRole("alert").filter({ hasText: "Report unavailable." })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Export CSV" })).toBeDisabled();
-    await expect(results.locator("time")).toHaveAttribute("datetime", generatedAt!);
-    const animations = await results.locator(".pipeline-feedback-cue").evaluate(async (element) => {
-      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-      return element.getAnimations().length;
-    });
-    expect(animations).toBe(0);
-  });
-
-  test("turns canonical supervisor exceptions into direct recovery work", async ({ page }) => {
-    await page.route("**/api/operations/supervisor-queue", async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({
-          generated_at: "2026-09-08T17:00:00.000Z",
-          total: 3,
-          counts: {
-            unassigned_referral: 1,
-            decision_needed: 1,
-            resident_link_collision: 1,
-          },
-          items: [
-            {
-              id: "unassigned_referral:424242",
-              kind: "unassigned_referral",
-              severity: "critical",
-              label: "Referral has no owner",
-              detail: "Assign an accountable assessor.",
-              referral_id: 424242,
-              resident_link_id: null,
-              client_name: "Zachary Laman- LA JAIL",
-              community: "San Pablo",
-              owner: null,
-              due_at: "2026-09-07T17:00:00.000Z",
-              age_hours: 24,
-              profile_id: "pipeline-client-424242",
-            },
-            {
-              id: "decision_needed:424243",
-              kind: "decision_needed",
-              severity: "attention",
-              label: "Admission decision is needed",
-              detail: "Review the signed assessment and recommendation.",
-              referral_id: 424243,
-              resident_link_id: null,
-              client_name: "Morgan Rivera",
-              community: "San Francisco",
-              owner: "Annette Everhart",
-              due_at: null,
-              age_hours: 6,
-              profile_id: "pipeline-client-424243",
-            },
-            {
-              id: "resident_link_collision:link-1",
-              kind: "resident_link_collision",
-              severity: "review",
-              label: "Resident link collision needs review",
-              detail: "Verify the governed resident identity before connecting records.",
-              referral_id: null,
-              resident_link_id: "link-1",
-              client_name: "Taylor Morgan",
-              community: "San Pablo",
-              owner: null,
-              due_at: null,
-              age_hours: 3,
-              profile_id: "resident-42",
-            },
-          ],
-        }),
-      });
-    });
+    await page.route("**/api/clinical/census", (route) => censusAvailable ? route.fulfill({ status: 200, json: {
+      source: "alamo_platform", snapshot_id: "test-census", generated_at: "2026-09-28T15:00:00Z",
+      data_as_of: "2026-09-28", retrieved_at: "2026-09-28T15:00:00Z",
+      freshness: { status: "fresh", age_hours: 0, max_age_hours: 24, warning: null },
+      portfolio_census_total: 108, roster_count: 108, reconciliation_status: "matched", delta: 0,
+      communities: [
+        { community_id: "337", community_name: "San Pablo", city: "San Pablo", state: "CA", current_census: 72, roster_count: 72, reconciliation_status: "matched", delta: 0 },
+        { community_id: "342", community_name: "Victoria's House", city: "San Francisco", state: "CA", current_census: 36, roster_count: 36, reconciliation_status: "matched", delta: 0 },
+      ],
+    } }) : route.fulfill({ status: 503, json: { error: "Clinical data is not connected. Configure the Alamo Platform clinical API first." } }));
 
     await page.goto("/?screen=operations");
-    await page.getByRole("button", { name: "Exceptions", exact: true }).click();
-    const commandCenter = page.getByRole("region", { name: "Supervisor command center" });
-    await expect(commandCenter).toBeVisible();
-    await expect(commandCenter.getByText("Zachary Laman", { exact: true })).toBeVisible();
-    await expect(commandCenter.getByText("Zachary Laman- LA JAIL", { exact: true })).toHaveCount(0);
-    await expect(commandCenter.getByText("Unassigned", { exact: true })).toHaveCount(2);
-    await expect(commandCenter.getByText("Annette Everhart", { exact: true })).toBeVisible();
-
+    await expect(page.getByRole("main", { name: "Reports" })).toBeVisible();
+    await expect(page.getByTestId("operations-workspace")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Census briefing" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Census metrics" })).toContainText("108");
+    await expect(page.getByText("San Pablo", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Connect Platform" })).toHaveCount(0);
+    await expect(page.getByRole("combobox", { name: "Report", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Exceptions", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Export CSV" })).toHaveCount(0);
+    expect(legacyReportRequests).toBe(0);
+    expect(censusRequests).toBeGreaterThan(0);
     await page.setViewportSize({ width: 390, height: 844 });
-    expect(await commandCenter.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
-
-    await commandCenter.getByRole("button", { name: "Assign for Zachary Laman" }).click();
-    await expect.poll(() => new URL(page.url()).searchParams.get("referralId")).toBe("424242");
-
-    await page.goBack();
-    await expect(commandCenter).toBeVisible();
-    await commandCenter.getByRole("button", { name: "Review match for Taylor Morgan" }).click();
-    await expect.poll(() => new URL(page.url()).searchParams.get("clientId")).toBe("resident-42");
-  });
-
-  test("shows and retries exceptions beyond the first queue page without blocking Reports", async ({ page }) => {
-    const items: SupervisorExceptionItem[] = Array.from({ length: 251 }, (_, index) => ({
-      id: `ehr_handoff_failed:${index}`, kind: "ehr_handoff_failed", severity: "critical",
-      label: "EHR handoff failed", detail: "Synthetic downstream rejection",
-      referral_id: 424242 + index, resident_link_id: null,
-      client_name: index === 0 ? "Synthetic First" : index === 250 ? "Synthetic Last" : "Synthetic Client",
-      community: "San Pablo", owner: "Annette Everhart", due_at: null, age_hours: 1, profile_id: null,
-    }));
-    let failNextPage = true;
-    const offsets: number[] = [];
-    await page.route("**/api/operations/supervisor-queue*", async (route) => {
-      const offset = Number(new URL(route.request().url()).searchParams.get("offset") ?? 0);
-      offsets.push(offset);
-      if (offset && failNextPage) {
-        await route.fulfill({ status: 503, json: { error: "Supervisor queue is temporarily unavailable." } });
-        return;
-      }
-      await route.fulfill({ json: {
-        generated_at: "2026-09-28T00:00:00Z", total: items.length,
-        counts: { ehr_handoff_failed: 251 }, severity_counts: { critical: 251, attention: 0, review: 0 },
-        items: items.slice(offset, offset + 250), next_offset: offset === 0 ? 250 : null,
-      } });
-    });
-    await page.goto("/?screen=operations");
-    await page.getByRole("button", { name: "Exceptions", exact: true }).click();
-    const center = page.getByRole("region", { name: "Supervisor command center" });
-    await expect(center.locator("article")).toHaveCount(8);
-    expect(offsets).not.toContain(250);
-    await center.getByRole("button", { name: "Show all 251 exceptions" }).click();
-    await expect(center.getByRole("alert")).toContainText("Supervisor queue is temporarily unavailable.");
-    await expect(center.getByRole("button", { name: "Review handoff for Synthetic First", exact: true })).toBeEnabled();
-    failNextPage = false;
-    await center.getByRole("button", { name: "Retry", exact: true }).click();
-    await expect(center.locator("article")).toHaveCount(251);
-    await expect(center.getByRole("alert")).toHaveCount(0);
-    await center.getByRole("button", { name: "Show priority exceptions" }).click();
-    await expect(center.locator("article")).toHaveCount(8);
-    await center.getByRole("button", { name: "Show all 251 exceptions" }).click();
-    await center.getByRole("button", { name: "Review handoff for Synthetic Last", exact: true }).click();
-    await expect.poll(() => new URL(page.url()).searchParams.get("referralId")).toBe("424492");
-  });
-
-  test("keeps experimental assessment patterns out of Reports", async ({ page }) => {
-    let graphRequests = 0;
-    await page.route("**/api/operations/work-assessment-graph", async (route) => {
-      graphRequests += 1;
-      await route.abort();
-    });
-
-    await page.goto("/?screen=operations");
-    await expect(page.getByRole("article", { name: "Clients by community report" })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Report results" })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Work assessment graph" })).toHaveCount(0);
-    expect(graphRequests).toBe(0);
-  });
-
-  test("keeps the report workflow available when the command-center queue is unavailable", async ({ page }) => {
-    await page.route("**/api/operations/supervisor-queue", async (route) => {
-      await route.fulfill({
-        status: 503,
-        contentType: "application/json",
-        body: JSON.stringify({ error: "Supervisor queue is temporarily unavailable." }),
-      });
-    });
-
-    await page.goto("/?screen=operations");
-
-    await page.getByRole("button", { name: "Exceptions", exact: true }).click();
-    const commandCenter = page.getByRole("region", { name: "Supervisor command center" });
-    await expect(commandCenter.getByRole("alert")).toContainText("Supervisor queue is temporarily unavailable.");
-    await expect(commandCenter.getByRole("button", { name: "Retry" })).toBeVisible();
-    await page.getByRole("button", { name: "Reports", exact: true }).click();
-    await expect(page.getByRole("main", { name: "Reports" })).toBeVisible();
-    await expect(page.getByRole("combobox", { name: "Report", exact: true })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Report results" })).toBeVisible();
+    await expect.poll(() => page.getByRole("main", { name: "Reports" }).evaluate((element) => element.scrollWidth - element.clientWidth)).toBeLessThanOrEqual(0);
+    censusAvailable = false;
+    await page.reload();
+    await expect(page.getByTestId("operations-workspace").getByRole("alert")).toContainText("Current census information is unavailable in Pipeline right now");
+    await expect(page.getByText("Connect Platform")).toHaveCount(0);
+    censusAvailable = true;
+    await page.getByRole("button", { name: "Try again" }).click();
+    await expect(page.getByRole("region", { name: "Census metrics" })).toContainText("108");
   });
 });
