@@ -11,7 +11,7 @@ import { PacketAccessError, withAdmissionPacket } from "./admission-packet-store
 import { currentSource, outlookDraftView, withDraftOperation } from "./outlook-handoff";
 import { renderMeetClientEmail } from "./meet-client-email-template";
 import { getGraphMailReadiness, GraphMailDeliveryError, sendMeetClientMail, validateMeetClientRecipients } from "./microsoft-graph-mail";
-import { meetClientAttachmentDeliveryMode } from "./meet-client-attachment-policy";
+import { mailAttachmentsExceedSafeLimit, meetClientAttachmentDeliveryMode } from "./meet-client-attachment-policy";
 
 export function assessorEmailDestination(user: PipelineUser) {
   if (user.delegation) throw new PacketAccessError("Leave the assessor session to email a packet to your own account.", 403);
@@ -21,6 +21,7 @@ export function assessorEmailDestination(user: PipelineUser) {
 }
 
 export function requireAssessorEmailCapacity(inventory: MeetClientAttachmentInventory) {
+  if (mailAttachmentsExceedSafeLimit(inventory.files)) throw new PacketAccessError("This packet is too large for an attachment email. Select fewer files before preparing the email. No email was sent.", 413);
   if (meetClientAttachmentDeliveryMode(inventory.files) === "draft_upload" && !getGraphMailReadiness().largeAttachmentDeliveryConfigured) throw new PacketAccessError("Alamo Admissions needs its large-file email setup completed for this packet. Ask the Pipeline administrator to finish the mailbox attachment setup. No email was sent.", 503);
 }
 

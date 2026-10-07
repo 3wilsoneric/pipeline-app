@@ -7,6 +7,7 @@ import { loadTypeScriptModule } from "./ts-module-loader.mjs";
 
 const template = loadEntry("lib/notifications/meet-client-email-template.ts");
 const realMail = loadTypeScriptModule(process.cwd(), "lib/notifications/microsoft-graph-mail.ts");
+const attachmentPolicy = loadTypeScriptModule(process.cwd(), "lib/notifications/meet-client-attachment-policy.ts");
 const schema = loadTypeScriptModule(process.cwd(), "lib/assessment/assessment-tool-schema.ts");
 const summary = loadTypeScriptModule(process.cwd(), "lib/assessment/assessment-summary.ts");
 
@@ -45,6 +46,7 @@ function fixture(t, options = {}) {
     sendMeetClientMail: async input => { sent++; savedInput = input; await options.wait?.(); if (options.failure) throw options.failure; return { acceptedAt: "2026-09-23T12:00:00.000Z" }; } };
   const direct = loadEntry("lib/notifications/direct-handoff.ts", {
     "./admission-packet-store": store, "./admission-packet-files": files, "./microsoft-graph-mail": mail,
+    "./meet-client-attachment-policy": attachmentPolicy,
     "./meet-client-email-template": template, "./assessor-email-handoff": { requireAssessorEmailCapacity: () => {} },
     "@/lib/assessment/assessment-store": assessmentStore, "@/lib/pipeline/workspace-members": { getActiveWorkspaceMember: async id => id === "assessor" ? { email: "assessor@outlook.com", display_name: "Synthetic Assessor" } : null },
     "@/lib/pipeline/meet-client-delivery-audit": audit, "@/lib/extraction/document-assets": assets,
@@ -145,6 +147,24 @@ test("community handoff sends only the reviewed files, with the client data shee
   assert.deepEqual(Array.from(f.sendInput.attachments, (file) => file.name), ["Client data sheet.pdf"]);
 });
 
+test("oversized admission packets cannot be previewed or sent as attachments", async t => {
+  const f = fixture(t);
+  f.inventory.files[1].byteSize = 21 * 1024 * 1024;
+  const blockedPreview = await f.post();
+  assert.equal(blockedPreview.status, 413);
+  assert.match((await blockedPreview.json()).error, /too large.*Select fewer files/i);
+  assert.equal(f.sent, 0);
+
+  const ready = fixture(t);
+  const preview = await ready.prepare();
+  await ready.store.withAdmissionPacket(preview.id, packet => { packet.files[1].byteSize = 21 * 1024 * 1024; });
+  const blockedSend = await ready.post({ snapshot_id: preview.id });
+  assert.equal(blockedSend.status, 413);
+  assert.equal(ready.sent, 0);
+  const history = await (await ready.get(`referral_id=6&packet_id=${preview.id}`)).json();
+  assert.equal(history.communication.status, "ready");
+});
+
 test("unseen changes to message, recipients, date, same-size original bytes or ownership never send", async t => {
   for (const change of ["message", "recipients", "date", "file", "owner"]) {
     const f = fixture(t); const preview = await f.prepare();
@@ -205,6 +225,18 @@ test("actual Graph envelope and attachment bytes match the prepared content with
   assert.equal(message.replyTo[0].emailAddress.address, "assessor@outlook.com");
   assert.equal(message.ccRecipients[0].emailAddress.address, "assessor@outlook.com");
   assert.deepEqual(Buffer.from(message.attachments[0].contentBytes, "base64"), bytes);
+});
+
+test("Graph sender refuses an oversized attachment email before contacting Microsoft", async () => {
+  let contacted = false;
+  const mail = loadTypeScriptModule(process.cwd(), "lib/notifications/microsoft-graph-mail.ts", {
+    process: { env: { NODE_ENV: "production", PIPELINE_MEET_CLIENT_LIVE_ENABLED: "true", PIPELINE_GRAPH_TENANT_ID: "fixture", PIPELINE_GRAPH_CLIENT_ID: "fixture", PIPELINE_GRAPH_CLIENT_SECRET: "synthetic", PIPELINE_MEET_CLIENT_SENDER: "admissions@example.invalid" } },
+    fetch: async () => { contacted = true; throw new Error("unexpected Graph call"); },
+  });
+  await assert.rejects(mail.sendMeetClientMail({ recipients: ["care@example.invalid"], summary: null, preparedBy: "Assessor",
+    deliveryId: randomUUID(), attachments: [{ name: "Large.pdf", contentType: "application/pdf", byteSize: 21 * 1024 * 1024, contentBytes: Buffer.from("fixture") }] }),
+  { code: "packet_size_rejected", status: 413 });
+  assert.equal(contacted, false);
 });
 
 
