@@ -681,9 +681,11 @@ const outlookDraftControls = read("components/pipeline/OutlookHandoffControls.ts
 check("staff reviews the exact packet and verified recipients before saving the Outlook draft", assessmentChartWorkspace.includes('aria-label="Referral packet attachments"')
   && assessmentChartWorkspace.includes("email.admission_packet.files.map")
   && assessmentChartWorkspace.includes("I verified that each recipient is authorized to receive this summary and the packet files.")
-  && assessmentChartWorkspace.includes('ready={canSendHandoff(email, emailDraft, confirmed, sending)}')
+  && assessmentChartWorkspace.includes('ready={canSendHandoff(email, selectedFileIds, emailDraft, confirmed, sending)}')
+  && assessmentChartWorkspace.includes('selected_file_ids: selectedFileIds')
+  && assessmentChartWorkspace.includes('const selectionIssue = packetSelectionIssue(email, selectedFileIds);')
   && !assessmentChartWorkspace.includes('medicationReviewReady')
-  && assessmentChartWorkspace.includes('return !sending && email.ready && confirmed && Boolean(draft?.fields.to.length) && handoffDraftReady(draft)')
+  && assessmentChartWorkspace.includes('return !sending && handoffReadinessReasons(email, selectedFileIds, draft, confirmed, sending).length === 0;')
   && outlookDraftControls.includes('const preparationDisabled = disabled || !ready || isDemo || state.occupied')
   && outlookDraftControls.includes('disabled={preparationDisabled}')
   && outlookDraftControls.includes("Save to Outlook Drafts"));
