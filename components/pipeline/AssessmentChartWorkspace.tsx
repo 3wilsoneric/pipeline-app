@@ -20,6 +20,7 @@ import AdmissionPacketAccessControls from "./AdmissionPacketAccessControls";
 import OutlookHandoffControls from "./OutlookHandoffControls";
 import DirectHandoffPreview from "./DirectHandoffPreview";
 import CommunicationHistory from "./CommunicationHistory";
+import { useConfirmationDialog } from "./useConfirmationDialog";
 import type { CommunicationView } from "@/lib/notifications/communication-contract";
 import type { OutlookDraftView } from "@/lib/notifications/outlook-draft-contract";
 import type { MeetClientMessage } from "@/lib/notifications/meet-client-message";
@@ -45,6 +46,7 @@ type ChartPayload = {
     can_edit_recipients: boolean;
     ready: boolean;
     sent_at?: string | null;
+    previously_sent?: boolean;
     blockers: string[];
     base_blockers: string[];
     admission_packet: {
@@ -96,6 +98,8 @@ export default function AssessmentChartWorkspace({ referralId, active = true, so
   const composerOpen = reviewStep !== null;
   const [exampleReviewed, setExampleReviewed] = useState(false);
   const [acceptedReferralId, setAcceptedReferralId] = useState<number | null>(null);
+  const [repeatSendConfirmed, setRepeatSendConfirmed] = useState(false);
+  const { confirm: confirmRepeatSend, confirmationDialog } = useConfirmationDialog();
   const sendRequest = useRef<{ key: string; mutationId: string } | null>(null);
   const sendInFlight = useRef(false);
   const summaryRequestKey = useRef("");
@@ -108,6 +112,7 @@ export default function AssessmentChartWorkspace({ referralId, active = true, so
     setReviewedCount(0);
     setExampleReviewed(false);
     setReviewStep(null);
+    setRepeatSendConfirmed(false);
     try {
       const next = await fetchPipelineJson<ChartPayload>(
         `/api/referrals/${referralId}/admission-summary`,
@@ -161,7 +166,7 @@ export default function AssessmentChartWorkspace({ referralId, active = true, so
   };
 
   const emailMeetClient = async (outlookToken: string, delivery: "outlook" | "assessor" = "outlook") => {
-    if (!canStartMeetClientSend(payload, selectedFileIds, acceptedReferralId === referralId, confirmed, sendInFlight.current)) return;
+    if (!canStartMeetClientSend(payload, selectedFileIds, confirmed, sendInFlight.current, repeatSendConfirmed)) return;
     if (!handoffDraftReady(emailDraft)) return;
     const recipientList = recipients;
     const requestKey = handoffRequestKey(payload, selectedFileIds, recipientList, ccRecipients, emailDraft.fields.message);
@@ -183,6 +188,7 @@ export default function AssessmentChartWorkspace({ referralId, active = true, so
             recipients: recipientList,
             cc_recipients: ccRecipients,
             confirmed: true,
+            repeat_send_confirmed: repeatSendConfirmed,
             if_match: payload.referral.version,
             assessment_id: payload.report?.assessmentId,
             if_match_assessment: payload.report?.assessmentVersion,
@@ -197,6 +203,7 @@ export default function AssessmentChartWorkspace({ referralId, active = true, so
       setConfirmed(false);
       if (result.draft) return result.draft;
       setAcceptedReferralId(payload.referral.id);
+      setRepeatSendConfirmed(false);
       setMessage(`Microsoft 365 accepted the summary and ${result.attachment_count} admission file${result.attachment_count === 1 ? "" : "s"} for ${result.recipient_count} recipient${result.recipient_count === 1 ? "" : "s"}.${result.audit_pending ? ` Send history is pending; do not resend. Reference: ${result.delivery_id}.` : ""}`);
     };
     const failed = (sendError: unknown) => {
@@ -217,6 +224,7 @@ export default function AssessmentChartWorkspace({ referralId, active = true, so
 
   const prepareDirect = async (snapshotId?: string): Promise<CommunicationView> => {
     if (!payload || !handoffDraftReady(emailDraft) || !confirmed || sendInFlight.current) throw new Error("Finish reviewing the recipients before preparing this email.");
+    if ((payload.email.previously_sent || payload.email.sent_at) && !repeatSendConfirmed) throw new Error("Confirm that you want to send another Meet the Client handoff before preparing it.");
     const key = handoffRequestKey(payload, selectedFileIds, recipients, ccRecipients, emailDraft.fields.message);
     if (sendRequest.current?.key !== key) sendRequest.current = { key, mutationId: crypto.randomUUID() };
     sendInFlight.current = true; setSending(true); onSendingChange?.(true); setError("");
@@ -224,12 +232,13 @@ export default function AssessmentChartWorkspace({ referralId, active = true, so
       await emailDraft.flush();
       const result = await fetchPipelineJson<{ communication: CommunicationView }>(`/api/referrals/${payload.referral.id}/meet-client-email?delivery=direct`, {
         method: "POST", body: JSON.stringify({ recipients, cc_recipients: ccRecipients, confirmed: true,
+          repeat_send_confirmed: repeatSendConfirmed,
           if_match: payload.referral.version, assessment_id: payload.report?.assessmentId, if_match_assessment: payload.report?.assessmentVersion,
           client_mutation_id: sendRequest.current.mutationId, packet_revision: payload.email.admission_packet.revision,
           selected_file_ids: selectedFileIds,
           message: emailDraft.fields.message, ...(snapshotId ? { snapshot_id: snapshotId } : {}) }),
       }, { timeoutMs: 300_000 });
-      if (result.communication.status === "submitted") setAcceptedReferralId(payload.referral.id);
+      if (result.communication.status === "submitted") { setAcceptedReferralId(payload.referral.id); setRepeatSendConfirmed(false); }
       return result.communication;
     } catch (failure) {
       if (snapshotId) {
@@ -247,6 +256,22 @@ export default function AssessmentChartWorkspace({ referralId, active = true, so
   if (unavailable) return unavailable;
   const readyPayload = payload!;
   const sent = Boolean(readyPayload.email.sent_at) || acceptedReferralId === referralId;
+  const prepareAnotherHandoff = async () => {
+    if (sending || savingDate) return;
+    const accepted = await confirmRepeatSend({
+      title: "Send another Meet the Client handoff?",
+      message: "A handoff was already sent. Another email may reach the same people. Review the latest client summary, files, recipients, and message before sending again. The earlier handoff stays in history.",
+      confirmLabel: "Review another handoff",
+    });
+    if (!accepted) return;
+    const next = await load();
+    if (next) {
+      setAcceptedReferralId(null);
+      sendRequest.current = null;
+      setRepeatSendConfirmed(true);
+      setReviewStep(0);
+    }
+  };
   const deliveryStatus = meetClientDeliveryStatus(readyPayload.email, selectedFileIds, sent, sending, confirmed, recipients);
   const refresh = <button type="button" onClick={() => void load()} disabled={loading || sending} className={styles.textButton}>
     <RefreshCw size={15} className={loading ? "animate-spin" : ""} /> Refresh
@@ -264,10 +289,10 @@ export default function AssessmentChartWorkspace({ referralId, active = true, so
           onContinue={() => { setReviewedCount((count) => Math.max(count, step + 1)); setReviewStep(step + 1); }} />
           : <MeetClientEmailPreview email={readyPayload.email} report={readyPayload.report} emailDraft={emailDraft} referral={readyPayload.referral}
             selectedFileIds={selectedFileIds}
-            confirmed={confirmed} sending={sending} sent={sent} error={error} message={message} refresh={refresh}
+            confirmed={confirmed} sending={sending} sent={sent && !repeatSendConfirmed && !existingDraft} error={error} message={message} refresh={refresh}
             onBack={() => setReviewStep(3)} onReviewComplete={() => { setExampleReviewed(readyPayload.email.example_only); setReviewStep(null); }}
             preparedDraft={existingDraft} onExistingDraft={(draft) => { setExistingDraft(draft); if (!draft && existingDraft) { setConfirmed(false); setReviewedCount(0); setReviewStep(null); } }}
-            onPrepareDirect={prepareDirect} onPrepareOutlook={emailMeetClient} onOutlookSent={() => setAcceptedReferralId(readyPayload.referral.id)} />;
+            onPrepareDirect={prepareDirect} onPrepareOutlook={emailMeetClient} onOutlookSent={() => { setAcceptedReferralId(readyPayload.referral.id); setRepeatSendConfirmed(false); }} />;
   };
   const renderReviewDialog = () => (active && reviewStep !== null ? <MeetClientComposeDialog key={reviewStep} step={reviewStep} compact={reviewStep === 4 && existingDraft?.delivery_method === "assessor_email"} sending={sending || savingDate} onClose={() => setReviewStep(null)}>
     {renderReviewBody(reviewStep)}
@@ -283,11 +308,16 @@ export default function AssessmentChartWorkspace({ referralId, active = true, so
       {!composerOpen ? <HandoffDraftError value={emailDraft} /> : null}
       {!composerOpen && readyPayload.email.example_only ? <p role="status" className={styles.previewNote}>Not production yet — no email will be sent.</p> : null}
       <HandoffOverview payload={readyPayload} sent={sent} exampleReviewed={exampleReviewed} finishActions={finishActions}
-        existingDraft={existingDraft} composerOpen={composerOpen} reviewedCount={reviewedCount} onPreviewEmail={() => setReviewStep(sent || exampleReviewed || existingDraft ? 4 : Math.min(reviewedCount, 4))}
+        existingDraft={existingDraft} composerOpen={composerOpen} reviewedCount={reviewedCount} onPreviewEmail={() => {
+          if (readyPayload.email.previously_sent && !sent && !existingDraft && !repeatSendConfirmed) void prepareAnotherHandoff();
+          else setReviewStep(sent || exampleReviewed || existingDraft ? 4 : Math.min(reviewedCount, 4));
+        }}
+        onPrepareAnother={readyPayload.email.can_send && sent && !existingDraft ? () => void prepareAnotherHandoff() : undefined}
         onOpenIntake={onOpenIntake} onOpenAssessment={onOpenAssessment} onOpenDecision={onOpenDecision} />
       {!readyPayload.email.example_only ? <CommunicationHistory referralId={readyPayload.referral.id} refreshKey={`${sent}:${composerOpen}`}
-        onPrepareUpdated={readyPayload.email.can_send ? () => { void load().then(next => { if (next) { setAcceptedReferralId(null); setReviewStep(0); } }); } : undefined} /> : null}
+        onPrepareUpdated={readyPayload.email.can_send ? () => { if (existingDraft) setReviewStep(4); else if (sent || readyPayload.email.previously_sent) void prepareAnotherHandoff(); else void load().then(next => { if (next) setReviewStep(0); }); } : undefined} /> : null}
       {renderReviewDialog()}
+      {confirmationDialog}
     </section>
   );
   if (emailPage) return renderEmailPage();
@@ -303,10 +333,11 @@ export default function AssessmentChartWorkspace({ referralId, active = true, so
   );
 }
 
-function HandoffOverview({ existingDraft, payload, sent, exampleReviewed, finishActions, composerOpen, reviewedCount, onPreviewEmail, onOpenIntake, onOpenAssessment, onOpenDecision }: {
+function HandoffOverview({ existingDraft, payload, sent, exampleReviewed, finishActions, composerOpen, reviewedCount, onPreviewEmail, onPrepareAnother, onOpenIntake, onOpenAssessment, onOpenDecision }: {
   existingDraft: OutlookDraftView | null; payload: ChartPayload; sent: boolean; exampleReviewed: boolean; composerOpen: boolean; reviewedCount: number;
   finishActions?: React.ReactNode;
   onPreviewEmail: () => void;
+  onPrepareAnother?: () => void;
   onOpenIntake?: () => void;
   onOpenAssessment?: () => void; onOpenDecision?: () => void;
 }) {
@@ -326,6 +357,7 @@ function HandoffOverview({ existingDraft, payload, sent, exampleReviewed, finish
     <h3>{sent ? "Handoff sent" : "Demo review complete"}</h3>
     <p>{sent ? "The handoff is recorded as sent. Recipient delivery is not tracked." : "No email was sent."}</p>
     <footer ref={finishRef} aria-label="Handoff actions" className={styles.taskActions}>{finishActions}</footer>
+    {existingDraft ? previewButton : sent && onPrepareAnother ? <button type="button" className={styles.sendButton} onClick={onPrepareAnother}>Send another handoff<ArrowRight size={18} aria-hidden="true" /></button> : null}
     {email.example_only ? <details className={styles.completedDetails}><summary>Review email again</summary>{previewButton}</details> : null}
   </section>;
 
@@ -446,9 +478,9 @@ function packetSelectionIssue(email: ChartPayload["email"], selectedFileIds: str
   return "";
 }
 
-function canStartMeetClientSend(payload: ChartPayload | null, selectedFileIds: string[], alreadyAccepted: boolean, confirmed: boolean, inFlight: boolean): payload is ChartPayload {
+function canStartMeetClientSend(payload: ChartPayload | null, selectedFileIds: string[], confirmed: boolean, inFlight: boolean, repeatSendConfirmed: boolean): payload is ChartPayload {
   return Boolean(payload && payload.email.base_blockers.length === 0 && !packetSelectionIssue(payload.email, selectedFileIds)
-    && !plannedAdmissionDateError(getPlannedAdmissionDate(payload.referral)) && !payload.email.example_only && !payload.email.sent_at && !alreadyAccepted && confirmed && !inFlight);
+    && !plannedAdmissionDateError(getPlannedAdmissionDate(payload.referral)) && !payload.email.example_only && (!(payload.email.previously_sent || payload.email.sent_at) || repeatSendConfirmed) && confirmed && !inFlight);
 }
 
 function meetClientDeliveryStatus(email: ChartPayload["email"], selectedFileIds: string[], sent: boolean, sending: boolean, confirmed: boolean, recipients: string[]) {
@@ -595,24 +627,40 @@ function HandoffRecipientReview({ draft, community, editable, confirmed, onConfi
 function AdmissionPacketReview({ email, referral, selectedFileIds, onSelectedFileIdsChange, onOpenFiles }: {
   email: ChartPayload["email"]; referral: Referral; selectedFileIds: string[]; onSelectedFileIdsChange: (ids: string[]) => void; onOpenFiles?: () => void;
 }) {
+  const files = email.admission_packet.files;
+  const isLicForm = (file: (typeof files)[number]) => file.category === "LIC 602" || file.category === "LIC 601/603";
+  const licForms = files.filter(isLicForm);
+  const rows = files.filter((file) => !isLicForm(file) || file === licForms[0]);
   const selected = selectedPacketFiles(email, selectedFileIds);
   const bytes = selected.reduce((total, file) => total + file.byte_size, 0);
   const issue = packetSelectionIssue(email, selectedFileIds);
   return <section data-guide-target="packet-attachments" className={`${styles.attachments} ${styles.packetReview}`} aria-label="Referral packet attachments">
     <div className={styles.attachmentHeading}><h3>Choose files for the community</h3><span><Paperclip size={15} aria-hidden="true" />{selected.length} selected · {formatBytes(bytes)}</span></div>
-    <p>Only checked files will be included. The client data sheet is always included; referral packets, MARs, and other files stay unchecked unless you choose them.</p>
-    <ul className={styles.attachmentList}>{email.admission_packet.files.map((file) => <li key={file.document_id}>
-      <div className="flex items-center gap-3 rounded border border-[var(--color-paper-rule)] bg-[var(--color-sheet)] p-3">
-        <input type="checkbox" aria-label={`Include ${file.name}`} checked={selectedFileIds.includes(file.document_id)} disabled={file.generated} onChange={(event) => {
-          const next = new Set(selectedFileIds);
-          if (event.target.checked) next.add(file.document_id); else next.delete(file.document_id);
-          onSelectedFileIdsChange(email.admission_packet.files.filter((item) => next.has(item.document_id)).map((item) => item.document_id));
-        }} />
-        <a className={styles.attachment} href={toPipelinePath(file.generated ? `/api/referrals/${referral.id}/admission-summary?download=chart` : `/api/files/${encodeURIComponent(file.document_id)}/download`)} target="_blank" rel="noopener noreferrer" aria-label={`Open ${file.name}`}>
-          <FileText size={23} aria-hidden="true" /><span><strong>{file.name}</strong><small>{file.generated ? "Client data sheet · always included" : file.ready ? `${file.category} · ${formatBytes(file.byte_size)}` : "Safety review needed before live delivery"}</small></span>
-        </a>
-      </div>
-    </li>)}</ul>
+    <p>Only checked files will be included. The client data sheet is always included. Confirm the selected medication list is current and signed; provider forms, face sheets, referral packets, MARs, and other files stay unchecked unless you choose them.</p>
+    <ul className={styles.attachmentList}>{rows.map((file) => {
+      const groupedLicForms = isLicForm(file);
+      const rowFiles = groupedLicForms ? licForms : [file];
+      const selectedCount = rowFiles.filter((item) => selectedFileIds.includes(item.document_id)).length;
+      return <li key={groupedLicForms ? "lic-forms" : file.document_id}>
+        <div className="flex items-center gap-3 rounded border border-[var(--color-paper-rule)] bg-[var(--color-sheet)] p-3">
+          <input type="checkbox" aria-label={groupedLicForms ? "Include LIC 601, LIC 602, LIC 603 files" : `Include ${file.name}`}
+            checked={selectedCount === rowFiles.length} ref={groupedLicForms ? (input) => { if (input) input.indeterminate = selectedCount > 0 && selectedCount < rowFiles.length; } : undefined}
+            disabled={file.generated} onChange={(event) => {
+              const next = new Set(selectedFileIds);
+              for (const item of rowFiles) { if (event.target.checked) next.add(item.document_id); else next.delete(item.document_id); }
+              onSelectedFileIdsChange(files.filter((item) => next.has(item.document_id)).map((item) => item.document_id));
+            }} />
+          {groupedLicForms ? <div className="min-w-0 flex-1"><strong>LIC 601, LIC 602, LIC 603</strong><small className="block">{licForms.length} {licForms.length === 1 ? "file" : "files"} available · selected together</small>
+            <ul className="mt-2 grid gap-1">{licForms.map((item) => <li key={item.document_id}>
+              <a className="block break-all text-[var(--color-link)] underline" href={toPipelinePath(`/api/files/${encodeURIComponent(item.document_id)}/download`)} target="_blank" rel="noopener noreferrer" aria-label={`Open ${item.name}`}>{item.name}</a>
+              {!item.ready ? <small className="block">Safety review needed before live delivery</small> : null}
+            </li>)}</ul>
+          </div> : <a className={styles.attachment} href={toPipelinePath(file.generated ? `/api/referrals/${referral.id}/admission-summary?download=chart` : `/api/files/${encodeURIComponent(file.document_id)}/download`)} target="_blank" rel="noopener noreferrer" aria-label={`Open ${file.name}`}>
+            <FileText size={23} aria-hidden="true" /><span><strong>{file.name}</strong><small>{file.generated ? "Client data sheet · always included" : file.ready ? `${file.category} · ${formatBytes(file.byte_size)}` : "Safety review needed before live delivery"}</small></span>
+          </a>}
+        </div>
+      </li>;
+    })}</ul>
     {issue ? <p role="alert">{issue}</p> : null}
     {onOpenFiles ? <button type="button" className={styles.textButton} onClick={onOpenFiles}>Change packet files</button> : null}
   </section>;

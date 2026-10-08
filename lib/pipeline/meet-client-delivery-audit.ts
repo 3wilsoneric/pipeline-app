@@ -86,7 +86,8 @@ export async function completeMeetClientDelivery(
           set meet_client_sent_at = ${completed.updatedAt}::timestamptz,
               meet_client_sent_version = ${input.assessmentVersion},
               version = version + 1, updated_at = now()
-          where assessment_id = ${input.assessmentId} and meet_client_sent_at is null
+          where assessment_id = ${input.assessmentId}
+            and (meet_client_sent_version is null or meet_client_sent_version < ${input.assessmentVersion})
           returning assessment_id
         `;
         if (finalized.length) await tx`

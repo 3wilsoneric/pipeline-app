@@ -102,6 +102,7 @@ export async function GET(
           can_edit_recipients: canSendAdmissionSummary(auth.user, access.referral),
           ready: canSend && emailBlockers.length === 0,
           sent_at: assessment?.meet_client_sent_at ?? null,
+          previously_sent: assessmentList.assessments.some((item) => Boolean(item.meet_client_sent_at)),
           blockers: emailBlockers,
           base_blockers: baseBlockers,
           admission_packet: {

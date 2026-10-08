@@ -311,8 +311,8 @@ export async function deliverAssessmentPacket<T extends { acceptedAt: string }>(
       const result = await send();
       await tx`
         update pipeline.assessments
-        set meet_client_sent_at = coalesce(meet_client_sent_at, ${result.acceptedAt}::timestamptz),
-            meet_client_sent_version = coalesce(meet_client_sent_version, ${expectedVersion}),
+        set meet_client_sent_at = ${result.acceptedAt}::timestamptz,
+            meet_client_sent_version = ${expectedVersion},
             version = version + 1, updated_at = now()
         where assessment_id = ${assessmentId}
       `;
@@ -327,8 +327,8 @@ export async function deliverAssessmentPacket<T extends { acceptedAt: string }>(
     const result = await send();
     state.assessments = state.assessments.map((item) => item.assessment_id !== assessmentId ? item : {
       ...current,
-      meet_client_sent_at: current.meet_client_sent_at ?? result.acceptedAt,
-      meet_client_sent_version: current.meet_client_sent_version ?? expectedVersion,
+      meet_client_sent_at: result.acceptedAt,
+      meet_client_sent_version: expectedVersion,
       version: current.version + 1,
       updated_at: result.acceptedAt,
     });
