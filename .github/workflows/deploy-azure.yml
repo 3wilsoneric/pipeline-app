@@ -150,6 +150,12 @@ jobs:
           else
             custom_domains='[]'
           fi
+          if [[ '${{ steps.foundation.outputs.environment }}' == 'prod' ]] &&
+            ! jq -e 'any(.[]; .name == "alamo-pipeline.com") and any(.[]; .name == "www.alamo-pipeline.com")' \
+              <<<"$custom_domains" >/dev/null; then
+            echo '::error::Production hostname bindings are missing; refusing to deploy a revision that would reject browser writes.'
+            exit 1
+          fi
           echo "json=$custom_domains" >> "$GITHUB_OUTPUT"
 
       - name: Preserve or change desktop activation
