@@ -15,7 +15,7 @@ export type DeliveryAudit = {
   decisionId: string;
   reviewId?: string;
   reviewVersion?: number;
-  status: "reserved" | "sent" | "failed" | "unconfirmed" | "sent_needs_review" | "assessor_emailed";
+  status: "reserved" | "awaiting_delivery" | "sent" | "failed" | "unconfirmed" | "sent_needs_review" | "assessor_emailed";
   actorId: string;
   actorName: string;
   recipientCount: number;
@@ -70,7 +70,7 @@ export async function reserveMeetClientDelivery(input: DeliveryAudit) {
 
 export async function completeMeetClientDelivery(
   input: DeliveryAudit,
-  status: "sent" | "failed" | "unconfirmed" | "sent_needs_review" | "assessor_emailed",
+  status: "awaiting_delivery" | "sent" | "failed" | "unconfirmed" | "sent_needs_review" | "assessor_emailed",
   errorCode = "",
   retryable = false,
 ) {
@@ -98,7 +98,24 @@ export async function completeMeetClientDelivery(
         `;
       }
       if (status === "sent_needs_review" && errorCode === "outlook_delivery_failed") {
-        const revoked = await tx`
+        // Serialize this decision with another copy's delivery confirmation.
+        await tx`select assessment_id from pipeline.assessments where assessment_id = ${input.assessmentId} for update`;
+        const [otherConfirmed] = await tx`
+          select 1 from pipeline.audit_events sent
+          where sent.entity_type = 'referral' and sent.entity_id = ${String(input.referralId)}
+            and sent.action = 'meet_client_summary_sent'
+            and sent.metadata->>'assessment_id' = ${input.assessmentId}
+            and (sent.metadata->>'assessment_version')::integer = ${input.assessmentVersion}
+            and sent.metadata->>'delivery_id' <> ${input.deliveryId}
+            and not exists (
+              select 1 from pipeline.audit_events failed
+              where failed.entity_type = 'referral' and failed.entity_id = sent.entity_id
+                and failed.action = 'meet_client_outlook_sent_reviewed'
+                and failed.metadata->>'delivery_id' = sent.metadata->>'delivery_id'
+                and failed.metadata->>'error_code' = 'outlook_delivery_failed'
+            ) limit 1
+        `;
+        const revoked = otherConfirmed ? [] : await tx`
           update pipeline.assessments
           set meet_client_sent_at = null, meet_client_sent_version = null,
               version = version + 1, updated_at = now()
@@ -154,10 +171,10 @@ export async function completeMeetClientDelivery(
 }
 
 function deliveryMayBeRetried(record: DeliveryAudit) {
-  return (record.status === "failed" && record.retryable) || record.status === "sent_needs_review";
+  return record.status === "awaiting_delivery" || (record.status === "failed" && record.retryable) || record.status === "sent_needs_review";
 }
 function deliveryEvent(status: Exclude<DeliveryAudit["status"], "reserved">) {
-  return { assessor_emailed: "meet_client_packet_emailed_to_assessor", sent: "meet_client_summary_sent", unconfirmed: "meet_client_summary_unconfirmed",
+  return { assessor_emailed: "meet_client_packet_emailed_to_assessor", awaiting_delivery: "meet_client_summary_awaiting_delivery", sent: "meet_client_summary_sent", unconfirmed: "meet_client_summary_unconfirmed",
     failed: "meet_client_summary_failed", sent_needs_review: "meet_client_outlook_sent_reviewed" }[status];
 }
 

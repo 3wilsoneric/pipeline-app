@@ -155,6 +155,28 @@ test("another handoff requires explicit confirmation and a newly reviewed versio
   assert.equal(history.items.filter(item => ["delivery_pending", "delivered"].includes(item.status)).length, 2);
 });
 
+test("a second handoff can be reviewed while delivery is pending without erasing its successful copy", async t => {
+  const f = fixture(t);
+  const first = await f.prepare();
+  assert.equal((await f.post({ snapshot_id: first.id })).status, 200);
+  assert.equal(f.assessmentSentAt, undefined);
+  const blocked = await f.post();
+  assert.equal(blocked.status, 409, "another copy still requires explicit confirmation");
+  const secondResponse = await f.post({ repeat_send_confirmed: true });
+  assert.equal(secondResponse.status, 200);
+  const second = (await secondResponse.json()).communication;
+  assert.notEqual(second.id, first.id);
+  assert.equal((await f.post({ repeat_send_confirmed: true, snapshot_id: second.id })).status, 200);
+  assert.equal(f.sent, 2);
+  f.setTrace({ status: "delivered" });
+  assert.equal((await f.checkDelivery(second.id)).communication.status, "delivered");
+  const sentAt = f.assessmentSentAt;
+  assert.ok(sentAt);
+  f.setTrace({ status: "failed", recipients: ["care@outlook.com"] });
+  assert.equal((await f.checkDelivery(first.id)).communication.status, "delivery_failed");
+  assert.equal(f.assessmentSentAt, sentAt, "the failed copy must not erase another confirmed delivery");
+});
+
 test("a new signed assessment still warns when an older handoff was sent", async t => {
   const f = fixture(t);
   const first = await f.prepare();

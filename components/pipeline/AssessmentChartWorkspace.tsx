@@ -317,7 +317,7 @@ export default function AssessmentChartWorkspace({ referralId, active = true, so
           if (readyPayload.email.previously_sent && !sent && !existingDraft && !repeatSendConfirmed) void prepareAnotherHandoff();
           else setReviewStep(sent || exampleReviewed || existingDraft ? 4 : Math.min(reviewedCount, 4));
         }}
-        onPrepareAnother={readyPayload.email.can_send && (sent || deliveryFailed) && !existingDraft ? () => void prepareAnotherHandoff() : undefined}
+        onPrepareAnother={readyPayload.email.can_send && (sent || pending || deliveryFailed) && !existingDraft ? () => void prepareAnotherHandoff() : undefined}
         onOpenIntake={onOpenIntake} onOpenAssessment={onOpenAssessment} onOpenDecision={onOpenDecision} />
       {!readyPayload.email.example_only ? <CommunicationHistory referralId={readyPayload.referral.id} refreshKey={`${sent}:${composerOpen}`}
         onPrepareUpdated={readyPayload.email.can_send ? () => { if (existingDraft) setReviewStep(4); else if (sent || readyPayload.email.previously_sent) void prepareAnotherHandoff(); else void load().then(next => { if (next) setReviewStep(0); }); } : undefined} /> : null}
@@ -370,6 +370,7 @@ function HandoffOverview({ existingDraft, payload, sent, pending, deliveryFailed
     <LoaderCircle className={styles.taskIcon} size={32} aria-hidden="true" />
     <h3>Checking Outlook delivery</h3>
     <p>Outlook accepted the email. Pipeline will mark it sent only after delivery is confirmed for every recipient. Check Email history for updates.</p>
+    {onPrepareAnother ? <button type="button" className={styles.sendButton} onClick={onPrepareAnother}>Review another handoff<ArrowRight size={18} aria-hidden="true" /></button> : null}
   </section>;
 
   if (deliveryFailed) return <section className={styles.guidedTask} aria-label="Handoff readiness">

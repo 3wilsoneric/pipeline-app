@@ -153,14 +153,21 @@ for (const mode of ["local_file", "postgres"]) {
       await store.confirmAssessmentPacketDelivery(id, confirmedVersion, "2026-09-17T19:15:00.000Z");
       assert.equal(isAssessmentFinalized(await store.getAssessment(id)), true);
       if (sql) {
-        await deliveryAudit.completeMeetClientDelivery({
+        const auditCopy = {
           mutationId: "late-failure", deliveryId: "late-failure", referralId: referral.id,
           assessmentId: id, assessmentVersion: confirmedVersion, decisionId: "fixture-decision",
           actorId: actor.id, actorName: actor.name, recipientCount: 1, recipientDomains: ["example.test"],
           attachmentCount: 1, attachmentBytes: 100, provider: "admissions_email",
           createdAt: "2026-09-17T19:10:00.000Z", updatedAt: "2026-09-17T19:10:00.000Z",
-        }, "sent_needs_review", "outlook_delivery_failed");
+        };
+        await deliveryAudit.completeMeetClientDelivery({ ...auditCopy, deliveryId: "other-confirmed" }, "sent");
+        await deliveryAudit.completeMeetClientDelivery(auditCopy, "sent_needs_review", "outlook_delivery_failed");
+        assert.equal(isAssessmentFinalized(await store.getAssessment(id)), true,
+          "failure of one copy cannot erase another confirmed delivery");
+        await deliveryAudit.completeMeetClientDelivery({ ...auditCopy, deliveryId: "other-confirmed" }, "sent_needs_review", "outlook_delivery_failed");
         assert.equal(isAssessmentFinalized(await store.getAssessment(id)), false);
+        await sql`delete from pipeline.audit_events where entity_type = 'referral' and entity_id = ${String(referral.id)}
+          and metadata->>'delivery_id' in ('late-failure', 'other-confirmed')`;
       }
       await store.revokeAssessmentPacketDelivery(id, confirmedVersion);
       current = await store.getAssessment(id);

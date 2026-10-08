@@ -652,7 +652,10 @@ test.describe("direct email history", () => {
     let summary: Parameters<typeof renderMeetClientEmail>[0];
     await page.route(`**/api/referrals/${referral.id}/admission-summary`, async route => {
       const response = await route.fetch(); const payload = await response.json(); summary = payload.report.meetClient;
-      payload.email = { ...payload.email, example_only: false, can_send: true, ready: true, blockers: [], base_blockers: [], outlook_draft: null, sent_at: record?.submittedAt ?? null };
+      payload.email = { ...payload.email, example_only: false, can_send: true, ready: true, blockers: [], base_blockers: [], outlook_draft: null,
+        sent_at: record?.status === "delivered" ? record.submittedAt : null,
+        delivery_status: record?.status ?? null,
+        previously_sent: record?.status === "delivery_pending" || record?.status === "delivered" };
       await route.fulfill({ json: payload });
     });
     await page.route("**/api/communications?**", async route => {
@@ -665,7 +668,7 @@ test.describe("direct email history", () => {
       expect(route.request().headers()["x-pipeline-outlook-token"]).toBeUndefined();
       if (body.snapshot_id) {
         expect(body.snapshot_id).toBe(record!.id); sends++;
-        record = { ...record!, status: "submitted", submittedAt: new Date().toISOString() };
+        record = { ...record!, status: "delivery_pending", submittedAt: new Date().toISOString() };
       } else {
         preparations++;
         const content = renderMeetClientEmail(summary, "Synthetic Assessor", "preview", ["Client data sheet.pdf"], body.message);
@@ -703,7 +706,7 @@ test.describe("direct email history", () => {
     expect(sends).toBe(1);
     await page.reload(); await settleHandoff(page);
     const history = page.getByRole("region", { name: "Email history", exact: true });
-    await history.getByRole("button", { name: /Submitted for delivery/ }).click();
+    await history.getByRole("button", { name: /Checking delivery/ }).click();
     const saved = page.getByRole("dialog", { name: `${referral.name} · Email history`, exact: true });
     await expect(saved).toBeVisible(); expect(await saved.locator('iframe[title="Saved handoff email"]').getAttribute("srcdoc")).toBe(approvedHtml);
     await expect(saved.getByRole("button", { name: "Send email & packet" })).toHaveCount(0);
@@ -711,10 +714,18 @@ test.describe("direct email history", () => {
     await page.screenshot({ path: info.outputPath(`saved-email-${width}.png`) });
     await page.keyboard.press("Escape"); await expect(saved).toHaveCount(0);
     if (width === 1440) {
+      const pendingRepeat = page.getByRole("button", { name: "Review another handoff", exact: true });
+      await expect(pendingRepeat).toBeVisible();
+      await pendingRepeat.click();
+      const pendingWarning = page.getByRole("alertdialog", { name: "Review another Meet the Client handoff?" });
+      await expect(pendingWarning).toContainText("Another email may reach the same people");
+      await pendingWarning.getByRole("button", { name: "Cancel" }).click();
+      record = { ...record!, status: "delivered" };
+      await page.reload(); await settleHandoff(page);
       const another = page.getByRole("button", { name: "Send another handoff", exact: true });
       await expect(another).toBeVisible();
       await another.click();
-      const warning = page.getByRole("alertdialog", { name: "Send another Meet the Client handoff?" });
+      const warning = page.getByRole("alertdialog", { name: "Review another Meet the Client handoff?" });
       await expect(warning).toContainText("Another email may reach the same people");
       await warning.getByRole("button", { name: "Cancel" }).click();
       expect(sends).toBe(1);

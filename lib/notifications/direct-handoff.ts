@@ -10,7 +10,7 @@ import { completeMeetClientDelivery, reserveMeetClientDelivery, type DeliveryAud
 import { getAzureBlobUploadSigner } from "@/lib/extraction/azure-blob";
 import { getDocumentFileMetadata } from "@/lib/extraction/document-assets";
 import { isDocumentContentAvailable } from "@/lib/extraction/document-access-policy";
-import { findPreparedCommunication, PacketAccessError, withAdmissionPacket, type AdmissionPacket, type PacketFile } from "./admission-packet-store";
+import { findPreparedCommunication, listCommunicationPackets, PacketAccessError, withAdmissionPacket, type AdmissionPacket, type PacketFile } from "./admission-packet-store";
 import { packetMailAttachment, prepareAdmissionPacketRecord } from "./admission-packet-files";
 import { getGraphMailReadiness, GraphMailDeliveryError, sendMeetClientMail, traceMeetClientDelivery, validateMeetClientRecipients } from "./microsoft-graph-mail";
 import { renderMeetClientEmail } from "./meet-client-email-template";
@@ -170,7 +170,7 @@ export async function sendDirectHandoff(id: string, input: Input, beforeSend: ()
         return result;
       }, { finalizeOnAcceptance: false });
     } catch (error) { if (!submitted) throw error; }
-    await completeMeetClientDelivery(c.audit, "unconfirmed", "provider_accepted_delivery_pending").catch(() => undefined);
+    await completeMeetClientDelivery(c.audit, "awaiting_delivery").catch(() => undefined);
     return withAdmissionPacket(id, stored => {
       stored!.communication!.status = "delivery_pending";
       stored!.communication!.submittedAt = result!.acceptedAt;
@@ -234,7 +234,8 @@ export async function reconcileDirectHandoff(id: string, options: { strict?: boo
     });
   }
   await completeMeetClientDelivery(c.audit, "sent_needs_review", "outlook_delivery_failed");
-  if (c.status === "delivered") await revokeAssessmentPacketDelivery(packet.assessmentId, packet.assessmentVersion);
+  if (c.status === "delivered" && !getPipelineDatabaseReadiness().ready
+    && !await hasOtherDeliveredCopy(packet)) await revokeAssessmentPacketDelivery(packet.assessmentId, packet.assessmentVersion);
   return withAdmissionPacket(id, value => {
     if (value?.communication && ["delivery_pending", "delivered"].includes(value.communication.status)) {
       value.communication.status = "delivery_failed";
@@ -244,6 +245,17 @@ export async function reconcileDirectHandoff(id: string, options: { strict?: boo
     }
     return value ? structuredClone(value) : null;
   });
+}
+
+async function hasOtherDeliveredCopy(packet: AdmissionPacket) {
+  let cursor: string | undefined;
+  do {
+    const page = await listCommunicationPackets({ referralId: packet.referralId, cursor });
+    if (page.items.some(copy => copy.id !== packet.id && copy.assessmentId === packet.assessmentId
+      && copy.assessmentVersion === packet.assessmentVersion && copy.communication?.status === "delivered")) return true;
+    cursor = page.nextCursor;
+  } while (cursor);
+  return false;
 }
 
 /** The five-minute Azure worker checks accepted mail without a user opening a page. */

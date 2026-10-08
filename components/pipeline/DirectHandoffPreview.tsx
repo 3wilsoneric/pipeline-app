@@ -44,7 +44,7 @@ export default function DirectHandoffPreview({ prepare, onBack, onDone, editor, 
     {record?.status === "ready" && !editing ? <p className={styles.muted}>This email and these files will be sent from Alamo Admissions. The assessor receives a copy and replies.</p> : null}
     <footer className={styles.toolbar}>
       <button type="button" className={styles.secondary} disabled={busy || sending} onClick={onBack}>Back to recipients</button>
-      {record && ["submitted", "sending", "unconfirmed"].includes(record.status) ? <button type="button" className={styles.primary} onClick={onDone}>Done · view history</button>
+      {record && ["submitted", "sending", "unconfirmed", "delivery_pending", "delivered", "delivery_failed"].includes(record.status) ? <button type="button" className={styles.primary} onClick={onDone}>Done · view history</button>
         : editing ? <button type="button" className={styles.primary} disabled={busy || sending || !ready} onClick={() => void run()}>Save & preview email</button>
         : record?.status === "ready" ? <>
           <button type="button" className={styles.secondary} disabled={busy || sending} onClick={() => setEditing(true)}>Edit message</button>
