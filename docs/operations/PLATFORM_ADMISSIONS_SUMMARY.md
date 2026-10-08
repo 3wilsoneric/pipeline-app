@@ -20,7 +20,9 @@ referral side of it through one server-to-server endpoint:
   after the assessment is signed—the same capped overview and support fields
   used to prepare Meet the Client.
   `metrics`, `upcoming_admissions`, and `history` (six-month counts and median
-  days to decision) sit beside it. Contract 3.1 also publishes `briefing`: the
+  days to decision) sit beside it. `metrics.active_referrals` excludes declined
+  referrals while `board.total` and `metrics.on_board` continue to describe all
+  cards still visible on the board. Contract 3.2 also publishes `briefing`: the
   Los Angeles reporting date, explicit completeness flags, the trailing 14 days
   of referrals with source and county, remaining assessments scheduled through
   Sunday, planned move-ins for the Monday-through-Sunday week, and 12 weekly
@@ -33,6 +35,11 @@ referral side of it through one server-to-server endpoint:
   referral notes, contact details, uploaded documents, extraction evidence,
   and unsigned assessment narrative remain outside this contract. Arrays and
   text lengths are capped before transmission.
+- **History coverage:** `history.coverage_start_month` is the first month with a
+  recorded referral, decision, or admission event. `history.monthly` begins at
+  that month; earlier months are unavailable and are never emitted as zero
+  activity. Once coverage begins, a zero remains a real zero for that tracked
+  month.
 - **Builder:** `lib/pipeline/platform-admissions-summary.ts` (pure);
   loader: `getPlatformAdmissionsSummary` in `lib/pipeline/operations-snapshot.ts`.
 - **Assessment appointments:** the briefing reads the canonical assessment

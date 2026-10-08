@@ -5,7 +5,7 @@
 // Platform documents the consumer side in
 // alamo-platform-app/docs/platform/admissions-zone.md.
 
-export const PLATFORM_ADMISSIONS_SUMMARY_VERSION = "3.1";
+export const PLATFORM_ADMISSIONS_SUMMARY_VERSION = "3.2";
 
 const DAY_MS = 86_400_000;
 const TREND_MONTHS = 6;
@@ -161,6 +161,11 @@ function awaitingArrival(referral: PlatformSummaryReferral, today: string) {
   return !planned || planned >= addDays(today, -PAST_PLANNED_LOOKBACK_DAYS);
 }
 
+function isActiveReferral(referral: PlatformSummaryReferral) {
+  const status = leadershipStatus[referral.boardStatus] ?? referral.boardStatus.trim();
+  return referral.decisionOutcome !== "declined" && status.toLowerCase() !== "declined";
+}
+
 export function buildPlatformAdmissionsSummary(input: PlatformAdmissionsSummaryInput) {
   const today = localDay(input.now);
   const month = today.slice(0, 7);
@@ -168,11 +173,15 @@ export function buildPlatformAdmissionsSummary(input: PlatformAdmissionsSummaryI
   const monthly = new Map<string, MonthCounts>(recentMonths(today, TREND_MONTHS)
     .map((key) => [key, { month: key, received: 0, accepted: 0, declined: 0, admitted: 0 }]));
   const decisionDays: number[] = [];
+  const observedMonths = new Set<string>();
 
   for (const referral of input.referrals) {
     const received = dayKey(referral.receivedDate);
     const decided = dayKey(referral.decidedAt);
     const admitted = dayKey(referral.actualAdmissionDate);
+    if (received) observedMonths.add(received.slice(0, 7));
+    if (decided) observedMonths.add(decided.slice(0, 7));
+    if (admitted) observedMonths.add(admitted.slice(0, 7));
     const receivedMonth = received ? monthly.get(received.slice(0, 7)) : undefined;
     if (receivedMonth) receivedMonth.received += 1;
     const decidedMonth = decided ? monthly.get(decided.slice(0, 7)) : undefined;
@@ -183,6 +192,8 @@ export function buildPlatformAdmissionsSummary(input: PlatformAdmissionsSummaryI
       decisionDays.push(daysBetween(received, decided));
     }
   }
+
+  const coverageStartMonth = [...observedMonths].sort()[0] ?? null;
 
   const onBoard = input.referrals.filter((referral) => referral.currentWorkspace && referral.boardColumn);
   const cards = onBoard
@@ -222,6 +233,8 @@ export function buildPlatformAdmissionsSummary(input: PlatformAdmissionsSummaryI
     ].map((status) => ({ status, count: columnCards.filter((card) => card.status === status).length }));
     return { key: column.key, label: column.label, count: columnCards.length, statuses };
   });
+  const activeReferralIds = new Set(onBoard.filter(isActiveReferral).map((referral) => referral.referralId));
+  const activeCards = cards.filter((card) => activeReferralIds.has(card.referral_id));
 
   const awaiting = input.referrals.filter((referral) => awaitingArrival(referral, today));
   const upcoming = { next_7_days: 0, next_30_days: 0, past_planned_date: 0, no_planned_date: 0 };
@@ -303,8 +316,9 @@ export function buildPlatformAdmissionsSummary(input: PlatformAdmissionsSummaryI
     },
     metrics: {
       on_board: cards.length,
-      stale: cards.filter((card) => card.flags.stale).length,
-      unassigned: cards.filter((card) => card.flags.unassigned).length,
+      active_referrals: activeCards.length,
+      stale: activeCards.filter((card) => card.flags.stale).length,
+      unassigned: activeCards.filter((card) => card.flags.unassigned).length,
       awaiting_admission: awaiting.length,
     },
     upcoming_admissions: upcoming,
@@ -323,8 +337,11 @@ export function buildPlatformAdmissionsSummary(input: PlatformAdmissionsSummaryI
       weekly_trend: weeklyTrend,
     },
     history: {
+      coverage_start_month: coverageStartMonth,
       month_outcomes: { ...monthly.get(month)! },
-      monthly: [...monthly.values()],
+      monthly: coverageStartMonth
+        ? [...monthly.values()].filter((row) => row.month >= coverageStartMonth)
+        : [],
       decision_timing: {
         window_days: DECISION_TIMING_DAYS,
         median_days_to_decision: median(decisionDays),

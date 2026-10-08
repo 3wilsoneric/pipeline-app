@@ -84,7 +84,7 @@ test("snapshots the live board by column and status with client identity and dri
   assert.equal(overdue.planned_admission_date, "2026-09-25");
   assert.equal(summary.board.cards[0].days_open >= summary.board.cards.at(-1).days_open, true, "oldest referrals first");
 
-  assert.deepEqual(summary.metrics, { on_board: 5, stale: 1, unassigned: 1, awaiting_admission: 2 });
+  assert.deepEqual(summary.metrics, { on_board: 5, active_referrals: 4, stale: 1, unassigned: 1, awaiting_admission: 2 });
   assert.deepEqual(summary.upcoming_admissions, { next_7_days: 1, next_30_days: 1, past_planned_date: 1, no_planned_date: 0 });
   assert.deepEqual(summary.history.month_outcomes, { month: "2026-09", received: 5, accepted: 2, declined: 1, admitted: 1 });
   assert.equal(summary.history.decision_timing.decisions_counted, 4);
@@ -107,7 +107,11 @@ test("snapshots the live board by column and status with client identity and dri
     medications: ["Medication A", "Medication B"],
     medication_source: "signed_assessment",
   });
-  assert.equal(summary.contract_version, "3.1");
+  assert.equal(summary.contract_version, "3.2");
+  assert.equal(summary.history.coverage_start_month, "2025-01");
+  assert.deepEqual(summary.history.monthly.map((row) => row.month), [
+    "2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09",
+  ]);
   assert.equal(summary.briefing.timezone, "America/Los_Angeles");
   assert.equal(summary.briefing.window_end, "2026-09-26");
   assert.deepEqual(summary.briefing.coverage, {
@@ -123,6 +127,18 @@ test("snapshots the live board by column and status with client identity and dri
   assert.equal(summary.briefing.planned_move_ins[0].readiness, "blocked");
   assert.equal(summary.briefing.weekly_trend.length, 12);
   assert.deepEqual(summary.briefing.weekly_trend.at(-1), { week_start: "2026-09-21", received: 0, accepted: 0 });
+});
+
+test("does not present months before Pipeline coverage as zero activity", () => {
+  const summary = summarize([
+    referral({ receivedDate: "2026-09-02" }),
+    referral({ receivedDate: "2026-09-10", boardColumn: null, currentWorkspace: false }),
+  ]);
+
+  assert.equal(summary.history.coverage_start_month, "2026-09");
+  assert.deepEqual(summary.history.monthly, [
+    { month: "2026-09", received: 2, accepted: 0, declined: 0, admitted: 0 },
+  ]);
 });
 
 test("uses an explicit fallback when the referral has no recorded name", () => {
