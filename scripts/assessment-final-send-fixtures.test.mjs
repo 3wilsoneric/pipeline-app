@@ -45,6 +45,7 @@ for (const mode of ["local_file", "postgres"]) {
       const load = (file) => loadTypeScriptModule(process.cwd(), file, globals);
       const referrals = load("lib/pipeline/referral-store.ts");
       const store = load("lib/assessment/assessment-store.ts");
+      const deliveryAudit = load("lib/pipeline/meet-client-delivery-audit.ts");
       const schema = load("lib/assessment/assessment-tool-schema.ts");
       const { isAssessmentFinalized } = load("lib/assessment/assessment-records.ts");
       const actor = { id: "final-send-fixture", name: "Fixture Assessor" };
@@ -151,6 +152,16 @@ for (const mode of ["local_file", "postgres"]) {
         async () => ({ acceptedAt: "2026-09-17T19:10:00.000Z" }), { finalizeOnAcceptance: false });
       await store.confirmAssessmentPacketDelivery(id, confirmedVersion, "2026-09-17T19:15:00.000Z");
       assert.equal(isAssessmentFinalized(await store.getAssessment(id)), true);
+      if (sql) {
+        await deliveryAudit.completeMeetClientDelivery({
+          mutationId: "late-failure", deliveryId: "late-failure", referralId: referral.id,
+          assessmentId: id, assessmentVersion: confirmedVersion, decisionId: "fixture-decision",
+          actorId: actor.id, actorName: actor.name, recipientCount: 1, recipientDomains: ["example.test"],
+          attachmentCount: 1, attachmentBytes: 100, provider: "admissions_email",
+          createdAt: "2026-09-17T19:10:00.000Z", updatedAt: "2026-09-17T19:10:00.000Z",
+        }, "sent_needs_review", "outlook_delivery_failed");
+        assert.equal(isAssessmentFinalized(await store.getAssessment(id)), false);
+      }
       await store.revokeAssessmentPacketDelivery(id, confirmedVersion);
       current = await store.getAssessment(id);
       assert.equal(isAssessmentFinalized(current), false);

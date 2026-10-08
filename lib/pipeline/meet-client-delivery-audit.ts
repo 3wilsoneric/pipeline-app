@@ -97,6 +97,20 @@ export async function completeMeetClientDelivery(
           where store_name = 'assessments'
         `;
       }
+      if (status === "sent_needs_review" && errorCode === "outlook_delivery_failed") {
+        const revoked = await tx`
+          update pipeline.assessments
+          set meet_client_sent_at = null, meet_client_sent_version = null,
+              version = version + 1, updated_at = now()
+          where assessment_id = ${input.assessmentId}
+            and meet_client_sent_version = ${input.assessmentVersion}
+          returning assessment_id
+        `;
+        if (revoked.length) await tx`
+          update pipeline.store_revisions set revision = revision + 1, updated_at = now()
+          where store_name = 'assessments'
+        `;
+      }
       await tx`
         insert into pipeline.audit_events (
           entity_type, entity_id, action, actor_id, actor_name, changed_fields, metadata
