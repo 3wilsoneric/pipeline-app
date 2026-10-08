@@ -21,6 +21,7 @@ function fixture(t, options = {}) {
   const user = { id: "admin", name: "Synthetic Coordinator", email: "admin@example.invalid", roles: ["admin"] };
   let authUser = user, access = true, originalAvailable = true, originalEtag = "original-1", savedInput;
   let assessment = { ...schema.createEmptyAssessmentToolData(), assessment_id: "assessment", assessor_id: "assessor", version: 7, signed_at: "2026-09-23T10:00:00Z", updated_by: user, signed_by: { id: "assessor", name: "Synthetic Assessor" }, medications_at_intake: options.assessmentMedications ?? [] };
+  let historicalAssessments = [];
   let referral = { id: 6, version: 4, name: "Synthetic Client", community: "San Pablo", currentMedications: options.intakeHistory ?? "", plannedAdmissionDate: "2026-10-01", requirements: [] };
   const bytes = Buffer.from([80, 75, 3, 4, 0, 255, 128]);
   const blobs = new Map([["raw/original", { bytes, etag: originalEtag }]]);
@@ -37,10 +38,10 @@ function fixture(t, options = {}) {
     { documentId: "original", name: options.fileName ?? "Original.docx", byteSize: bytes.length, contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", ready: true },
   ] };
   let sent = 0;
-  const assessmentStore = { requireAssessmentStore: () => ({ ok: true }), listAssessments: async () => ({ assessments: [assessment] }), deliverAssessmentPacket: async (id, version, send) => {
+  const assessmentStore = { requireAssessmentStore: () => ({ ok: true }), listAssessments: async () => ({ assessments: [assessment, ...historicalAssessments] }), deliverAssessmentPacket: async (id, version, send) => {
     assert.equal(id, assessment.assessment_id); assert.equal(version, assessment.version);
     const result = await send(); if (options.finalizationFailure) throw new Error("synthetic finalization failure");
-    assessment = { ...assessment, version: assessment.version + 1, meet_client_sent_at: result.acceptedAt }; return result;
+    assessment = { ...assessment, version: assessment.version + 1, meet_client_sent_at: result.acceptedAt, meet_client_sent_version: version }; return result;
   } };
   const mail = { ...realMail, getGraphMailReadiness: () => ({ configured: true, sender: "admissions@example.invalid", largeAttachmentDeliveryConfigured: true }), isMeetClientLive: () => true,
     sendMeetClientMail: async input => { sent++; savedInput = input; await options.wait?.(); if (options.failure) throw options.failure; return { acceptedAt: "2026-09-23T12:00:00.000Z" }; } };
@@ -70,7 +71,7 @@ function fixture(t, options = {}) {
           ? { ...all, files: selected, totalBytes: selected.reduce((sum, file) => sum + file.byteSize, 0) } : null;
       },
     },
-    "@/lib/pipeline/meet-client-delivery-audit": audit, "@/lib/pipeline/workflow-store": { getReferralWorkflowSnapshot: async () => ({ referral, work_items: [], decision: { outcome: "accepted", decisionId: "decision", assessmentId: "assessment" } }) },
+    "@/lib/pipeline/meet-client-delivery-audit": audit, "@/lib/pipeline/workflow-store": { getReferralWorkflowSnapshot: async () => ({ referral, work_items: [], decision: { outcome: "accepted", decisionId: "decision", assessmentId: assessment.assessment_id } }) },
     "@/lib/observability/api-logging": { withApiLogging: (_r, _n, action) => action() }, "@/lib/observability/pipeline-metrics": { recordPipelineMetric: () => {} },
   };
   const route = loadEntry("app/api/referrals/[referralId]/meet-client-email/route.ts", dependencies, globals);
@@ -82,8 +83,9 @@ function fixture(t, options = {}) {
   const post = (patch = {}, origin) => route.POST(new Request("http://localhost/api/referrals/6/meet-client-email?delivery=direct", { method: "POST", headers: origin ? { origin } : {}, body: JSON.stringify({ ...body, ...patch }) }), { params: Promise.resolve({ referralId: "6" }) });
   return { store, direct, inventory, body, blobs, bytes, post, get: query => history.GET(new Request(`http://localhost/api/communications?${query}`)),
     prepare: async () => { const response = await post(); assert.equal(response.status, 200, JSON.stringify(await response.clone().json())); return (await response.json()).communication; },
-    get sent() { return sent; }, get sendInput() { return savedInput; }, deny: () => { access = false; }, as: u => { authUser = u; },
+    get sent() { return sent; }, get sendInput() { return savedInput; }, get assessmentVersion() { return assessment.version; }, deny: () => { access = false; }, as: u => { authUser = u; },
     markUnsafe: () => { scanStatus = "infected"; },
+    startSignedRevision: () => { historicalAssessments = [assessment]; assessment = { ...assessment, assessment_id: "revision", version: 1, meet_client_sent_at: null, meet_client_sent_version: null }; },
     changeFile: () => { originalEtag = "changed-same-size"; }, withdrawOriginal: () => { originalAvailable = false; blobs.delete("raw/original"); },
     changeDate: () => { referral = { ...referral, version: 5, plannedAdmissionDate: "2026-10-02" }; },
   };
@@ -111,6 +113,40 @@ test("exact prepared snapshot supplies the actual email, assigned assessor Cc/Re
   assert.equal(restored.html, preview.html); assert.equal(restored.status, "submitted");
   const list = await (await f.get("scope=mine")).json(); assert.equal(list.items.length, 1); assert.equal(list.items[0].html, undefined);
   assert.equal((await f.store.listAdmissionPacketLinks(6)).length, 0);
+});
+
+test("another handoff requires explicit confirmation and a newly reviewed version", async t => {
+  const f = fixture(t);
+  const first = await f.prepare();
+  assert.equal((await f.post({ snapshot_id: first.id })).status, 200);
+  assert.equal(f.sent, 1);
+  const secondVersion = f.assessmentVersion;
+  const unconfirmed = await f.post({ if_match_assessment: secondVersion });
+  assert.equal(unconfirmed.status, 409);
+  assert.match((await unconfirmed.json()).error, /confirm sending another handoff/i);
+  assert.equal(f.sent, 1);
+  const secondPreviewResponse = await f.post({ if_match_assessment: secondVersion, repeat_send_confirmed: true });
+  assert.equal(secondPreviewResponse.status, 200);
+  const second = (await secondPreviewResponse.json()).communication;
+  assert.notEqual(second.id, first.id);
+  const secondSend = await f.post({ if_match_assessment: secondVersion, repeat_send_confirmed: true, snapshot_id: second.id });
+  assert.equal(secondSend.status, 200);
+  assert.equal(f.sent, 2);
+  assert.equal((await f.post({ snapshot_id: first.id })).status, 200, "retrying the first snapshot remains idempotent");
+  assert.equal(f.sent, 2);
+  const history = await (await f.get("scope=mine")).json();
+  assert.equal(history.items.filter(item => item.status === "submitted").length, 2);
+});
+
+test("a new signed assessment still warns when an older handoff was sent", async t => {
+  const f = fixture(t);
+  const first = await f.prepare();
+  assert.equal((await f.post({ snapshot_id: first.id })).status, 200);
+  f.startSignedRevision();
+  assert.equal((await f.post({ assessment_id: "revision", if_match_assessment: 1 })).status, 409);
+  const reviewed = await f.post({ assessment_id: "revision", if_match_assessment: 1, repeat_send_confirmed: true });
+  assert.equal(reviewed.status, 200);
+  assert.equal(f.sent, 1);
 });
 
 test("direct preview and actual email use the medication attachment without requiring a list selection", async t => {

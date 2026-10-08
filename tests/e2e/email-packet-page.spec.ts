@@ -710,8 +710,31 @@ test.describe("direct email history", () => {
     expect(await checkA11y(page, 'dialog[open]')).toEqual([]);
     await page.screenshot({ path: info.outputPath(`saved-email-${width}.png`) });
     await page.keyboard.press("Escape"); await expect(saved).toHaveCount(0);
+    if (width === 1440) {
+      const another = page.getByRole("button", { name: "Send another handoff", exact: true });
+      await expect(another).toBeVisible();
+      await another.click();
+      const warning = page.getByRole("alertdialog", { name: "Send another Meet the Client handoff?" });
+      await expect(warning).toContainText("Another email may reach the same people");
+      await warning.getByRole("button", { name: "Cancel" }).click();
+      expect(sends).toBe(1);
+      await another.click();
+      await warning.getByRole("button", { name: "Review another handoff" }).click();
+      const date = page.getByRole("dialog", { name: "Confirm admit date", exact: true });
+      await expect(date).toBeVisible();
+      await date.getByRole("button", { name: "Confirm admit date", exact: true }).click();
+      await page.getByRole("dialog", { name: "Check client summary", exact: true }).getByRole("button", { name: "Confirm summary" }).click();
+      await page.getByRole("dialog", { name: "Check admission packet", exact: true }).getByRole("button", { name: "Confirm packet" }).click();
+      const recipients = page.getByRole("dialog", { name: "Check recipients", exact: true });
+      if (!await recipients.getByRole("list", { name: "To recipients", exact: true }).count()) await addRecipient(page);
+      const second = await confirmRecipients(page);
+      await expect(second.getByRole("button", { name: "Send email & packet", exact: true })).toBeEnabled();
+      await second.getByRole("button", { name: "Send email & packet", exact: true }).click();
+      await expect(second.getByRole("button", { name: "Done · view history", exact: true })).toBeVisible();
+      expect(sends).toBe(2);
+    }
     await page.goto("/communications"); await expect(page.getByRole("heading", { name: "Communications", exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: new RegExp(referral.name!) })).toBeVisible(); expect(sends).toBe(1);
+    await expect(page.getByRole("button", { name: new RegExp(referral.name!) })).toBeVisible(); expect(sends).toBe(width === 1440 ? 2 : 1);
     await page.screenshot({ path: info.outputPath(`communications-${width}.png`) });
   });
 });

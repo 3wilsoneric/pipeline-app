@@ -79,6 +79,9 @@ export async function POST(
     const contextResult = await loadMeetClientContext(referralId, prepared.referralVersion, prepared.assessmentId, prepared.assessmentVersion);
     if (!contextResult.ok) return contextResult.response;
     const { assessment, snapshot } = contextResult;
+    if (contextResult.previouslySent && !prepared.repeatSendConfirmed) {
+      return jsonError("This handoff was already sent. Review the latest details and confirm sending another handoff.", 409);
+    }
     const handoffReferral = { ...snapshot.referral, requirements: snapshot.work_items };
     const summary = buildMeetClientSummary(assessment, handoffReferral);
     const attachmentContext = await loadAdmissionPacket(handoffReferral, assessment, prepared.packetRevision, prepared.selectedFileIds, outlook, outlook || assessorEmail || direct);
@@ -262,7 +265,7 @@ type PreparedEmailRequest = {
 };
 
 async function prepareEmailRequest(request: Request): Promise<
-  | { ok: true; mutationId: string; recipients: string[]; ccRecipients: string[]; referralVersion: number; message: MeetClientMessage; assessmentId: string; assessmentVersion: number; packetRevision: string; selectedFileIds: string[]; snapshotId?: string }
+  | { ok: true; mutationId: string; recipients: string[]; ccRecipients: string[]; referralVersion: number; message: MeetClientMessage; assessmentId: string; assessmentVersion: number; packetRevision: string; selectedFileIds: string[]; snapshotId?: string; repeatSendConfirmed: boolean }
   | { ok: false; response: Response }
 > {
   const body = await readJsonBody(request, 256_000);
@@ -297,7 +300,7 @@ async function prepareEmailRequest(request: Request): Promise<
     return { ok: false, response: jsonError("Refresh and review the assessment summary before sending.", 409) };
   }
   const audience = prepareHandoffAudience(body.value);
-  return audience.ok ? { ...audience, mutationId, referralVersion, message, assessmentId: assessmentId as string, assessmentVersion: assessmentVersion as number, packetRevision, selectedFileIds: selectedFileIds as string[], snapshotId: snapshotId as string | undefined } : audience;
+  return audience.ok ? { ...audience, mutationId, referralVersion, message, assessmentId: assessmentId as string, assessmentVersion: assessmentVersion as number, packetRevision, selectedFileIds: selectedFileIds as string[], snapshotId: snapshotId as string | undefined, repeatSendConfirmed: body.value.repeat_send_confirmed === true } : audience;
 }
 
 function prepareHandoffAudience(body: Record<string, unknown>) {
@@ -338,6 +341,7 @@ async function loadMeetClientContext(referralId: number, referralVersion: number
   if (identityIssues.length) return { ok: false as const, response: jsonError(identityIssues.join(" "), 422) };
   return {
     ok: true as const,
+    previouslySent: assessmentList.assessments.some((item) => Boolean(item.meet_client_sent_at)),
     assessment,
     snapshot,
     decisionId: snapshot.decision.decisionId,

@@ -165,6 +165,16 @@ for (const mode of ["local_file", "postgres"]) {
       assert.equal(current.meet_client_sent_version, versionSent);
       assert.equal(current.current_symptoms, "Edited after failed send");
       assert.equal(providerCalls, 1);
+      phase = "intentional second send records its latest version";
+      const repeatVersion = current.version;
+      await store.deliverAssessmentPacket(id, repeatVersion, async () => {
+        providerCalls += 1;
+        return { acceptedAt: "2026-09-17T21:00:00.000Z" };
+      });
+      current = await store.getAssessment(id);
+      assert.equal(providerCalls, 2);
+      assert.equal(current.meet_client_sent_version, repeatVersion);
+      assert.equal(current.meet_client_sent_at, "2026-09-17T21:00:00.000Z");
       const noted = await store.addAssessmentAddendum(id, "Later clarification", "Correction", actor, current.version, "addendum-after-send");
       assert.equal(noted.ok, true);
       assert.equal(noted.assessment.current_symptoms, current.current_symptoms);
