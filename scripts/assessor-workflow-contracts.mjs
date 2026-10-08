@@ -679,7 +679,10 @@ check("the Chart and email surfaces retain the signed record and sandboxed hando
     && !assessmentChartWorkspace.includes("overrideReason"));
 const outlookDraftControls = read("components/pipeline/OutlookHandoffControls.tsx");
 check("staff reviews the exact packet and verified recipients before saving the Outlook draft", assessmentChartWorkspace.includes('aria-label="Referral packet attachments"')
-  && assessmentChartWorkspace.includes("email.admission_packet.files.map")
+  && assessmentChartWorkspace.includes("const files = email.admission_packet.files;")
+  && assessmentChartWorkspace.includes("rows.map((file)")
+  && assessmentChartWorkspace.includes("onSelectedFileIdsChange(files.filter((item) => next.has(item.document_id)).map((item) => item.document_id))")
+  && assessmentChartWorkspace.includes('aria-label={groupedLicForms ? "Include LIC 601, LIC 602, LIC 603 files"')
   && assessmentChartWorkspace.includes("I verified that each recipient is authorized to receive this summary and the packet files.")
   && assessmentChartWorkspace.includes('ready={canSendHandoff(email, selectedFileIds, emailDraft, confirmed, sending)}')
   && assessmentChartWorkspace.includes('selected_file_ids: selectedFileIds')
