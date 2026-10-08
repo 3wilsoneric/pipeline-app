@@ -21,6 +21,8 @@ const contactStorePath = resolve(process.env.PIPELINE_E2E_CONTACT_STORE_PATH
   ?? `.data/playwright/contacts-${port}.json`);
 const communityRecipientListPath = resolve(process.env.PIPELINE_E2E_COMMUNITY_RECIPIENT_LIST_PATH
   ?? `.data/playwright/community-recipient-lists-${port}.json`);
+const packetLinkStorePath = resolve(process.env.PIPELINE_E2E_PACKET_LINK_STORE_PATH
+  ?? `.data/playwright/packet-links-${port}`);
 const crossBrowser = process.env.PIPELINE_CROSS_BROWSER === "true";
 const desktopE2E = process.env.PIPELINE_DESKTOP_E2E === "true";
 const prebuiltE2E = process.env.PIPELINE_E2E_PREBUILT === "true";
@@ -89,6 +91,7 @@ export default defineConfig({
       PIPELINE_NOTE_LAB_STORE_PATH: noteLabStorePath,
       PIPELINE_CLIENT_NOTES_STORE_PATH: clientNotesStorePath,
       PIPELINE_CONTACT_STORE_PATH: contactStorePath,
+      PIPELINE_PACKET_LINK_STORE_PATH: packetLinkStorePath,
       ...(process.env.PIPELINE_PERSONA_DEMO === "true" ? {} : {
         PIPELINE_COMMUNITY_RECIPIENT_LIST_PATH: communityRecipientListPath,
       }),

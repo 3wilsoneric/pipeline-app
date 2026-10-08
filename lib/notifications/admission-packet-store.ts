@@ -62,7 +62,9 @@ export const validPacketId = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9
 const localQueues = new Map<string, Promise<unknown>>();
 function localPath(id: string) {
   const root = process.env.PIPELINE_PACKET_LINK_STORE_PATH;
-  if (!root || process.env.PIPELINE_AUTH_MODE !== "mock") throw new PacketAccessError("Packet storage is unavailable. Please try again shortly.", 503);
+  if (!root || (process.env.PIPELINE_AUTH_MODE !== "mock" && process.env.PIPELINE_OPERATIONAL_E2E !== "true")) {
+    throw new PacketAccessError("Packet storage is unavailable. Please try again shortly.", 503);
+  }
   return join(resolve(root), `${id}.json`);
 }
 export async function createAdmissionPacket(packet: AdmissionPacket) {

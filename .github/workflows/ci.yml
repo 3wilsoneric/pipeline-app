@@ -192,6 +192,7 @@ jobs:
           PIPELINE_REFERRAL_STORE_PATH: ${{ github.workspace }}/.data/playwright/referrals-3000.json
           PIPELINE_CONTACT_STORE_PATH: ${{ github.workspace }}/.data/playwright/contacts-3000.json
           PIPELINE_COMMUNITY_RECIPIENT_LIST_PATH: ${{ github.workspace }}/.data/playwright/community-recipient-lists-3000.json
+          PIPELINE_PACKET_LINK_STORE_PATH: ${{ github.workspace }}/.data/playwright/packet-links-3000
           NEXT_PUBLIC_PIPELINE_DESKTOP_ENABLED: "true"
           PIPELINE_DESKTOP_E2E: "true"
           PIPELINE_DESKTOP_STATE_ENABLED: "true"
