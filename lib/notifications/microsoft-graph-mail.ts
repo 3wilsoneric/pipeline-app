@@ -16,6 +16,7 @@ import { recipientListLimit } from "@/lib/pipeline/community-recipient-lists";
 export { renderMeetClientEmail } from "@/lib/notifications/meet-client-email-template";
 
 const graphBaseUrl = "https://graph.microsoft.com/v1.0";
+const deliveryProperty = "String {5e5d98a0-3b65-4e6c-a931-0c6213da276e} Name PipelineDeliveryId";
 
 export type GraphMailReadiness = {
   configured: boolean;
@@ -123,6 +124,45 @@ export class GraphMailDeliveryError extends Error {
   }
 }
 
+export type MeetClientDeliveryTrace =
+  | { status: "pending" }
+  | { status: "delivered" }
+  | { status: "failed"; recipients: string[] };
+
+/** Graph's 202 means accepted, not delivered. Trace the exact sent message and
+ * every reviewed recipient before treating a handoff as delivered. */
+export async function traceMeetClientDelivery(deliveryId: string, recipients: string[]): Promise<MeetClientDeliveryTrace> {
+  const readiness = getGraphMailReadiness();
+  if (!readiness.configured || !readiness.largeAttachmentDeliveryConfigured) throw new GraphMailDeliveryError("delivery_trace_unavailable", "Outlook delivery status is unavailable.");
+  const token = await graphAccessToken();
+  const senderPath = `/users/${encodeURIComponent(readiness.sender)}`;
+  const escapedId = deliveryId.replace(/'/g, "''");
+  const sentQuery = new URLSearchParams({
+    "$filter": `singleValueExtendedProperties/Any(ep: ep/id eq '${deliveryProperty}' and ep/value eq '${escapedId}')`,
+    "$select": "internetMessageId,sentDateTime,isDraft", "$top": "2",
+  });
+  const sentResponse = await graphRequest(`${senderPath}/mailFolders/sentitems/messages?${sentQuery}`, token, { method: "GET" }, 200, "find_sent_message");
+  const sent = await sentResponse.json() as { value?: Array<{ internetMessageId?: string; sentDateTime?: string; isDraft?: boolean }> };
+  if (!Array.isArray(sent.value) || sent.value.length !== 1 || sent.value[0].isDraft !== false
+    || !sent.value[0].internetMessageId || !sent.value[0].sentDateTime) return { status: "pending" };
+  const messageId = sent.value[0].internetMessageId.replace(/'/g, "''");
+  const traceQuery = new URLSearchParams({ "$filter": `messageId eq '${messageId}'`, "$top": "100" });
+  const traceResponse = await graphRequest(`/admin/exchange/tracing/messageTraces?${traceQuery}`, token, { method: "GET" }, 200, "trace_message");
+  const traced = await traceResponse.json() as { value?: Array<{ messageId?: string; senderAddress?: string; recipientAddress?: string; status?: string }> };
+  if (!Array.isArray(traced.value)) return { status: "pending" };
+  const expected = [...new Set(recipients.map(address => address.trim().toLowerCase()))];
+  const byRecipient = new Map<string, string>();
+  for (const item of traced.value) {
+    if (item.messageId !== sent.value[0].internetMessageId || item.senderAddress?.toLowerCase() !== readiness.sender.toLowerCase()) continue;
+    const address = item.recipientAddress?.toLowerCase();
+    if (address && expected.includes(address)) byRecipient.set(address, item.status ?? "");
+  }
+  const failed = expected.filter(address => ["failed", "quarantined", "filteredAsSpam"].includes(byRecipient.get(address) ?? ""));
+  if (failed.length) return { status: "failed", recipients: failed };
+  if (expected.length && expected.every(address => byRecipient.get(address) === "delivered")) return { status: "delivered" };
+  return { status: "pending" };
+}
+
 async function sendDirectMessage(
   readiness: GraphMailReadiness,
   accessToken: string,
@@ -152,6 +192,7 @@ async function sendDirectMessage(
           ccRecipients: (input.ccRecipients ?? []).map((address) => ({ emailAddress: { address } })),
           replyTo: (input.replyTo ?? []).map((address) => ({ emailAddress: { address } })),
           internetMessageHeaders: [{ name: "x-pipeline-delivery-id", value: input.deliveryId }],
+          singleValueExtendedProperties: [{ id: deliveryProperty, value: input.deliveryId }],
           attachments,
         },
         saveToSentItems: true,
@@ -181,6 +222,7 @@ async function sendDraftWithAttachments(
       ccRecipients: (input.ccRecipients ?? []).map((address) => ({ emailAddress: { address } })),
       replyTo: (input.replyTo ?? []).map((address) => ({ emailAddress: { address } })),
       internetMessageHeaders: [{ name: "x-pipeline-delivery-id", value: input.deliveryId }],
+      singleValueExtendedProperties: [{ id: deliveryProperty, value: input.deliveryId }],
     }),
   }, 201, "create_draft").catch((error) => { if (error instanceof GraphMailDeliveryError) throw error; throw new GraphMailDeliveryError("mail_preparation_failed", "The email draft could not be prepared. No email was sent."); });
   const draft = await draftResponse.json() as { id?: unknown };

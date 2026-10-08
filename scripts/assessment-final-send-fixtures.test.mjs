@@ -137,6 +137,23 @@ for (const mode of ["local_file", "postgres"]) {
       assert.equal(current.status, "complete");
       assert.equal(current.audit_events.at(-1).action, "assessment_imported");
       assert.equal((await store.addAssessmentAddendum(id, "Still too early", "test", actor, current.version)).ok, false);
+      phase = "accepted mail waits for delivery without finalizing later edits";
+      const pendingVersion = current.version;
+      await store.deliverAssessmentPacket(id, pendingVersion,
+        async () => ({ acceptedAt: "2026-09-17T19:00:00.000Z" }), { finalizeOnAcceptance: false });
+      assert.equal(isAssessmentFinalized(await store.getAssessment(id)), false);
+      current = (await store.patchAssessment(id, { data: { current_symptoms: "Updated while mail is pending" } }, actor,
+        { expectedVersion: pendingVersion })).assessment;
+      await store.confirmAssessmentPacketDelivery(id, pendingVersion, "2026-09-17T19:05:00.000Z");
+      assert.equal(isAssessmentFinalized(await store.getAssessment(id)), false);
+      const confirmedVersion = current.version;
+      await store.deliverAssessmentPacket(id, confirmedVersion,
+        async () => ({ acceptedAt: "2026-09-17T19:10:00.000Z" }), { finalizeOnAcceptance: false });
+      await store.confirmAssessmentPacketDelivery(id, confirmedVersion, "2026-09-17T19:15:00.000Z");
+      assert.equal(isAssessmentFinalized(await store.getAssessment(id)), true);
+      await store.revokeAssessmentPacketDelivery(id, confirmedVersion);
+      current = await store.getAssessment(id);
+      assert.equal(isAssessmentFinalized(current), false);
       await assert.rejects(store.deliverAssessmentPacket(id, current.version, async () => { throw new Error("Provider failed"); }), /Provider failed/);
       assert.equal(isAssessmentFinalized(await store.getAssessment(id)), false);
       current = (await store.patchAssessment(id, { data: { current_symptoms: "Edited after failed send" } }, actor,

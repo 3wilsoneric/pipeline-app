@@ -8,6 +8,8 @@ import { meetClientIdentityIssues } from "@/lib/notifications/meet-client-identi
 import { renderMeetClientEmail } from "@/lib/notifications/meet-client-email-template";
 import { clientDataSheetName, renderClientDataSheet } from "@/lib/notifications/client-data-sheet";
 import { getGraphMailReadiness, isMeetClientLive } from "@/lib/notifications/microsoft-graph-mail";
+import { listCommunicationPackets } from "@/lib/notifications/admission-packet-store";
+import { reconcileDirectHandoff } from "@/lib/notifications/direct-handoff";
 import { withApiLogging } from "@/lib/observability/api-logging";
 import { requireReferralAccess } from "@/lib/pipeline/referral-access";
 import { canModifyReferral } from "@/lib/pipeline/referral-ownership";
@@ -40,6 +42,8 @@ export async function GET(
     if (!referralId) return jsonError("referralId is invalid.");
     const access = await requireReferralAccess(auth.user, referralId);
     if (!access.ok) return access.response;
+    const latestCommunication = (await listCommunicationPackets({ referralId })).items[0];
+    const communication = latestCommunication ? (await reconcileDirectHandoff(latestCommunication.id) ?? latestCommunication).communication : null;
     const [snapshot, assessmentList] = await Promise.all([
       getReferralWorkflowSnapshot(referralId),
       listAssessments({ referralId, limit: 100 }),
@@ -102,7 +106,9 @@ export async function GET(
           can_edit_recipients: canSendAdmissionSummary(auth.user, access.referral),
           ready: canSend && emailBlockers.length === 0,
           sent_at: assessment?.meet_client_sent_at ?? null,
-          previously_sent: assessmentList.assessments.some((item) => Boolean(item.meet_client_sent_at)),
+          delivery_status: communication?.status ?? null,
+          previously_sent: assessmentList.assessments.some((item) => Boolean(item.meet_client_sent_at))
+            || Boolean(communication && ["submitted", "delivery_pending", "delivered", "delivery_failed"].includes(communication.status)),
           blockers: emailBlockers,
           base_blockers: baseBlockers,
           admission_packet: {

@@ -45,12 +45,12 @@ export default function CommunicationHistory({ referralId, refreshKey = "", onPr
     {!loading && !error && !items.length ? <p className={styles.muted}>Saved email previews and send outcomes will appear here. Earlier handoff events remain in workspace Activity.</p> : null}
     <ul className={styles.list}>{items.map(item => <li key={item.id}><button type="button" className={styles.row} onClick={() => void openRecord(item)}>
       <span><strong>{referralId ? item.subject : item.clientName}</strong><span className={styles.muted}>{item.community} · {new Date(item.createdAt).toLocaleString()} · {item.to.length + item.cc.length} recipients · {item.files.length} {item.files.length === 1 ? "file" : "files"}</span></span>
-      <span className={styles.status} data-issue={["not_sent", "unconfirmed"].includes(item.status)}>{communicationStatusLabels[item.status]}</span>
+      <span className={styles.status} data-issue={["not_sent", "unconfirmed", "delivery_failed"].includes(item.status)}>{communicationStatusLabels[item.status]}</span>
     </button></li>)}</ul>
     {cursor ? <button type="button" className={styles.secondary} disabled={loading} onClick={() => void load(cursor)}>Load earlier handoffs</button> : null}
     {record ? <CommunicationDialog title={`${record.clientName} · Email history`} onClose={() => setRecord(null)}>
       <CommunicationRecord record={record} history />
-      {onPrepareUpdated && ["submitted", "not_sent", "ready"].includes(record.status) ? <button type="button" className={styles.primary} onClick={() => { setRecord(null); onPrepareUpdated(); }}>Review an updated handoff</button> : null}
+      {onPrepareUpdated && ["delivered", "delivery_failed", "not_sent", "ready"].includes(record.status) ? <button type="button" className={styles.primary} onClick={() => { setRecord(null); onPrepareUpdated(); }}>Review an updated handoff</button> : null}
       <Link className={styles.secondary} href={toPipelinePath(`/?view=referrals&screen=packet&referralId=${record.referralId}&workspaceView=email`)}>Open client workspace</Link>
     </CommunicationDialog> : null}
   </>;

@@ -87,6 +87,8 @@ export async function completeMeetClientDelivery(
               meet_client_sent_version = ${input.assessmentVersion},
               version = version + 1, updated_at = now()
           where assessment_id = ${input.assessmentId}
+            and version = ${input.assessmentVersion}
+            and signed_at is not null
             and (meet_client_sent_version is null or meet_client_sent_version < ${input.assessmentVersion})
           returning assessment_id
         `;

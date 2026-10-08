@@ -614,6 +614,12 @@ resource databaseBackupJob 'Microsoft.App/jobs@2025-01-01' = {
 
 var scheduledJobs = [
   {
+    name: 'meet-client-delivery'
+    schedule: '*/5 * * * *'
+    path: '/api/internal/meet-client-delivery/dispatch'
+    enabled: enableMeetClientMail
+  }
+  {
     name: 'assessment-outlook'
     schedule: '* * * * *'
     path: '/api/internal/assessment-outlook/dispatch'

@@ -56,7 +56,7 @@ export default function CommunicationRecord({ record, history = false }: { recor
       </button>)}
     </details>
     {error ? <p className={styles.error} role="alert">{error}</p> : null}
-    {history ? <p className={styles.muted}>Prepared by {record.preparedBy} · Assessor: {record.assessorName} · Assessment version {record.assessmentVersion}. {record.status === "submitted" ? "Microsoft accepted this email for delivery. Recipient receipt and replies are not tracked." : record.note}</p> : null}
+    {history ? <p className={styles.muted}>Prepared by {record.preparedBy} · Assessor: {record.assessorName} · Assessment version {record.assessmentVersion}. {record.note}</p> : null}
     {file ? <CommunicationDialog title={file.name} onClose={() => setFile(null)}>
       <iframe title={file.name} src={file.url} className={styles.email} />
       <a href={file.url} download={file.name} className={styles.secondary}>Download original file</a>

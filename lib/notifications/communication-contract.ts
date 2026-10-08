@@ -1,4 +1,4 @@
-export type CommunicationStatus = "preparing" | "ready" | "sending" | "submitted" | "not_sent" | "unconfirmed";
+export type CommunicationStatus = "preparing" | "ready" | "sending" | "submitted" | "delivery_pending" | "delivered" | "delivery_failed" | "not_sent" | "unconfirmed";
 
 export type CommunicationView = {
   id: string; referralId: number; clientName: string; community: string; admissionDate: string;
@@ -12,5 +12,6 @@ export type CommunicationView = {
 
 export const communicationStatusLabels: Record<CommunicationStatus, string> = {
   preparing: "Preparing preview", ready: "Preview saved", sending: "Sending",
-  submitted: "Submitted for delivery", not_sent: "Not sent", unconfirmed: "Confirmation pending",
+  submitted: "Submitted to Outlook", delivery_pending: "Checking delivery", delivered: "Sent", delivery_failed: "Delivery failed",
+  not_sent: "Not sent", unconfirmed: "Confirmation pending",
 };

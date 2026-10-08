@@ -46,6 +46,7 @@ type ChartPayload = {
     can_edit_recipients: boolean;
     ready: boolean;
     sent_at?: string | null;
+    delivery_status?: CommunicationView["status"] | null;
     previously_sent?: boolean;
     blockers: string[];
     base_blockers: string[];
@@ -98,6 +99,7 @@ export default function AssessmentChartWorkspace({ referralId, active = true, so
   const composerOpen = reviewStep !== null;
   const [exampleReviewed, setExampleReviewed] = useState(false);
   const [acceptedReferralId, setAcceptedReferralId] = useState<number | null>(null);
+  const [pendingReferralId, setPendingReferralId] = useState<number | null>(null);
   const [repeatSendConfirmed, setRepeatSendConfirmed] = useState(false);
   const { confirm: confirmRepeatSend, confirmationDialog } = useConfirmationDialog();
   const sendRequest = useRef<{ key: string; mutationId: string } | null>(null);
@@ -238,13 +240,13 @@ export default function AssessmentChartWorkspace({ referralId, active = true, so
           selected_file_ids: selectedFileIds,
           message: emailDraft.fields.message, ...(snapshotId ? { snapshot_id: snapshotId } : {}) }),
       }, { timeoutMs: 300_000 });
-      if (result.communication.status === "submitted") { setAcceptedReferralId(payload.referral.id); setRepeatSendConfirmed(false); }
+      if (result.communication.status === "delivery_pending") { setPendingReferralId(payload.referral.id); setRepeatSendConfirmed(false); }
       return result.communication;
     } catch (failure) {
       if (snapshotId) {
         const recovered = await fetchPipelineJson<{ communication: CommunicationView }>(`/api/communications?referral_id=${payload.referral.id}&packet_id=${snapshotId}`, { cache: "no-store" }).catch(() => null);
         if (recovered && recovered.communication.status !== "ready") {
-          if (recovered.communication.status === "submitted") setAcceptedReferralId(payload.referral.id);
+          if (recovered.communication.status === "delivery_pending") setPendingReferralId(payload.referral.id);
           return recovered.communication;
         }
       }
@@ -256,23 +258,26 @@ export default function AssessmentChartWorkspace({ referralId, active = true, so
   if (unavailable) return unavailable;
   const readyPayload = payload!;
   const sent = Boolean(readyPayload.email.sent_at) || acceptedReferralId === referralId;
+  const pending = readyPayload.email.delivery_status === "delivery_pending" || (pendingReferralId === referralId && !readyPayload.email.sent_at && !readyPayload.email.delivery_status);
+  const deliveryFailed = readyPayload.email.delivery_status === "delivery_failed";
   const prepareAnotherHandoff = async () => {
     if (sending || savingDate) return;
     const accepted = await confirmRepeatSend({
-      title: "Send another Meet the Client handoff?",
-      message: "A handoff was already sent. Another email may reach the same people. Review the latest client summary, files, recipients, and message before sending again. The earlier handoff stays in history.",
+      title: "Review another Meet the Client handoff?",
+      message: "A handoff was already attempted. Another email may reach the same people. Review the latest client summary, files, recipients, and message before sending again. The earlier handoff stays in history.",
       confirmLabel: "Review another handoff",
     });
     if (!accepted) return;
     const next = await load();
     if (next) {
       setAcceptedReferralId(null);
+      setPendingReferralId(null);
       sendRequest.current = null;
       setRepeatSendConfirmed(true);
       setReviewStep(0);
     }
   };
-  const deliveryStatus = meetClientDeliveryStatus(readyPayload.email, selectedFileIds, sent, sending, confirmed, recipients);
+  const deliveryStatus = meetClientDeliveryStatus(readyPayload.email, selectedFileIds, sent, pending, deliveryFailed, sending, confirmed, recipients);
   const refresh = <button type="button" onClick={() => void load()} disabled={loading || sending} className={styles.textButton}>
     <RefreshCw size={15} className={loading ? "animate-spin" : ""} /> Refresh
   </button>;
@@ -302,17 +307,17 @@ export default function AssessmentChartWorkspace({ referralId, active = true, so
     <section data-guide-target="workspace-packet-preview" className={styles.page} aria-label="Email and referral packet">
       <header className={styles.pageHeader}>
         <div><h2>Meet the Client</h2><p>{formatClientIdentityTitle({ name: readyPayload.report ? readyPayload.report.meetClient.name : readyPayload.referral.name, referralId: readyPayload.referral.id })} · {(readyPayload.report ? resolveClientCommunity(readyPayload.report.meetClient.community) : resolveClientCommunity(readyPayload.referral.community)) || "Community not selected"}</p></div>
-        <span data-guide-target="packet-delivery-status" role="status" aria-label="Email delivery status" className={sent ? styles.deliveryStatus : "sr-only"} data-sent={sent || undefined}>{deliveryStatus}</span>
+        <span data-guide-target="packet-delivery-status" role="status" aria-label="Email delivery status" className={sent || pending || deliveryFailed ? styles.deliveryStatus : "sr-only"} data-sent={sent || undefined}>{deliveryStatus}</span>
       </header>
       {!composerOpen ? <ChartStatusMessage error={error} message={message} /> : null}
       {!composerOpen ? <HandoffDraftError value={emailDraft} /> : null}
       {!composerOpen && readyPayload.email.example_only ? <p role="status" className={styles.previewNote}>Not production yet — no email will be sent.</p> : null}
-      <HandoffOverview payload={readyPayload} sent={sent} exampleReviewed={exampleReviewed} finishActions={finishActions}
+      <HandoffOverview payload={readyPayload} sent={sent} pending={pending} deliveryFailed={deliveryFailed} exampleReviewed={exampleReviewed} finishActions={finishActions}
         existingDraft={existingDraft} composerOpen={composerOpen} reviewedCount={reviewedCount} onPreviewEmail={() => {
           if (readyPayload.email.previously_sent && !sent && !existingDraft && !repeatSendConfirmed) void prepareAnotherHandoff();
           else setReviewStep(sent || exampleReviewed || existingDraft ? 4 : Math.min(reviewedCount, 4));
         }}
-        onPrepareAnother={readyPayload.email.can_send && sent && !existingDraft ? () => void prepareAnotherHandoff() : undefined}
+        onPrepareAnother={readyPayload.email.can_send && (sent || deliveryFailed) && !existingDraft ? () => void prepareAnotherHandoff() : undefined}
         onOpenIntake={onOpenIntake} onOpenAssessment={onOpenAssessment} onOpenDecision={onOpenDecision} />
       {!readyPayload.email.example_only ? <CommunicationHistory referralId={readyPayload.referral.id} refreshKey={`${sent}:${composerOpen}`}
         onPrepareUpdated={readyPayload.email.can_send ? () => { if (existingDraft) setReviewStep(4); else if (sent || readyPayload.email.previously_sent) void prepareAnotherHandoff(); else void load().then(next => { if (next) setReviewStep(0); }); } : undefined} /> : null}
@@ -333,8 +338,8 @@ export default function AssessmentChartWorkspace({ referralId, active = true, so
   );
 }
 
-function HandoffOverview({ existingDraft, payload, sent, exampleReviewed, finishActions, composerOpen, reviewedCount, onPreviewEmail, onPrepareAnother, onOpenIntake, onOpenAssessment, onOpenDecision }: {
-  existingDraft: OutlookDraftView | null; payload: ChartPayload; sent: boolean; exampleReviewed: boolean; composerOpen: boolean; reviewedCount: number;
+function HandoffOverview({ existingDraft, payload, sent, pending, deliveryFailed, exampleReviewed, finishActions, composerOpen, reviewedCount, onPreviewEmail, onPrepareAnother, onOpenIntake, onOpenAssessment, onOpenDecision }: {
+  existingDraft: OutlookDraftView | null; payload: ChartPayload; sent: boolean; pending: boolean; deliveryFailed: boolean; exampleReviewed: boolean; composerOpen: boolean; reviewedCount: number;
   finishActions?: React.ReactNode;
   onPreviewEmail: () => void;
   onPrepareAnother?: () => void;
@@ -355,10 +360,23 @@ function HandoffOverview({ existingDraft, payload, sent, exampleReviewed, finish
   if (complete) return <section className={styles.guidedTask} aria-label="Handoff readiness">
     <Check className={styles.taskIcon} size={32} aria-hidden="true" />
     <h3>{sent ? "Handoff sent" : "Demo review complete"}</h3>
-    <p>{sent ? "The handoff is recorded as sent. Recipient delivery is not tracked." : "No email was sent."}</p>
+    <p>{sent ? "Outlook confirmed delivery to the reviewed recipients." : "No email was sent."}</p>
     <footer ref={finishRef} aria-label="Handoff actions" className={styles.taskActions}>{finishActions}</footer>
     {existingDraft ? previewButton : sent && onPrepareAnother ? <button type="button" className={styles.sendButton} onClick={onPrepareAnother}>Send another handoff<ArrowRight size={18} aria-hidden="true" /></button> : null}
     {email.example_only ? <details className={styles.completedDetails}><summary>Review email again</summary>{previewButton}</details> : null}
+  </section>;
+
+  if (pending) return <section className={styles.guidedTask} aria-label="Handoff readiness">
+    <LoaderCircle className={styles.taskIcon} size={32} aria-hidden="true" />
+    <h3>Checking Outlook delivery</h3>
+    <p>Outlook accepted the email. Pipeline will mark it sent only after delivery is confirmed for every recipient. Check Email history for updates.</p>
+  </section>;
+
+  if (deliveryFailed) return <section className={styles.guidedTask} aria-label="Handoff readiness">
+    <FileText className={styles.taskIcon} size={32} aria-hidden="true" />
+    <h3>Outlook reported a delivery failure</h3>
+    <p>Open Email history to see which address failed. Review the recipients before preparing another handoff.</p>
+    {onPrepareAnother ? <button type="button" className={styles.sendButton} onClick={onPrepareAnother}>Review another handoff<ArrowRight size={18} aria-hidden="true" /></button> : null}
   </section>;
 
   const identityIssues = meetClientIdentityIssues(report?.meetClient ?? null);
@@ -483,8 +501,10 @@ function canStartMeetClientSend(payload: ChartPayload | null, selectedFileIds: s
     && !plannedAdmissionDateError(getPlannedAdmissionDate(payload.referral)) && !payload.email.example_only && (!(payload.email.previously_sent || payload.email.sent_at) || repeatSendConfirmed) && confirmed && !inFlight);
 }
 
-function meetClientDeliveryStatus(email: ChartPayload["email"], selectedFileIds: string[], sent: boolean, sending: boolean, confirmed: boolean, recipients: string[]) {
+function meetClientDeliveryStatus(email: ChartPayload["email"], selectedFileIds: string[], sent: boolean, pending: boolean, failed: boolean, sending: boolean, confirmed: boolean, recipients: string[]) {
   if (sent) return "Sent";
+  if (failed) return "Delivery failed";
+  if (pending) return "Checking Outlook delivery";
   if (sending) return "Sending";
   return !email.example_only && email.base_blockers.length === 0 && !packetSelectionIssue(email, selectedFileIds) && confirmed && recipients.length ? "Ready to preview email" : "Preview";
 }

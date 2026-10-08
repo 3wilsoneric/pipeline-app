@@ -12,7 +12,7 @@ import { parseMeetClientMessage, type MeetClientMessage } from "@/lib/notificati
 import { meetClientIdentityIssues } from "@/lib/notifications/meet-client-identity";
 import { prepareAdmissionPacketLink } from "@/lib/notifications/admission-packet-files";
 import { renderMeetClientEmail } from "@/lib/notifications/meet-client-email-template";
-import { findWorkspaceOutlookDraft, PacketAccessError } from "@/lib/notifications/admission-packet-store";
+import { findWorkspaceOutlookDraft, listCommunicationPackets, PacketAccessError } from "@/lib/notifications/admission-packet-store";
 import { getOutlookMailReadiness, connectedOutlookMailbox, OutlookMailError } from "@/lib/notifications/outlook-mail";
 import { assessorEmailDestination, prepareAssessorEmail, requireAssessorEmailCapacity } from "@/lib/notifications/assessor-email-handoff";
 import { prepareOutlookHandoff } from "@/lib/notifications/outlook-handoff";
@@ -59,7 +59,7 @@ export async function POST(
     if (direct && prepared.snapshotId) {
       try {
         const existing = await ownedDirectHandoff(prepared.snapshotId, referralId, user.id);
-        if (existing.communication!.status === "submitted") return Response.json({ communication: communicationView(existing, true) }, { headers: privateHeaders() });
+        if (["submitted", "delivery_pending", "delivered", "delivery_failed"].includes(existing.communication!.status)) return Response.json({ communication: communicationView(existing, true) }, { headers: privateHeaders() });
       } catch (error) { return outlookFailure(error); }
     }
     const outlook = delivery === "outlook";
@@ -79,8 +79,10 @@ export async function POST(
     const contextResult = await loadMeetClientContext(referralId, prepared.referralVersion, prepared.assessmentId, prepared.assessmentVersion);
     if (!contextResult.ok) return contextResult.response;
     const { assessment, snapshot } = contextResult;
-    if (contextResult.previouslySent && !prepared.repeatSendConfirmed) {
-      return jsonError("This handoff was already sent. Review the latest details and confirm sending another handoff.", 409);
+    const priorCommunication = (await listCommunicationPackets({ referralId })).items.some(packet =>
+      packet.communication && ["submitted", "delivery_pending", "delivered", "delivery_failed"].includes(packet.communication.status));
+    if ((contextResult.previouslySent || priorCommunication) && !prepared.repeatSendConfirmed) {
+      return jsonError("A handoff was already attempted. Review the latest details and confirm sending another handoff.", 409);
     }
     const handoffReferral = { ...snapshot.referral, requirements: snapshot.work_items };
     const summary = buildMeetClientSummary(assessment, handoffReferral);

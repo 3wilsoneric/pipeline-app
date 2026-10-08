@@ -290,13 +290,15 @@ export async function listAssessments(options: AssessmentListOptions = {}) {
   return getAssessmentStore().list(options);
 }
 
-/** Serialize only the final send against saves, so the emailed version is exact.
- * A failed send changes nothing. No editor is locked merely by signing.
+/** Serialize a send against saves, so the emailed version is exact.
+ * A failed send changes nothing. A trace-required send remains pending until
+ * Exchange confirms delivery; no editor is locked merely by signing.
  */
 export async function deliverAssessmentPacket<T extends { acceptedAt: string }>(
   assessmentId: string,
   expectedVersion: number,
   send: () => Promise<T>,
+  options: { finalizeOnAcceptance?: boolean } = {},
 ): Promise<T> {
   function assertCurrent(current: PipelineAssessmentRecord | null): asserts current is PipelineAssessmentRecord {
     if (!current?.signed_at || current.version !== expectedVersion) {
@@ -309,6 +311,7 @@ export async function deliverAssessmentPacket<T extends { acceptedAt: string }>(
       const current = await getAssessmentInTransaction(tx, assessmentId, true);
       assertCurrent(current);
       const result = await send();
+      if (options.finalizeOnAcceptance === false) return result;
       await tx`
         update pipeline.assessments
         set meet_client_sent_at = ${result.acceptedAt}::timestamptz,
@@ -325,6 +328,7 @@ export async function deliverAssessmentPacket<T extends { acceptedAt: string }>(
     const current = state.assessments.find((item) => item.assessment_id === assessmentId) ?? null;
     assertCurrent(current);
     const result = await send();
+    if (options.finalizeOnAcceptance === false) return result;
     state.assessments = state.assessments.map((item) => item.assessment_id !== assessmentId ? item : {
       ...current,
       meet_client_sent_at: result.acceptedAt,
@@ -335,6 +339,63 @@ export async function deliverAssessmentPacket<T extends { acceptedAt: string }>(
     state.revision += 1;
     await persist();
     return result;
+  });
+}
+
+/** Finalize a provider-accepted packet only after Exchange reports delivery. */
+export async function confirmAssessmentPacketDelivery(assessmentId: string, sentVersion: number, deliveredAt: string) {
+  if (getAssessmentStoreReadiness().mode === "postgres") {
+    const sql = getPipelineSql();
+    await sql.begin(async tx => {
+      const updated = await tx`update pipeline.assessments
+        set meet_client_sent_at = ${deliveredAt}::timestamptz,
+            meet_client_sent_version = ${sentVersion}, version = version + 1, updated_at = now()
+        where assessment_id = ${assessmentId} and signed_at is not null
+          and version = ${sentVersion}
+          and (meet_client_sent_version is null or meet_client_sent_version < ${sentVersion})
+        returning assessment_id`;
+      if (updated.length) await bumpAssessmentRevision(tx);
+    });
+    return;
+  }
+  await ensureLoaded();
+  await withMutation(async () => {
+    const current = state.assessments.find(item => item.assessment_id === assessmentId);
+    if (!current?.signed_at || current.version !== sentVersion
+      || (current.meet_client_sent_version ?? -1) >= sentVersion) return;
+    state.assessments = state.assessments.map(item => item.assessment_id !== assessmentId ? item : {
+      ...item, meet_client_sent_at: deliveredAt, meet_client_sent_version: sentVersion,
+      version: item.version + 1, updated_at: deliveredAt,
+    });
+    state.revision += 1;
+    await persist();
+  });
+}
+
+/** A later Exchange failure retracts this handoff's delivered indicator only. */
+export async function revokeAssessmentPacketDelivery(assessmentId: string, sentVersion: number) {
+  if (getAssessmentStoreReadiness().mode === "postgres") {
+    const sql = getPipelineSql();
+    await sql.begin(async tx => {
+      const updated = await tx`update pipeline.assessments
+        set meet_client_sent_at = null, meet_client_sent_version = null,
+            version = version + 1, updated_at = now()
+        where assessment_id = ${assessmentId} and meet_client_sent_version = ${sentVersion}
+        returning assessment_id`;
+      if (updated.length) await bumpAssessmentRevision(tx);
+    });
+    return;
+  }
+  await ensureLoaded();
+  await withMutation(async () => {
+    const current = state.assessments.find(item => item.assessment_id === assessmentId);
+    if (current?.meet_client_sent_version !== sentVersion) return;
+    state.assessments = state.assessments.map(item => item.assessment_id !== assessmentId ? item : {
+      ...item, meet_client_sent_at: null, meet_client_sent_version: null,
+      version: item.version + 1, updated_at: new Date().toISOString(),
+    });
+    state.revision += 1;
+    await persist();
   });
 }
 

@@ -3,15 +3,16 @@ import { createHash } from "node:crypto";
 import type { PipelineUser } from "@/lib/auth/pipeline-auth";
 import type { PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
 import type { MeetClientSummary } from "@/lib/assessment/assessment-summary";
-import { deliverAssessmentPacket } from "@/lib/assessment/assessment-store";
+import { confirmAssessmentPacketDelivery, deliverAssessmentPacket, revokeAssessmentPacketDelivery } from "@/lib/assessment/assessment-store";
 import { getActiveWorkspaceMember } from "@/lib/pipeline/workspace-members";
+import { getPipelineDatabaseReadiness, getPipelineSql } from "@/lib/database/pipeline-database";
 import { completeMeetClientDelivery, reserveMeetClientDelivery, type DeliveryAudit } from "@/lib/pipeline/meet-client-delivery-audit";
 import { getAzureBlobUploadSigner } from "@/lib/extraction/azure-blob";
 import { getDocumentFileMetadata } from "@/lib/extraction/document-assets";
 import { isDocumentContentAvailable } from "@/lib/extraction/document-access-policy";
 import { findPreparedCommunication, PacketAccessError, withAdmissionPacket, type AdmissionPacket, type PacketFile } from "./admission-packet-store";
 import { packetMailAttachment, prepareAdmissionPacketRecord } from "./admission-packet-files";
-import { getGraphMailReadiness, GraphMailDeliveryError, sendMeetClientMail, validateMeetClientRecipients } from "./microsoft-graph-mail";
+import { getGraphMailReadiness, GraphMailDeliveryError, sendMeetClientMail, traceMeetClientDelivery, validateMeetClientRecipients } from "./microsoft-graph-mail";
 import { renderMeetClientEmail } from "./meet-client-email-template";
 import { mailAttachmentsExceedSafeLimit } from "./meet-client-attachment-policy";
 import { requireAssessorEmailCapacity } from "./assessor-email-handoff";
@@ -127,7 +128,7 @@ export async function communicationAttachment(file: PacketFile, referralId: numb
 
 export async function sendDirectHandoff(id: string, input: Input, beforeSend: () => Promise<void>) {
   const existing = await ownedDirectHandoff(id, input.audit.referralId, input.user.id);
-  if (existing.communication!.status === "submitted") return communicationView(existing, true);
+  if (["submitted", "delivery_pending", "delivered", "delivery_failed"].includes(existing.communication!.status)) return communicationView(existing, true);
   const assessor = await directHandoffAssessor(input.assessment, input.user);
   if (existing.communication!.requestKey !== requestKey(input, assessor)) throw new PacketAccessError("The handoff changed after preview. Review the updated email before sending.", 409);
   requireDirectAttachmentCapacity(existing.files);
@@ -162,23 +163,24 @@ export async function sendDirectHandoff(id: string, input: Input, beforeSend: ()
         // Record provider acceptance before assessment finalization, so a failed
         // finalization cannot turn an accepted send into an invitation to retry.
         await withAdmissionPacket(id, stored => {
-          stored!.communication!.status = "submitted";
+          stored!.communication!.status = "delivery_pending";
           stored!.communication!.submittedAt = result!.acceptedAt;
           stored!.events.push({ action: "meet_client_email_submitted", at: result!.acceptedAt, actorId: input.user.id, actorName: input.user.name });
         });
         return result;
-      });
+      }, { finalizeOnAcceptance: false });
     } catch (error) { if (!submitted) throw error; }
-    await completeMeetClientDelivery(c.audit, "sent").catch(() => undefined);
+    await completeMeetClientDelivery(c.audit, "unconfirmed", "provider_accepted_delivery_pending").catch(() => undefined);
     return withAdmissionPacket(id, stored => {
-      stored!.communication!.status = "submitted";
+      stored!.communication!.status = "delivery_pending";
       stored!.communication!.submittedAt = result!.acceptedAt;
+      stored!.communication!.note = "Outlook accepted the email. Pipeline is checking delivery to each recipient before marking it sent.";
       return communicationView(stored!, true);
     });
   } catch (error) {
     const rejected = !submitted && (!contacting || definitelyRejected(error));
     await withAdmissionPacket(id, stored => {
-      stored!.communication!.status = submitted ? "submitted" : rejected ? "not_sent" : "unconfirmed";
+      stored!.communication!.status = submitted ? "delivery_pending" : rejected ? "not_sent" : "unconfirmed";
       stored!.communication!.note = submitted ? "Microsoft accepted this email. Never resend to repair history."
         : rejected ? "No email was sent. Review the handoff and try again."
         : "Microsoft’s response was not confirmed. Check the Admissions sending mailbox before starting another email.";
@@ -190,6 +192,84 @@ export async function sendDirectHandoff(id: string, input: Input, beforeSend: ()
       : rejected ? "The email was not sent. Check the handoff and try again."
       : "The send outcome is uncertain. Open Email history; another copy has not been sent.", 503);
   }
+}
+
+export async function reconcileDirectHandoff(id: string, options: { strict?: boolean } = {}) {
+  const packet = await withAdmissionPacket(id, value => value?.communication ? structuredClone(value) : null);
+  if (!packet?.communication) return null;
+  const c = packet.communication;
+  if (!["delivery_pending", "delivered"].includes(c.status) || !c.submittedAt) return packet;
+  const now = Date.now();
+  const age = now - Date.parse(c.submittedAt);
+  if (age < 5 * 60_000 || (c.status === "delivered" && age > 48 * 60 * 60_000)
+    || (c.deliveryCheckedAt && now - Date.parse(c.deliveryCheckedAt) < (c.status === "delivered" ? 60 : 5) * 60_000)) return packet;
+  const claimed = await withAdmissionPacket(id, value => {
+    const current = value?.communication;
+    if (!current || !["delivery_pending", "delivered"].includes(current.status)
+      || (current.deliveryCheckedAt && now - Date.parse(current.deliveryCheckedAt) < (current.status === "delivered" ? 60 : 5) * 60_000)) return false;
+    current.deliveryCheckedAt = new Date(now).toISOString();
+    return true;
+  });
+  if (!claimed) return packet;
+  let trace: Awaited<ReturnType<typeof traceMeetClientDelivery>>;
+  try { trace = await traceMeetClientDelivery(packet.id, [...c.to, ...c.cc]); }
+  catch (error) { await withAdmissionPacket(id, value => {
+    if (value?.communication?.status === "delivery_pending") value.communication.note = "Delivery could not be checked yet. Check again later; do not resend this email.";
+    return value ? structuredClone(value) : null;
+  });
+    if (options.strict) throw error;
+    return withAdmissionPacket(id, value => value ? structuredClone(value) : null);
+  }
+  if (trace.status === "pending") return withAdmissionPacket(id, value => value ? structuredClone(value) : null);
+  if (trace.status === "delivered") {
+    if (c.status !== "delivered") await completeMeetClientDelivery(c.audit, "sent");
+    await confirmAssessmentPacketDelivery(packet.assessmentId, packet.assessmentVersion, new Date().toISOString());
+    return withAdmissionPacket(id, value => {
+      if (value?.communication?.status === "delivery_pending") {
+        value.communication.status = "delivered";
+        value.communication.note = "Outlook confirmed delivery to every reviewed recipient.";
+        value.communication.deliveryCheckedAt = new Date().toISOString();
+      }
+      return value ? structuredClone(value) : null;
+    });
+  }
+  await completeMeetClientDelivery(c.audit, "sent_needs_review", "outlook_delivery_failed");
+  if (c.status === "delivered") await revokeAssessmentPacketDelivery(packet.assessmentId, packet.assessmentVersion);
+  return withAdmissionPacket(id, value => {
+    if (value?.communication && ["delivery_pending", "delivered"].includes(value.communication.status)) {
+      value.communication.status = "delivery_failed";
+      value.communication.note = `Outlook reported delivery failure for ${trace.recipients.join(", ")}. Review the recipients and delivery report before preparing another handoff.`;
+      value.communication.deliveryCheckedAt = new Date().toISOString();
+      value.events.push({ action: "meet_client_email_delivery_failed", at: new Date().toISOString(), actorId: c.ownerId });
+    }
+    return value ? structuredClone(value) : null;
+  });
+}
+
+/** The five-minute Azure worker checks accepted mail without a user opening a page. */
+export async function reconcileDirectHandoffBacklog(limit = 10) {
+  if (!getPipelineDatabaseReadiness().ready) return { enabled: false, processed: 0, errors: 0 };
+  const sql = getPipelineSql();
+  const rows = await sql<{ packet_id: string }[]>`
+    select packet_id::text from pipeline.admission_packet_links
+    where record->'communication'->>'submittedAt' is not null
+      and (
+        (record->'communication'->>'status' = 'delivery_pending'
+          and (record->'communication'->>'submittedAt')::timestamptz <= now() - interval '5 minutes'
+          and coalesce((record->'communication'->>'deliveryCheckedAt')::timestamptz, '-infinity'::timestamptz) <= now() - interval '5 minutes')
+        or (record->'communication'->>'status' = 'delivered'
+          and (record->'communication'->>'submittedAt')::timestamptz >= now() - interval '48 hours'
+          and coalesce((record->'communication'->>'deliveryCheckedAt')::timestamptz, '-infinity'::timestamptz) <= now() - interval '1 hour')
+      )
+    order by coalesce((record->'communication'->>'deliveryCheckedAt')::timestamptz, '-infinity'::timestamptz), created_at
+    limit ${Math.max(1, Math.min(limit, 20))}
+  `;
+  let errors = 0;
+  await Promise.all(rows.map(async row => {
+    try { await reconcileDirectHandoff(row.packet_id, { strict: true }); }
+    catch { errors += 1; }
+  }));
+  return { enabled: true, processed: rows.length, errors };
 }
 
 function requireDirectAttachmentCapacity(files: readonly { byteSize: number }[]) {

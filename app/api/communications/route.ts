@@ -2,7 +2,7 @@ import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
 import { requireReferralAccess, canViewTeamReferralBoard } from "@/lib/pipeline/referral-access";
 import { requireReferralStore } from "@/lib/pipeline/referral-store";
 import { listCommunicationPackets, PacketAccessError, validPacketId, withAdmissionPacket } from "@/lib/notifications/admission-packet-store";
-import { communicationAttachment, communicationView } from "@/lib/notifications/direct-handoff";
+import { communicationAttachment, communicationView, reconcileDirectHandoff } from "@/lib/notifications/direct-handoff";
 import { packetPrivateHeaders } from "@/lib/notifications/admission-packet-files";
 import { withApiLogging } from "@/lib/observability/api-logging";
 
@@ -32,7 +32,7 @@ export async function GET(request: Request) {
           return structuredClone(value);
         });
         const fileId = params.get("file_id");
-        if (!fileId) return json({ communication: communicationView(packet, true) });
+        if (!fileId) return json({ communication: communicationView(await reconcileDirectHandoff(packetId) ?? packet, true) });
         const file = packet.files.find(value => value.id === fileId);
         if (!file || packet.communication?.status === "preparing" || (file.source.kind === "blob" && !file.archived)) throw new PacketAccessError("Saved attachment not found.", 404);
         const attachment = await communicationAttachment(file, referralId);
@@ -47,9 +47,9 @@ export async function GET(request: Request) {
       if (team && !canViewTeamReferralBoard(auth.user)) return json({ error: "Team history is not available with your access." }, 403);
       const page = await listCommunicationPackets({ referralId, ownerId: referralId || team ? undefined : auth.user.id, cursor: params.get("cursor") ?? undefined, query: params.get("q")?.slice(0, 200) });
       const items = [];
-      for (const packet of page.items) {
+      for (const [index, packet] of page.items.entries()) {
         const access = await requireReferralAccess(auth.user, packet.referralId);
-        if (access.ok) items.push(communicationView(packet));
+        if (access.ok) items.push(communicationView(index < 5 ? await reconcileDirectHandoff(packet.id) ?? packet : packet));
       }
       return json({ items, next_cursor: page.nextCursor, can_view_team: canViewTeamReferralBoard(auth.user) });
     } catch (error) {

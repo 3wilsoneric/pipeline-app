@@ -31,6 +31,7 @@ export type AdmissionPacket = {
     from: string; to: string[]; cc: string[]; replyTo: string;
     html: string; preparedBy: string; requestKey: string;
     audit: DeliveryAudit; submittedAt?: string; note?: string;
+    deliveryCheckedAt?: string;
     originals: PacketFile[];
     archiveObjects: Array<{ container: string; key: string }>;
   };

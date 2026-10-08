@@ -37,20 +37,31 @@ function fixture(t, options = {}) {
     { documentId: "sheet", name: "Client data sheet.pdf", byteSize: 7, contentType: "application/pdf", generatedContent: Buffer.from("%PDF-qa"), ready: true },
     { documentId: "original", name: options.fileName ?? "Original.docx", byteSize: bytes.length, contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", ready: true },
   ] };
-  let sent = 0;
-  const assessmentStore = { requireAssessmentStore: () => ({ ok: true }), listAssessments: async () => ({ assessments: [assessment, ...historicalAssessments] }), deliverAssessmentPacket: async (id, version, send) => {
+  let sent = 0, traceStatus = { status: "pending" };
+  const assessmentStore = { requireAssessmentStore: () => ({ ok: true }), listAssessments: async () => ({ assessments: [assessment, ...historicalAssessments] }), deliverAssessmentPacket: async (id, version, send, sendOptions = {}) => {
     assert.equal(id, assessment.assessment_id); assert.equal(version, assessment.version);
-    const result = await send(); if (options.finalizationFailure) throw new Error("synthetic finalization failure");
+    const result = await send(); if (sendOptions.finalizeOnAcceptance === false) return result;
+    if (options.finalizationFailure) throw new Error("synthetic finalization failure");
     assessment = { ...assessment, version: assessment.version + 1, meet_client_sent_at: result.acceptedAt, meet_client_sent_version: version }; return result;
+  }, confirmAssessmentPacketDelivery: async (_id, version, at) => {
+    if (assessment.meet_client_sent_version !== version) assessment = { ...assessment, version: assessment.version + 1, meet_client_sent_at: at, meet_client_sent_version: version };
+  }, revokeAssessmentPacketDelivery: async (_id, version) => {
+    if (assessment.meet_client_sent_version === version) assessment = { ...assessment, version: assessment.version + 1, meet_client_sent_at: null, meet_client_sent_version: null };
   } };
   const mail = { ...realMail, getGraphMailReadiness: () => ({ configured: true, sender: "admissions@example.invalid", largeAttachmentDeliveryConfigured: true }), isMeetClientLive: () => true,
-    sendMeetClientMail: async input => { sent++; savedInput = input; await options.wait?.(); if (options.failure) throw options.failure; return { acceptedAt: "2026-09-23T12:00:00.000Z" }; } };
+    sendMeetClientMail: async input => { sent++; savedInput = input; await options.wait?.(); if (options.failure) throw options.failure; return { acceptedAt: new Date(Date.now() - 6 * 60_000).toISOString() }; },
+    traceMeetClientDelivery: async () => { if (traceStatus instanceof Error) throw traceStatus; return traceStatus; } };
+  let workerId;
   const direct = loadEntry("lib/notifications/direct-handoff.ts", {
     "./admission-packet-store": store, "./admission-packet-files": files, "./microsoft-graph-mail": mail,
     "./meet-client-attachment-policy": attachmentPolicy,
     "./meet-client-email-template": template, "./assessor-email-handoff": { requireAssessorEmailCapacity: () => {} },
     "@/lib/assessment/assessment-store": assessmentStore, "@/lib/pipeline/workspace-members": { getActiveWorkspaceMember: async id => id === "assessor" ? { email: "assessor@outlook.com", display_name: "Synthetic Assessor" } : null },
     "@/lib/pipeline/meet-client-delivery-audit": audit, "@/lib/extraction/document-assets": assets,
+    "@/lib/database/pipeline-database": {
+      getPipelineDatabaseReadiness: () => ({ ready: Boolean(options.worker) }),
+      getPipelineSql: () => async () => workerId ? [{ packet_id: workerId }] : [],
+    },
     "@/lib/extraction/azure-blob": { getAzureBlobUploadSigner: () => signer },
   }, globals);
   const auth = { requirePipelineUser: async () => ({ ok: true, user: authUser }) };
@@ -83,7 +94,9 @@ function fixture(t, options = {}) {
   const post = (patch = {}, origin) => route.POST(new Request("http://localhost/api/referrals/6/meet-client-email?delivery=direct", { method: "POST", headers: origin ? { origin } : {}, body: JSON.stringify({ ...body, ...patch }) }), { params: Promise.resolve({ referralId: "6" }) });
   return { store, direct, inventory, body, blobs, bytes, post, get: query => history.GET(new Request(`http://localhost/api/communications?${query}`)),
     prepare: async () => { const response = await post(); assert.equal(response.status, 200, JSON.stringify(await response.clone().json())); return (await response.json()).communication; },
-    get sent() { return sent; }, get sendInput() { return savedInput; }, get assessmentVersion() { return assessment.version; }, deny: () => { access = false; }, as: u => { authUser = u; },
+    get sent() { return sent; }, get sendInput() { return savedInput; }, get assessmentVersion() { return assessment.version; }, get assessmentSentAt() { return assessment.meet_client_sent_at; }, deny: () => { access = false; }, as: u => { authUser = u; },
+    setTrace: value => { traceStatus = value; }, checkDelivery: async id => direct.reconcileDirectHandoff(id),
+    checkBacklog: id => { workerId = id; return direct.reconcileDirectHandoffBacklog(); },
     markUnsafe: () => { scanStatus = "infected"; },
     startSignedRevision: () => { historicalAssessments = [assessment]; assessment = { ...assessment, assessment_id: "revision", version: 1, meet_client_sent_at: null, meet_client_sent_version: null }; },
     changeFile: () => { originalEtag = "changed-same-size"; }, withdrawOriginal: () => { originalAvailable = false; blobs.delete("raw/original"); },
@@ -98,7 +111,7 @@ test("exact prepared snapshot supplies the actual email, assigned assessor Cc/Re
   assert.doesNotMatch(preview.cc.join(), /admin/); assert.match(preview.html, /&lt;literal&gt;/);
   assert.equal((await f.prepare()).id, preview.id, "reopening resumes the same preview");
   const sent = await f.post({ snapshot_id: preview.id }); assert.equal(sent.status, 200);
-  assert.equal((await sent.json()).communication.status, "submitted"); assert.equal(f.sent, 1);
+  assert.equal((await sent.json()).communication.status, "delivery_pending"); assert.equal(f.sent, 1);
   assert.equal(f.sendInput.preparedContent.html, preview.html);
   assert.equal(f.sendInput.preparedContent.subject, preview.subject);
   assert.deepEqual(clean(f.sendInput.recipients), clean(preview.to)); assert.deepEqual(clean(f.sendInput.ccRecipients), clean(preview.cc));
@@ -110,7 +123,7 @@ test("exact prepared snapshot supplies the actual email, assigned assessor Cc/Re
   const archived = await f.get(`referral_id=6&packet_id=${preview.id}&file_id=original`);
   assert.equal(archived.status, 200); assert.deepEqual(Buffer.from(await archived.arrayBuffer()), f.bytes);
   const restored = (await (await f.get(`referral_id=6&packet_id=${preview.id}`)).json()).communication;
-  assert.equal(restored.html, preview.html); assert.equal(restored.status, "submitted");
+  assert.equal(restored.html, preview.html); assert.equal(restored.status, "delivery_pending");
   const list = await (await f.get("scope=mine")).json(); assert.equal(list.items.length, 1); assert.equal(list.items[0].html, undefined);
   assert.equal((await f.store.listAdmissionPacketLinks(6)).length, 0);
 });
@@ -120,6 +133,10 @@ test("another handoff requires explicit confirmation and a newly reviewed versio
   const first = await f.prepare();
   assert.equal((await f.post({ snapshot_id: first.id })).status, 200);
   assert.equal(f.sent, 1);
+  assert.equal(f.assessmentSentAt, undefined, "Outlook acceptance alone must not mark the assessment sent");
+  f.setTrace({ status: "delivered" });
+  assert.equal((await f.checkDelivery(first.id)).communication.status, "delivered");
+  f.setTrace({ status: "pending" });
   const secondVersion = f.assessmentVersion;
   const unconfirmed = await f.post({ if_match_assessment: secondVersion });
   assert.equal(unconfirmed.status, 409);
@@ -135,7 +152,7 @@ test("another handoff requires explicit confirmation and a newly reviewed versio
   assert.equal((await f.post({ snapshot_id: first.id })).status, 200, "retrying the first snapshot remains idempotent");
   assert.equal(f.sent, 2);
   const history = await (await f.get("scope=mine")).json();
-  assert.equal(history.items.filter(item => item.status === "submitted").length, 2);
+  assert.equal(history.items.filter(item => ["delivery_pending", "delivered"].includes(item.status)).length, 2);
 });
 
 test("a new signed assessment still warns when an older handoff was sent", async t => {
@@ -236,13 +253,69 @@ test("ambiguous outcomes retain history and prevent duplicate sends; definite re
   }
 });
 
-test("provider acceptance survives assessment finalization failure and concurrent clicks send once", async t => {
-  const failedFinalization = fixture(t, { finalizationFailure: true }); const preview = await failedFinalization.prepare();
-  assert.equal((await failedFinalization.post({ snapshot_id: preview.id })).status, 200);
-  assert.equal((await (await failedFinalization.get(`referral_id=6&packet_id=${preview.id}`)).json()).communication.status, "submitted");
+test("provider acceptance stays pending and concurrent clicks send once", async t => {
+  const pending = fixture(t); const preview = await pending.prepare();
+  assert.equal((await pending.post({ snapshot_id: preview.id })).status, 200);
+  assert.equal((await (await pending.get(`referral_id=6&packet_id=${preview.id}`)).json()).communication.status, "delivery_pending");
+  assert.equal(pending.assessmentSentAt, undefined);
   let release; const wait = new Promise(resolve => { release = resolve; }); const f = fixture(t, { wait: () => wait }); const prepared = await f.prepare();
   const sending = f.post({ snapshot_id: prepared.id }); while (!f.sent) await new Promise(resolve => setImmediate(resolve));
   assert.equal((await f.post({ snapshot_id: prepared.id })).status, 409); release(); assert.equal((await sending).status, 200); assert.equal(f.sent, 1);
+});
+
+test("a failed Outlook delivery never marks the assessment sent, including a late failure", async t => {
+  const rejected = fixture(t); const first = await rejected.prepare();
+  assert.equal((await rejected.post({ snapshot_id: first.id })).status, 200);
+  rejected.setTrace({ status: "failed", recipients: ["care@outlook.com"] });
+  const failure = await rejected.checkDelivery(first.id);
+  assert.equal(failure.communication.status, "delivery_failed");
+  assert.equal(Boolean(rejected.assessmentSentAt), false);
+  assert.match(failure.communication.note, /care@outlook.com/);
+  assert.equal(rejected.sent, 1, "a failed trace must not resend automatically");
+
+  const late = fixture(t); const second = await late.prepare();
+  assert.equal((await late.post({ snapshot_id: second.id })).status, 200);
+  late.setTrace({ status: "delivered" });
+  assert.equal((await late.checkDelivery(second.id)).communication.status, "delivered");
+  assert.ok(late.assessmentSentAt);
+  await late.store.withAdmissionPacket(second.id, packet => { packet.communication.deliveryCheckedAt = new Date(Date.now() - 61 * 60_000).toISOString(); });
+  late.setTrace({ status: "failed", recipients: ["care@outlook.com"] });
+  assert.equal((await late.checkDelivery(second.id)).communication.status, "delivery_failed");
+  assert.equal(late.assessmentSentAt, null);
+  assert.equal(late.sent, 1);
+});
+
+test("the scheduled worker confirms delivery without a staff page being open", async t => {
+  const f = fixture(t, { worker: true }); const preview = await f.prepare();
+  assert.equal((await f.post({ snapshot_id: preview.id })).status, 200);
+  f.setTrace({ status: "delivered" });
+  assert.deepEqual(JSON.parse(JSON.stringify(await f.checkBacklog(preview.id))), { enabled: true, processed: 1, errors: 0 });
+  assert.ok(f.assessmentSentAt);
+  assert.equal((await f.get(`referral_id=6&packet_id=${preview.id}`)).status, 200);
+});
+
+test("a trace outage keeps the accepted email pending and never resends it", async t => {
+  const f = fixture(t, { worker: true }); const preview = await f.prepare();
+  assert.equal((await f.post({ snapshot_id: preview.id })).status, 200);
+  f.setTrace(new Error("synthetic trace outage"));
+  assert.deepEqual(JSON.parse(JSON.stringify(await f.checkBacklog(preview.id))), { enabled: true, processed: 1, errors: 1 });
+  const pending = (await (await f.get(`referral_id=6&packet_id=${preview.id}`)).json()).communication;
+  assert.equal(pending.status, "delivery_pending");
+  assert.equal(Boolean(f.assessmentSentAt), false);
+  assert.equal(f.sent, 1);
+});
+
+test("the delivery worker requires its internal credential", async () => {
+  let calls = 0;
+  const route = loadEntry("app/api/internal/meet-client-delivery/dispatch/route.ts", {
+    "@/lib/auth/internal-worker-auth": { requireInternalWorker: request => request.headers.get("authorization") === "Bearer synthetic-worker" ? null : Response.json({ error: "Unauthorized" }, { status: 401 }) },
+    "@/lib/notifications/direct-handoff": { reconcileDirectHandoffBacklog: async () => { calls++; return { enabled: true, processed: 1, errors: 0 }; } },
+    "@/lib/observability/api-logging": { withApiLogging: (_request, _name, action) => action() },
+  });
+  assert.equal((await route.GET(new Request("http://localhost/api/internal/meet-client-delivery/dispatch"))).status, 401);
+  assert.equal(calls, 0);
+  assert.equal((await route.GET(new Request("http://localhost/api/internal/meet-client-delivery/dispatch", { headers: { authorization: "Bearer synthetic-worker" } }))).status, 200);
+  assert.equal(calls, 1);
 });
 
 test("actual Graph envelope and attachment bytes match the prepared content without rendering it again", async () => {
@@ -252,8 +325,9 @@ test("actual Graph envelope and attachment bytes match the prepared content with
   } }, fetch: async (url, init) => { requests.push({ url, init }); return url.includes("oauth2") ? Response.json({ access_token: "synthetic", expires_in: 3600 }) : new Response(null, { status: 202 }); } });
   const content = { subject: "Stored subject", html: "<h1>Stored exact HTML</h1>", text: "Stored text" };
   const bytes = Buffer.from([0, 255, 70]);
+  const deliveryId = randomUUID();
   await mail.sendMeetClientMail({ recipients: ["recipient@outlook.com"], ccRecipients: ["assessor@outlook.com"], replyTo: ["assessor@outlook.com"],
-    summary: null, preparedBy: "Assessor", deliveryId: randomUUID(), preparedContent: content,
+    summary: null, preparedBy: "Assessor", deliveryId, preparedContent: content,
     attachments: [{ name: "Original.docx", contentType: "application/octet-stream", byteSize: bytes.length, contentBytes: bytes }] });
   const { message } = JSON.parse(requests[1].init.body);
   assert.equal(message.body.content, content.html); assert.equal(message.subject, content.subject);
@@ -261,6 +335,32 @@ test("actual Graph envelope and attachment bytes match the prepared content with
   assert.equal(message.replyTo[0].emailAddress.address, "assessor@outlook.com");
   assert.equal(message.ccRecipients[0].emailAddress.address, "assessor@outlook.com");
   assert.deepEqual(Buffer.from(message.attachments[0].contentBytes, "base64"), bytes);
+  assert.equal(message.singleValueExtendedProperties[0].value, deliveryId);
+  assert.match(message.singleValueExtendedProperties[0].id, /PipelineDeliveryId$/);
+});
+
+test("Exchange trace requires the exact sent message and every recipient before confirming delivery", async () => {
+  let traceState = "pending", sentVisible = true;
+  const mail = loadTypeScriptModule(process.cwd(), "lib/notifications/microsoft-graph-mail.ts", { process: { env: {
+    NODE_ENV: "production", PIPELINE_MEET_CLIENT_LIVE_ENABLED: "true", PIPELINE_GRAPH_TENANT_ID: "fixture", PIPELINE_GRAPH_CLIENT_ID: "fixture",
+    PIPELINE_GRAPH_CLIENT_SECRET: "synthetic", PIPELINE_MEET_CLIENT_SENDER: "admissions@example.invalid", PIPELINE_GRAPH_MAIL_READ_WRITE: "true",
+  } }, fetch: async (url) => {
+    if (url.includes("oauth2")) return Response.json({ access_token: "synthetic", expires_in: 3600 });
+    if (url.includes("sentitems/messages")) return Response.json({ value: sentVisible ? [{ internetMessageId: "<fixture@example.invalid>", isDraft: false, sentDateTime: new Date().toISOString() }] : [] });
+    assert.match(url, /admin\/exchange\/tracing\/messageTraces/);
+    return Response.json({ value: ["care@outlook.com", "assessor@outlook.com"].map(recipientAddress => ({
+      messageId: "<fixture@example.invalid>", senderAddress: "admissions@example.invalid", recipientAddress,
+      status: recipientAddress === "care@outlook.com" ? traceState : "delivered",
+    })) });
+  } });
+  const recipients = ["care@outlook.com", "assessor@outlook.com"];
+  assert.equal((await mail.traceMeetClientDelivery(randomUUID(), recipients)).status, "pending");
+  traceState = "delivered";
+  assert.equal((await mail.traceMeetClientDelivery(randomUUID(), recipients)).status, "delivered");
+  traceState = "failed";
+  assert.deepEqual(Array.from((await mail.traceMeetClientDelivery(randomUUID(), recipients)).recipients), ["care@outlook.com"]);
+  sentVisible = false;
+  assert.equal((await mail.traceMeetClientDelivery(randomUUID(), recipients)).status, "pending");
 });
 
 test("Graph sender refuses an oversized attachment email before contacting Microsoft", async () => {
