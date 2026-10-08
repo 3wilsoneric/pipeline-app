@@ -484,6 +484,21 @@ jobs:
             sleep 10
           done
           curl --fail --silent --show-error --max-time 15 '${{ steps.runtime.outputs.readiness_url }}' > /dev/null
+          if [[ '${{ steps.foundation.outputs.environment }}' == 'prod' ]]; then
+            for public_origin in https://alamo-pipeline.com https://www.alamo-pipeline.com; do
+              for attempt in {1..12}; do
+                if curl --fail --silent --location --max-redirs 3 --max-time 15 "$public_origin/api/health/live" > /dev/null &&
+                  curl --fail --silent --location --max-redirs 3 --max-time 15 "$public_origin/api/health" > /dev/null; then
+                  break
+                fi
+                if [[ "$attempt" == 12 ]]; then
+                  echo "::error::Public liveness or readiness failed at $public_origin after deployment."
+                  exit 1
+                fi
+                sleep 5
+              done
+            done
+          fi
           echo "Pipeline deployed at ${{ steps.runtime.outputs.application_url }}"
 
       - name: Inventory deployed alert coverage
