@@ -183,9 +183,10 @@ for (const width of [1440, 390]) test(`folder All and Mine switch instantly with
     // All data is already present. Even a disconnected browser can switch scopes.
     await page.context().setOffline(true);
     await toggle.getByRole("button", { name: "All", exact: true }).click();
-    await expect(folder.locator("[data-board-card]")).toHaveCount(mineCount + (index === 2 ? 2 : 1));
-    await expect(folder.getByRole("button", { name: `Open Team ${["Rivera", "Brooks", "Chen", "Patel"][index]}`, exact: true })).toBeVisible();
-    await expect(folder.locator("h2")).toContainText(`${mineCount + (index === 2 ? 2 : 1)} files`);
+    await expect(folder.locator("[data-board-card]")).toHaveCount(mineCount + 1);
+    await expect(folder.getByRole("button", { name: `Open Team ${["Rivera", "Brooks", "Chen"][index]}`, exact: true })).toBeVisible();
+    if (index === 2) await expect(folder.getByRole("button", { name: "Open Team Patel", exact: true })).toHaveCount(0);
+    await expect(folder.locator("h2")).toContainText(`${mineCount + 1} files`);
     expect(await folder.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
     const box = await toggle.getByRole("button", { name: "All", exact: true }).boundingBox();
     expect(box!.height).toBeGreaterThanOrEqual(44);
@@ -200,7 +201,7 @@ for (const width of [1440, 390]) test(`folder All and Mine switch instantly with
   }
 });
 
-test("All is reachable when Mine is empty, including admitted referrals awaiting email", async ({ page }) => {
+test("All is reachable when Mine is empty without pulling admitted referrals back into Decision", async ({ page }) => {
   await homeFixture(page, undefined, 0, false, false, "team-only");
   await page.goto("/");
   for (const title of ["Referral received", "Decision"]) {
