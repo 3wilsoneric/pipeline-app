@@ -139,7 +139,7 @@ async function homeFixture(page: Page, moduleIds = ["current-work", "new-assignm
       payload.workflow.board_items = [...boardItems,
         { ...item, referral_id: 930001, client_name: "Accepted Client", workflow_status: "approved_for_placement", outcome_state: "accepted", flow_state: "complete_chart", board: { stage: "decision", detail: "Accept", next_action: "Signed medication list, TB test result, Signed admission agreement", location: { view: "files" } } },
         { ...item, referral_id: 930002, client_name: "Denied Client", workflow_status: "declined", outcome_state: "declined", flow_state: "complete", board: { stage: "decision", detail: "Denied", next_action: "Review decision", location: { view: "workflow" } } },
-        { ...item, referral_id: 930003, client_name: "Admitted Client", workflow_status: "admitted", outcome_state: "accepted", flow_state: "complete", board: { stage: "decision", detail: "Email not sent", next_action: "Send Meet the Client", location: { view: "email" } } },
+        { ...item, referral_id: 930003, client_name: "Admitted Client", workflow_status: "admitted", outcome_state: "accepted", flow_state: "complete", board: { stage: null, detail: "Admitted", next_action: "Send Meet the Client", location: { view: "email" } } },
         { ...item, referral_id: 930004, client_name: "Awaiting Client", workflow_status: "approved_for_placement", outcome_state: "accepted", flow_state: "complete", board: { stage: "decision", detail: "Awaiting admit", next_action: "Record admission", location: { view: "workflow" } } },
       ];
     }
@@ -148,7 +148,7 @@ async function homeFixture(page: Page, moduleIds = ["current-work", "new-assignm
       for (const [index, workflow_status] of ["ready_to_schedule", "assessment_in_progress", "decision_pending", "admitted"].entries()) {
         payload.workflow.all_board_items.push({ ...item, referral_id: 940000 + index, client_name: `Team ${["Rivera", "Brooks", "Chen", "Patel"][index]}`, workflow_status,
           owner: "Another Assessor", outcome_state: workflow_status === "admitted" ? "accepted" : "pending",
-          board: { stage: ["received", "in_progress", "decision", "decision"][index], detail: ["Referral received", "Assessment underway", "Under review", "Email not sent"][index], next_action: "Open workspace", location: { view: "workflow" } } });
+          board: { stage: ["received", "in_progress", "decision", null][index], detail: ["Referral received", "Assessment underway", "Under review", "Admitted"][index], next_action: "Open workspace", location: { view: "workflow" } } });
       }
       if (scope === "team-only") Object.assign(payload.workflow, { active_items: [], board_items: [], active_total: 0 });
     }
@@ -442,7 +442,7 @@ for (const width of [1440, 834, 390, 320]) test(`stage folder expands in place w
   await expect(page).toHaveURL(/referralId=920009/);
 });
 
-test("decision tabs use distinct colors and admitted files await email without a Finished folder", async ({ page }, info) => {
+test("decision tabs use distinct colors and admitted files leave the board", async ({ page }, info) => {
   await homeFixture(page, undefined, 1, true);
   await page.goto("/");
   const accepted = page.locator('[data-board-stage="decision"]').getByRole("button", { name: "Open Accepted Client", exact: true });
@@ -450,14 +450,14 @@ test("decision tabs use distinct colors and admitted files await email without a
   const action = accepted.getByText("Signed medication list, TB test result, Signed admission agreement");
   expect(await action.evaluate((element) => element.scrollHeight <= element.clientHeight + 1)).toBe(true);
   await expect(page.locator('[data-board-stage="decision"]').getByRole("button", { name: "Open Denied Client", exact: true })).toBeVisible();
-  await expect(page.locator('[data-board-stage="decision"]').getByRole("button", { name: "Open Admitted Client", exact: true })).toContainText("Email not sent");
+  await expect(page.getByRole("button", { name: "Open Admitted Client", exact: true })).toHaveCount(0);
   await expect(page.locator('[data-board-stage="decision"]').getByRole("button", { name: "Open Awaiting Client", exact: true })).toContainText("Awaiting admit");
   await expect(page.locator('[data-board-stage]')).toHaveCount(3);
   await expect(page.getByRole("button", { name: "Open awaiting admit folder", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Open finished referrals folder", exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "Open decision folder", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Decision folder", exact: true });
-  await expect(dialog.locator("[data-board-status]")).toHaveText(["Under review", "Accept", "Denied", "Email not sent", "Awaiting admit"]);
+  await expect(dialog.locator("[data-board-status]")).toHaveText(["Under review", "Accept", "Denied", "Awaiting admit"]);
   const colors = await dialog.locator("[data-board-status]").evaluateAll(tabs => tabs.map(tab => getComputedStyle(tab).backgroundColor));
   expect(new Set(colors).size).toBe(3);
   await dialog.screenshot({ path: info.outputPath("decision-tabs.png"), animations: "disabled" });

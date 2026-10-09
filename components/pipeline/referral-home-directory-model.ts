@@ -6,7 +6,7 @@ import { isRecordedWorkspaceCommunity } from "@/lib/pipeline/workspace-presentat
 export type WorkspaceScope = NonNullable<ReferralListOptions["scope"]>;
 
 export type ReferralFilter = {
-  kind: "all" | "files";
+  kind: "all" | "admitted" | "files";
   communities?: string[];
   owners?: string[];
   month?: string;
@@ -57,7 +57,7 @@ export function referralScopeLabel(filter: ReferralFilter) {
   const community = communities.length === 1 ? presentCommunity(communities[0]) : communities.length ? `${communities.length} communities` : "";
   if (filter.month) return [formatMonthKey(filter.month), community].filter(Boolean).join(" · ");
   if (community) return `All months · ${community}`;
-  return "Browse by month and community";
+  return filter.kind === "admitted" ? "Admitted workspaces" : "Browse by month and community";
 }
 
 export function referralFilterCount(filter: ReferralFilter) {
@@ -75,6 +75,9 @@ export function getEmptyReferralState(filter: ReferralFilter, searchTerm: string
 
   if (referralFilterCount(filter)) {
     return { title: "No workspaces match these filters", detail: "Change a community, owner, county, or month, or show all workspaces." };
+  }
+  if (filter.kind === "admitted") {
+    return { title: "No admitted workspaces yet", detail: "A file appears here as soon as admission is recorded." };
   }
   return {
     title: "No workspaces yet",
@@ -119,6 +122,7 @@ export function buildReferralParams(filter: ReferralFilter, searchTerm: string, 
   if (filter.county) params.set("county", filter.county);
   if (filter.month) params.set("month", filter.month);
   if (filter.priority) params.set("priority", filter.priority);
+  if (filter.kind === "admitted") params.set("stage", "Accepted / Admitted");
   if (filter.kind !== "files") params.set("workspace", "all");
   return params;
 }

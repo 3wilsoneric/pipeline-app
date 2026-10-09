@@ -5,7 +5,7 @@ import {
   recordOperationalAcceptance,
 } from "./support/operational-api";
 
-test("Home retains owned acceptance and admission until the handoff email is confirmed", async ({ request }) => {
+test("Home keeps accepted work in Decision and graduates recorded admissions to Workspaces", async ({ request, page }) => {
   let referral = await createOperationalReferral(request, "assessmentCoordinator", {
     owner: "Unassigned", name: "Synthetic Board Acceptance",
   });
@@ -39,8 +39,12 @@ test("Home retains owned acceptance and admission until the handoff email is con
   expect(transition.status(), await transition.text()).toBe(200);
   const admitted = await request.get("/api/operations/home");
   expect(admitted.status()).toBe(200);
-  expect((await admitted.json()).workflow.board_items).toEqual(expect.arrayContaining([expect.objectContaining({
-    referral_id: referral.id, workflow_status: "admitted", flow_state: "complete",
-    board: expect.objectContaining({ stage: "decision", detail: "Email not sent", location: { view: "email" } }),
+  expect((await admitted.json()).workflow.board_items).not.toEqual(expect.arrayContaining([expect.objectContaining({ referral_id: referral.id })]));
+  const workspaces = await request.get("/api/referrals?workspace=all&stage=Accepted%20%2F%20Admitted");
+  expect(workspaces.status()).toBe(200);
+  expect((await workspaces.json()).referrals).toEqual(expect.arrayContaining([expect.objectContaining({
+    id: referral.id, workflowStatus: "admitted", actualAdmissionDate: "2026-09-21",
   })]));
+  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=email`);
+  await expect(page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: "Finish & send", exact: true })).toBeVisible();
 });

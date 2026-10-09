@@ -100,3 +100,44 @@ test("empty workspace navigation stays neutral without count badges", async ({ p
   await expect(navigation.getByRole("button", { name: "All files", exact: true })).not.toContainText(/\d/);
   await navigation.screenshot({ path: testInfo.outputPath("workspace-navigation-empty.png") });
 });
+
+for (const width of [1440, 390]) {
+  test(`admitted workspaces have their own folder at ${width}px`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 900 });
+    const admitted = { ...base, id: 910010, name: "Admitted Example", stage: "Accepted / Admitted", workflowStatus: "admitted", actualAdmissionDate: "2026-10-08" };
+    const pending = { ...base, id: 910011, name: "Pending Example" };
+    let requestedStage: string | null = null;
+    let requestedMonth: string | null = null;
+    await page.route(/\/api\/referrals(?:\/directory)?\?/, async (route) => {
+      const params = new URL(route.request().url()).searchParams;
+      requestedStage = params.get("stage");
+      requestedMonth = params.get("month");
+      const results = requestedStage === "Accepted / Admitted" ? [admitted] : [admitted, pending];
+      await route.fulfill({ json: { referrals: results, total: results.length, revision: 1, progress: {}, facets, file_total: 0 } });
+    });
+    await page.goto("/?view=referrals");
+    const navigation = page.getByRole("complementary", { name: "Workspace navigation" });
+    await navigation.getByRole("button", { name: "Admitted", exact: true }).click();
+    await expect.poll(() => requestedStage).toBe("Accepted / Admitted");
+    await expect(navigation.getByRole("button", { name: "Admitted", exact: true })).toHaveAttribute("aria-current", "page");
+    const worklist = page.getByRole("region", { name: "Referral worklist" });
+    await expect(worklist.getByRole("button", { name: "Open Admitted Example referral workspace", exact: true })).toBeVisible();
+    await expect(worklist.getByRole("button", { name: "Open Pending Example referral workspace", exact: true })).toHaveCount(0);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await navigation.screenshot({ path: testInfo.outputPath(`admitted-navigation-${width}.png`) });
+    await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
+    const violations = await page.evaluate(async () => {
+      const axe = (window as unknown as { axe: { run: (selector: string, options: object) => Promise<AxeResults> } }).axe;
+      return (await axe.run('nav[aria-label="Workspace views"]', { runOnly: ["color-contrast", "button-name"] })).violations;
+    });
+    expect(violations).toEqual([]);
+    if (width < 1280) await page.getByRole("button", { name: "Browse workspaces by month and community" }).click();
+    await page.getByRole("button", { name: /September 2026/ }).click();
+    await expect.poll(() => requestedMonth).toBe("2026-09");
+    expect(requestedStage).toBe("Accepted / Admitted");
+    if (width < 1280) await page.getByRole("button", { name: "Close referral browser" }).click();
+    await navigation.getByRole("button", { name: "All workspaces", exact: true }).click();
+    await expect(navigation.getByRole("button", { name: "All workspaces", exact: true })).toHaveAttribute("aria-current", "page");
+    await expect(worklist.getByRole("button", { name: "Open Pending Example referral workspace", exact: true })).toBeVisible();
+  });
+}

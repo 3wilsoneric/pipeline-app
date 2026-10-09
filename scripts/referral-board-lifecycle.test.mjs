@@ -66,11 +66,13 @@ test("acceptance needs signing and admission requirements, not later profile rec
   }
 });
 
-test("admission and confirmed email are both required to leave, in either order", () => {
+test("admission leaves Decision immediately while an unsent handoff remains available", () => {
   assert.equal(board(referral, { ...signed, decision: accepted, packetSentAt: sent }).detail, "Awaiting admit");
-  assert.equal(board(admitted, { ...signed, decision: accepted }).stage, "decision");
-  assert.equal(board(admitted, { ...signed, decision: accepted }).detail, "Email not sent");
+  assert.equal(board(admitted, { ...signed, decision: accepted }).stage, null);
+  assert.equal(board(admitted, { ...signed, decision: accepted }).detail, "Admitted");
+  assert.equal(board(admitted, { ...signed, decision: accepted }).location.view, "email");
   assert.equal(board(admitted, { ...signed, decision: accepted, packetSentAt: sent }).stage, null);
+  assert.equal(board(admitted, { ...signed, decision: accepted, packetSentAt: sent }).location.view, "chart");
   assert.equal(board({ ...referral, admissionDate: "2026-09-21" }, { ...signed, decision: accepted, packetSentAt: sent }).detail, "Awaiting admit", "a planned admission date is not admission");
 });
 
@@ -84,7 +86,7 @@ test("reassessment reopens current work; archives never return to the board", ()
   assert.equal(board({ ...referral, deletedAt: sent }).stage, null);
 });
 
-test("persisted sent admissions leave Home but remain in Workspaces after a fresh read", async () => {
+test("persisted admissions leave Decision but remain in Workspaces after a fresh read", async () => {
   const root = await mkdtemp(join(tmpdir(), "board-lifecycle-"));
   const user = { id: "synthetic", name: "Synthetic Assessor", roles: ["reviewer"] };
   const environment = { ...process.env, NODE_ENV: "test", PIPELINE_DATABASE_MODE: "disconnected", PIPELINE_DATABASE_URL: "",
@@ -104,8 +106,7 @@ test("persisted sent admissions leave Home but remain in Workspaces after a fres
     const globals = { globalThis: {}, process: Object.assign(Object.create(process), { env: environment }) };
     const operations = loadTypeScriptModule(process.cwd(), "lib/pipeline/operations-snapshot.ts", globals);
     const summary = await operations.getHomeWorkflowSummary(user);
-    assert.deepEqual(Array.from(summary.board_items, item => item.referral_id).sort(), [2, 3]);
-    assert.ok(summary.board_items.every(item => item.board.detail === "Email not sent"));
+    assert.deepEqual(Array.from(summary.board_items, item => item.referral_id), []);
     const store = loadTypeScriptModule(process.cwd(), "lib/pipeline/referral-store.ts", globals);
     const workspaces = await store.listReferrals({ workspaceStatus: "all" });
     assert.deepEqual(Array.from(workspaces.referrals, item => item.id).sort(), [1, 2, 3]);
@@ -133,6 +134,7 @@ test("PostgreSQL context projection selects persisted email evidence for each re
   assert.equal(contexts.get(1).packetSentAt, new Date(sent).toISOString());
   assert.equal(contexts.get(2).packetSentAt, null);
   assert.equal(board(admitted, contexts.get(1)).stage, null);
-  assert.equal(board({ ...admitted, id: 2 }, contexts.get(2)).stage, "decision");
+  assert.equal(board({ ...admitted, id: 2 }, contexts.get(2)).stage, null);
+  assert.equal(board({ ...admitted, id: 2 }, contexts.get(2)).location.view, "email");
   assert.ok(queries.every(query => /^\s*select\s/.test(query)), "the board is a read-only projection");
 });

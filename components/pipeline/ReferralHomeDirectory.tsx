@@ -10,6 +10,7 @@ import {
   Eye,
   FileText,
   Files,
+  FolderCheck,
   FolderOpen,
   Link2,
   RefreshCw,
@@ -254,8 +255,9 @@ function FileFilterSelects(props: ReferralHomeDirectoryProps) {
 function WorkspaceDirectoryNavigation(props: ReferralHomeDirectoryProps) {
   return (
     <aside aria-label="Workspace navigation" className="min-w-0 bg-white pt-0 xl:sticky xl:top-0 xl:self-start">
-      <nav aria-label="Workspace views" className="grid grid-cols-2 gap-2 pb-2 xl:block xl:space-y-1 xl:pb-0">
+      <nav aria-label="Workspace views" className="grid grid-cols-3 gap-2 pb-2 xl:block xl:space-y-1 xl:pb-0">
         <WorkspaceNavItem icon={FolderOpen} label="All workspaces" compactLabel="All" active={props.filter.kind === "all"} onClick={() => props.onFilterChange({ kind: "all" })} />
+        <WorkspaceNavItem icon={FolderCheck} label="Admitted" active={props.filter.kind === "admitted"} onClick={() => props.onFilterChange({ kind: "admitted" })} />
         <WorkspaceNavItem icon={Files} label="All files" compactLabel="Files" active={props.filter.kind === "files"} onClick={props.onShowFiles} />
       </nav>
       <button type="button" aria-label="Browse workspaces by month and community" onClick={() => props.onBrowseOpenChange(true)} className="mt-1 flex h-11 w-full items-center gap-3 border border-[#d9dfdc] bg-[#f8faf9] px-3 text-left text-[#303638] outline-none hover:border-[#9fcfc2] hover:bg-[#f2f8f6] focus-visible:ring-2 focus-visible:ring-[#0f8b73] xl:hidden">
@@ -392,12 +394,13 @@ function WorkspaceArchiveMonth({ month, communities, filter, selectedMonth, sele
   onFilterChange: (filter: ReferralFilter, dismiss?: boolean) => void;
 }) {
   const monthSelected = selectedMonth === month.value;
+  const nextKind = filter.kind === "admitted" ? "admitted" : "all";
   return (
     <div className="mb-1">
-      <button type="button" aria-expanded={expanded} aria-current={monthSelected ? "page" : undefined} data-earlier-workspace={isEarlierWorkspaceMonth(month.value)} onClick={() => { onExpandedMonthChange(expanded ? "" : month.value); onFilterChange({ ...filter, kind: "all", month: month.value }); }} className={`${styles.month} flex h-10 w-full items-center gap-2 border px-2.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73] ${monthSelected ? "border-[#9fcfc2] bg-[#effaf5] text-[#0c705f]" : "border-transparent text-[#444a47] hover:border-[#e0e5e2] hover:bg-[#f8faf9]"}`}>
+      <button type="button" aria-expanded={expanded} aria-current={monthSelected ? "page" : undefined} data-earlier-workspace={isEarlierWorkspaceMonth(month.value)} onClick={() => { onExpandedMonthChange(expanded ? "" : month.value); onFilterChange({ ...filter, kind: nextKind, month: month.value }); }} className={`${styles.month} flex h-10 w-full items-center gap-2 border px-2.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73] ${monthSelected ? "border-[#9fcfc2] bg-[#effaf5] text-[#0c705f]" : "border-transparent text-[#444a47] hover:border-[#e0e5e2] hover:bg-[#f8faf9]"}`}>
         {expanded ? <ChevronDown size={14} aria-hidden="true" /> : <ChevronRight size={14} aria-hidden="true" />}<span className="min-w-0 flex-1 truncate text-[11px] font-black">{formatMonthKey(month.value)}</span><span className="shrink-0 text-[9px] font-black tabular-nums text-[#595959]">{formatDirectoryCount(month.count)}</span>
       </button>
-      {expanded ? <div className="ml-4 border-l border-[#dce3e0] pl-2 pt-1"><button type="button" aria-current={monthSelected && !selectedCommunities.length ? "page" : undefined} onClick={() => onFilterChange({ ...filter, kind: "all", month: month.value, communities: [] }, true)} className={`flex min-h-9 w-full items-center gap-2 px-2 text-left text-[11px] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73] ${monthSelected && !selectedCommunities.length ? "bg-[#effaf5] text-[#0c705f]" : "text-[#646b67] hover:bg-[#f8faf9] hover:text-[#202320]"}`}><span className="min-w-0 flex-1 truncate">All communities</span><span className="shrink-0 text-[9px] font-black tabular-nums">{formatDirectoryCount(month.count)}</span></button>{communities.map(({ name }) => <WorkspaceArchiveCommunity key={`${month.value}-${name}`} name={name} count={month.communities.find((community) => community.value === name)?.count ?? 0} active={monthSelected && selectedCommunities.includes(name)} onSelect={() => onFilterChange({ ...filter, kind: "all", month: month.value, communities: selectedCommunities.includes(name) ? selectedCommunities.filter((community) => community !== name) : [...selectedCommunities, name] }, true)} />)}</div> : null}
+      {expanded ? <div className="ml-4 border-l border-[#dce3e0] pl-2 pt-1"><button type="button" aria-current={monthSelected && !selectedCommunities.length ? "page" : undefined} onClick={() => onFilterChange({ ...filter, kind: nextKind, month: month.value, communities: [] }, true)} className={`flex min-h-9 w-full items-center gap-2 px-2 text-left text-[11px] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73] ${monthSelected && !selectedCommunities.length ? "bg-[#effaf5] text-[#0c705f]" : "text-[#646b67] hover:bg-[#f8faf9] hover:text-[#202320]"}`}><span className="min-w-0 flex-1 truncate">All communities</span><span className="shrink-0 text-[9px] font-black tabular-nums">{formatDirectoryCount(month.count)}</span></button>{communities.map(({ name }) => <WorkspaceArchiveCommunity key={`${month.value}-${name}`} name={name} count={month.communities.find((community) => community.value === name)?.count ?? 0} active={monthSelected && selectedCommunities.includes(name)} onSelect={() => onFilterChange({ ...filter, kind: nextKind, month: month.value, communities: selectedCommunities.includes(name) ? selectedCommunities.filter((community) => community !== name) : [...selectedCommunities, name] }, true)} />)}</div> : null}
     </div>
   );
 }
