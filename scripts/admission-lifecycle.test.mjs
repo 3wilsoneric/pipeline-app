@@ -47,7 +47,8 @@ test("planned arrival and sending never prove actual admission", () => {
   assert.equal(dates.isAwaitingAdmission("Declined", "declined", "2026-01-01T10:00:00Z"), false);
   assert.equal(presentation.getWorkspaceAdmissionOutcome({ ...referral, actualAdmissionDate: "2026-01-02", stage: "Accepted / Admitted" }).status, "admitted");
   const admitted = { ...referral, stage: "Accepted / Admitted", workflowStatus: "admitted" };
-  assert.notEqual(flow.getReferralBoardState(admitted, { assessmentSigned: true }).stage, null, "admission without email stays on the board");
+  assert.equal(flow.getReferralBoardState(admitted, { assessmentSigned: true }).stage, null, "admission leaves Decision even before email");
+  assert.equal(flow.getReferralBoardState(admitted, { assessmentSigned: true }).location.view, "email");
   assert.equal(flow.getReferralBoardState(admitted, { assessmentSigned: true, packetSentAt: "2026-01-01T10:00:00Z" }).stage, null);
   assert.equal(flow.getReferralBoardState(admitted, { assessmentStarted: true, assessmentCreatedAt: "2026-01-02T10:00:00Z", decision: { outcome: "accepted", decidedAt: "2026-01-01T10:00:00Z" } }).stage, "in_progress");
 });
