@@ -2,6 +2,73 @@ import { expect, test } from "@playwright/test";
 import { createOperationalAssessment, createOperationalReferral } from "../support/operational-api";
 import { actorApiContext, operationalActorHeaders, requireOperationalBaseURL } from "../support/pipeline-actors";
 
+for (const mobile of [false, true]) for (const reload of [false, true]) {
+  test(`${mobile ? "phone" : "desktop"} note undo survives a committed save with a lost response and ${reload ? "reload" : "closing and reopening"}`, async ({ browser, baseURL }) => {
+    test.skip(process.env.PIPELINE_OPERATIONAL_E2E !== "true" || process.env.PIPELINE_DESIGN_V2 !== "true", "Redesign operational run.");
+    const url = requireOperationalBaseURL(baseURL);
+    const api = await actorApiContext("assessorA", url);
+    const context = await browser.newContext({ baseURL: url, viewport: mobile ? { width: 390, height: 844 } : { width: 1440, height: 900 }, isMobile: mobile, hasTouch: mobile,
+      serviceWorkers: "block", extraHTTPHeaders: operationalActorHeaders("assessorA", url) });
+    const page = await context.newPage();
+    let release!: () => void;
+    const delayedResponse = new Promise<void>((resolve) => { release = resolve; });
+    try {
+      const referral = await createOperationalReferral(api, "assessorA");
+      const path = `/api/referrals/${referral.id}/notes/notes`;
+      expect((await api.put(path, { data: { body: "Original note", if_match: 0 } })).status()).toBe(200);
+      let committed = false;
+      let available = false;
+      await page.route(`**${path}`, async (route) => {
+        if (!committed) {
+          const response = await route.fetch();
+          expect(response.status()).toBe(200);
+          committed = true;
+          await delayedResponse;
+          return route.abort("failed");
+        }
+        if (!available) return route.fulfill({ status: 503, json: { error: "Synthetic notes outage" } });
+        return route.continue();
+      });
+      await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=chart`);
+      const toggle = page.getByRole("button", { name: "Notes", exact: true });
+      const panel = page.getByRole("dialog", { name: "Notes", exact: true });
+      const text = panel.getByRole("textbox", { name: "Notes", exact: true });
+      await toggle.click();
+      await expect(text).toHaveValue("Original note");
+      await text.fill("Temporary edit");
+      await text.blur();
+      await expect.poll(() => committed).toBe(true);
+      await text.fill("Original note");
+      await text.blur();
+      release();
+      await expect(panel).toContainText("Waiting to sync");
+      await expect.poll(() => page.evaluate(async () => {
+        const database = await new Promise<IDBDatabase>((resolve, reject) => { const open = indexedDB.open("pipeline-offline-v1"); open.onsuccess = () => resolve(open.result); open.onerror = () => reject(open.error); });
+        try {
+          const records = await new Promise<Array<{ kind: string; ciphertext?: ArrayBuffer }>>((resolve, reject) => {
+            const read = database.transaction("records").objectStore("records").getAll(); read.onsuccess = () => resolve(read.result); read.onerror = () => reject(read.error);
+          });
+          return records.some((record) => record.kind === "client-notes-draft" && record.ciphertext instanceof ArrayBuffer);
+        } finally { database.close(); }
+      })).toBe(true);
+      await panel.getByRole("button", { name: "Close notes", exact: true }).click();
+      await expect(panel).toBeHidden();
+      if (reload) await page.reload();
+      await toggle.click();
+      await expect(text).toHaveValue("Original note");
+      available = true;
+      await page.evaluate(() => window.dispatchEvent(new Event("online")));
+      await expect(panel).toContainText("All notes saved");
+      const blocks = (await (await api.get(`/api/referrals/${referral.id}/notes`)).json()).blocks;
+      expect(blocks).toEqual([expect.objectContaining({ body: "Original note", version: 3 })]);
+      await page.reload();
+      await toggle.click();
+      await expect(text).toHaveValue("Original note");
+      await expect(panel).toContainText("All notes saved");
+    } finally { release(); await context.close(); await api.dispose(); }
+  });
+}
+
 test("phone notes survive closing, reload and failed saves, then sync once without blocking assessment", async ({ browser, baseURL }) => {
   test.skip(process.env.PIPELINE_OPERATIONAL_E2E !== "true" || process.env.PIPELINE_DESIGN_V2 !== "true", "Redesign operational run.");
   const url = requireOperationalBaseURL(baseURL);

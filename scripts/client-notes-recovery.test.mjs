@@ -52,6 +52,74 @@ test("notes accept a lost success reply while preserving newer typing, without a
   assert.deepEqual(f.writes.map(({ if_match }) => if_match), [0, 0, 1]);
 });
 
+for (const original of ["", "Original note"]) {
+  test(`undoing an in-flight note save to ${original ? "its original text" : "empty text"} survives a lost reply and retry`, async (t) => {
+    let loseReply;
+    let remote = { block_key: "notes", body: original, version: 1, updated_at: "2026-10-12" };
+    const f = fixture(t, { blocks: [remote], put: (value, call) => {
+      if (value.if_match !== remote.version) throw new ApiError(409, { block: remote });
+      remote = { ...remote, body: value.body, version: remote.version + 1 };
+      if (call === 1) return new Promise((_resolve, reject) => { loseReply = () => reject(new Error("response lost after commit")); });
+      return { block: remote };
+    } });
+    await f.controller.load();
+    f.controller.change("notes", "Temporary edit"); f.controller.flush("notes"); await settle();
+    f.controller.change("notes", original); await settle();
+    assert.equal(f.copies.at(-1).entries.notes?.body, original, "keep the undo until the earlier request is reconciled");
+    loseReply(); await settle();
+    assert.equal(f.controller.canRelease(), false, "leaving the client must not dispose an uncertain save");
+    f.controller.flushAll(); await settle();
+    assert.equal(remote.body, original);
+    assert.deepEqual(f.writes.map(({ if_match }) => if_match), [1, 1, 2]);
+    assert.equal(f.controller.state.entries.notes.saved, original);
+    assert.deepEqual(clean(f.controller.state.conflicts), {});
+    assert.deepEqual(f.copies.at(-1).entries, {});
+    assert.equal(f.controller.canRelease(), true);
+  });
+}
+
+test("reloading restores an undo whose earlier note save committed without a reply", async (t) => {
+  const remote = { block_key: "notes", body: "Temporary edit", version: 2, updated_at: "2026-10-12" };
+  const f = fixture(t, { blocks: [remote], recovered: { entries: {
+    notes: { body: "Original note", saved: "Original note", sent: "Temporary edit", version: 1 },
+  } } });
+  await f.controller.load(); await settle();
+  assert.equal(f.controller.state.entries.notes.body, "Original note");
+  assert.deepEqual(f.writes.map(({ body, if_match }) => ({ body, if_match })), [{ body: "Original note", if_match: 2 }]);
+  assert.deepEqual(clean(f.controller.state.conflicts), {});
+  assert.deepEqual(f.copies.at(-1).entries, {});
+});
+
+test("an unsent undo stays a no-op and a read-back matching the undo needs no duplicate write", async (t) => {
+  const block = { block_key: "notes", body: "Original note", version: 1, updated_at: "2026-10-12" };
+  const f = fixture(t, { blocks: [block] });
+  await f.controller.load();
+  f.controller.change("notes", "Temporary edit");
+  f.controller.change("notes", "Original note"); f.controller.flushAll(); await settle();
+  assert.equal(f.writes.length, 0);
+  assert.deepEqual(f.copies.at(-1).entries, {});
+  const restored = fixture(t, { blocks: [block], recovered: { entries: {
+    notes: { body: "Original note", saved: "Original note", sent: "Temporary edit", version: 1 },
+  } } });
+  await restored.controller.load(); await settle();
+  assert.equal(restored.writes.length, 0);
+  assert.deepEqual(restored.copies.at(-1).entries, {});
+  assert.equal(restored.controller.canRelease(), true);
+});
+
+test("recovering an undo preserves another assessor's conflicting note without overwriting it", async (t) => {
+  const theirs = { block_key: "notes", body: "Another assessor's note", version: 3, updated_at: "2026-10-12" };
+  const f = fixture(t, { blocks: [theirs], recovered: { entries: {
+    notes: { body: "Original note", saved: "Original note", sent: "Temporary edit", version: 1 },
+  } } });
+  await f.controller.load(); await settle();
+  assert.equal(f.writes.length, 0);
+  assert.equal(f.controller.state.entries.notes.body, "Original note");
+  assert.equal(f.controller.state.conflicts.notes.theirs.body, theirs.body);
+  assert.equal(f.copies.at(-1).entries.notes.body, "Original note");
+  assert.equal(f.controller.canRelease(), false);
+});
+
 test("a true conflict preserves both copies and never blocks another heading", async (t) => {
   const f = fixture(t, { put: (value) => {
     if (value.body.startsWith("Mine") && value.if_match === 0) throw new ApiError(409, { block: { body: "Other screen", version: 1, updated_at: "2026-09-27" } });

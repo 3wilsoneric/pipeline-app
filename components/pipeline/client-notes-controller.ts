@@ -13,6 +13,9 @@ type Snapshot = {
 };
 export const emptyNotes: Snapshot = { entries: {}, loaded: false, loadFailed: false, pending: {}, waiting: {}, failed: {}, conflicts: {} };
 const retryDelays = [2_000, 5_000, 10_000, 20_000, 30_000];
+// Undoing to the last acknowledged text is still pending if an earlier write
+// may have committed. Keep that intent until a server reply reconciles it.
+const needsSave = (entry: ClientNoteDraft) => entry.body !== entry.saved || entry.sent !== undefined;
 
 // One owner per account/referral in this document. Closing a panel doesn't discard a
 // save; multiple mounted views use the same text, version, and per-heading queue.
@@ -75,7 +78,7 @@ export class ClientNotesController {
     for (const block of payload.blocks) entries[block.block_key] = { body: block.body, saved: block.body, version: block.version, updated_at: block.updated_at };
     // An in-memory edit is newer than a recovery read, including when Retry is clicked.
     for (const [key, draft] of Object.entries({ ...recovered?.entries, ...this.state.entries })) {
-      if (draft.body === draft.saved) continue;
+      if (!needsSave(draft)) continue;
       const theirs = remote.get(key);
       const saved = theirs?.body ?? "";
       if (saved === draft.body) entries[key] = { body: saved, saved, version: theirs?.version ?? 0, updated_at: theirs?.updated_at };
@@ -90,7 +93,7 @@ export class ClientNotesController {
 
   private preserve() {
     if (!this.recoveryReadable) return;
-    const entries = Object.fromEntries(Object.entries(this.state.entries).filter(([, entry]) => entry.body !== entry.saved));
+    const entries = Object.fromEntries(Object.entries(this.state.entries).filter(([, entry]) => needsSave(entry)));
     // Serialize snapshots so a slow encrypt/write can never replace a newer draft.
     this.recovery = this.recovery.catch(() => undefined).then(async () => {
       if (this.disposed) return;
@@ -117,7 +120,7 @@ export class ClientNotesController {
   private async send(key: string) {
     if (this.disposed || this.inFlight.has(key) || this.state.conflicts[key]) return;
     const entry = this.state.entries[key];
-    if (!entry || entry.body === entry.saved) { this.clear("pending", key); return; }
+    if (!entry || !needsSave(entry)) { this.clear("pending", key); return; }
     this.inFlight.add(key);
     this.update({ pending: { ...this.state.pending, [key]: true } });
     const previousSent = entry.sent;
@@ -182,6 +185,6 @@ export class ClientNotesController {
   }
   canRelease() {
     return !this.listeners.size && !this.inFlight.size && !this.loading
-      && Object.values(this.state.entries).every((entry) => entry.body === entry.saved);
+      && Object.values(this.state.entries).every((entry) => !needsSave(entry));
   }
 }
