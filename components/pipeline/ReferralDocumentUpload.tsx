@@ -10,9 +10,9 @@ import UploadedDocumentList from "./UploadedDocumentList";
 import { useDesignV2 } from "@/components/design/DesignSwitch";
 import styles from "./ReferralDocumentUpload.module.css";
 
-type Selection = { file: File; category: DocumentCategory | "" | "workbook"; previousName?: string };
+type Selection = { file: File; category: DocumentCategory | ""; previousName?: string };
 
-export default function ReferralDocumentUpload({ readOnly = false, collapsible = false, queued, files, filesLoading, filesError, onRetryFiles, onAdd, onRemove, uploading, onWorkbook, children }: {
+export default function ReferralDocumentUpload({ readOnly = false, collapsible = false, queued, files, filesLoading, filesError, onRetryFiles, onAdd, onRemove, uploading, children }: {
   readOnly?: boolean;
   collapsible?: boolean;
   queued: LabeledReferralFile[];
@@ -23,7 +23,6 @@ export default function ReferralDocumentUpload({ readOnly = false, collapsible =
   onAdd: (files: LabeledReferralFile[]) => void;
   onRemove: (file: File) => void;
   uploading: boolean;
-  onWorkbook?: (file: File) => void;
   children?: ReactNode;
 }) {
   const designV2 = useDesignV2();
@@ -46,16 +45,14 @@ export default function ReferralDocumentUpload({ readOnly = false, collapsible =
     if (invalid) return;
     setSelection((current) => [...current, ...chosen.map((file): Selection => ({
       file,
-      category: previous ? suggestUpdatedReferralDocumentLabel(previous.category) : /\.xlsx$/i.test(file.name) && /assessment|pipeline/i.test(file.name) ? "workbook" : suggestReferralDocumentLabel(file.name),
+      category: previous ? suggestUpdatedReferralDocumentLabel(previous.category) : suggestReferralDocumentLabel(file.name),
       previousName: previous?.name,
     }))]);
   };
-  const canAdd = documentSelectionReady(selection, readOnly, Boolean(onWorkbook));
+  const canAdd = documentSelectionReady(selection, readOnly);
   const commit = () => {
     if (!canAdd) return;
-    const workbook = selection.find((item) => item.category === "workbook");
-    if (workbook) onWorkbook?.(workbook.file);
-    else onAdd(selection as LabeledReferralFile[]);
+    onAdd(selection as LabeledReferralFile[]);
     setSelection([]);
     trigger.current?.dispatchEvent(new CustomEvent("pipeline:guide-complete", { bubbles: true }));
   };
@@ -95,24 +92,22 @@ export default function ReferralDocumentUpload({ readOnly = false, collapsible =
       <summary data-testid="document-checklist-toggle"><strong>{designV2 ? <FileText size={20} aria-hidden="true" /> : null}Documents</strong><span>{documentCountLabel(dragging, queued.length, files.length)}<ChevronDown size={18} aria-hidden="true" /></span></summary>
       <div className={styles.contents}>{content}</div>
     </details> : content}
-    {open ? <FileLabelDialog selection={selection} setSelection={setSelection} onClose={() => setSelection([])} onCommit={commit} readOnly={readOnly} workbookAvailable={Boolean(onWorkbook)} /> : null}
+    {open ? <FileLabelDialog selection={selection} setSelection={setSelection} onClose={() => setSelection([])} onCommit={commit} readOnly={readOnly} /> : null}
   </section>;
 }
 
 
-function FileLabelDialog({ selection, setSelection, onClose, onCommit, readOnly, workbookAvailable }: {
+function FileLabelDialog({ selection, setSelection, onClose, onCommit, readOnly }: {
   selection: Selection[];
   setSelection: React.Dispatch<React.SetStateAction<Selection[]>>;
   onClose: () => void;
   onCommit: () => void;
   readOnly: boolean;
-  workbookAvailable: boolean;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   const descriptionId = useId();
-  const workbookCount = selection.filter((item) => item.category === "workbook").length;
-  const canAdd = documentSelectionReady(selection, readOnly, workbookAvailable);
+  const canAdd = documentSelectionReady(selection, readOnly);
   useEffect(() => {
     const current = dialog.current;
     const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -128,13 +123,12 @@ function FileLabelDialog({ selection, setSelection, onClose, onCommit, readOnly,
           <label><span>Document type</span><select autoFocus={index === 0} aria-label={`Document type for ${file.name}`} value={category} onChange={(event) => setSelection((current) => current.map((item, i) => i === index ? { ...item, category: event.target.value as Selection["category"] } : item))}>
             <option value="">Choose a type</option>
             {documentCategories.map((value) => <option key={value} value={value}>{referralDocumentLabels[value]}</option>)}
-            {/\.xlsx$/i.test(file.name) ? <option value="workbook">Pipeline assessment workbook</option> : null}
           </select></label>
           <button type="button" aria-label={`Remove ${file.name}`} onClick={() => setSelection((current) => current.filter((_, i) => i !== index))}><X size={18} /></button>
         </div>)}
       </div>
-      {workbookCount > 0 ? <p className={styles.notice} role="status">{!workbookAvailable ? "To restore workbook answers, first create the referral and open its assessment. Then use Assessment details > Backup & recovery." : selection.length !== 1 ? "Restore a workbook on its own. Add the other documents as a separate batch." : "This opens the assessment import preview. Answers only change after you review and commit them."}</p> : <p className={styles.notice}>Labels organize the chart. They do not verify signatures or approve a document. Original filenames are kept.</p>}
-      <footer><span>{selection.length} {selection.length === 1 ? "file" : "files"}</span><button type="button" onClick={() => onClose()}>Cancel</button><button type="button" className={styles.add} disabled={!canAdd} onClick={onCommit}>{workbookCount ? "Preview workbook" : "Add files"}</button></footer>
+      <p className={styles.notice}>Labels organize the chart. They do not verify signatures or approve a document. Original filenames are kept.</p>
+      <footer><span>{selection.length} {selection.length === 1 ? "file" : "files"}</span><button type="button" onClick={() => onClose()}>Cancel</button><button type="button" className={styles.add} disabled={!canAdd} onClick={onCommit}>Add files</button></footer>
     </dialog>, document.body);
 }
 
@@ -145,9 +139,8 @@ function QueuedDocuments({ files, onRemove, disabled }: { files: LabeledReferral
   </ul>;
 }
 
-function documentSelectionReady(selection: Selection[], readOnly: boolean, workbookAvailable: boolean) {
-  if (readOnly || !selection.length || selection.some((item) => !item.category)) return false;
-  return !selection.some((item) => item.category === "workbook") || (workbookAvailable && selection.length === 1);
+function documentSelectionReady(selection: Selection[], readOnly: boolean) {
+  return !readOnly && selection.length > 0 && selection.every((item) => Boolean(item.category));
 }
 
 function documentCountLabel(dragging: boolean, pending: number, uploaded: number) {

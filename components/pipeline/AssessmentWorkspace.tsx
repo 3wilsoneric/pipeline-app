@@ -12,10 +12,8 @@ import {
   AlertTriangle,
   CalendarClock,
   Check,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
-  FileSpreadsheet,
   LoaderCircle,
   Plus,
   RefreshCw,
@@ -120,8 +118,6 @@ import type { PipelineWorkspaceLocation } from "@/lib/pipeline/work-continuity";
 import { loadPipelineAssessmentResumeLocation } from "@/lib/pipeline/work-continuity-client";
 import { AssessmentFileSurface, AssessmentFileNavigation } from "@/components/pipeline/AssessmentPreparation";
 import AssessmentPhoneInterview from "@/components/pipeline/AssessmentPhoneInterview";
-import AssessmentExcelBackup from "@/components/pipeline/AssessmentExcelBackup";
-import { validateAssessmentPatchRequest } from "@/lib/assessment/assessment-validation";
 import { usePhoneAssessment, useWideRecordLayout } from "@/components/pipeline/use-phone-layout";
 import phoneStyles from "@/components/pipeline/AssessmentPhoneInterview.module.css";
 import { useDesignV2 } from "@/components/design/DesignSwitch";
@@ -135,8 +131,6 @@ import { assessmentPreparationGroups, preparationGroupForSection, preparationQue
 
 type AssessmentWorkspaceProps = {
   workspaceActive?: boolean;
-  workbookImport?: File | null;
-  onWorkbookImportRead?: () => void;
   readOnly?: boolean;
   referralId?: number;
   referral?: Referral;
@@ -338,8 +332,6 @@ const assessmentModeKey = "pipeline:assessment-mode:";
 
 export default function AssessmentWorkspace({
   workspaceActive = true,
-  workbookImport,
-  onWorkbookImportRead,
   readOnly = false,
   referralId,
   referral,
@@ -386,7 +378,6 @@ export default function AssessmentWorkspace({
   const phoneLayout = usePhoneAssessment();
   const { confirm, confirmationDialog } = useConfirmationDialog();
   const secondaryActionsRef = useRef<HTMLDetailsElement>(null);
-  const [recoveryToolsAssessment, setRecoveryToolsAssessment] = useState<string | null>(null);
   const [assessments, setAssessments] = useState<PipelineAssessmentRecord[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [draft, setDraft] = useState<AssessmentToolData>(createEmptyAssessmentToolData);
@@ -1667,31 +1658,6 @@ export default function AssessmentWorkspace({
     }).catch(() => undefined); // Canonical saving retains the draft and its error/conflict feedback.
   }, [flushDirtySections, offlineReturnToSync]);
 
-  const restoreWorkbook = async (patch: Partial<AssessmentToolData>, expected: AssessmentToolData, source: NonNullable<AssessmentPatchInput["workbook_restore"]>) => {
-    const current = selectedRef.current;
-    if (!current || workbookReadOnly(current, canEditClinical, isBusy, isClosing)) throw new Error("This assessment cannot accept Excel changes right now.");
-    if (JSON.stringify(draftRef.current) !== JSON.stringify(expected) || remoteChangeRef.current?.conflicts.length) throw new Error("The assessment changed while reviewing Excel. Review the current answers before applying.");
-    const validation = validateAssessmentPatchRequest({ if_match: current.version, patch: { data: patch, workbook_restore: source } });
-    if (!validation.ok) throw new Error(validation.message);
-    for (const key of Object.keys(patch)) {
-      const field = key as AssessmentToolFieldKey;
-      touchedFieldsRef.current.add(field);
-      workbookSourcesRef.current[field] = { ...source };
-    }
-    const next = pickAssessmentToolData({ ...draftRef.current, ...patch });
-    draftRef.current = next;
-    dirtySectionsRef.current = dirtyAssessmentSections(next, baseDataRef.current);
-    setDraft(next); setDirtySections(new Set(dirtySectionsRef.current));
-    setMessage("Restored answers; saving changes...");
-    // Preserve the full restored working copy before starting per-section saves.
-    // The existing queue owns retries, authorization, optimistic versions and sync.
-    if (!trainingAssessmentMode) await persistRecoveryDraft(current);
-    for (const section of new Set(Object.keys(patch).map((key) => assessmentToolFieldDefinitions.find((field) => field.key === key)!.section))) {
-      if (selectedRef.current?.assessment_id !== current.assessment_id) throw new Error("The open assessment changed. Return to the original assessment to finish restoring its saved draft.");
-      await queueSectionSave(section, undefined, current.assessment_id);
-    }
-  };
-
   const saveBeforeExit = async () => {
     const current = selectedRef.current;
     if (trainingAssessmentMode) {
@@ -2365,19 +2331,12 @@ export default function AssessmentWorkspace({
   // Redesign: Schedule interview and the appointment line show only while the interview has not begun.
   const renderWorkMode = () => (!reviewingChart && !selected.signed_at ? <AssessmentWorkMode preparing={preparing} compactPreparation={simplifiedPreparation} disabled={isBusy || isClosing} canBegin={!simplifiedPreparation && assessmentReadyToBegin(selected) && canEditClinical} startAttemptFailed={unrecordedStartId === selectedId} onChange={changeWorkingMode} onBegin={requestInterviewStart} scheduleAction={(designV2 ? canScheduleUnstartedAssessment(selected, canEditClinical) : canEditClinical) && !interviewFocus ? renderScheduleAction() : null} chartAction={designV2 && referral && !trainingAssessmentMode && !splitInterview ? <ChartPeek referral={referral} assessment={{ ...selected, ...draft }} /> : null} appointment={hasActiveAssessmentSchedule(selected) && !(designV2 && selected.started_at) ? new Date(selected.scheduled_start_at!).toLocaleString("en-US", { timeZone: "America/Los_Angeles", weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" }) : undefined} /> : null);
   // In full screen the rail is hidden, so the bottom bar shows the save status again.
-  const railSaveStatus = designV2 && embeddedFolder && !phoneLayout && !trainingAssessmentMode && !interviewFocus;
   const renderSaveStatus = () => (
     <div className={workingStyles.footerUtilities}>
-          <button type="button" className={workingStyles.saveRecovery} title="Excel workbook, backup & recovery" aria-haspopup="dialog" onClick={() => setRecoveryToolsAssessment(selected.assessment_id)}>
-          {/* Redesign record page: the rail's save panel is the one save status; this stays the way into Excel and recovery. */}
-          {railSaveStatus ? <FileSpreadsheet size={16} aria-hidden="true" /> : null}
-          <span data-guide-target="assessment-save-status" aria-live="polite" className={railSaveStatus ? "sr-only" : `flex min-w-0 items-center gap-1.5 ${saveIndicatorColor()}`}>
+          <span data-guide-target="assessment-save-status" role="status" aria-live="polite" className={`flex min-w-0 items-center gap-1.5 ${saveIndicatorColor()}`}>
             {!error && networkOnline && pendingOfflineSaves === 0 && !dirty && !isBusy ? <Check size={14} className="shrink-0" aria-hidden="true" /> : null}
             <span>{assessmentSaveStatus({ error, trainingAssessmentMode, dirty, message, networkOnline, pendingOfflineSaves })}</span>
           </span>
-          <ChevronDown size={13} aria-hidden="true" />
-          <span className="sr-only">Open Excel and recovery</span>
-          </button>
           {renderReturnToInterview()}
           {/* Redesign: while answering, Details would hold only the interview date, so the date sits in the bar itself. */}
           {embeddedFolder && designV2 && !reviewingChart && !(selected.signed_at && canAddAddendum)
@@ -2612,14 +2571,6 @@ export default function AssessmentWorkspace({
       <div className="flex min-h-0 flex-1">
         <main ref={chartScrollRef} className={`min-w-0 flex-1 ${reviewingChart ? "overflow-y-auto" : phoneInterview ? phoneStyles.mobileMain : `${workingStyles.readingMain} ${preparing ? workingStyles.preparationMain : ""}`}`}>
           {workModeInNavigation ? null : renderWorkMode()}
-          <AssessmentExcelBackup key={selected.assessment_id} assessment={selected} data={draft} readOnly={workbookReadOnly(selected, canEditClinical, isBusy, isClosing)} onApply={restoreWorkbook}
-            importFile={workbookImport} onImportFileRead={onWorkbookImportRead}
-            toolsOpen={recoveryToolsAssessment === selected.assessment_id} onCloseTools={() => setRecoveryToolsAssessment(null)}
-            saveStatus={<>
-              <p role="status">{assessmentSaveStatus({ error, trainingAssessmentMode, dirty, message, networkOnline, pendingOfflineSaves })}</p>
-              <p>{trainingAssessmentMode ? "Practice answers stay local; they are not a live client record." : "Changes sync automatically when connected. If you lose connection, keep this assessment open and check its save status before switching devices."}</p>
-            </>} />
-
           {error && !reviewingChart ? <div role="alert" className="border-b border-[#dce3e0] bg-[#f7faf9] px-5 py-3 text-[14px] font-semibold leading-6 text-[#59645e]">{error}</div> : null}
           {presence.some((item) => item.section === `assessment:${activeSection}`) ? (
             <div className="flex items-center gap-2 border-b border-[#c9d9d3] bg-[#f7fbf9] px-5 py-2 text-[11px] font-semibold text-[#315e50]" aria-live="polite">
@@ -2718,10 +2669,6 @@ export default function AssessmentWorkspace({
 
     </AssessmentFileSurface>
   </>);
-}
-
-function workbookReadOnly(assessment: PipelineAssessmentRecord, canEdit: boolean, busy: boolean, closing: boolean) {
-  return Boolean(assessment.signed_at) || isAssessmentFinalized(assessment) || !canEdit || busy || closing;
 }
 
 function newestRecoveryDraft(current: PipelineAssessmentDraft | null, candidate: PipelineAssessmentDraft | null | undefined) {

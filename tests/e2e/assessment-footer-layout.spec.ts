@@ -22,8 +22,9 @@ for (const width of [1440, 1024, 834, 640, 390, 320]) {
     await expect(header.getByRole("combobox", { name: "Working decision", exact: true })).toHaveCount(0);
     await expect(header.getByRole("button", { name: /Excel|recovery|Workspaces|More workspace actions/ })).toHaveCount(0);
     await expect(header.getByRole("button", { name: "Move workspace to trash" })).toBeVisible();
-    const recovery = footer.getByRole("button", { name: /Open Excel and recovery/ });
-    await expect(recovery).toBeVisible();
+    const saveStatus = footer.locator('[data-guide-target="assessment-save-status"]');
+    await expect(saveStatus).toBeVisible();
+    await expect(footer.getByRole("button", { name: /Excel|backup|recovery/i })).toHaveCount(0);
     const identity = header.getByTestId("workspace-identity-title");
     await expect(identity.locator("+ nav")).toHaveAttribute("aria-label", "Workspace stages");
     if (width === 1440) {
@@ -33,13 +34,9 @@ for (const width of [1440, 1024, 834, 640, 390, 320]) {
       expect(stagesBounds.x + stagesBounds.width).toBeLessThanOrEqual(width);
       expect(Math.abs(identityBounds.y + identityBounds.height - stagesBounds.y - stagesBounds.height)).toBeLessThan(10);
     }
-    for (const control of [recovery]) {
-      const controlBounds = (await control.boundingBox())!;
-      expect(controlBounds.height).toBeGreaterThanOrEqual(44);
-      expect(controlBounds.x).toBeGreaterThanOrEqual(0);
-      expect(controlBounds.x + controlBounds.width).toBeLessThanOrEqual(width);
-      await control.click({ trial: true });
-    }
+    const statusBounds = (await saveStatus.boundingBox())!;
+    expect(statusBounds.x).toBeGreaterThanOrEqual(0);
+    expect(statusBounds.x + statusBounds.width).toBeLessThanOrEqual(width);
     for (const button of await header.getByRole("button").all()) {
       if (!await button.isVisible()) continue;
       const buttonBounds = (await button.boundingBox())!;
@@ -92,13 +89,6 @@ for (const width of [1440, 1024, 834, 640, 390, 320]) {
     await page.keyboard.press("Escape");
     await expect(menu).toBeHidden();
     await expect(details).toBeFocused();
-    await recovery.click();
-    const backup = page.getByRole("dialog", { name: "Backup & recovery", exact: true });
-    await expect(backup).toBeVisible();
-    await expect(backup.getByRole("button", { name: "Download current assessment", exact: true })).toBeVisible();
-    await backup.getByRole("button", { name: "Return to assessment", exact: true }).click();
-    await expect(backup).toHaveCount(0);
-    await expect(recovery).toBeFocused();
   });
 }
 
