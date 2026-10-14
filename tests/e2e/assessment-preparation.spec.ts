@@ -4,7 +4,7 @@ import { assessmentPreparationGroups, preparationGroupForSection, preparationQue
 import { assessmentInterviewQuestions, assessmentInterviewSections, getRequiredAssessmentInterviewQuestions } from "../../lib/assessment/assessment-interview-schema";
 import { createEmptyAssessmentToolData, type AssessmentToolSection } from "../../lib/assessment/assessment-tool-schema";
 import { assessmentWorkingCounts } from "../../components/pipeline/assessment-working-view";
-import { createOperationalReferral } from "./support/operational-api";
+import { createOperationalAssessment, createOperationalReferral, startOperationalAssessment } from "./support/operational-api";
 import { editPreparedAnswer, openAssessmentChart, returnToAssessmentQuestions } from "./support/assessment-navigation";
 import type { AxeResults } from "axe-core";
 
@@ -35,6 +35,15 @@ async function section(page: Page, key: string) {
   const picker = page.getByRole("combobox", { name: "Assessment section", exact: true });
   await picker.selectOption(await picker.locator(`option[value="${key}"]`).count() ? key : preparationGroupForSection(key as AssessmentToolSection).key);
 }
+
+test("safety questions distinguish care-setting altercations from assaults", async ({ page }) => {
+  const referral = await createReferral(page);
+  const assessment = await createOperationalAssessment(page.request, referral.id);
+  await startOperationalAssessment(page.request, assessment);
+  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=behavioral_risk&assessmentMode=interview`);
+  await expect(page.getByText("With staff, other clients, or family members in a care setting.")).toBeVisible();
+  await expect(page.getByText("Outside care settings or involving criminal charges.")).toBeVisible();
+});
 
 for (const width of [1440, 768]) {
   test(`preparation, interview and chart share one folder and saved record at ${width}px`, async ({ page }, info) => {

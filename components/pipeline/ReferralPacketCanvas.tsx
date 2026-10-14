@@ -420,7 +420,6 @@ export default function ReferralPacketCanvas({
   const [documents, setDocuments] = useState<Record<string, string>>({});
   const [pendingDocuments, setPendingDocuments] = useState<Record<string, File>>({});
   const [additionalFiles, setAdditionalFiles] = useState<LabeledReferralFile[]>([]);
-  const [workbookImport, setWorkbookImport] = useState<File | null>(null);
   const [workspaceFiles, setWorkspaceFiles] = useState<ReferralFile[]>([]);
   const [workspaceFilesLoading, setWorkspaceFilesLoading] = useState(Boolean(referral?.id));
   const [workspaceFilesError, setWorkspaceFilesError] = useState("");
@@ -2822,7 +2821,6 @@ export default function ReferralPacketCanvas({
       onAdd={addLabeledFiles}
       onRemove={removeQueuedFile}
       uploading={isSaving || uploadingDocumentIds.size > 0}
-      onWorkbook={loadedReferral && assessmentSummary.assessmentId && !readOnly ? (file) => { setWorkbookImport(file); void navigatePage(2); } : undefined}
     >
       {historicalReadOnly ? <p className="text-sm text-[#52655d]">Files in this imported chart can be opened and downloaded. Add new files to the current referral.</p> : null}
       {renderPacketReview()}
@@ -2900,8 +2898,6 @@ export default function ReferralPacketCanvas({
                 <AssessmentWorkspace
                   workspaceActive={active}
                   readOnly={permissionReadOnly}
-                  workbookImport={workbookImport}
-                  onWorkbookImportRead={() => setWorkbookImport(null)}
                   referralId={referralWorkspaceId}
                   referral={loadedReferral ?? undefined}
                   recommendationControl={loadedReferral && !permissionReadOnly && !trainingAssessmentMode ? (assessmentId, onSavingChange) => <ReferralWorkflowPanel key={assessmentId} compactRecommendation recommendationAssessmentId={assessmentId} onSavingChange={onSavingChange} referral={loadedReferral} onReferralChange={applyConfirmedWorkflowReferral} onOpenIntake={() => openPage(1)} onOpenAssessment={() => openPage(2)} onOpenFiles={() => openPage("files")} onOpenEmail={() => openPage("email")} onOpenProfile={openClientProfile} /> : undefined}

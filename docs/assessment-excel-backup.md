@@ -1,6 +1,8 @@
-# Assessment Excel Backup
+# Historical Assessment Excel Backup
 
-## Using It
+The Excel download/import interface was retired on 2026-10-14. The instructions below describe its former behavior for interpreting older workbook provenance and recovery records. Assessments now use the on-screen questionnaire and automatic draft recovery; this document is not a current user workflow.
+
+## Former Workflow
 
 Use the **Excel workbook strip** above the assessment questions. **Download copy** includes the answers currently on screen, including changes waiting to sync. It is a snapshot; download again to refresh it.
 
@@ -27,7 +29,7 @@ The generator uses the installed Codex artifact authoring runtime. Set `PIPELINE
 
 `npm run build` checks the generated workbook's fingerprint, complete field coverage, choices, and required workbook controls. A stale workbook blocks the build. A changed question, choice, validation rule, or mapping changes the fingerprint.
 
-This workbook is still unreleased. There is one current layout and mapping, with no legacy workbook aliases or migration path. Fingerprint validation rejects a mismatched questionnaire rather than guessing how to map clinical answers. A future production schema change with outstanding working copies will require an explicit reconciliation policy before release; changing labels alone also invalidates the current fingerprint.
+The workbook format is retained for existing files and provenance. There is one layout and mapping, with no legacy workbook aliases or migration path. Fingerprint validation rejects a mismatched questionnaire rather than guessing how to map clinical answers. New workbook download and import controls are no longer available in the assessment.
 
 ## Recovery And Privacy
 
