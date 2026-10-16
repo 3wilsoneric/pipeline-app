@@ -28,6 +28,7 @@ export type WorkflowResponse = {
   }>;
   capabilities: {
     can_update: boolean;
+    can_cancel_placement: boolean;
     can_recommend: boolean;
     can_decide: boolean;
     can_email: boolean;

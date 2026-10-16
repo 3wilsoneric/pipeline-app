@@ -54,6 +54,10 @@ const results = [
     const coOwned = { ownerId: "assigned-assessor", owners: [{ id: user.id, name: user.name, responsibilities: ["creator", "assigning_supervisor"] }] };
     assert(referralOwnership.isReferralOwner(coOwned, user), "Creator and assigning-supervisor co-ownership remains part of Mine");
     assert(!referralOwnership.isReferralOwner({ ownerId: "different-id", owner: user.name }, user), "An explicit different owner id must not match a shared name");
+    assert(referralOwnership.canCancelPlacement(coOwned, user), "An accountable workspace owner can cancel placement");
+    assert(!referralOwnership.canCancelPlacement({ ownerId: "different-id", owner: "Another assessor" }, user), "An unrelated administrator cannot cancel placement");
+    assert(referralOwnership.canCancelPlacement({ ownerId: "different-id" }, { ...user, id: "b72c34f0-0ee8-4ab4-8359-81c8f7b0d3b2", email: "sandeep@aaahealthservices.com" }), "Sandeep can cancel any placement");
+    assert(!referralOwnership.canCancelPlacement(coOwned, { ...user, accessScope: "note_lab" }), "Note Lab access cannot cancel placement");
   }),
   run("workspace scope survives query parsing, filters and pagination", () => {
     for (const scope of ["mine", "team"]) {

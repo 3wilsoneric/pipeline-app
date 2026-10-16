@@ -174,7 +174,7 @@ export function tutorialWorkflow(state: TutorialReferral): WorkflowResponse {
       assessmentSigned: Boolean(state.assessment.signed_at), assessmentComplete: Boolean(state.assessment.signed_at),
       assessmentStarted: Boolean(state.assessment.started_at), assessmentData: state.assessment,
       assessmentScheduleStatus: state.assessment.schedule_status, packetSentAt: state.sentAt },
-    capabilities: { can_update: true, can_recommend: true, can_decide: true, can_email: false,
+    capabilities: { can_update: true, can_cancel_placement: false, can_recommend: true, can_decide: true, can_email: false,
       can_request_changes: false, can_authorize_manual_intake: false, can_reconcile_identity: false, can_review_identity: false } };
 }
 

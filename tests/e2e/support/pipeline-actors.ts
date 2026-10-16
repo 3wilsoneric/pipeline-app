@@ -6,6 +6,7 @@ export type PipelineActorKey =
   | "assessmentCoordinator"
   | "assessorA"
   | "assessorB"
+  | "sandeep"
   | "viewer"
   | "outsider";
 
@@ -67,6 +68,13 @@ export const pipelineActors: Record<PipelineActorKey, PipelineActor> = {
     name: "Assessor B",
     roleClaim: "Pipeline.Reviewer",
     expectedRoles: ["reviewer", "viewer"],
+  },
+  sandeep: {
+    id: "b72c34f0-0ee8-4ab4-8359-81c8f7b0d3b2",
+    email: "sandeep@aaahealthservices.com",
+    name: "Sandeep Singh",
+    roleClaim: "Pipeline.AssessmentCoordinator",
+    expectedRoles: ["assessment_coordinator", "reviewer", "viewer"],
   },
   viewer: {
     id: "viewer",
