@@ -692,7 +692,7 @@ function decisionRows(referrals: Referral[], month: string) {
 
 function ehrHandoffRows(referrals: Referral[]) {
   return referrals
-    .filter((referral) => referral.stage === "Accepted / Admitted" || referral.admissionDecision?.outcome === "accepted")
+    .filter((referral) => !referral.placementCancellation && (referral.stage === "Accepted / Admitted" || referral.admissionDecision?.outcome === "accepted"))
     .map((referral) => referralRow(referral, {
       client: referral.name,
       community: referral.community,

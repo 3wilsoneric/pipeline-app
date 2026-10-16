@@ -14,7 +14,7 @@ type ReferralActivityPanelProps = { referralId?: number; version?: number };
 
 // Routine saves stay in detailed history; unfamiliar events remain visible.
 const routineActions = new Set(["referral_updated", "assessment_updated", "work_item_updated", "extraction_confirmed"]);
-const importantFields = new Set(["owner", "ownerId", "owners", "stage", "workflowStatus", "admissionDate", "admissionDecision", "priority", "assessmentRecommendation", "ehrHandoff", "workspaceStatus", "documentName", "outcome"]);
+const importantFields = new Set(["owner", "ownerId", "owners", "stage", "workflowStatus", "admissionDate", "admissionDecision", "placementCancellation", "priority", "assessmentRecommendation", "ehrHandoff", "workspaceStatus", "documentName", "outcome"]);
 const summaryFields = new Set(["owner", "stage", "workflowStatus", "admissionDate", "outcome", "priority"]);
 
 export default function ReferralActivityPanel({ referralId, version }: ReferralActivityPanelProps) {

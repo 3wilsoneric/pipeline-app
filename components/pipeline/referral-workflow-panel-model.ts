@@ -87,7 +87,7 @@ export function deriveWorkflowPanelView(workflow: WorkflowResponse) {
     incompleteDecision,
     incompleteMoveIn,
     incompleteEhr,
-    ehrIsBlocked: workflow.decision?.outcome !== "accepted",
+    ehrIsBlocked: workflow.decision?.outcome !== "accepted" || Boolean(workflow.referral.placementCancellation),
     handoffStatus,
     decisionDisclosureIsOpen,
     decisionDisclosureKey: disclosureState(decisionDisclosureIsOpen),
@@ -376,6 +376,7 @@ function recordedDecisionStep(workflow: WorkflowResponse): DecisionProgressStep 
 function packetProgressStep(workflow: WorkflowResponse): DecisionProgressStep {
   const { context, decision } = workflow;
   if (context.packetSentAt) return { key: "packet", label: "Meet the Client packet sent", state: "done", detail: `Sent ${formatRecordedAt(context.packetSentAt)}` };
+  if (workflow.referral.placementCancellation) return { key: "packet", label: "Meet the Client packet not sent", state: "not_needed", detail: "Placement was cancelled before a packet was sent." };
   if (decision?.outcome === "declined") return { key: "packet", label: "Meet the Client packet not needed", state: "not_needed", detail: "The referral was denied." };
   if (decision?.outcome !== "accepted") return { key: "packet", label: "Meet the Client packet not sent", state: "open", detail: "Available after acceptance." };
   return {

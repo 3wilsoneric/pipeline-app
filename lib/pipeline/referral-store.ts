@@ -1435,6 +1435,7 @@ async function listPostgresReferrals(options: ReferralListOptions = {}): Promise
             and r.workspace_month < to_date(${month}, 'YYYY-MM')
             and to_date(${month}, 'YYYY-MM') <= to_date(${throughMonth}, 'YYYY-MM')
             and r.stage not in ('Declined', 'Accepted / Admitted')
+            and r.workflow_status <> 'closed'
             and coalesce(r.data->'admissionDecision'->>'outcome', '') <> 'declined'
             and not (
               coalesce(r.data->'admissionDecision'->>'outcome', '') = 'accepted'
@@ -1597,6 +1598,7 @@ async function listPostgresReferralFacets(
           where ${access.includeCarryover === true}
             and r.workspace_status = 'active' and r.workspace_origin = 'pipeline'
             and r.stage not in ('Declined', 'Accepted / Admitted')
+            and r.workflow_status <> 'closed'
             and coalesce(r.data->'admissionDecision'->>'outcome', '') <> 'declined'
             and not (
               coalesce(r.data->'admissionDecision'->>'outcome', '') = 'accepted'
@@ -2153,7 +2155,7 @@ async function patchPostgresReferral(
             search_text = ${referralSearchText(next)},
             data = ${tx.json(referralDataPayload(next))},
             section_versions = ${tx.json(nextSectionVersions)},
-            closed_at = ${isClosedStage(next.stage) ? new Date() : null},
+            closed_at = case when ${isClosedStage(next.stage) || next.workflowStatus === "closed"} then coalesce(r.closed_at, now()) else null end,
             version = r.version + 1,
             updated_by = ${actor.id},
             updated_by_name = ${actor.name},
@@ -2937,6 +2939,7 @@ function sanitizePatch(patch: ReferralPatch): ReferralPatch {
     "assessmentReview",
     "assessmentReviewHistory",
     "admissionDecision",
+    "placementCancellation",
     "ehrHandoff",
   ];
 
@@ -3207,7 +3210,7 @@ function matchesReferralLabels(referral: Referral, options: ReferralListOptions)
 
 function matchesReferralWork(referral: Referral, options: ReferralListOptions) {
   if (options.workflowStatus && referral.workflowStatus !== options.workflowStatus) return false;
-  if (options.activeOnly && isClosedStage(referral.stage)) return false;
+  if (options.activeOnly && (isClosedStage(referral.stage) || referral.workflowStatus === "closed")) return false;
   if (options.postOutcomeAssessment && !hasPostOutcomeAssessment(referral)) return false;
   if (options.queue && !matchesReferralQueue(referral, options.queue)) return false;
   if (!matchesAssignmentScope(referral, options)) return false;

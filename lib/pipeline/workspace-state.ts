@@ -104,7 +104,7 @@ export function getWorkspaceState(
     profile,
     lifecycle,
     assessment_is_reassessment: assessmentIsReassessment,
-    focus: resolveFocus({
+    focus: referral.placementCancellation ? "complete" : resolveFocus({
       assessment,
       assessmentIsReassessment,
       documents,

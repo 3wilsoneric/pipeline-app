@@ -437,7 +437,29 @@ export default function ReferralWorkflowPanel({
     );
   };
 
+  const savePlacementCancellation = async (reason: string) => {
+    if (!currentReferral.placementCancellation && !await confirm({
+      title: "Cancel this placement?",
+      message: "The acceptance and any sent Meet the Client handoff will stay in the record. Pipeline will not email the community about this change.",
+      confirmLabel: "Record cancellation",
+      destructive: true,
+    })) return false;
+    const saved = await runMutation(
+      `placement-cancellation:${currentReferral.version}:${sections.workflow}:${reason}`,
+      `/api/referrals/${currentReferral.id}/placement-cancellation`,
+      "PUT",
+      { if_match: currentReferral.version, if_match_section: sections.workflow, reason },
+      currentReferral.placementCancellation ? "Cancellation explanation updated" : "Placement cancelled",
+    );
+    if (saved) admissionDateDirty.current = false;
+    return Boolean(saved);
+  };
+
   const saveAdmissionDate = async (openPreview = true) => {
+    if (currentReferral.placementCancellation) {
+      if (openPreview) onOpenEmail();
+      return true;
+    }
     if (workflow.decision?.outcome !== "accepted") {
       setError("Record an accepted decision before preparing Meet the Client.");
       return false;
@@ -540,6 +562,7 @@ export default function ReferralWorkflowPanel({
       onSubmitDecision={submitDecision}
       onOpenUnderReviewEmail={() => { if (workflow.recommendation?.outcome === "needs_more_information") { setEmailError(""); setEmailRecommendation(workflow.recommendation); } }}
       onSubmitTransition={submitTransition}
+      onSavePlacementCancellation={savePlacementCancellation}
       onAuthorizeManualIntake={authorizeManualIntake}
       onUpdateHandoff={updateHandoff}
       onRecordHandoffSent={recordHandoffSent}

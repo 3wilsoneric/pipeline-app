@@ -5,8 +5,8 @@ import { normalizeWorkspaceMonth } from "./workspace-month.mjs";
 import { historicalAdmissionSource } from "./historical-admission";
 
 export type WorkspaceAdmissionOutcome = {
-  status: "admitted" | "accepted" | "denied" | "pending" | "unknown";
-  label: "Admitted" | "Accepted" | "Denied" | "In progress" | "Outcome not recorded";
+  status: "admitted" | "accepted" | "denied" | "cancelled" | "pending" | "unknown";
+  label: "Admitted" | "Accepted" | "Denied" | "Placement cancelled" | "In progress" | "Outcome not recorded";
   evidence: "recorded" | "census_match" | "open" | "historical";
   explanation: string;
 };
@@ -107,6 +107,7 @@ const countyAliases = [
 ] as const;
 
 export function getWorkspaceAdmissionOutcome(referral: Referral): WorkspaceAdmissionOutcome {
+  if (referral.placementCancellation) return { status: "cancelled", label: "Placement cancelled", evidence: "recorded", explanation: referral.placementCancellation.reason };
   const admission = recordedAdmissionOutcome(referral);
   if (admission) return admission;
 
@@ -183,6 +184,7 @@ export function getWorkspaceWorkflowLabel(referral: Referral) {
   if (referral.workspaceStatus === "historical") {
     return `Historical · ${getWorkspaceAdmissionOutcome(referral).label}`;
   }
+  if (referral.placementCancellation) return "Placement cancelled";
   const workflowStatus = referral.workflowStatus ?? resolveReferralWorkflowStatus(referral);
   if (isImportedWorkspace(referral)) {
     const outcome = getWorkspaceAdmissionOutcome(referral);
