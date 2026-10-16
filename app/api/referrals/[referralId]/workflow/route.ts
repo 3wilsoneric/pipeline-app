@@ -4,7 +4,7 @@ import { getAssessment } from "@/lib/assessment/assessment-store";
 import { jsonError } from "@/lib/extraction/contracts";
 import { withApiLogging } from "@/lib/observability/api-logging";
 import { canRecordAdmissionDecision, requireReferralAccess } from "@/lib/pipeline/referral-access";
-import { canModifyReferral } from "@/lib/pipeline/referral-ownership";
+import { canCancelPlacement, canModifyReferral } from "@/lib/pipeline/referral-ownership";
 import { getAllowedReferralTargets, getReferralTransitionAlerts, getReferralTransitionBlockers } from "@/lib/pipeline/referral-workflow";
 import { requireReferralStore } from "@/lib/pipeline/referral-store";
 import { getReferralWorkflowSnapshot } from "@/lib/pipeline/workflow-store";
@@ -39,7 +39,8 @@ export async function GET(
         alerts: getReferralTransitionAlerts(snapshot.referral, target, snapshot.context),
       })),
       capabilities: workflowCapabilities(auth.user, assessment,
-        access.referral.workspaceStatus !== "historical" && canModifyReferral(access.referral, auth.user)),
+        access.referral.workspaceStatus !== "historical" && canModifyReferral(access.referral, auth.user),
+        access.referral.workspaceStatus !== "historical" && canCancelPlacement(access.referral, auth.user)),
     }, { headers: { "Cache-Control": "private, no-store, max-age=0" } });
   });
 }
@@ -48,10 +49,12 @@ function workflowCapabilities(
   user: PipelineUser,
   assessment: { signed_at?: string | null; assessor_id?: string | null } | null,
   mutable: boolean,
+  canCancel: boolean,
 ) {
   const canUpdate = mutable;
   return {
     can_update: canUpdate,
+    can_cancel_placement: canCancel,
     can_recommend: canUpdate && Boolean(assessment) && canWorkAssessment(user, assessment?.assessor_id ?? null),
     can_decide: mutable && canRecordAdmissionDecision(user),
     can_email: canUpdate,

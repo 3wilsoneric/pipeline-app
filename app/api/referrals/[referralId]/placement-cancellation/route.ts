@@ -4,6 +4,7 @@ import { requireSameOriginMutation } from "@/lib/auth/request-security";
 import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
 import { withApiLogging } from "@/lib/observability/api-logging";
 import { requireMutableReferralAccess } from "@/lib/pipeline/referral-access";
+import { canCancelPlacement } from "@/lib/pipeline/referral-ownership";
 import { patchReferral, requireReferralStore } from "@/lib/pipeline/referral-store";
 import { validateClientMutationId } from "@/lib/pipeline/client-mutation-id";
 import type { PlacementCancellation } from "@/lib/pipeline/referral-types";
@@ -24,6 +25,7 @@ export async function PUT(request: Request, context: { params: Promise<{ referra
     if (!Number.isSafeInteger(referralId) || referralId < 1) return jsonError("referralId is invalid.");
     const access = await requireMutableReferralAccess(auth.user, referralId);
     if (!access.ok) return access.response;
+    if (!canCancelPlacement(access.referral, auth.user)) return jsonError("Only a workspace owner or Sandeep can cancel this placement.", 403);
 
     const body = await readJsonBody<{ if_match?: unknown; if_match_section?: unknown; reason?: unknown; client_mutation_id?: unknown }>(request);
     if (!body.ok) return jsonError(body.message, body.status);

@@ -46,6 +46,18 @@ export function canModifyReferral(
   return canEditWorkspace(user);
 }
 
+export function canCancelPlacement(
+  referral: Parameters<typeof isReferralOwner>[0],
+  user: AssignedUser & { roles: readonly string[]; accessScope?: string },
+) {
+  if (!canEditWorkspace(user)) return false;
+  // Sandeep coordinates placement changes across the team; everyone else uses
+  // the same accountable ownership recorded for their workspaces.
+  const sandeep = user.id.trim().toLowerCase() === "b72c34f0-0ee8-4ab4-8359-81c8f7b0d3b2"
+    || user.email?.trim().toLowerCase() === "sandeep@aaahealthservices.com";
+  return sandeep || isReferralOwner(referral, user);
+}
+
 export function createReferralOwners(
   creator: AssignedUser,
   assignment: { ownerId?: string | null; owner?: string | null },

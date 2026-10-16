@@ -30,6 +30,12 @@ for (const width of [1440, 390]) test(`accepted placement can be cancelled witho
   } });
   expect(empty.status()).toBe(400);
 
+  const ownerSession = await page.request.post("/api/auth/assessor-session", { data: {
+    target_principal_id: "provisional:allo:annette",
+    reason: "Synthetic placement cancellation test",
+  } });
+  expect(ownerSession.status(), await ownerSession.text()).toBe(200);
+
   await page.goto(`/?view=referrals&screen=packet&referralId=${accepted.id}&workspaceView=workflow`);
   const admission = page.getByRole("region", { name: "Admission follow-through" });
   await expect(admission.getByRole("button", { name: "Mark admitted" })).toBeVisible();

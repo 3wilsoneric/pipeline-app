@@ -12,6 +12,7 @@ const allowedEmails = [
   "admissions@pipeline.local",
   "assessor-a@pipeline.local",
   "assessor-b@pipeline.local",
+  "sandeep@aaahealthservices.com",
   "viewer@pipeline.local",
   ...(process.env.PIPELINE_HISTORICAL_SIMULATION_MODE === "chaos_extreme"
     ? Array.from({ length: 100 }, (_, index) => `chaos-extreme-${String(index + 1).padStart(3, "0")}@pipeline.local`)

@@ -50,3 +50,35 @@ test("placement cancellation persists and leaves active work on the configured s
     await api.dispose();
   }
 });
+
+test("only accountable owners and Sandeep can cancel a placement", async ({ baseURL }) => {
+  const url = requireOperationalBaseURL(baseURL);
+  const owner = await actorApiContext("assessorA", url);
+  const other = await actorApiContext("assessorB", url);
+  const sandeep = await actorApiContext("sandeep", url);
+  try {
+    const created = await createOperationalReferral(owner, "assessorA", { name: `Synthetic team cancellation ${randomUUID()}` });
+    const accepted = await recordOperationalAcceptance(owner, created);
+    const path = `/api/referrals/${accepted.id}`;
+    const body = {
+      if_match: accepted.version,
+      if_match_section: accepted.sectionVersions.workflow,
+      client_mutation_id: randomUUID(),
+      reason: "Placement moved to another community.",
+    };
+
+    expect((await (await owner.get(`${path}/workflow`)).json()).capabilities.can_cancel_placement).toBe(true);
+    expect((await (await other.get(`${path}/workflow`)).json()).capabilities.can_cancel_placement).toBe(false);
+    expect((await (await sandeep.get(`${path}/workflow`)).json()).capabilities.can_cancel_placement).toBe(true);
+    const unauthorized = await other.put(`${path}/placement-cancellation`, { data: body });
+    expect(unauthorized.status(), await unauthorized.text()).toBe(403);
+    const saved = await sandeep.put(`${path}/placement-cancellation`, { data: body });
+    expect(saved.status(), await saved.text()).toBe(200);
+    expect((await saved.json()).referral.placementCancellation).toMatchObject({
+      reason: body.reason,
+      cancelledBy: "b72c34f0-0ee8-4ab4-8359-81c8f7b0d3b2",
+    });
+  } finally {
+    await Promise.all([owner.dispose(), other.dispose(), sandeep.dispose()]);
+  }
+});
