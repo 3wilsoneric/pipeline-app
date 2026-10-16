@@ -380,6 +380,10 @@ export async function transitionReferral(
   mutationId?: string,
   actualAdmissionDate?: unknown,
 ): Promise<ReferralMutation | null> {
+  const current = await getReferral(referralId);
+  if (current?.placementCancellation) {
+    return { ok: false, blocked: true, referral: current, blockers: [{ code: "placement_cancelled", label: "Placement was cancelled. The accepted decision and handoff remain in this workspace." }] };
+  }
   if (targetStage === "Accepted / Admitted") {
     const error = actualAdmissionDateError(actualAdmissionDate);
     if (error) {

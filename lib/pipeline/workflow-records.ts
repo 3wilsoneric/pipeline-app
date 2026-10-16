@@ -299,6 +299,9 @@ export function getEhrHandoffBlockers(
   action: "queue" | "mark_sent" | "mark_failed" | "retry",
   failureReason: string,
 ) {
+  if (snapshot.referral.placementCancellation && action !== "mark_failed") {
+    return [{ code: "placement_cancelled", label: "Placement was cancelled. Do not send an EHR handoff for this admission." }];
+  }
   const current = snapshot.referral.ehrHandoff;
   const transitionBlocker = getEhrTransitionBlocker(current?.status, action, failureReason);
   if (transitionBlocker) return [transitionBlocker];

@@ -189,6 +189,16 @@ export type AdmissionDecision = {
   decidedByRole?: string;
 };
 
+export type PlacementCancellation = {
+  reason: string;
+  cancelledBy: string;
+  cancelledByName: string;
+  cancelledAt: string;
+  updatedBy: string;
+  updatedByName: string;
+  updatedAt: string;
+};
+
 export type EhrHandoffStatus = "not_ready" | "ready" | "queued" | "sent" | "failed";
 
 export type EhrHandoffRecord = {
@@ -332,6 +342,8 @@ export type Referral = {
   additionalDocuments?: Array<{ id: string; name: string; uploadedAt: string }>;
   /** Synchronized decision projection. PostgreSQL stores the authoritative row separately. */
   admissionDecision?: AdmissionDecision;
+  /** A later placement outcome; the accepted decision and sent handoff remain historical evidence. */
+  placementCancellation?: PlacementCancellation;
   /** Latest assessor recommendation. The supervisor's decision remains authoritative. */
   assessmentRecommendation?: AssessmentRecommendation;
   /** Latest durable supervisor review projection. PostgreSQL stores the authoritative row separately. */

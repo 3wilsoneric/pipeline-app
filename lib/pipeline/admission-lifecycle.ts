@@ -3,10 +3,10 @@ import type { Referral } from "./referral-types";
 
 /** Normal reopening follows completed work; explicit chart/assessment links remain available. */
 export function handoffWorkspaceView(
-  referral: Pick<Referral, "workspaceStatus" | "stage" | "admissionDecision" | "plannedAdmissionDate" | "admissionDate">,
+  referral: Pick<Referral, "workspaceStatus" | "stage" | "admissionDecision" | "plannedAdmissionDate" | "admissionDate" | "placementCancellation">,
   assessment: { signedAt?: string | null; packetSentAt?: string | null },
 ): "workflow" | "email" | null {
-  if (referral.workspaceStatus === "historical" || referral.stage === "Accepted / Admitted" || !assessment.signedAt) return null;
+  if (referral.workspaceStatus === "historical" || referral.stage === "Accepted / Admitted" || referral.placementCancellation || !assessment.signedAt) return null;
   if (referral.admissionDecision?.outcome === "accepted" && getPlannedAdmissionDate(referral) && !assessment.packetSentAt) return "email";
   return "workflow";
 }

@@ -21,7 +21,7 @@ import { workspaceOutlookState } from "@/lib/notifications/outlook-handoff";
 export const runtime = "nodejs";
 
 function canSendAdmissionSummary(user: PipelineUser, referral: Referral) {
-  return referral.workspaceStatus !== "historical" && canModifyReferral(referral, user);
+  return referral.workspaceStatus !== "historical" && !referral.placementCancellation && canModifyReferral(referral, user);
 }
 
 export async function GET(
@@ -74,6 +74,7 @@ export async function GET(
       const baseBlockers = meetClientEmailBlockers(
         report, snapshot.decision?.outcome, mail.configured, [], getPlannedAdmissionDate(snapshot.referral),
       );
+      if (snapshot.referral.placementCancellation) baseBlockers.push("Placement was cancelled. The earlier handoff remains available for review.");
       const emailBlockers = meetClientEmailBlockers(
         report,
         snapshot.decision?.outcome,
@@ -81,6 +82,7 @@ export async function GET(
         defaultPacket?.blockers ?? admissionPacket.blockers,
         getPlannedAdmissionDate(snapshot.referral),
       );
+      if (snapshot.referral.placementCancellation) emailBlockers.push("Placement was cancelled. The earlier handoff remains available for review.");
       const canSend = !exampleOnly && canSendAdmissionSummary(auth.user, access.referral);
 
       return Response.json({

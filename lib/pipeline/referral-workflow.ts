@@ -169,10 +169,13 @@ export function getReferralTransitionBlockers(
   targetStage: ReferralStage,
   context: WorkflowContext = {},
 ): ReferralTransitionBlocker[] {
+  if (referral.placementCancellation) return [placementCancelledBlocker];
   return getReferralTransitionAlerts(referral, targetStage, context).filter((issue) =>
     ["admission_decision_required", "admission_actual_date_required", "decline_decision_required"].includes(issue.code),
   );
 }
+
+const placementCancelledBlocker = { code: "placement_cancelled", label: "Placement was cancelled. The accepted decision and handoff remain in this workspace." };
 
 export function getReferralTransitionAlerts(
   referral: Referral,
@@ -180,6 +183,7 @@ export function getReferralTransitionAlerts(
   context: WorkflowContext = {},
 ): ReferralTransitionBlocker[] {
   if (targetStage === referral.stage) return [];
+  if (referral.placementCancellation) return [placementCancelledBlocker];
 
 
   if (targetStage === "Accepted / Admitted") {

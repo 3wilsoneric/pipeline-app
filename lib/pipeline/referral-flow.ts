@@ -38,6 +38,7 @@ export function getReferralBoardState(
   context: WorkflowContext = {},
   state: WorkspaceStateProjection = getWorkspaceState(referral, context),
 ): ReferralBoardState {
+  if (referral.placementCancellation) return boardCard(null, "Placement cancelled", "Review cancellation", "workflow");
   if (state.lifecycle !== "active" || referral.workflowStatus === "closed") {
     return boardCard(null, "Closed", "Open workspace", "chart");
   }

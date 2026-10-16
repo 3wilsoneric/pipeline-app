@@ -50,7 +50,7 @@ type HandoffActionProps = {
 
 const handoffContentByStatus: Record<EhrHandoffStatus, (props: HandoffActionProps) => ReactNode> = {
   failed: ({ workflow, busy, ehrIsBlocked, onUpdateHandoff }) => <PrimaryButton busy={busy.startsWith("ehr:")} disabled={!workflow.capabilities.can_update || ehrIsBlocked} onClick={() => onUpdateHandoff("retry")}>Retry handoff</PrimaryButton>,
-  queued: ({ workflow, busy, onRecordHandoffSent, onOpenHandoffFailure }) => <><PrimaryButton busy={busy.startsWith("ehr:")} disabled={!workflow.capabilities.can_update} onClick={onRecordHandoffSent}>Record sent</PrimaryButton><SecondaryButton disabled={Boolean(busy)} onClick={onOpenHandoffFailure}>Record failed</SecondaryButton></>,
+  queued: ({ workflow, busy, ehrIsBlocked, onRecordHandoffSent, onOpenHandoffFailure }) => <><PrimaryButton busy={busy.startsWith("ehr:")} disabled={!workflow.capabilities.can_update || ehrIsBlocked} onClick={onRecordHandoffSent}>Record sent</PrimaryButton><SecondaryButton disabled={Boolean(busy)} onClick={onOpenHandoffFailure}>Record failed</SecondaryButton></>,
   sent: () => <div className="space-y-2"><div className="flex items-center gap-2 text-[14px] font-bold text-[#0f6f5e]"><CheckCircle2 size={15} /> Handoff recorded as sent.</div><p className="text-[10px] leading-4 text-[#68716c]">The admitted-client profile appears only after the governed Alamo roster contains the person and an explicit identity link is confirmed.</p></div>,
   ready: (props) => <QueueHandoffButton {...props} />,
   not_ready: (props) => <QueueHandoffButton {...props} />,
@@ -75,6 +75,7 @@ type ReferralWorkflowPanelPresentationProps = {
   onSubmitDecision: () => void;
   onOpenUnderReviewEmail?: () => void;
   onSubmitTransition: (target: ReferralStage, actualAdmissionDate?: string) => void;
+  onSavePlacementCancellation: (reason: string) => Promise<boolean>;
   onAuthorizeManualIntake: () => void;
   onUpdateHandoff: (action: "queue" | "retry") => void;
   onRecordHandoffSent: () => void;
@@ -107,6 +108,7 @@ export function ReferralWorkflowPanelPresentation({
   onSubmitDecision,
   onOpenUnderReviewEmail,
   onSubmitTransition,
+  onSavePlacementCancellation,
   onAuthorizeManualIntake,
   onUpdateHandoff,
   onRecordHandoffSent,
@@ -139,10 +141,10 @@ export function ReferralWorkflowPanelPresentation({
       <div className={styles.layout}>
         <div className={styles.main} ref={resultRef} {...recordedDecisionAttributes(workflow)}>
           <DecisionCard workflow={workflow} busy={busy} recommendation={recommendation} onRecommendationChange={onRecommendationChange} onSubmitDecision={onSubmitDecision} onOpenUnderReviewEmail={onOpenUnderReviewEmail} />
-          {workflow.decision?.outcome === "accepted" ? <AdmissionHandoff workflow={workflow} busy={busy} admissionDate={admissionDate} onAdmissionDateChange={onAdmissionDateChange} onSaveAdmissionDate={onSaveAdmissionDate} onSubmitTransition={onSubmitTransition} /> : null}
+          {workflow.decision?.outcome === "accepted" ? <AdmissionHandoff workflow={workflow} busy={busy} admissionDate={admissionDate} onAdmissionDateChange={onAdmissionDateChange} onSaveAdmissionDate={onSaveAdmissionDate} onSubmitTransition={onSubmitTransition} onSavePlacementCancellation={onSavePlacementCancellation} /> : null}
           {showDecisionDone(workflow) && onDone ? (
             <div className={styles.done}>
-              <p>{workflow.decision ? "No client handoff is needed." : "The referral stays open. Return when you have more information."}</p>
+              <p>{workflow.referral.placementCancellation ? "Placement cancelled. The earlier decision and handoff remain in the record." : workflow.decision ? "No client handoff is needed." : "The referral stays open. Return when you have more information."}</p>
               <PrimaryButton busy={busy === "done"} disabled={Boolean(busy)} onClick={onDone}>Done</PrimaryButton>
             </div>
           ) : null}
@@ -168,7 +170,7 @@ export function ReferralWorkflowPanelPresentation({
           <summary>Administrative controls</summary>
           <p className={styles.adminNote}>For authorized staff. These change the referral&apos;s stage or grant a manual intake exception. They do not record the decision, sign the assessment, or send anything.</p>
           <label className="mb-4 flex flex-wrap items-center gap-3 text-[14px] font-medium text-[#59645e]">Referral stage
-            <select aria-label="Workflow stage" value={workflow.referral.stage} disabled={Boolean(busy) || !workflow.capabilities.can_update} onChange={(event) => onSubmitTransition(event.target.value as ReferralStage)} className="h-11 border border-[#c9ceca] bg-white px-3 text-[#303b34]">
+            <select aria-label="Workflow stage" value={workflow.referral.stage} disabled={Boolean(busy) || !workflow.capabilities.can_update || Boolean(workflow.referral.placementCancellation)} onChange={(event) => onSubmitTransition(event.target.value as ReferralStage)} className="h-11 border border-[#c9ceca] bg-white px-3 text-[#303b34]">
               {referralStageDefinitions.filter((item) => !item.terminal || item.stage === workflow.referral.stage || (item.stage === "Declined" && workflow.decision?.outcome === "declined")).map((item) => <option key={item.stage} value={item.stage}>{item.label}</option>)}
             </select>
             <span>Changing the stage only moves the referral; nothing else is recorded.</span>
@@ -185,7 +187,7 @@ type WorkflowView = ReturnType<typeof deriveWorkflowPanelView>;
 
 function DecisionContext({ workflow, busy, recommendation, onOpenAssessment }: Pick<ReferralWorkflowPanelPresentationProps, "workflow" | "busy" | "recommendation" | "onOpenAssessment">) {
   const outcome = workflow.decision?.outcome ?? recommendation.outcome;
-  const next = decisionNextStep(outcome);
+  const next = workflow.referral.placementCancellation ? "Placement was cancelled. The accepted decision and earlier handoff remain available for review." : decisionNextStep(outcome);
   const designV2 = useDesignV2();
   const declined = workflow.decision?.outcome === "declined";
   return <aside className={styles.context} aria-label="Decision context">
@@ -199,16 +201,17 @@ function DecisionContext({ workflow, busy, recommendation, onOpenAssessment }: P
   </aside>;
 }
 
-function AdmissionHandoff({ workflow, busy, admissionDate, onAdmissionDateChange, onSaveAdmissionDate, onSubmitTransition }: Pick<ReferralWorkflowPanelPresentationProps, "workflow" | "busy" | "admissionDate" | "onAdmissionDateChange" | "onSaveAdmissionDate" | "onSubmitTransition">) {
+function AdmissionHandoff({ workflow, busy, admissionDate, onAdmissionDateChange, onSaveAdmissionDate, onSubmitTransition, onSavePlacementCancellation }: Pick<ReferralWorkflowPanelPresentationProps, "workflow" | "busy" | "admissionDate" | "onAdmissionDateChange" | "onSaveAdmissionDate" | "onSubmitTransition" | "onSavePlacementCancellation">) {
+  const cancelled = Boolean(workflow.referral.placementCancellation);
   return <section className={styles.handoff} aria-label="Prepare client handoff">
-    <h4>{workflow.context.packetSentAt ? "Client handoff sent" : "Prepare the client handoff"}</h4>
-    <ol aria-label="Handoff progress" className="my-3 flex flex-wrap gap-x-5 gap-y-2 text-[13px] font-semibold text-[#365b4d]">
+    <h4>{cancelled ? "Placement cancelled" : workflow.context.packetSentAt ? "Client handoff sent" : "Prepare the client handoff"}</h4>
+    {!cancelled ? <ol aria-label="Handoff progress" className="my-3 flex flex-wrap gap-x-5 gap-y-2 text-[13px] font-semibold text-[#365b4d]">
       <li>1. {workflow.context.assessmentSigned ? "Assessment signed" : "Sign assessment"}</li>
       <li>2. Decision recorded</li>
       <li aria-current={workflow.context.assessmentSigned && !workflow.context.packetSentAt ? "step" : undefined}>3. {workflow.context.packetSentAt ? "Packet sent" : "Review & send"}</li>
-    </ol>
-    <p>{workflow.context.packetSentAt ? "The handoff is recorded. You can return to the email and packet to review what was sent." : workflow.context.assessmentSigned ? "Review the recipients, client summary and chart files before sending." : "You can preview the packet now. Sign the assessment before sending."}</p>
-    <ReferralAdmissionPanel key={workflow.referral.id} referral={workflow.referral} packetSentAt={workflow.context.packetSentAt} admissionDate={admissionDate} disabled={!workflow.capabilities.can_update || Boolean(busy)} onAdmissionDateChange={onAdmissionDateChange} onSaveAdmissionDate={onSaveAdmissionDate} onMarkAdmitted={(actualDate) => onSubmitTransition("Accepted / Admitted", actualDate)} />
+    </ol> : null}
+    <p>{cancelled ? workflow.context.packetSentAt ? "The handoff was sent before placement was cancelled. You can review the earlier email and packet." : "The accepted decision remains recorded. You can review the email and packet, but this placement cannot be sent." : workflow.context.packetSentAt ? "The handoff is recorded. You can return to the email and packet to review what was sent." : workflow.context.assessmentSigned ? "Review the recipients, client summary and chart files before sending." : "You can preview the packet now. Sign the assessment before sending."}</p>
+    <ReferralAdmissionPanel key={workflow.referral.id} referral={workflow.referral} packetSentAt={workflow.context.packetSentAt} admissionDate={admissionDate} disabled={!workflow.capabilities.can_update || Boolean(busy)} onAdmissionDateChange={onAdmissionDateChange} onSaveAdmissionDate={onSaveAdmissionDate} onMarkAdmitted={(actualDate) => onSubmitTransition("Accepted / Admitted", actualDate)} onSavePlacementCancellation={onSavePlacementCancellation} />
   </section>;
 }
 
@@ -430,7 +433,7 @@ function decisionRecordState(workflow: WorkflowResponse) {
 }
 
 function showDecisionDone(workflow: WorkflowResponse) {
-  return workflow.decision ? workflow.decision.outcome === "declined" : workflow.recommendation?.outcome === "needs_more_information";
+  return workflow.referral.placementCancellation ? true : workflow.decision ? workflow.decision.outcome === "declined" : workflow.recommendation?.outcome === "needs_more_information";
 }
 
 function isSavedUnderReview(workflow: WorkflowResponse, recommendation: RecommendationDraft) {
@@ -438,7 +441,7 @@ function isSavedUnderReview(workflow: WorkflowResponse, recommendation: Recommen
 }
 
 function decisionAssessmentAction(workflow: WorkflowResponse) {
-  if (workflow.context.assessmentSigned || workflow.decision?.outcome === "declined") return "View assessment";
+  if (workflow.referral.placementCancellation || workflow.context.assessmentSigned || workflow.decision?.outcome === "declined") return "View assessment";
   return workflow.context.assessmentStarted ? "Continue assessment" : "Prepare assessment";
 }
 

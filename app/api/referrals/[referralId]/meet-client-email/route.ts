@@ -319,6 +319,9 @@ async function loadMeetClientContext(referralId: number, referralVersion: number
     listAssessments({ referralId, limit: 100 }),
   ]);
   if (!snapshot) return { ok: false as const, response: jsonError("Referral not found.", 404) };
+  if (snapshot.referral.placementCancellation) {
+    return { ok: false as const, response: jsonError("Placement was cancelled. The earlier handoff remains available for review; another handoff cannot be sent.", 409) };
+  }
   if (snapshot.referral.version !== referralVersion) {
     return { ok: false as const, response: jsonError("The workspace changed. Refresh and check the admission date and summary before sending.", 409) };
   }

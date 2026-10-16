@@ -54,6 +54,7 @@ export function resolveReferralWorkflowStatus(
   referral: Referral,
   evidence: WorkflowEvidence = {},
 ): ReferralWorkflowStatus {
+  if (referral.placementCancellation) return "closed";
   const decision = evidence.decision ?? referral.admissionDecision;
   if (referral.stage === "Accepted / Admitted") return "admitted";
   if (decision?.outcome === "accepted") return "approved_for_placement";

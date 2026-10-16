@@ -479,7 +479,7 @@ function packetSelectionIssue(email: ChartPayload["email"], selectedFileIds: str
 }
 
 function canStartMeetClientSend(payload: ChartPayload | null, selectedFileIds: string[], confirmed: boolean, inFlight: boolean, repeatSendConfirmed: boolean): payload is ChartPayload {
-  return Boolean(payload && payload.email.base_blockers.length === 0 && !packetSelectionIssue(payload.email, selectedFileIds)
+  return Boolean(payload && !payload.referral.placementCancellation && payload.email.base_blockers.length === 0 && !packetSelectionIssue(payload.email, selectedFileIds)
     && !plannedAdmissionDateError(getPlannedAdmissionDate(payload.referral)) && !payload.email.example_only && (!(payload.email.previously_sent || payload.email.sent_at) || repeatSendConfirmed) && confirmed && !inFlight);
 }
 
