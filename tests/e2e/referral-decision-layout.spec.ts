@@ -58,10 +58,12 @@ for (const width of [1440, 834, 390, 320]) {
     await expect(panel.getByRole("group", { name: "Recorded decision", exact: true })).toBeFocused();
     await expect(panel.getByRole("region", { name: "Prepare client handoff" })).toContainText("Sign the assessment before sending");
     await expect(panel.getByRole("button", { name: "Review email & packet", exact: true })).toBeEnabled();
+    await expect(panel.getByRole("region", { name: "Admission follow-through" }).getByRole("button", { name: "Placement did not happen" })).toBeVisible();
     await expect(panel.getByText("Confirm admission after arrival")).not.toBeVisible();
     await panel.getByRole("button", { name: "Follow-up tools" }).click();
     const followUp = page.getByRole("dialog", { name: "Follow-up tools" });
     await expect(followUp.getByRole("region", { name: "Placement updates" }).getByText("Confirm admission after arrival")).toBeVisible();
+    await expect(followUp.getByRole("button", { name: "Placement did not happen" })).toHaveCount(0);
     await expect(followUp.getByText("this control does not send data to ElderMark.")).toBeVisible();
     await expect(followUp).not.toContainText(/EHR handoff/i);
     await expect(followUp.locator("summary")).toHaveCount(1);

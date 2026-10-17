@@ -141,7 +141,7 @@ export function ReferralWorkflowPanelPresentation({
       <div className={styles.layout} data-recorded={Boolean(workflow.decision) || undefined}>
         <div className={styles.main} ref={resultRef} {...recordedDecisionAttributes(workflow)}>
           <DecisionCard workflow={workflow} busy={busy} recommendation={recommendation} onRecommendationChange={onRecommendationChange} onSubmitDecision={onSubmitDecision} onOpenUnderReviewEmail={onOpenUnderReviewEmail} onOpenAssessment={onOpenAssessment} />
-          {workflow.decision?.outcome === "accepted" ? <AdmissionHandoff workflow={workflow} busy={busy} admissionDate={admissionDate} onAdmissionDateChange={onAdmissionDateChange} onSaveAdmissionDate={onSaveAdmissionDate} /> : null}
+          {workflow.decision?.outcome === "accepted" ? <AdmissionHandoff workflow={workflow} busy={busy} admissionDate={admissionDate} onAdmissionDateChange={onAdmissionDateChange} onSaveAdmissionDate={onSaveAdmissionDate} onSavePlacementCancellation={onSavePlacementCancellation} /> : null}
           {showDecisionDone(workflow) && onDone ? (
             <div className={styles.done}>
               <p>{workflow.referral.placementCancellation ? "Placement cancelled. The earlier decision and handoff remain in the record." : workflow.decision ? "No client handoff is needed." : "The referral stays open. Return when you have more information."}</p>
@@ -158,7 +158,7 @@ export function ReferralWorkflowPanelPresentation({
         <div className={styles.followUpBody}>
           {followUpOpen && message ? <WorkflowNotice tone="success">{message}</WorkflowNotice> : null}
           {followUpOpen && error ? <WorkflowNotice tone="error">{error}</WorkflowNotice> : null}
-          {workflow.decision?.outcome === "accepted" ? <ReferralPlacementUpdates key={workflow.referral.id} referral={workflow.referral} disabled={!workflow.capabilities.can_update || Boolean(busy)} onMarkAdmitted={workflow.capabilities.can_confirm_admission ? (actualDate) => { closeFollowUp(); onSubmitTransition("Accepted / Admitted", actualDate); } : undefined} onSavePlacementCancellation={workflow.capabilities.can_cancel_placement ? async (reason) => { closeFollowUp(); const saved = await onSavePlacementCancellation(reason); if (!saved) openFollowUp(); return saved; } : undefined} /> : null}
+          {workflow.decision?.outcome === "accepted" ? <ReferralPlacementUpdates key={workflow.referral.id} referral={workflow.referral} disabled={!workflow.capabilities.can_update || Boolean(busy)} onMarkAdmitted={workflow.capabilities.can_confirm_admission ? (actualDate) => { closeFollowUp(); onSubmitTransition("Accepted / Admitted", actualDate); } : undefined} /> : null}
           {workflow.decision?.outcome === "accepted" ? <EhrHandoffCard workflow={workflow} view={view} busy={busy} onUpdateHandoff={onUpdateHandoff} onRecordHandoffSent={() => { closeFollowUp(); onRecordHandoffSent(); }} onOpenHandoffFailure={() => { closeFollowUp(); onOpenHandoffFailure(); }} /> : null}
           <details className={styles.details} data-admin-controls>
           <summary>Administrative controls</summary>
@@ -194,12 +194,12 @@ function DecisionContext({ workflow, busy, onOpenAssessment }: Pick<ReferralWork
   </aside>;
 }
 
-function AdmissionHandoff({ workflow, busy, admissionDate, onAdmissionDateChange, onSaveAdmissionDate }: Pick<ReferralWorkflowPanelPresentationProps, "workflow" | "busy" | "admissionDate" | "onAdmissionDateChange" | "onSaveAdmissionDate">) {
+function AdmissionHandoff({ workflow, busy, admissionDate, onAdmissionDateChange, onSaveAdmissionDate, onSavePlacementCancellation }: Pick<ReferralWorkflowPanelPresentationProps, "workflow" | "busy" | "admissionDate" | "onAdmissionDateChange" | "onSaveAdmissionDate" | "onSavePlacementCancellation">) {
   const cancelled = Boolean(workflow.referral.placementCancellation);
   return <section className={styles.handoff} aria-label="Prepare client handoff">
     <h4>{cancelled ? "Placement cancelled" : workflow.context.packetSentAt ? "Client handoff sent" : "Prepare the client handoff"}</h4>
     <p>{cancelled ? workflow.context.packetSentAt ? "The handoff was sent before placement was cancelled. You can review the earlier email and packet." : "The accepted decision remains recorded. You can review the email and packet, but this placement cannot be sent." : workflow.context.packetSentAt ? "The handoff is recorded. You can return to the email and packet to review what was sent." : workflow.context.assessmentSigned ? "Review the recipients, client summary and chart files before sending." : "You can preview the packet now. Sign the assessment before sending."}</p>
-    <ReferralAdmissionPanel key={workflow.referral.id} referral={workflow.referral} packetSentAt={workflow.context.packetSentAt} admissionDate={admissionDate} disabled={!workflow.capabilities.can_update || Boolean(busy)} onAdmissionDateChange={onAdmissionDateChange} onSaveAdmissionDate={onSaveAdmissionDate} />
+    <ReferralAdmissionPanel key={workflow.referral.id} referral={workflow.referral} packetSentAt={workflow.context.packetSentAt} admissionDate={admissionDate} disabled={!workflow.capabilities.can_update || Boolean(busy)} onAdmissionDateChange={onAdmissionDateChange} onSaveAdmissionDate={onSaveAdmissionDate} onSavePlacementCancellation={workflow.capabilities.can_cancel_placement ? onSavePlacementCancellation : undefined} />
   </section>;
 }
 
