@@ -2527,13 +2527,13 @@ test.describe("Referral home and packet canvas", () => {
     await page.getByRole("alertdialog").getByRole("button", { name: "Confirm admission", exact: true }).click();
     await expect(workflowPanel.getByText("Admission confirmed", { exact: true })).toBeVisible();
     await workflowPanel.getByRole("button", { name: "Follow-up tools" }).click();
-    await followUp.getByRole("button", { name: "Record transfer queued" }).click();
-    await expect(followUp.getByText("External transfer marked queued", { exact: true })).toBeVisible();
-    await followUp.getByRole("button", { name: "Record failed" }).click();
-    const handoffFailureDialog = page.getByRole("dialog", { name: "Record EHR handoff failure" });
-    await handoffFailureDialog.getByLabel("Failure reason").fill("Synthetic downstream rejection");
-    await handoffFailureDialog.getByRole("button", { name: "Record failure" }).click();
-    await expect(workflowPanel.getByText("External transfer failure recorded", { exact: true })).toBeVisible();
+    await followUp.getByRole("button", { name: "Mark pending" }).click();
+    await expect(followUp.getByText("Outside-system entry marked pending", { exact: true })).toBeVisible();
+    await followUp.getByRole("button", { name: "Record issue" }).click();
+    const handoffFailureDialog = page.getByRole("dialog", { name: "Record outside-system issue" });
+    await handoffFailureDialog.getByRole("textbox", { name: "Issue", exact: true }).fill("Synthetic downstream rejection");
+    await handoffFailureDialog.getByRole("button", { name: "Record issue" }).click();
+    await expect(workflowPanel.getByText("Outside-system issue recorded", { exact: true })).toBeVisible();
     const exceptions: SupervisorExceptionSnapshot["items"] = [];
     let queueOffset: number | null = 0;
     while (queueOffset !== null) {
@@ -2549,14 +2549,14 @@ test.describe("Referral home and packet canvas", () => {
       expect.objectContaining({ kind: "ehr_handoff_failed", referral_id: referral.id }),
     ]));
     await workflowPanel.getByRole("button", { name: "Follow-up tools" }).click();
-    await followUp.getByRole("button", { name: "Record retry" }).click();
-    await expect(followUp.getByText("External transfer marked queued", { exact: true })).toBeVisible();
-    await followUp.getByRole("button", { name: "Record sent" }).click();
-    await expect(page.getByRole("alertdialog")).toContainText("Pipeline does not send this data to ElderMark");
-    await page.getByRole("alertdialog").getByRole("button", { name: "Record as sent", exact: true }).click();
-    await expect(workflowPanel.getByText("External transfer recorded as sent", { exact: true })).toBeVisible();
+    await followUp.getByRole("button", { name: "Mark pending again" }).click();
+    await expect(followUp.getByText("Outside-system entry marked pending", { exact: true })).toBeVisible();
+    await followUp.getByRole("button", { name: "Mark complete" }).click();
+    await expect(page.getByRole("alertdialog")).toContainText("This only records its status; Pipeline does not send data to ElderMark.");
+    await page.getByRole("alertdialog").getByRole("button", { name: "Mark complete", exact: true }).click();
+    await expect(workflowPanel.getByText("Outside-system entry recorded complete", { exact: true })).toBeVisible();
     await workflowPanel.getByRole("button", { name: "Follow-up tools" }).click();
-    await expect(followUp.getByText("Transfer recorded as sent.", { exact: true })).toBeVisible();
+    await expect(followUp.getByText("Outside-system entry recorded complete.", { exact: true })).toBeVisible();
     await expect(followUp.getByText(/admitted-client profile appears only after the governed Alamo roster contains the person/i)).toBeVisible();
     await followUp.getByRole("button", { name: "Close follow-up tools" }).click();
 

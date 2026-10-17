@@ -75,7 +75,7 @@ export default function AdmissionChecklistGlance({ referralId, onOpenDecision }:
 }
 
 // "Where this referral stands" (docs/design/DECISIONS.md, "Chart as home"): the Decision page's own
-// milestones, plus the recommendation, admission date, and EHR handoff, so the Chart ends as the whole story.
+// milestones, plus the recommendation, admission date, and manual outside-system status, so the Chart ends as the whole story.
 export function ReferralStandingGlance({ referralId, children }: { referralId: number; children?: ReactNode }) {
   const workflow = useReferralWorkflow(referralId);
   // The appointment (children) never waits on the workflow read.
@@ -99,7 +99,7 @@ export function ReferralStandingGlance({ referralId, children }: { referralId: n
       {recommendation ? <div><dt>Placement recommendation</dt><dd>{recommendation.outcome === "accept" ? "Accept" : recommendation.outcome === "decline" ? "Deny" : "Under review"}{recommendation.reasonNote ? <span>{recommendation.reasonNote}</span> : null}</dd></div> : null}
       {decision?.reasonNote ? <div><dt>Decision reason</dt><dd>{decision.reasonNote}</dd></div> : null}
       {referral.admissionDate ? <div><dt>Admission date</dt><dd>{formatProfileDate(referral.admissionDate) ?? referral.admissionDate}</dd></div> : null}
-      {decision?.outcome === "accepted" && handoff ? <div><dt>EHR handoff</dt><dd>{handoffDescriptions[handoff.status]}{handoff.sentAt ? <span>{formatProfileDate(handoff.sentAt)}</span> : null}</dd></div> : null}
+      {decision?.outcome === "accepted" && handoff ? <div><dt>Outside-system entry</dt><dd>{handoffDescriptions[handoff.status]}{handoff.sentAt ? <span>{formatProfileDate(handoff.sentAt)}</span> : null}</dd></div> : null}
     </dl> : null}
     {children ? <div className={styles.appointment}>{children}</div> : null}
   </section>;
@@ -188,7 +188,7 @@ export function ChartProcess({ referralId, assessment, record, entry, appointmen
       action={onOpenFinish ? <button type="button" onClick={onOpenFinish} className={styles.open}>Finish & send<ArrowRight size={16} aria-hidden="true" /></button> : null}>
       {referral?.admissionDate || (accepted && handoff) ? <dl className={styles.facts}>
         {referral?.admissionDate ? <div><dt>Admission date</dt><dd>{formatProfileDate(referral.admissionDate) ?? referral.admissionDate}</dd></div> : null}
-        {accepted && handoff ? <div><dt>EHR handoff</dt><dd>{handoffDescriptions[handoff.status]}{handoff.sentAt ? <span>{formatProfileDate(handoff.sentAt)}</span> : null}</dd></div> : null}
+        {accepted && handoff ? <div><dt>Outside-system entry</dt><dd>{handoffDescriptions[handoff.status]}{handoff.sentAt ? <span>{formatProfileDate(handoff.sentAt)}</span> : null}</dd></div> : null}
       </dl> : null}
     </ChartStage> : null}
   </div>;

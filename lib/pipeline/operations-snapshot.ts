@@ -558,7 +558,7 @@ async function buildSupervisorExceptionSnapshot(
   for (const work of operational.work) {
     const referral = referralById.get(work.referral_id);
     if (referral?.ehrHandoff?.status === "failed") {
-      items.push(workException(work, "ehr_handoff_failed", "critical", "EHR handoff failed", referral.ehrHandoff.failureReason));
+      items.push(workException(work, "ehr_handoff_failed", "critical", "Outside-system issue recorded", referral.ehrHandoff.failureReason));
     }
   }
 

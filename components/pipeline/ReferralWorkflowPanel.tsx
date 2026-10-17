@@ -511,12 +511,12 @@ export default function ReferralWorkflowPanel({
       `/api/referrals/${currentReferral.id}/ehr-handoff`,
       "POST",
       { if_match: currentReferral.version, if_match_section: sections.decision, action, failure_reason: failureReason },
-      action === "mark_sent" ? "External transfer recorded as sent" : action === "mark_failed" ? "External transfer failure recorded" : "External transfer marked queued",
+      action === "mark_sent" ? "Outside-system entry recorded complete" : action === "mark_failed" ? "Outside-system issue recorded" : "Outside-system entry marked pending",
     );
   };
 
   const recordHandoffSent = async () => {
-    if (!await confirm({ title: "Record external transfer as sent?", message: "Pipeline does not send this data to ElderMark. Confirm the transfer happened outside Pipeline before recording it here.", confirmLabel: "Record as sent" })) return;
+    if (!await confirm({ title: "Record outside-system entry as complete?", message: "Confirm staff completed the entry outside Pipeline. This only records its status; Pipeline does not send data to ElderMark.", confirmLabel: "Mark complete" })) return;
     updateHandoff("mark_sent");
   };
 

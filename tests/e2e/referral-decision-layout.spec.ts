@@ -62,7 +62,8 @@ for (const width of [1440, 834, 390, 320]) {
     await panel.getByRole("button", { name: "Follow-up tools" }).click();
     const followUp = page.getByRole("dialog", { name: "Follow-up tools" });
     await expect(followUp.getByRole("region", { name: "Placement updates" }).getByText("Confirm admission after arrival")).toBeVisible();
-    await expect(followUp.getByText("This does not send data to ElderMark or another EHR.")).toBeVisible();
+    await expect(followUp.getByText("this control does not send data to ElderMark.")).toBeVisible();
+    await expect(followUp).not.toContainText(/EHR handoff/i);
     await expect(followUp.locator("summary")).toHaveCount(1);
     await expectAccessibleDecision(page, '[aria-labelledby="decision-follow-up-title"]');
     if (width === 1440) await page.screenshot({ path: info.outputPath("follow-up-drawer-1440.png"), animations: "disabled" });

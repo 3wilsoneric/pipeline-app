@@ -300,7 +300,7 @@ export function getEhrHandoffBlockers(
   failureReason: string,
 ) {
   if (snapshot.referral.placementCancellation && action !== "mark_failed") {
-    return [{ code: "placement_cancelled", label: "Placement was cancelled. Do not send an EHR handoff for this admission." }];
+    return [{ code: "placement_cancelled", label: "Placement was cancelled. Do not mark outside-system entry complete for this admission." }];
   }
   const current = snapshot.referral.ehrHandoff;
   const transitionBlocker = getEhrTransitionBlocker(current?.status, action, failureReason);
@@ -395,13 +395,13 @@ function getEhrTransitionBlocker(
   failureReason: string,
 ): WorkItemValidationIssue | null {
   if (action === "mark_failed" && !failureReason.trim()) {
-    return { code: "ehr_failure_reason_required", label: "Record why the EHR handoff failed." };
+    return { code: "ehr_failure_reason_required", label: "Record the outside-system entry issue." };
   }
   if (["mark_sent", "mark_failed"].includes(action) && currentStatus !== "queued") {
-    return { code: "ehr_handoff_not_queued", label: "Queue the EHR handoff before recording its result." };
+    return { code: "ehr_handoff_not_queued", label: "Mark outside-system entry pending before recording its result." };
   }
   return action === "retry" && currentStatus !== "failed"
-    ? { code: "ehr_handoff_not_failed", label: "Only a failed EHR handoff can be retried." }
+    ? { code: "ehr_handoff_not_failed", label: "Only an outside-system entry with a recorded issue can be marked pending again." }
     : null;
 }
 
@@ -411,10 +411,10 @@ function isEhrQueueAction(action: "queue" | "mark_sent" | "mark_failed" | "retry
 
 function getEhrQueueReadinessBlockers(snapshot: WorkflowRecordSnapshot): WorkItemValidationIssue[] {
   if (snapshot.decision?.outcome !== "accepted") {
-    return [{ code: "accepted_referral_required", label: "Accept the referral before queueing the EHR handoff." }];
+    return [{ code: "accepted_referral_required", label: "Accept the referral before tracking outside-system entry." }];
   }
   return snapshot.referral.ehrHandoff?.status === "sent"
-    ? [{ code: "ehr_handoff_already_sent", label: "This EHR handoff has already been recorded as sent." }]
+    ? [{ code: "ehr_handoff_already_sent", label: "Outside-system entry has already been recorded complete." }]
     : [];
 }
 

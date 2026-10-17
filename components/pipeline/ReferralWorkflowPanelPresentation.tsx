@@ -43,9 +43,9 @@ type HandoffActionProps = {
 };
 
 const handoffContentByStatus: Record<EhrHandoffStatus, (props: HandoffActionProps) => ReactNode> = {
-  failed: ({ workflow, busy, ehrIsBlocked, onUpdateHandoff }) => <SecondaryButton disabled={Boolean(busy) || !workflow.capabilities.can_update || ehrIsBlocked} onClick={() => onUpdateHandoff("retry")}>Record retry</SecondaryButton>,
-  queued: ({ workflow, busy, ehrIsBlocked, onRecordHandoffSent, onOpenHandoffFailure }) => <><SecondaryButton disabled={Boolean(busy) || !workflow.capabilities.can_update || ehrIsBlocked} onClick={onRecordHandoffSent}>Record sent</SecondaryButton><SecondaryButton disabled={Boolean(busy)} onClick={onOpenHandoffFailure}>Record failed</SecondaryButton></>,
-  sent: () => <div className="space-y-2"><div className="flex items-center gap-2 text-[14px] font-bold text-[#0f6f5e]"><CheckCircle2 size={15} /> Transfer recorded as sent.</div><p className="text-[12px] leading-5 text-[#68716c]">The admitted-client profile appears only after the governed Alamo roster contains the person and an explicit identity link is confirmed.</p></div>,
+  failed: ({ workflow, busy, ehrIsBlocked, onUpdateHandoff }) => <SecondaryButton disabled={Boolean(busy) || !workflow.capabilities.can_update || ehrIsBlocked} onClick={() => onUpdateHandoff("retry")}>Mark pending again</SecondaryButton>,
+  queued: ({ workflow, busy, ehrIsBlocked, onRecordHandoffSent, onOpenHandoffFailure }) => <><SecondaryButton disabled={Boolean(busy) || !workflow.capabilities.can_update || ehrIsBlocked} onClick={onRecordHandoffSent}>Mark complete</SecondaryButton><SecondaryButton disabled={Boolean(busy)} onClick={onOpenHandoffFailure}>Record issue</SecondaryButton></>,
+  sent: () => <div className="space-y-2"><div className="flex items-center gap-2 text-[14px] font-bold text-[#0f6f5e]"><CheckCircle2 size={15} /> Outside-system entry recorded complete.</div><p className="text-[12px] leading-5 text-[#68716c]">The admitted-client profile appears only after the governed Alamo roster contains the person and an explicit identity link is confirmed.</p></div>,
   ready: (props) => <QueueHandoffButton {...props} />,
   not_ready: (props) => <QueueHandoffButton {...props} />,
 };
@@ -331,7 +331,7 @@ function EhrHandoffCard({ workflow, view, busy, onUpdateHandoff, onRecordHandoff
   const { currentReferral, handoffStatus, ehrIsBlocked } = view;
   const handoffContent = handoffContentByStatus[handoffStatus];
   return (
-    <WorkflowCard title="External EHR transfer record" detail={`Pipeline status: ${handoffDescription(handoffStatus)}. This does not send data to ElderMark or another EHR.`}>
+    <WorkflowCard title="Outside-system entry" detail={`Manual status: ${handoffDescription(handoffStatus)}. Staff track work done outside Pipeline here; this control does not send data to ElderMark.`}>
       <div className="flex flex-wrap gap-2">
         {handoffContent({ workflow, currentReferral, busy, ehrIsBlocked, onUpdateHandoff, onRecordHandoffSent, onOpenHandoffFailure })}
       </div>
@@ -340,7 +340,7 @@ function EhrHandoffCard({ workflow, view, busy, onUpdateHandoff, onRecordHandoff
 }
 
 function QueueHandoffButton({ workflow, busy, ehrIsBlocked, onUpdateHandoff }: HandoffActionProps) {
-  return <SecondaryButton disabled={Boolean(busy) || !workflow.capabilities.can_update || ehrIsBlocked} onClick={() => onUpdateHandoff("queue")}>Record transfer queued</SecondaryButton>;
+  return <SecondaryButton disabled={Boolean(busy) || !workflow.capabilities.can_update || ehrIsBlocked} onClick={() => onUpdateHandoff("queue")}>Mark pending</SecondaryButton>;
 }
 
 export function ReferralWorkflowPanelLoading() {
@@ -363,7 +363,7 @@ function WorkflowCard({ title, detail, children }: { title: string; detail: stri
 
 function WorkflowDetailDialog({ pending, onConfirm, onClose }: { pending: PendingWorkflowDetail; onConfirm: (detail: string) => void; onClose: () => void }) {
   if (pending.kind === "ehr_failure") {
-    return <ActionDetailDialog title="Record EHR handoff failure" description="This reason is recorded in the referral activity log for follow-up." label="Failure reason" confirmLabel="Record failure" minimumLength={3} onConfirm={onConfirm} onClose={onClose} />;
+    return <ActionDetailDialog title="Record outside-system issue" description="This reason is recorded in the referral activity log for follow-up." label="Issue" confirmLabel="Record issue" minimumLength={3} onConfirm={onConfirm} onClose={onClose} />;
   }
   return <ActionDetailDialog {...requirementDetailPresentation(pending.item, pending.status)} onConfirm={onConfirm} onClose={onClose} />;
 }

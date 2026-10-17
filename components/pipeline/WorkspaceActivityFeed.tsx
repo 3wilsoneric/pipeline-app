@@ -347,7 +347,7 @@ function activityVerb(action: string) {
     admission_decision_recorded: "recorded an admission decision for",
     admission_decision_overridden: "overrode the admission decision for",
     admission_declined: "declined",
-    ehr_handoff_updated: "updated the EHR handoff for",
+    ehr_handoff_updated: "updated the outside-system entry status for",
     extraction_confirmed: "confirmed extracted assessment data for",
   };
   return labels[action] ?? "updated";

@@ -64,11 +64,11 @@ export const requirementStatuses: RequirementStatus[] = [
 ];
 
 export const handoffDescriptions: Record<EhrHandoffStatus, string> = {
-  sent: "recorded as sent",
-  queued: "marked queued",
-  failed: "failure recorded",
-  ready: "not recorded",
-  not_ready: "not recorded",
+  sent: "recorded complete",
+  queued: "pending",
+  failed: "issue recorded",
+  ready: "not started",
+  not_ready: "not started",
 };
 
 export function deriveWorkflowPanelView(workflow: WorkflowResponse) {
@@ -209,7 +209,7 @@ export function transitionSuccessMessage(target: ReferralStage) {
 
 export function terminalStageMessage(referral: Referral) {
   return referral.stage === "Accepted / Admitted"
-    ? "Admission is recorded. Complete the EHR handoff below."
+    ? "Admission is recorded. Outside-system entry can be tracked separately."
     : "This referral is closed as declined.";
 }
 
@@ -230,7 +230,7 @@ export function decisionHandoffNextAction(
 ) {
   if (!workflow.decision) return "Acceptance can be recorded now. Assessment answers, signing, and packet sending are separate steps.";
   if (!workflow.context.assessmentSigned && workflow.decision.outcome === "accepted") return "Accepted. Continue the questionnaire and sign when ready. No packet has been sent by this decision.";
-  if (workflow.decision.outcome === "declined") return "The referral is closed by the supervisor's decline decision; no EHR handoff is required.";
+  if (workflow.decision.outcome === "declined") return "The referral is closed by the supervisor's decline decision; no outside-system entry is needed.";
   return acceptedHandoffNextAction(workflow, incompleteDecision, incompleteMoveIn, incompleteEhr, handoffStatus);
 }
 
@@ -244,11 +244,11 @@ function acceptedHandoffNextAction(
   const admissionBlockers = [...incompleteDecision, ...incompleteMoveIn];
   if (admissionBlockers.length > 0) return "Admissions will confirm arrival from the daily census or a coordinator after the client moves in. Complete remaining paperwork when available.";
   if (workflow.referral.stage !== "Accepted / Admitted") return "Await arrival confirmation from the daily census or an admissions coordinator.";
-  if (incompleteEhr.length > 0) return requirementNextAction(incompleteEhr, "alongside the EHR handoff");
-  if (handoffStatus === "queued") return "Confirm the downstream transfer, then record the handoff as sent or failed.";
-  if (handoffStatus === "failed") return "Review the recorded failure, correct the downstream issue, and retry the handoff.";
-  if (handoffStatus === "sent") return "Pipeline's admission and EHR handoff are complete; roster availability and identity linking remain governed separately.";
-  return "The admitted referral is ready to queue for EHR handoff.";
+  if (incompleteEhr.length > 0) return requirementNextAction(incompleteEhr, "alongside outside-system entry");
+  if (handoffStatus === "queued") return "Complete the entry outside Pipeline, then record it as complete or note an issue.";
+  if (handoffStatus === "failed") return "Review the recorded issue and mark the outside-system entry pending again when ready.";
+  if (handoffStatus === "sent") return "Outside-system entry is recorded complete; roster availability and identity linking remain governed separately.";
+  return "Outside-system entry has not been recorded in Pipeline.";
 }
 
 export function decisionConfirmationMessage(outcome: AdmissionDecision["outcome"], updating: boolean) {
