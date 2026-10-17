@@ -1,6 +1,6 @@
 import ReferralAdmissionPanel from "./ReferralAdmissionPanel";
-import { useEffect, useRef, useState, type ReactNode } from "react";
-import { ArrowRight, Check, CheckCircle2, ChevronDown, Circle, Clock3, LoaderCircle, Minus } from "lucide-react";
+import { useEffect, useRef, type ReactNode } from "react";
+import { ArrowRight, Check, CheckCircle2, Circle, Clock3, LoaderCircle, Minus } from "lucide-react";
 
 import ActionDetailDialog from "@/components/pipeline/ActionDetailDialog";
 import ReferralClientActivationPanel from "@/components/pipeline/ReferralClientActivationPanel";
@@ -131,13 +131,13 @@ export function ReferralWorkflowPanelPresentation({
 
   return (
     <section data-guide-target="workspace-decision" aria-label="Admission decision" className={styles.page}>
-      <DecisionPageHeading workflow={workflow} />
+      {!workflow.decision ? <DecisionPageHeading workflow={workflow} /> : null}
       {message ? <div className={message === "Decision recorded" ? "sr-only" : undefined}><WorkflowNotice tone="success">{message}</WorkflowNotice></div> : null}
       {error ? <WorkflowNotice tone="error">{error}</WorkflowNotice> : null}
 
-      <div className={styles.layout}>
+      <div className={styles.layout} data-recorded={Boolean(workflow.decision) || undefined}>
         <div className={styles.main} ref={resultRef} {...recordedDecisionAttributes(workflow)}>
-          <DecisionCard workflow={workflow} busy={busy} recommendation={recommendation} onRecommendationChange={onRecommendationChange} onSubmitDecision={onSubmitDecision} onOpenUnderReviewEmail={onOpenUnderReviewEmail} />
+          <DecisionCard workflow={workflow} busy={busy} recommendation={recommendation} onRecommendationChange={onRecommendationChange} onSubmitDecision={onSubmitDecision} onOpenUnderReviewEmail={onOpenUnderReviewEmail} onOpenAssessment={onOpenAssessment} />
           {workflow.decision?.outcome === "accepted" ? <AdmissionHandoff workflow={workflow} busy={busy} admissionDate={admissionDate} onAdmissionDateChange={onAdmissionDateChange} onSaveAdmissionDate={onSaveAdmissionDate} onSubmitTransition={onSubmitTransition} onSavePlacementCancellation={onSavePlacementCancellation} /> : null}
           {showDecisionDone(workflow) && onDone ? (
             <div className={styles.done}>
@@ -146,10 +146,10 @@ export function ReferralWorkflowPanelPresentation({
             </div>
           ) : null}
         </div>
-        <DecisionContext workflow={workflow} busy={busy} onOpenAssessment={onOpenAssessment} />
+        {!workflow.decision ? <DecisionContext workflow={workflow} busy={busy} onOpenAssessment={onOpenAssessment} /> : null}
       </div>
-      <details className={styles.details}>
-          <summary>Admission paperwork &amp; EHR handoff</summary>
+      <section className={styles.paperwork} aria-label="Admission paperwork and EHR handoff">
+          <h3>Admission paperwork &amp; EHR handoff</h3>
           <WorkflowSecondaryColumn
             workflow={workflow}
             view={view}
@@ -162,7 +162,7 @@ export function ReferralWorkflowPanelPresentation({
             onOpenHandoffFailure={onOpenHandoffFailure}
             onOpenProfile={onOpenProfile}
           />
-      </details>
+      </section>
       <details className={styles.details} data-admin-controls>
           <summary>Administrative controls</summary>
           <p className={styles.adminNote}>For authorized staff. These change the referral&apos;s stage or grant a manual intake exception. They do not record the decision, sign the assessment, or send anything.</p>
@@ -243,9 +243,10 @@ function CurrentGateCard({
   );
 }
 
-export function DecisionCard({ workflow, busy, recommendation, onRecommendationChange, onSubmitDecision, onOpenUnderReviewEmail }: Pick<ReferralWorkflowPanelPresentationProps, "workflow" | "busy" | "recommendation" | "onRecommendationChange" | "onSubmitDecision" | "onOpenUnderReviewEmail">) {
+export function DecisionCard({ workflow, busy, recommendation, onRecommendationChange, onSubmitDecision, onOpenUnderReviewEmail, onOpenAssessment }: Pick<ReferralWorkflowPanelPresentationProps, "workflow" | "busy" | "recommendation" | "onRecommendationChange" | "onSubmitDecision" | "onOpenUnderReviewEmail"> & { onOpenAssessment?: () => void }) {
   if (workflow.decision) return <section className={styles.savedDecision} data-outcome={workflow.decision.outcome}>
     <RecordSummary title={workflow.decision.outcome === "accepted" ? "Accepted" : "Denied"} actor={workflow.decision.decidedByName} date={workflow.decision.decidedAt} note={workflow.decision.reasonNote} />
+    {onOpenAssessment ? <button type="button" className={styles.savedAssessmentLink} disabled={Boolean(busy)} onClick={onOpenAssessment}>View assessment <ArrowRight size={15} aria-hidden="true" /></button> : null}
     <RecommendationOnFile workflow={workflow} compact />
   </section>;
   const underReview = recommendation.outcome === "needs_more_information";
@@ -298,22 +299,21 @@ function WorkflowSecondaryColumn({ workflow, view, busy, pendingRequirements, re
   return (
     <div className="space-y-5">
       <WorkflowCard title="Admission requirements" detail={admissionRequirementSummary(workflow.work_items)}><div className="space-y-5">{requirementGroups(workflow.work_items).map((group) => <RequirementGroup key={group.label} group={group} disabled={!workflow.capabilities.can_update || Boolean(busy && !busy.startsWith("requirement:"))} busy={busy} pendingRequirements={pendingRequirements} requirementErrors={requirementErrors} onChange={onUpdateRequirement} />)}</div></WorkflowCard>
-      <EhrHandoffDisclosure workflow={workflow} view={view} busy={busy} onUpdateHandoff={onUpdateHandoff} onRecordHandoffSent={onRecordHandoffSent} onOpenHandoffFailure={onOpenHandoffFailure} />
+      <EhrHandoffCard workflow={workflow} view={view} busy={busy} onUpdateHandoff={onUpdateHandoff} onRecordHandoffSent={onRecordHandoffSent} onOpenHandoffFailure={onOpenHandoffFailure} />
       {view.currentReferral.stage === "Accepted / Admitted" ? <ReferralClientActivationPanel referralId={view.currentReferral.id} canReconcile={workflow.capabilities.can_reconcile_identity} canReview={workflow.capabilities.can_review_identity} onOpenProfile={onOpenProfile} /> : null}
     </div>
   );
 }
 
-function EhrHandoffDisclosure({ workflow, view, busy, onUpdateHandoff, onRecordHandoffSent, onOpenHandoffFailure }: Pick<ReferralWorkflowPanelPresentationProps, "workflow" | "busy" | "onUpdateHandoff" | "onRecordHandoffSent" | "onOpenHandoffFailure"> & { view: WorkflowView }) {
+function EhrHandoffCard({ workflow, view, busy, onUpdateHandoff, onRecordHandoffSent, onOpenHandoffFailure }: Pick<ReferralWorkflowPanelPresentationProps, "workflow" | "busy" | "onUpdateHandoff" | "onRecordHandoffSent" | "onOpenHandoffFailure"> & { view: WorkflowView }) {
   const { currentReferral, handoffStatus, ehrIsBlocked } = view;
-  const ready = workflow.decision?.outcome === "accepted" || handoffStatus !== "not_ready";
   const handoffContent = handoffContentByStatus[handoffStatus];
   return (
-    <WorkflowDisclosure key={`ehr-${ready ? "ready" : "pending"}`} title="EHR handoff" detail={handoffDescription(handoffStatus)} defaultOpen={ready}>
+    <WorkflowCard title="EHR handoff" detail={handoffDescription(handoffStatus)}>
       <div className="flex flex-wrap gap-2">
         {handoffContent({ workflow, currentReferral, busy, ehrIsBlocked, onUpdateHandoff, onRecordHandoffSent, onOpenHandoffFailure })}
       </div>
-    </WorkflowDisclosure>
+    </WorkflowCard>
   );
 }
 
@@ -337,19 +337,6 @@ export function WorkflowNotice({ tone, children }: { tone: "success" | "error"; 
 
 function WorkflowCard({ title, detail, children }: { title: string; detail: string; children: ReactNode }) {
   return <section className="border-b border-[#dce4df] bg-white pb-5"><header className="mb-3"><h3 className="text-[15px] font-semibold text-[#25372d]">{title}</h3>{detail ? <p className="mt-1 text-[13px] text-[#59665f]">{detail}</p> : null}</header>{children}</section>;
-}
-
-function WorkflowDisclosure({ title, detail, defaultOpen, children }: { title: string; detail: string; defaultOpen: boolean; children: ReactNode }) {
-  const [open, setOpen] = useState(defaultOpen);
-  return (
-    <details className="group border-b border-[#dce4df] bg-white" open={open} onToggle={(event) => setOpen(event.currentTarget.open)}>
-      <summary className="flex cursor-pointer list-none items-center gap-3 py-3 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f8b73] [&::-webkit-details-marker]:hidden">
-        <span className="min-w-0 flex-1"><span className="block text-[15px] font-semibold text-[#25372d]">{title}</span>{detail ? <span className="mt-1 block text-[13px] text-[#59665f]">{detail}</span> : null}</span>
-        <ChevronDown size={15} className="text-[#59665f] transition-transform group-open:rotate-180" aria-hidden="true" />
-      </summary>
-      <div className="pb-5">{children}</div>
-    </details>
-  );
 }
 
 function WorkflowDetailDialog({ pending, onConfirm, onClose }: { pending: PendingWorkflowDetail; onConfirm: (detail: string) => void; onClose: () => void }) {
@@ -395,7 +382,7 @@ function WorkflowTextArea({ label, value, disabled, onChange }: { label: string;
 }
 
 function RecordSummary({ title, actor, date, note }: { title: string; actor: string; date: string; note: string }) {
-  return <div><span className={styles.savedLabel}><CheckCircle2 size={18} aria-hidden="true" /> Decision recorded</span><h4>{title}</h4><p className={styles.recordedBy}>{actor || "Name not recorded"} · {formatRecordedAt(date)}</p>{note ? <p className={styles.recordedNote}>{note}</p> : null}</div>;
+  return <div className={styles.recordSummary}><div className={styles.recordHeading}><h4><CheckCircle2 size={20} aria-hidden="true" />{title}</h4><span>Decision recorded</span></div><p className={styles.recordedBy}>{actor || "Name not recorded"} · {formatRecordedAt(date)}</p>{note ? <p className={styles.recordedNote}>{note}</p> : null}</div>;
 }
 
 function decisionRecordState(workflow: WorkflowResponse) {

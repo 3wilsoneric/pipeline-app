@@ -138,7 +138,7 @@ for (const width of [1440, 834]) {
     const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: "Synthetic Standard Workspace", owner: "", tags: [] });
     await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=workflow`);
     const decision = page.getByRole("region", { name: "Decision", exact: true });
-    await decision.locator("summary").filter({ hasText: /^Admission paperwork & EHR handoff$/ }).click();
+    await expect(decision.getByRole("region", { name: "Admission paperwork and EHR handoff" })).toBeVisible();
     const requirement = page.getByRole("combobox", { name: /status$/ }).first();
     await expect(requirement).toBeVisible();
     const control = await requirement.evaluate((node) => ({ height: node.getBoundingClientRect().height, fontSize: parseFloat(getComputedStyle(node).fontSize) }));

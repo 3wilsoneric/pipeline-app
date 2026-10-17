@@ -19,7 +19,7 @@ test("a checklist save does not freeze or erase a draft decision", async ({ page
   try {
     await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=workflow`);
     const panel = page.getByRole("region", { name: "Admission decision", exact: true });
-    await panel.getByText("Admission paperwork & EHR handoff").click();
+    await expect(panel.getByRole("region", { name: "Admission paperwork and EHR handoff" })).toBeVisible();
     const requirement = panel.locator('select[aria-label$=" status"]').first();
     await expect(requirement).toBeVisible();
     const current = await requirement.inputValue();
@@ -57,7 +57,7 @@ test("two paperwork changes queue without dropping either selection", async ({ p
   try {
     await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=workflow`);
     const panel = page.getByRole("region", { name: "Admission decision", exact: true });
-    await panel.getByText("Admission paperwork & EHR handoff").click();
+    await expect(panel.getByRole("region", { name: "Admission paperwork and EHR handoff" })).toBeVisible();
     const statuses = panel.locator('select[aria-label$=" status"]');
     await expect.poll(() => statuses.count()).toBeGreaterThanOrEqual(2);
     const first = statuses.nth(0);
@@ -76,7 +76,7 @@ test("two paperwork changes queue without dropping either selection", async ({ p
     await expect(first).toBeEnabled();
     await expect(second).toBeEnabled();
     await page.reload();
-    await panel.getByText("Admission paperwork & EHR handoff").click();
+    await expect(panel.getByRole("region", { name: "Admission paperwork and EHR handoff" })).toBeVisible();
     await expect(statuses.nth(0)).toHaveValue(firstTarget);
     await expect(statuses.nth(1)).toHaveValue(secondTarget);
   } finally {
@@ -97,7 +97,7 @@ test("a failed paperwork change stays visible and can be retried", async ({ page
   });
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=workflow`);
   const panel = page.getByRole("region", { name: "Admission decision", exact: true });
-  await panel.getByText("Admission paperwork & EHR handoff").click();
+  await expect(panel.getByRole("region", { name: "Admission paperwork and EHR handoff" })).toBeVisible();
   const status = panel.locator('select[aria-label$=" status"]').first();
   const original = await status.inputValue();
   const target = original === "received" ? "needed" : "received";
@@ -108,7 +108,7 @@ test("a failed paperwork change stays visible and can be retried", async ({ page
   await expect.poll(() => requests).toBe(2);
   await expect(status).toBeEnabled();
   await page.reload();
-  await panel.getByText("Admission paperwork & EHR handoff").click();
+  await expect(panel.getByRole("region", { name: "Admission paperwork and EHR handoff" })).toBeVisible();
   await expect(panel.locator('select[aria-label$=" status"]').first()).toHaveValue(target);
 });
 
@@ -131,7 +131,7 @@ test("paperwork failure stays visible after leaving Decision for Files", async (
   try {
     await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=workflow`);
     const panel = page.getByRole("region", { name: "Admission decision", exact: true });
-    await panel.getByText("Admission paperwork & EHR handoff").click();
+    await expect(panel.getByRole("region", { name: "Admission paperwork and EHR handoff" })).toBeVisible();
     const status = panel.locator('select[aria-label$=" status"]').first();
     const original = await status.inputValue();
     const target = original === "received" ? "needed" : "received";
@@ -153,7 +153,7 @@ test("paperwork failure stays visible after leaving Decision for Files", async (
     await expect.poll(() => requests).toBe(2);
     await expect(page.getByText("1 paperwork change not saved. Open Decision to retry.")).toBeHidden();
     await page.reload();
-    await panel.getByText("Admission paperwork & EHR handoff").click();
+    await expect(panel.getByRole("region", { name: "Admission paperwork and EHR handoff" })).toBeVisible();
     await expect(panel.locator('select[aria-label$=" status"]').first()).toHaveValue(target);
   } finally {
     releaseFirst();

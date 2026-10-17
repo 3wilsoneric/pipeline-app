@@ -120,7 +120,7 @@ for (const width of [1440, 390]) {
     await expect(decision).toBeVisible();
     await expect(page.getByRole("button", { name: "Admission workflow", exact: true })).toHaveCount(0);
     await expect(decision.getByText("From referral to handoff", { exact: true })).toHaveCount(0);
-    await expect(decision.getByRole("heading", { name: "Admission requirements", exact: true })).not.toBeVisible();
+    await expect(decision.getByRole("heading", { name: "Admission requirements", exact: true })).toBeVisible();
     await decision.getByRole("radio", { name: "Accept", exact: true }).check();
     await expect(decision).not.toContainText(/Supervisor decision|Assessment outcome|Open assessment/);
     await expect(decision.getByRole("radio")).toHaveCount(3);
@@ -145,11 +145,10 @@ for (const width of [1440, 390]) {
     if (width < 640) await page.getByLabel("Workspace view", { exact: true }).selectOption({ label: "Decision" });
     else await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: "Decision", exact: true }).click();
     await expect(decision.getByLabel("Planned admission date", { exact: true })).toHaveValue("2026-10-01");
-    await decision.locator("summary").filter({ hasText: /^Admission paperwork & EHR handoff$/ }).click();
     await expect(decision.getByRole("heading", { name: "Admission requirements", exact: true })).toBeVisible();
     await page.reload();
     await expect(decision.getByLabel("Planned admission date", { exact: true })).toHaveValue("2026-10-01");
-    await expect(decision.getByRole("heading", { name: "Admission requirements", exact: true })).not.toBeVisible();
+    await expect(decision.getByRole("heading", { name: "Admission requirements", exact: true })).toBeVisible();
     await decision.locator("summary").filter({ hasText: /^Administrative controls$/ }).click();
     await decision.getByRole("combobox", { name: "Workflow stage", exact: true }).selectOption("Assessment");
     await expect.poll(async () => (await (await page.request.get(`/api/referrals/${referral.id}`)).json()).referral.stage).toBe("Assessment");

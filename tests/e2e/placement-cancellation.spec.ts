@@ -49,7 +49,7 @@ for (const width of [1440, 390]) test(`accepted placement can be cancelled witho
   await expect(admission.getByRole("status")).toContainText("Placement cancelled · County placed the client elsewhere.");
   await expect(admission.getByRole("button", { name: "Confirm admission" })).toHaveCount(0);
   await expect(admission.getByLabel("Planned admission date")).toBeDisabled();
-  await expect(page.getByText("Placement was cancelled before a packet was sent.")).toBeVisible();
+  await expect(admission).toContainText("No handoff can be sent for this cancelled placement.");
   await page.screenshot({ path: info.outputPath(`placement-cancelled-${width}.png`) });
 
   const workflow = (await (await page.request.get(`/api/referrals/${accepted.id}/workflow`)).json());
