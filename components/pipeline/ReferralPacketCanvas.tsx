@@ -53,7 +53,6 @@ import workspaceFolderStyles from "./ReferralWorkspaceFolder.module.css";
 import type { AssessmentListResponse, PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
 import { hasActiveAssessmentSchedule } from "@/components/pipeline/assessment-workspace-state";
 import DeleteWorkspaceDialog from "@/components/pipeline/DeleteWorkspaceDialog";
-import HomeDialog from "@/components/pipeline/HomeDialog";
 import ActionDetailDialog from "@/components/pipeline/ActionDetailDialog";
 import DuplicateReferralReviewDialog, {
   type ReferralDuplicateReview,
@@ -2755,14 +2754,6 @@ export default function ReferralPacketCanvas({
             {/* Client notes: beside the questions on the Assessment step; from this button everywhere else. */}
             {designV2 && loadedReferral && (phone || displayedPage !== 2) && !trainingAssessmentMode && !trainingIntakeMode ? <ClientNotesButton key={loadedReferral.id} referralId={loadedReferral.id} readOnly={permissionReadOnly || historicalReadOnly} /> : null}
             <WorkspaceStageNavigation steps={railSteps} activePage={displayedPage === 1 && loadedReferral && !navigableWorkspaceSteps.some((step) => step.page === 1) ? chartPage : displayedPage} onOpen={(page) => void navigatePage(page)} progress={designV2 ? workspaceStepProgress(loadedReferral?.workflowStatus, assessmentSummary) : undefined} />
-            {verticalFlow && nextWorkspaceStep ? (
-              <div className={workspaceFolderStyles.nextStepBar}>
-                <button type="button" onClick={() => void navigatePage(nextWorkspaceStep.page)} data-folder-stage={nextWorkspaceStep.page}>
-                  Next: {nextWorkspaceStep.label}<ArrowRight size={15} aria-hidden="true" />
-                </button>
-              </div>
-            ) : null}
-
             {recordStack && stackVisible && editingControlsVisible ? renderSaveCenter() : null}
             {/* Redesign: no "is editing" pills in the rail (owner, 2026-09-26). Saves still refuse and
                 explain conflicting edits (renderWorkspaceConflicts). */}
@@ -2841,17 +2832,18 @@ export default function ReferralPacketCanvas({
     </ReferralDocumentUpload>
   );
 
-  const renderCreationHandoff = () => (showCreationHandoff && loadedReferral ? <HomeDialog label="Workspace created" title="Workspace created" onClose={() => { setShowCreationHandoff(false); onWorkspaceLocationChange?.({ view: "chart" }); }} className="rounded-xl">
-        <div className="space-y-5 p-5 sm:p-6">
-          <div><p className="text-xl font-bold text-[#243d34]">{loadedReferral.name}</p><p className="mt-1 text-[15px] leading-6 text-[#586c63]">The intake is now the chart. Book a time, or prepare from the records first.</p></div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <button type="button" disabled={permissionReadOnly} onClick={() => void continueCreatedWorkspace(true)} className="flex min-h-28 flex-col items-start gap-2 rounded-lg bg-[#08765e] p-5 text-left text-white hover:bg-[#065c49] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#08765e] disabled:opacity-50"><CalendarClock size={22} aria-hidden="true" /><span className="text-lg font-bold">Schedule assessment</span><span className="text-sm">Choose a date, time and meeting details.</span></button>
-            <button type="button" disabled={permissionReadOnly} onClick={() => void continueCreatedWorkspace(false)} className="flex min-h-28 flex-col items-start gap-2 rounded-lg border border-[#c6d6ce] bg-[#f5f8f6] p-5 text-left text-[#234a3c] hover:bg-[#eaf2ed] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#08765e] disabled:opacity-50"><FolderOpen size={22} aria-hidden="true" /><span className="text-lg font-bold">Assessment prep</span><span className="text-sm">Fill in what is known before the interview.</span></button>
-          </div>
-          {saveError ? <p role="alert" className="text-sm leading-6 text-[#59645e]">{saveError}</p> : null}
-          <p className="text-sm leading-6 text-[#586c63]">Neither option starts the interview. Use <strong>Begin assessment</strong> when you are with the client.</p>
+  const renderCreationHandoff = () => (showCreationHandoff && loadedReferral && displayedPage === chartPage ? <section aria-label="Workspace created" className="mb-4 rounded-lg border border-[#bbd6c8] bg-[#f7fbf8] p-4 sm:p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div><h2 className="text-lg font-bold text-[#243d34]">Workspace created</h2><p className="mt-1 text-sm leading-6 text-[#586c63]">{loadedReferral.name} is saved in the chart. Choose what to do next.</p></div>
+          <button type="button" onClick={() => { setShowCreationHandoff(false); onWorkspaceLocationChange?.({ view: "chart" }); }} className="min-h-11 rounded px-3 text-sm font-semibold text-[#365b4d] hover:bg-[#eaf2ed] focus-visible:outline-2" aria-label="Dismiss workspace next steps">Dismiss</button>
         </div>
-      </HomeDialog> : null);
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <button type="button" disabled={permissionReadOnly} onClick={() => void continueCreatedWorkspace(true)} className="flex min-h-20 items-center gap-3 rounded-lg bg-[#08765e] p-4 text-left text-white hover:bg-[#065c49] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#08765e] disabled:opacity-50"><CalendarClock size={22} aria-hidden="true" /><span><strong className="block text-base">Schedule assessment</strong><small className="block text-sm">Choose a date, time and meeting details.</small></span></button>
+          <button type="button" disabled={permissionReadOnly} onClick={() => void continueCreatedWorkspace(false)} className="flex min-h-20 items-center gap-3 rounded-lg border border-[#c6d6ce] bg-white p-4 text-left text-[#234a3c] hover:bg-[#eaf2ed] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#08765e] disabled:opacity-50"><FolderOpen size={22} aria-hidden="true" /><span><strong className="block text-base">Assessment prep</strong><small className="block text-sm">Fill in what is known before the interview.</small></span></button>
+        </div>
+        {saveError ? <p role="alert" className="mt-3 text-sm leading-6 text-[#59645e]">{saveError}</p> : null}
+        <p className="mt-3 text-sm text-[#586c63]">Neither option starts the interview. Begin interview when you are with the client.</p>
+      </section> : null);
 
 
   // Step pages, shared by the one-page record and the page-by-page layout.
@@ -3189,6 +3181,7 @@ export default function ReferralPacketCanvas({
         className={`mx-auto w-full max-w-[1480px] px-2 pb-10 pt-0 sm:px-4 lg:px-6 ${readingAssessment ? workspaceFolderStyles.readingWorkspace : ""} ${verticalFlow ? workspaceFolderStyles.verticalFlow : ""}`}
       >
         {renderWorkspaceHeader()}
+        {renderCreationHandoff()}
         {verticalFlow && displayedPage === 2 ? <div role="separator" tabIndex={0} data-interview-rail-resizer
           aria-label="Resize workspace rail" aria-orientation="vertical" aria-controls="workspace-record-rail"
           aria-valuemin={0} aria-valuemax={maxInterviewRailWidth} aria-valuenow={interviewRailWidth}
@@ -3285,13 +3278,12 @@ export default function ReferralPacketCanvas({
           </div>
         ) : null}
         {/* Each step ends by leading into the next one, so the record reads top to bottom (owner, 2026-09-26). */}
-        {verticalFlow && nextWorkspaceStep && displayedPage !== "files" && displayedPage !== "activity" ? <div className={workspaceFolderStyles.stepContinue}>
+        {verticalFlow && nextWorkspaceStep && displayedPage === chartPage ? <div className={workspaceFolderStyles.stepContinue}>
           <button type="button" onClick={() => void navigatePage(nextWorkspaceStep.page)} data-folder-stage={nextWorkspaceStep.page}>
             Next: {nextWorkspaceStep.label}<ArrowRight size={17} aria-hidden="true" />
           </button>
         </div> : null}
       </div>
-      {renderCreationHandoff()}
       {deleteDialogOpen && loadedReferral ? (
         <DeleteWorkspaceDialog
           name={loadedReferral.name}

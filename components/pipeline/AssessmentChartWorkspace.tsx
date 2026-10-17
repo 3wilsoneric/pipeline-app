@@ -162,7 +162,7 @@ export default function AssessmentChartWorkspace({ referralId, active = true, so
     setConfirmed(false);
     setExampleReviewed(false);
     setReviewedCount(1);
-    setReviewStep(1);
+    setReviewStep(null);
   };
 
   const emailMeetClient = async (outlookToken: string, delivery: "outlook" | "assessor" = "outlook") => {
@@ -277,13 +277,13 @@ export default function AssessmentChartWorkspace({ referralId, active = true, so
     <RefreshCw size={15} className={loading ? "animate-spin" : ""} /> Refresh
   </button>;
 
-  const renderReviewBody = (step: number) => {
+  const renderReviewBody = (step: number, inline = false) => {
     if (step === 0) return <MeetClientAdmissionReview referral={readyPayload.referral} editable={readyPayload.email.can_edit_recipients} demo={readyPayload.email.example_only}
-      onConfirm={confirmAdmissionDate} onReviewWithoutDate={() => { setConfirmed(false); setReviewedCount(1); setReviewStep(1); }}
+      onConfirm={confirmAdmissionDate} onReviewWithoutDate={() => { setConfirmed(false); setReviewedCount(1); setReviewStep(null); }}
       onSavingChange={(saving) => { setSavingDate(saving); onSendingChange?.(saving); }} onReload={() => void load()} />;
     return step < 4 ? <HandoffReviewStep payload={readyPayload} draft={emailDraft} confirmed={confirmed} onConfirmed={setConfirmed}
           selectedFileIds={selectedFileIds} onSelectedFileIdsChange={(ids) => { setSelectedFileIds(ids); setConfirmed(false); sendRequest.current = null; }}
-          onBack={() => setReviewStep(0)}
+          onBack={() => { if (inline) setReviewedCount(0); else setReviewStep(0); }}
           onOpenFiles={onOpenFiles ? () => { setReviewStep(null); onOpenFiles(); } : undefined}
           onOpenAssessment={onOpenAssessment ? () => { setReviewStep(null); onOpenAssessment(); } : undefined}
           onContinue={() => { setReviewedCount(4); setReviewStep(4); }} />
@@ -307,13 +307,24 @@ export default function AssessmentChartWorkspace({ referralId, active = true, so
       {!composerOpen ? <ChartStatusMessage error={error} message={message} /> : null}
       {!composerOpen ? <HandoffDraftError value={emailDraft} /> : null}
       {!composerOpen && readyPayload.email.example_only ? <p role="status" className={styles.previewNote}>Not production yet — no email will be sent.</p> : null}
-      <HandoffOverview payload={readyPayload} sent={sent} exampleReviewed={exampleReviewed} finishActions={finishActions}
+      {!composerOpen && !sent && !existingDraft && !exampleReviewed && reviewedCount === 0 && readyPayload.report?.signed && readyPayload.email.eligible
+        ? <section className={styles.inlineDateReview} aria-label="Prepare client handoff">
+            <h3>Prepare the client handoff</h3>
+            <p>Check the planned admit date, then review the summary, selected files and recipients before previewing the email.</p>
+            {renderReviewBody(0)}
+          </section>
+        : !composerOpen && !sent && !existingDraft && !exampleReviewed && reviewedCount > 0 && readyPayload.report?.signed && readyPayload.email.eligible
+        ? <section className={styles.inlineHandoffReview} aria-label="Review client handoff">
+            <header><h3>Review the handoff</h3><p>Check the summary, selected files and recipients. Preview the email before sending.</p></header>
+            {renderReviewBody(1, true)}
+          </section>
+        : <HandoffOverview payload={readyPayload} sent={sent} exampleReviewed={exampleReviewed} finishActions={finishActions}
         existingDraft={existingDraft} composerOpen={composerOpen} reviewedCount={reviewedCount} onPreviewEmail={() => {
           if (readyPayload.email.previously_sent && !sent && !existingDraft && !repeatSendConfirmed) void prepareAnotherHandoff();
           else setReviewStep(sent || exampleReviewed || existingDraft ? 4 : Math.min(reviewedCount, 4));
         }}
         onPrepareAnother={readyPayload.email.can_send && sent && !existingDraft ? () => void prepareAnotherHandoff() : undefined}
-        onOpenIntake={onOpenIntake} onOpenAssessment={onOpenAssessment} onOpenDecision={onOpenDecision} />
+        onOpenIntake={onOpenIntake} onOpenAssessment={onOpenAssessment} onOpenDecision={onOpenDecision} />}
       {!readyPayload.email.example_only ? <CommunicationHistory referralId={readyPayload.referral.id} refreshKey={`${sent}:${composerOpen}`}
         onPrepareUpdated={readyPayload.email.can_send ? () => { if (existingDraft) setReviewStep(4); else if (sent || readyPayload.email.previously_sent) void prepareAnotherHandoff(); else void load().then(next => { if (next) setReviewStep(0); }); } : undefined} /> : null}
       {renderReviewDialog()}

@@ -2443,13 +2443,15 @@ export default function AssessmentWorkspace({
               {remainingReviewItems > 0
                 ? <p className={workingStyles.reviewRemaining}>{remainingReviewItems} item{remainingReviewItems === 1 ? "" : "s"} still need an answer or verification. They do not prevent signing.</p>
                 : <p className={workingStyles.reviewComplete}><Check size={17} aria-hidden="true" />All visible questions have recorded answers. Review for accuracy before signing.</p>}
-              <h4 className={workingStyles.reviewSectionsHeading} id="assessment-review-sections">Answers by section</h4>
+              <details className={workingStyles.reviewSectionIndex}>
+              <summary id="assessment-review-sections">Answers by section <span>{reviewSections.length} sections · {remainingReviewItems} to review</span></summary>
               <ul className={workingStyles.reviewChecklist} aria-labelledby="assessment-review-sections">{reviewSections.map((section) => <li key={section.key}>
                   <button type="button" disabled={reviewEditDisabled} onClick={() => openSectionForReview(section.key, section.remaining[0]?.field)}>
                     <span>{section.label}</span>
                     <span>{section.questions.length - section.remaining.length} of {section.questions.length} recorded{section.remaining.length > 0 ? ` · ${section.remaining.length} to review` : ""}<ChevronRight size={15} aria-hidden="true" /></span>
                   </button>
                 </li>)}</ul>
+              </details>
               {renderReviewRecommendation()}
               {renderSigningExplanation()}
             </div>;

@@ -33,7 +33,7 @@ for (const width of [1440, 834, 390, 320]) {
     await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=workflow`);
     const panel = page.getByRole("region", { name: "Admission decision", exact: true });
     await expect(panel.getByRole("heading", { name: "Placement decision", exact: true })).toBeVisible();
-    await expect(panel.getByRole("complementary", { name: "Decision context" })).toContainText("Answers not started");
+    await expect(panel.getByRole("complementary", { name: "Decision context" })).toContainText("Open the assessment to review or continue it.");
     await expect(panel.getByRole("button", { name: "Record decision", exact: true })).toBeDisabled();
     await expect(panel.getByRole("button", { name: /^Change stage to/ })).not.toBeVisible();
     await expect(panel.getByRole("combobox", { name: "Workflow stage" })).not.toBeVisible();
@@ -56,6 +56,7 @@ for (const width of [1440, 834, 390, 320]) {
     await expect(panel.getByRole("heading", { name: "Accepted", exact: true })).toBeVisible();
     await expect(panel.getByRole("group", { name: "Recorded decision", exact: true })).toBeFocused();
     await expect(panel.getByRole("region", { name: "Prepare client handoff" })).toContainText("Sign the assessment before sending");
+    await expect(panel.getByRole("region", { name: "Admission follow-through" }).getByText("After arrival · confirm admission")).toBeVisible();
     await expect(panel.getByRole("button", { name: "Review email & packet", exact: true })).toBeEnabled();
     await expect(panel).toContainText("Add a planned admit date before sending");
     await expectAccessibleDecision(page);

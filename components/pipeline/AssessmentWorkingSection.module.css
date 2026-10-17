@@ -308,6 +308,13 @@
   .reviewFacts dd { margin: 5px 0 0; font-size: 17px; font-weight: 600; color: var(--color-ink); }
   .reviewRemaining { margin: 18px 0 0; font-size: 15px; line-height: 1.5; color: #65552d; }
   .reviewSectionsHeading { margin: 20px 0 6px; font-size: 15px; font-weight: 650; color: var(--color-ink); }
+  .reviewSectionIndex { margin-top: 20px; border-block: 1px solid var(--color-paper-rule); }
+  .reviewSectionIndex > summary { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 16px; min-height: 50px; cursor: pointer; color: var(--color-ink); font-size: 15px; font-weight: 650; }
+  .reviewSectionIndex > summary span { color: var(--color-ink-muted); font-size: 13px; font-weight: 500; }
+  .reviewSectionIndex > summary::after { content: ""; width: 8px; height: 8px; margin-right: 4px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); }
+  .reviewSectionIndex[open] > summary::after { transform: rotate(225deg); }
+  .reviewSectionIndex > summary:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+  .reviewSectionIndex .reviewChecklist { padding-bottom: 12px; }
   .reviewChecklist { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 32px; padding: 0; margin: 0; list-style: none; }
   .reviewChecklist li { min-width: 0; border-top: 1px solid var(--color-paper-rule); }
   .reviewChecklist button { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 48px; padding: 9px 0; font-size: 15px; text-align: left; color: #355c4e; }
