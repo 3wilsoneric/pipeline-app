@@ -16,7 +16,8 @@ for (const width of [1440, 390]) test(`accepted work resumes the client handoff 
   const handoff = page.getByRole("region", { name: "Prepare client handoff", exact: true });
   await expect(handoff).toBeVisible();
   await expect(page).toHaveURL(/workspaceView=workflow/);
-  await expect(handoff.getByRole("list", { name: "Handoff progress" })).toContainText("Assessment signed");
+  await expect(handoff.getByRole("list", { name: "Handoff progress" })).toHaveCount(0);
+  await expect(handoff).toContainText("Review the recipients, client summary and chart files before sending.");
   await expect(page.getByRole("button", { name: "Mark admitted", exact: true })).toHaveCount(0);
   await expect(page.getByLabel("Actual admission date", { exact: true })).toHaveValue("");
   await expect(page.getByRole("button", { name: "Confirm admission", exact: true })).toBeEnabled();

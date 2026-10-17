@@ -141,7 +141,7 @@ export default function AssessmentChartWorkspace({ referralId, active = true, so
     void load();
   }, [active, referralId, sourceVersion, composerOpen, savingDate, sending, load]);
   const recipientKey = JSON.stringify([referralId, recipients, ccRecipients, emailDraft?.recipientInput]);
-  useEffect(() => { setConfirmed(false); setReviewedCount((count) => Math.min(count, 3)); }, [recipientKey]);
+  useEffect(() => { setConfirmed(false); setReviewedCount((count) => Math.min(count, 1)); }, [recipientKey]);
 
   const confirmAdmissionDate = async (saved: Referral) => {
     onReferralChange?.(saved);
@@ -281,16 +281,16 @@ export default function AssessmentChartWorkspace({ referralId, active = true, so
     if (step === 0) return <MeetClientAdmissionReview referral={readyPayload.referral} editable={readyPayload.email.can_edit_recipients} demo={readyPayload.email.example_only}
       onConfirm={confirmAdmissionDate} onReviewWithoutDate={() => { setConfirmed(false); setReviewedCount(1); setReviewStep(1); }}
       onSavingChange={(saving) => { setSavingDate(saving); onSendingChange?.(saving); }} onReload={() => void load()} />;
-    return step < 4 ? <HandoffReviewStep step={step} payload={readyPayload} draft={emailDraft} confirmed={confirmed} onConfirmed={setConfirmed}
+    return step < 4 ? <HandoffReviewStep payload={readyPayload} draft={emailDraft} confirmed={confirmed} onConfirmed={setConfirmed}
           selectedFileIds={selectedFileIds} onSelectedFileIdsChange={(ids) => { setSelectedFileIds(ids); setConfirmed(false); sendRequest.current = null; }}
-          onBack={() => setReviewStep(step - 1)}
+          onBack={() => setReviewStep(0)}
           onOpenFiles={onOpenFiles ? () => { setReviewStep(null); onOpenFiles(); } : undefined}
           onOpenAssessment={onOpenAssessment ? () => { setReviewStep(null); onOpenAssessment(); } : undefined}
-          onContinue={() => { setReviewedCount((count) => Math.max(count, step + 1)); setReviewStep(step + 1); }} />
+          onContinue={() => { setReviewedCount(4); setReviewStep(4); }} />
           : <MeetClientEmailPreview email={readyPayload.email} report={readyPayload.report} emailDraft={emailDraft} referral={readyPayload.referral}
             selectedFileIds={selectedFileIds}
             confirmed={confirmed} sending={sending} sent={sent && !repeatSendConfirmed && !existingDraft} error={error} message={message} refresh={refresh}
-            onBack={() => setReviewStep(3)} onReviewComplete={() => { setExampleReviewed(readyPayload.email.example_only); setReviewStep(null); }}
+            onBack={() => setReviewStep(1)} onReviewComplete={() => { setExampleReviewed(readyPayload.email.example_only); setReviewStep(null); }}
             preparedDraft={existingDraft} onExistingDraft={(draft) => { setExistingDraft(draft); if (!draft && existingDraft) { setConfirmed(false); setReviewedCount(0); setReviewStep(null); } }}
             onPrepareDirect={prepareDirect} onPrepareOutlook={emailMeetClient} onOutlookSent={() => { setAcceptedReferralId(readyPayload.referral.id); setRepeatSendConfirmed(false); }} />;
   };
@@ -381,14 +381,9 @@ function HandoffOverview({ existingDraft, payload, sent, exampleReviewed, finish
 
   return <section aria-label="Handoff readiness" className={styles.reviewLanding}>
     <h3>Ready to prepare the handoff</h3>
-    <p>Confirm the admit date, check the handoff, then preview the email.</p>
+    <p>Confirm the admit date, review the summary, files and recipients together, then preview the email.</p>
     <div aria-label="Handoff actions" className={styles.taskActions}>{previewButton}</div>
-    <ol className={styles.reviewChecklist} aria-label="Handoff review progress">
-      {["Admit date", "Client summary", "Admission packet", "Recipients"].map((label, index) => <li key={label} data-complete={reviewedCount > index || undefined}>
-        <span aria-hidden="true">{reviewedCount > index ? <Check size={18} /> : index + 1}</span>
-        <strong>{label}</strong><small>{reviewedCount > index ? "Checked" : index === reviewedCount ? "Up next" : "To check"}</small>
-      </li>)}
-    </ol>
+    <p className={styles.reviewNext}>{reviewedCount === 0 ? "Next: planned admit date" : reviewedCount < 4 ? "Next: review handoff" : "Next: preview email"}</p>
   </section>;
 }
 
@@ -433,7 +428,7 @@ function HandoffSection({ title, items, children }: { title: string; items: Asse
   return <section className={styles.handoffSection} aria-label={title}><h3>{title}</h3>{children}<dl>{items.map((item, index) => <div key={`${item.label}-${index}`} data-handoff-field={item.label}><dt>{item.label}</dt><dd><ReadableChartText value={item.value} /></dd></div>)}</dl></section>;
 }
 
-const handoffStepTitles = ["Confirm admit date", "Check client summary", "Check admission packet", "Check recipients", "Preview email"];
+const handoffStepTitles: Record<number, string> = { 0: "Confirm admit date", 1: "Review handoff", 4: "Preview email" };
 
 function MeetClientComposeDialog({ step, compact, sending, onClose, children }: { step: number; compact: boolean; sending: boolean; onClose: () => void; children: React.ReactNode }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -447,7 +442,7 @@ function MeetClientComposeDialog({ step, compact, sending, onClose, children }: 
   }, []);
   return <dialog ref={dialogRef} className={`${styles.composeDialog} ${step < 4 ? styles.reviewDialog : ""} ${step === 0 ? styles.admissionDateDialog : ""} ${compact ? styles.inboxReadyDialog : ""}`} aria-label={step === 4 ? "Meet the Client email" : handoffStepTitles[step]} aria-busy={sending}
     onCancel={(event) => { event.preventDefault(); if (!sending) onClose(); }}>
-    <header className={styles.dialogHeader}><div><span className={styles.stepNumber}>{step + 1} / {handoffStepTitles.length}</span><h2 ref={titleRef} tabIndex={-1}>{handoffStepTitles[step]}</h2></div><button type="button" aria-label={step === 4 ? "Close email preview" : "Close handoff review"} onClick={onClose} disabled={sending}><X size={22} aria-hidden="true" /></button></header>
+    <header className={styles.dialogHeader}><div><span className={styles.stepNumber}>{step === 0 ? 1 : step === 1 ? 2 : 3} / 3</span><h2 ref={titleRef} tabIndex={-1}>{handoffStepTitles[step]}</h2></div><button type="button" aria-label={step === 4 ? "Close email preview" : "Close handoff review"} onClick={onClose} disabled={sending}><X size={22} aria-hidden="true" /></button></header>
     {children}
   </dialog>;
 }
@@ -578,8 +573,8 @@ function ChartSourceFooter({ report }: { report: AssessmentSummaryReport }) {
   );
 }
 
-function HandoffReviewStep({ step, payload, draft, confirmed, onConfirmed, selectedFileIds, onSelectedFileIdsChange, onBack, onContinue, onOpenFiles, onOpenAssessment }: {
-  step: number; payload: ChartPayload; draft?: HandoffRecipients; confirmed: boolean;
+function HandoffReviewStep({ payload, draft, confirmed, onConfirmed, selectedFileIds, onSelectedFileIdsChange, onBack, onContinue, onOpenFiles, onOpenAssessment }: {
+  payload: ChartPayload; draft?: HandoffRecipients; confirmed: boolean;
   onConfirmed: (value: boolean) => void; onBack: () => void; onContinue: () => void;
   selectedFileIds: string[]; onSelectedFileIdsChange: (ids: string[]) => void;
   onOpenFiles?: () => void; onOpenAssessment?: () => void;
@@ -588,15 +583,17 @@ function HandoffReviewStep({ step, payload, draft, confirmed, onConfirmed, selec
   return <div className={styles.composer}>
     <div className={styles.composeScroll}>
       {payload.email.example_only ? <p role="status" className={styles.demoNotice}>Demo only — no email will be sent.</p> : null}
-      {step === 1 ? <HandoffSummaryReview report={payload.report} onOpenAssessment={onOpenAssessment} /> : null}
-      {step === 2 ? <AdmissionPacketReview email={payload.email} referral={payload.referral} selectedFileIds={selectedFileIds} onSelectedFileIdsChange={onSelectedFileIdsChange} onOpenFiles={onOpenFiles} /> : null}
-      {step === 3 ? <HandoffRecipientReview draft={draft} community={payload.referral.community} editable={payload.email.can_edit_recipients} confirmed={confirmed} onConfirmed={onConfirmed} /> : null}
-      {step !== 3 ? <HandoffDraftError value={draft} /> : null}
+      <details className={styles.reviewDisclosure}>
+        <summary>Client summary <span>View the signed assessment details</span></summary>
+        <HandoffSummaryReview report={payload.report} onOpenAssessment={onOpenAssessment} />
+      </details>
+      <AdmissionPacketReview email={payload.email} referral={payload.referral} selectedFileIds={selectedFileIds} onSelectedFileIdsChange={onSelectedFileIdsChange} onOpenFiles={onOpenFiles} />
+      <HandoffRecipientReview draft={draft} community={payload.referral.community} editable={payload.email.can_edit_recipients} confirmed={confirmed} onConfirmed={onConfirmed} />
     </div>
     <footer className={styles.toolbar}>
       <button type="button" className={styles.textButton} onClick={onBack}>Back</button>
-      <button type="button" className={styles.sendButton} disabled={(step === 3 && !recipientCheckReady) || (step === 2 && Boolean(packetSelectionIssue(payload.email, selectedFileIds)))} onClick={onContinue}>
-        {["Confirm summary", "Confirm packet", "Preview email"][step - 1]}<ArrowRight size={18} aria-hidden="true" />
+      <button type="button" className={styles.sendButton} disabled={!recipientCheckReady || Boolean(packetSelectionIssue(payload.email, selectedFileIds))} onClick={onContinue}>
+        Preview email<ArrowRight size={18} aria-hidden="true" />
       </button>
     </footer>
   </div>;
@@ -614,6 +611,7 @@ function HandoffRecipientReview({ draft, community, editable, confirmed, onConfi
   draft?: HandoffRecipients; community: string; editable: boolean; confirmed: boolean; onConfirmed: (value: boolean) => void;
 }) {
   return <div className={styles.reviewContent}>
+        <h3 className={styles.reviewSectionHeading}>Recipients</h3>
         <p className={styles.reviewInstruction}>Who should receive this client’s information?</p>
         {draft ? <div data-guide-target="packet-recipients"><ReferralHandoffContacts key={community} composer value={draft} community={community} disabled={!editable} /></div> : <p role="status">Recipient settings are not available yet.</p>}
         <label className={styles.confirmation}>

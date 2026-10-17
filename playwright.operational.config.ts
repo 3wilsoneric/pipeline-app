@@ -1,6 +1,10 @@
 import { defineConfig, devices } from "@playwright/test";
 import { resolve } from "node:path";
 
+// Operational checks exercise the single current design, including legacy specs
+// that still use this test-only flag to select their redesign assertions.
+process.env.PIPELINE_DESIGN_V2 = "true";
+
 const port = process.env.PORT ?? "3197";
 const baseURL = `http://127.0.0.1:${port}`;
 const prebuiltOperational = process.env.PIPELINE_OPERATIONAL_PREBUILT === "true";

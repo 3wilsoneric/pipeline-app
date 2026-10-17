@@ -97,7 +97,6 @@ for (const exit of ["Workspace files", "Change packet files"]) test(`a failed ha
   await dialog.getByRole("combobox", { name: /^Cc/ }).press("Enter");
   await expect(dialog.getByRole("alert")).toContainText("Synthetic recipient save interrupted");
   if (exit === "Workspace files") await dialog.getByRole("button", { name: "Close handoff review", exact: true }).click();
-  else await dialog.getByRole("button", { name: "Back", exact: true }).click();
   if (exit === "Workspace files") await chooseWorkspaceView(page, "Files");
   else await page.getByRole("button", { name: exit, exact: true }).click();
   await expect(page.locator("#packet-files")).toBeVisible();
@@ -286,11 +285,7 @@ test("Retry saving after a draft load failure restores the saved recipients", as
   await page.unroute(endpoint);
   await summary.getByRole("button", { name: "Retry saving", exact: true }).click();
   await expect(summary.getByRole("alert")).toHaveCount(0);
-  await summary.getByRole("button", { name: "Confirm summary", exact: true }).click();
-  const packet = page.getByRole("dialog", { name: "Check admission packet", exact: true });
-  await expect(packet).toBeVisible();
-  await packet.getByRole("button", { name: "Confirm packet", exact: true }).click();
-  const dialog = page.getByRole("dialog", { name: "Check recipients", exact: true });
+  const dialog = page.getByRole("dialog", { name: "Review handoff", exact: true });
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole("list", { name: "To recipients", exact: true })).toContainText("first@example.invalid");
   await confirmRecipients(page);

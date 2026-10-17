@@ -144,7 +144,7 @@ test("read-only decision access is visibly read-only", async ({ page }) => {
   await expect(panel).toContainText("your account cannot record it");
 });
 
-test("the decision page distinguishes saved answers, interview complete, signed, decision recorded, and packet sent", async ({ page }) => {
+test("the decision page keeps one assessment summary and records the decision without sending the packet", async ({ page }) => {
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: "Example Progress Milestones", owner: "", tags: [] });
   let sends = 0;
   page.on("request", (request) => { if (request.method() === "POST" && request.url().endsWith("/meet-client-email")) sends++; });
@@ -155,32 +155,23 @@ test("the decision page distinguishes saved answers, interview complete, signed,
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=workflow`);
   const panel = page.getByRole("region", { name: "Admission decision", exact: true });
   const context = panel.getByRole("complementary", { name: "Decision context" });
-  const progress = context.getByRole("list", { name: "Where this referral stands" });
-  await expect(progress).toContainText("Answers saved");
-  await expect(progress).toContainText("Interview not complete");
-  await expect(progress).toContainText("Assessment not signed");
-  await expect(progress).toContainText("Decision not recorded");
-  await expect(progress).toContainText("Meet the Client packet not sent");
+  await expect(context).toContainText("Open the assessment to review or continue it.");
+  await expect(context.getByRole("list")).toHaveCount(0);
 
   assessment = await completeOperationalAssessment(page.request, assessment);
   assessment = await markOperationalInterviewComplete(page.request, assessment);
   await page.reload();
-  await expect(progress).toContainText("Answers saved");
-  await expect(progress).toContainText("Interview complete");
-  await expect(progress).toContainText("Assessment not signed");
+  await expect(context).toContainText("Open the assessment to review or continue it.");
 
   await signOperationalAssessment(page.request, assessment);
   await page.reload();
-  await expect(progress).toContainText("Assessment signed");
-  await expect(progress).toContainText("Decision not recorded");
+  await expect(context).toContainText("Signed and ready for the decision.");
 
   await panel.getByRole("radio", { name: "Accept", exact: true }).check();
   await panel.getByRole("button", { name: "Record decision", exact: true }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Record acceptance", exact: true }).click();
   await expect(panel.getByRole("heading", { name: "Accepted", exact: true })).toBeVisible();
-  await expect(progress).toContainText("Decision recorded: Accepted");
-  await expect(progress).toContainText("Playwright QA");
-  await expect(progress).toContainText("Meet the Client packet not sent");
+  await expect(panel.getByRole("region", { name: "Prepare client handoff" })).toContainText("Review the recipients, client summary and chart files before sending.");
   const workflow = await (await page.request.get(`/api/referrals/${referral.id}/workflow`)).json();
   expect(workflow.context.packetSentAt ?? null).toBeNull();
   expect(sends).toBe(0);

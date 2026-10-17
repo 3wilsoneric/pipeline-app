@@ -1,5 +1,7 @@
 # Redesign go-live handoff (2026-09-27)
 
+> Historical rollout record. The redesign is the only runtime design in the current local candidate; `enable_design_v2` and `PIPELINE_DESIGN_V2` no longer select a UI. See [DECISIONS.md](DECISIONS.md) for the retirement note. Do not use the switch or approval sequence below for new work.
+
 The owner is handing the redesign to Codex to merge and deploy. This file tells you what the branch holds, what ships even with the switch off, what must happen before it goes live, and the order to do it in. The owner approves each outward step: the PR merge, each deploy, and turning the switch on. There is no approval gate in GitHub (see "Deploy facts"), so asking the owner is the only gate.
 
 ## Pre-merge follow-up (2026-09-27)

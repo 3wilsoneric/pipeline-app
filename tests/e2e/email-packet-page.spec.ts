@@ -91,9 +91,9 @@ test("admit date retries a lost save response without duplicating the change", a
   await dialog.getByLabel("Planned admit date", { exact: true }).fill("2026-10-02");
   await dialog.getByRole("button", { name: "Confirm admit date", exact: true }).click();
   await expect(dialog.getByRole("alert")).toBeVisible();
-  await expect(page.getByRole("dialog", { name: "Check client summary", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("dialog", { name: "Review handoff", exact: true })).toHaveCount(0);
   await dialog.getByRole("button", { name: "Confirm admit date", exact: true }).click();
-  await expect(page.getByRole("dialog", { name: "Check client summary", exact: true })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Review handoff", exact: true })).toBeVisible();
   expect(mutationIds).toHaveLength(2); expect(mutationIds[1]).toBe(mutationIds[0]);
   const saved = (await (await page.request.get(`/api/referrals/${referral.id}`)).json()).referral;
   expect(saved.version).toBe(savedVersion); expect(saved.plannedAdmissionDate).toBe("2026-10-02");
@@ -129,7 +129,7 @@ test("a saved admit date can continue after the handoff summary refresh fails", 
   expect((await (await page.request.get(`/api/referrals/${referral.id}`)).json()).referral.plannedAdmissionDate).toBe("2026-10-12");
   blockSummary = false;
   await dialog.getByRole("button", { name: "Confirm admit date", exact: true }).click();
-  await expect(page.getByRole("dialog", { name: "Check client summary", exact: true })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Review handoff", exact: true })).toBeVisible();
   expect(patchCount).toBe(1);
 });
 
@@ -150,12 +150,10 @@ test("a changed admit date must be reloaded and the confirmed date populates the
   const date = await openAdmitDate(page);
   await expect(date.getByLabel("Planned admit date", { exact: true })).toHaveValue("2026-10-04");
   await date.getByRole("button", { name: "Confirm admit date", exact: true }).click();
-  const summary = page.getByRole("dialog", { name: "Check client summary", exact: true });
+  const summary = page.getByRole("dialog", { name: "Review handoff", exact: true });
   await summary.getByRole("button", { name: "Back", exact: true }).click();
   await page.getByLabel("Planned admit date", { exact: true }).fill("2026-10-05");
   await page.getByRole("button", { name: "Confirm admit date", exact: true }).click();
-  await page.getByRole("button", { name: "Confirm summary", exact: true }).click();
-  await page.getByRole("button", { name: "Confirm packet", exact: true }).click();
   await addRecipient(page); await confirmRecipients(page);
   const email = page.frameLocator('iframe[title="Meet the Client email preview"]').locator("body");
   await expect(email).toContainText("10/05/2026"); await expect(email).not.toContainText("10/04/2026");
@@ -169,9 +167,8 @@ test("summary proceeds to the medication file without list selection, including 
     await expect(summary.getByRole("group", { name: "Which medications are current for this handoff?" })).toHaveCount(0);
     await expect(summary).toContainText("Refer to the medication list in the admission packet if attached; otherwise confirm the current list with the referring team.");
     await expect(summary).not.toContainText("Synthetic recorded medication");
-    await expect(summary.getByRole("button", { name: "Confirm summary", exact: true })).toBeEnabled();
-    await summary.getByRole("button", { name: "Confirm summary", exact: true }).click();
-    const files = page.getByRole("dialog", { name: "Check admission packet", exact: true });
+    await expect(summary.getByRole("button", { name: "Preview email", exact: true })).toBeDisabled();
+    const files = page.getByRole("dialog", { name: "Review handoff", exact: true });
     await expect(files).toBeVisible();
     await expect(files).toContainText("Only checked files will be included.");
     await page.reload();
@@ -194,12 +191,10 @@ test("Decision previews before an admit date and carries a saved date into the f
   expect(before.email.blockers.join(" ")).toContain("planned admit date");
   const date = await openAdmitDate(page);
   await date.getByRole("button", { name: "Review without admit date", exact: true }).click();
-  const summary = page.getByRole("dialog", { name: "Check client summary", exact: true });
+  const summary = page.getByRole("dialog", { name: "Review handoff", exact: true });
   await expect(summary).toBeVisible();
-  await summary.getByRole("button", { name: "Confirm summary", exact: true }).click();
-  const files = page.getByRole("dialog", { name: "Check admission packet", exact: true });
+  const files = page.getByRole("dialog", { name: "Review handoff", exact: true });
   await expect(files).toBeVisible();
-  await files.getByRole("button", { name: "Confirm packet", exact: true }).click();
   await addRecipient(page);
   await confirmRecipients(page);
   await expect(page.getByRole("dialog", { name: "Meet the Client email", exact: true })).toBeVisible();
@@ -261,8 +256,8 @@ for (const width of [1440, 1280, 834, 390, 320]) test(`guided checks lead to the
   await expect(summary).not.toContainText("Synthetic recorded medication");
   await expect(summary.getByRole("region", { name: "Injection & med-room notes" })).toContainText("Synthetic injection and recorded dose");
   await expect(summary.getByRole("region", { name: "Behavior & safety" })).toContainText("Historical incident");
-  await expect(summary.getByRole("button", { name: "Confirm summary", exact: true })).toBeInViewport();
-  expect(await checkA11y(page, 'dialog[aria-label="Check client summary"]')).toEqual([]);
+  await expect(summary.getByRole("button", { name: "Preview email", exact: true })).toBeInViewport();
+  expect(await checkA11y(page, 'dialog[aria-label="Review handoff"]')).toEqual([]);
   await summary.screenshot({ path: info.outputPath(`guided-summary-${width}.png`), animations: "disabled" });
   await page.keyboard.press("Escape");
   await expect(summary).toHaveCount(0);
@@ -271,9 +266,8 @@ for (const width of [1440, 1280, 834, 390, 320]) test(`guided checks lead to the
   const files = await openFiles(page);
   await expect(files.getByRole("link", { name: "Open Client data sheet.pdf", exact: true })).toHaveAttribute("href", `/api/referrals/${referral.id}/admission-summary?download=chart`);
   await expect(page.locator("iframe")).toHaveCount(0);
-  await expect(files.getByRole("button", { name: "Confirm packet", exact: true })).toBeInViewport();
-  await files.getByRole("button", { name: "Confirm packet", exact: true }).click();
-  const recipients = page.getByRole("dialog", { name: "Check recipients", exact: true });
+  await expect(files.getByRole("button", { name: "Preview email", exact: true })).toBeInViewport();
+  const recipients = page.getByRole("dialog", { name: "Review handoff", exact: true });
   await expect(recipients.getByRole("button", { name: "Preview email", exact: true })).toBeDisabled();
   await addRecipient(page);
   await expect(recipients.getByRole("button", { name: "Preview email", exact: true })).toBeDisabled();
@@ -415,7 +409,7 @@ for (const width of [1440, 390]) test(`recipient check remains readable with a f
   await expect(dialog.getByRole("button", { name: "Preview email", exact: true })).toBeInViewport();
   await expect(dialog.getByRole("button", { name: "Close handoff review", exact: true })).toBeInViewport();
   expect(await dialog.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
-  expect(await checkA11y(page, 'dialog[aria-label="Check recipients"]')).toEqual([]);
+  expect(await checkA11y(page, 'dialog[aria-label="Review handoff"]')).toEqual([]);
   await page.screenshot({ path: info.outputPath(`guided-recipients-${width}.png`), animations: "disabled" });
 });
 for (const width of [1440, 390]) test(`review shows the record and opens an unresolved section at ${width}px`, async ({ page }, info) => {
@@ -474,10 +468,9 @@ for (const width of [390, 834]) test(`packet check selects admission files and e
     await licForms.uncheck();
   }
   await expect(page.locator("iframe")).toHaveCount(0);
-  expect(await checkA11y(page, 'dialog[aria-label="Check admission packet"]')).toEqual([]);
+  expect(await checkA11y(page, 'dialog[aria-label="Review handoff"]')).toEqual([]);
   expect(await dialog.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
   await page.screenshot({ path: info.outputPath(`guided-packet-${width}.png`), animations: "disabled" });
-  await dialog.getByRole("button", { name: "Confirm packet", exact: true }).click();
   await addRecipient(page); await confirmRecipients(page);
   const body = page.frameLocator('iframe[title="Meet the Client email preview"]').locator("body");
   await expect(body).toContainText("Client data sheet.pdf");
@@ -575,9 +568,8 @@ for (const width of [1440, 390]) test(`the client data sheet can be the only sel
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
   const files = await openFiles(page);
   await expect(files.getByRole("checkbox", { name: "Include Client data sheet.pdf" })).toBeChecked();
-  await expect(files.getByRole("checkbox")).toHaveCount(1);
-  await expect(files.getByRole("button", { name: "Confirm packet" })).toBeEnabled();
-  await files.getByRole("button", { name: "Confirm packet" }).click();
+  await expect(files.getByRole("region", { name: "Referral packet attachments" }).getByRole("checkbox")).toHaveCount(1);
+  await expect(files.getByRole("button", { name: "Preview email" })).toBeDisabled();
   await addRecipient(page);
   const composer = await confirmRecipients(page);
   const outlook = composer;
@@ -723,9 +715,7 @@ test.describe("direct email history", () => {
       const date = page.getByRole("dialog", { name: "Confirm admit date", exact: true });
       await expect(date).toBeVisible();
       await date.getByRole("button", { name: "Confirm admit date", exact: true }).click();
-      await page.getByRole("dialog", { name: "Check client summary", exact: true }).getByRole("button", { name: "Confirm summary" }).click();
-      await page.getByRole("dialog", { name: "Check admission packet", exact: true }).getByRole("button", { name: "Confirm packet" }).click();
-      const recipients = page.getByRole("dialog", { name: "Check recipients", exact: true });
+      const recipients = page.getByRole("dialog", { name: "Review handoff", exact: true });
       if (!await recipients.getByRole("list", { name: "To recipients", exact: true }).count()) await addRecipient(page);
       const second = await confirmRecipients(page);
       await expect(second.getByRole("button", { name: "Send email & packet", exact: true })).toBeEnabled();

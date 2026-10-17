@@ -27,10 +27,16 @@ for (const width of [1440, 834, 390]) {
     page.on("request", (request) => { if (request.method() === "POST" && request.url().endsWith("/meet-client-email")) sends++; });
 
     await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=chart`);
+    await openStage(page, "Assessment", width);
     const footer = page.locator('footer[aria-label="Assessment actions"]');
     await expect(footer).toBeVisible();
     await expect(footer.locator('[data-guide-target="assessment-sign"]')).toHaveCount(0);
-    await footer.getByRole("button", { name: "Review assessment", exact: true }).click();
+    if (width < 640) {
+      await page.getByRole("button", { name: "Choose questionnaire section", exact: true }).click();
+      await page.getByRole("dialog", { name: "Questionnaire sections", exact: true }).getByRole("button", { name: /^Review assessment/ }).click();
+    } else {
+      await footer.getByRole("button", { name: "Review assessment", exact: true }).click();
+    }
     await expect(page.getByRole("heading", { name: "Review assessment", exact: true })).toBeVisible();
     await expect(page.getByRole("region", { name: "Assessment chart review" })).toContainText("Next: admission decision, then the client handoff.");
     await expect(page.getByRole("article", { name: "Assessment record", exact: true })).toBeVisible();
@@ -115,7 +121,8 @@ for (const width of [1440, 834, 390]) {
     await expect(footer.locator('[data-guide-target="assessment-sign"]')).toHaveCount(0);
     await expect(footer.getByRole("button", { name: "Review assessment", exact: true })).toHaveCount(0);
     await page.reload();
-    await expect(footer.getByRole("button", { name: "Continue to decision", exact: true })).toBeVisible();
+    await openStage(page, "Assessment", width);
+    if (width >= 640) await expect(page.getByRole("button", { name: "Next: Decision", exact: true }).first()).toBeVisible();
     expect((await readAssessment()).current_symptoms).toBe("Synthetic assessment answer retained through review");
     expect(sends).toBe(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

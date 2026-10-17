@@ -7,7 +7,6 @@ import ReferralClientActivationPanel from "@/components/pipeline/ReferralClientA
 import {
   admissionRequirementSummary,
   decisionActionState,
-  decisionProgressSteps,
   deriveWorkflowPanelView,
   formatRecordedAt,
   formatRequirementStatus,
@@ -21,7 +20,6 @@ import {
   resolvedRequirementCount,
   terminalStageMessage,
   transitionActionLabel,
-  type DecisionProgressStep,
   type PendingWorkflowDetail,
   type RequirementGroupPresentation,
   type WorkflowResponse,
@@ -30,7 +28,6 @@ import { getStageLabel, referralStageDefinitions, type ReferralStage } from "@/l
 import type { AdmissionRequirement, AssessmentRecommendation, EhrHandoffStatus, RequirementStatus } from "@/lib/pipeline/referral-types";
 import { isRequirementComplete } from "@/lib/pipeline/workflow-records";
 import styles from "./ReferralDecision.module.css";
-import { useDesignV2 } from "@/components/design/DesignSwitch";
 
 type RecommendationDraft = {
   outcome: AssessmentRecommendation["outcome"] | "";
@@ -149,7 +146,7 @@ export function ReferralWorkflowPanelPresentation({
             </div>
           ) : null}
         </div>
-        <DecisionContext workflow={workflow} busy={busy} recommendation={recommendation} onOpenAssessment={onOpenAssessment} />
+        <DecisionContext workflow={workflow} busy={busy} onOpenAssessment={onOpenAssessment} />
       </div>
       <details className={styles.details}>
           <summary>Admission paperwork &amp; EHR handoff</summary>
@@ -185,19 +182,16 @@ export function ReferralWorkflowPanelPresentation({
 
 type WorkflowView = ReturnType<typeof deriveWorkflowPanelView>;
 
-function DecisionContext({ workflow, busy, recommendation, onOpenAssessment }: Pick<ReferralWorkflowPanelPresentationProps, "workflow" | "busy" | "recommendation" | "onOpenAssessment">) {
-  const outcome = workflow.decision?.outcome ?? recommendation.outcome;
-  const next = workflow.referral.placementCancellation ? "Placement was cancelled. The accepted decision and earlier handoff remain available for review." : decisionNextStep(outcome);
-  const designV2 = useDesignV2();
+function DecisionContext({ workflow, busy, onOpenAssessment }: Pick<ReferralWorkflowPanelPresentationProps, "workflow" | "busy" | "onOpenAssessment">) {
   const declined = workflow.decision?.outcome === "declined";
   return <aside className={styles.context} aria-label="Decision context">
     <div className={styles.client}><span>Client</span><h4>{workflow.referral.name || "Name not provided"}</h4><p>{workflow.referral.community || "Community not selected"}</p></div>
     <div className={styles.assessmentState}>
-      <span id="decision-progress-heading">Where this referral stands</span>
-      <ol className={styles.progress} aria-labelledby="decision-progress-heading">{decisionProgressSteps(workflow).map((step) => <ProgressStep key={step.key} step={step} />)}</ol>
+      <span>Assessment</span>
+      <p>{workflow.context.assessmentSigned ? "Signed and ready for the decision." : "Open the assessment to review or continue it."}</p>
       <button type="button" disabled={Boolean(busy)} onClick={onOpenAssessment}>{decisionAssessmentAction(workflow)}<ArrowRight size={16} aria-hidden="true" /></button>
     </div>
-    {designV2 && !declined ? null : <div className={styles.consequence}><h4>{declined ? "Referral closed" : "What happens next"}</h4><p>{declined ? "The decision is in the activity history. No client handoff is needed." : next}</p></div>}
+    {declined ? <div className={styles.consequence}><h4>Referral closed</h4><p>The decision is in the activity history. No client handoff is needed.</p></div> : null}
   </aside>;
 }
 
@@ -205,12 +199,6 @@ function AdmissionHandoff({ workflow, busy, admissionDate, onAdmissionDateChange
   const cancelled = Boolean(workflow.referral.placementCancellation);
   return <section className={styles.handoff} aria-label="Prepare client handoff">
     <h4>{cancelled ? "Placement cancelled" : workflow.context.packetSentAt ? "Client handoff sent" : "Prepare the client handoff"}</h4>
-    {!cancelled ? <ol aria-label="Handoff progress" className="my-3 flex flex-wrap gap-x-5 gap-y-2 text-[13px] font-semibold text-[#365b4d]">
-      <li>1. {workflow.context.assessmentSigned ? "Assessment signed" : "Sign assessment"}</li>
-      <li>2. Decision recorded</li>
-      <li aria-current={workflow.context.assessmentSigned && !workflow.context.packetSentAt ? "step" : undefined}>3. {workflow.context.packetSentAt ? "Packet sent" : "Review & send"}</li>
-      <li>4. {workflow.referral.stage === "Accepted / Admitted" ? "Admission confirmed" : "Census or coordinator confirms arrival"}</li>
-    </ol> : null}
     <p>{cancelled ? workflow.context.packetSentAt ? "The handoff was sent before placement was cancelled. You can review the earlier email and packet." : "The accepted decision remains recorded. You can review the email and packet, but this placement cannot be sent." : workflow.context.packetSentAt ? "The handoff is recorded. You can return to the email and packet to review what was sent." : workflow.context.assessmentSigned ? "Review the recipients, client summary and chart files before sending." : "You can preview the packet now. Sign the assessment before sending."}</p>
     <ReferralAdmissionPanel key={workflow.referral.id} referral={workflow.referral} packetSentAt={workflow.context.packetSentAt} admissionDate={admissionDate} disabled={!workflow.capabilities.can_update || Boolean(busy)} onAdmissionDateChange={onAdmissionDateChange} onSaveAdmissionDate={onSaveAdmissionDate} onMarkAdmitted={workflow.capabilities.can_confirm_admission ? (actualDate) => onSubmitTransition("Accepted / Admitted", actualDate) : undefined} onSavePlacementCancellation={workflow.capabilities.can_cancel_placement ? onSavePlacementCancellation : undefined} />
   </section>;
@@ -306,13 +294,6 @@ function RecommendationOnFile({ workflow, selected, selectedNote, compact = fals
   </section>;
 }
 
-function ProgressStep({ step }: { step: DecisionProgressStep }) {
-  const designV2 = useDesignV2();
-  const Icon = step.state === "done" ? CheckCircle2 : step.state === "not_needed" ? Minus : Circle;
-  // The redesign keeps each status's title and marker; its explanation moves to a tooltip.
-  return <li data-state={step.state} title={designV2 ? step.detail : undefined}><Icon size={17} aria-hidden="true" /><span><strong>{step.label}</strong>{designV2 ? null : <span>{step.detail}</span>}</span></li>;
-}
-
 function WorkflowSecondaryColumn({ workflow, view, busy, pendingRequirements, requirementErrors, onUpdateRequirement, onUpdateHandoff, onRecordHandoffSent, onOpenHandoffFailure, onOpenProfile }: Pick<ReferralWorkflowPanelPresentationProps, "workflow" | "busy" | "pendingRequirements" | "requirementErrors" | "onUpdateRequirement" | "onUpdateHandoff" | "onRecordHandoffSent" | "onOpenHandoffFailure" | "onOpenProfile"> & { view: WorkflowView }) {
   return (
     <div className="space-y-5">
@@ -379,18 +360,17 @@ function WorkflowDetailDialog({ pending, onConfirm, onClose }: { pending: Pendin
 }
 
 function RequirementGroup({ group, disabled, busy, pendingRequirements, requirementErrors, onChange }: { group: RequirementGroupPresentation; disabled: boolean; busy: string; pendingRequirements: Record<string, RequirementStatus>; requirementErrors: Record<string, string>; onChange: (item: AdmissionRequirement, status: RequirementStatus) => void }) {
-  const designV2 = useDesignV2();
   return (
     <section aria-label={`${group.label} requirements`}>
       <div className="mb-2 flex items-end justify-between gap-3">
-        <div><h4 className="text-[14px] font-bold uppercase tracking-[0.08em] text-[#44504b]">{group.label}</h4>{designV2 ? null : <p className="mt-0.5 text-[14px] text-[#737c77]">{group.detail}</p>}</div>
+        <div><h4 className="text-[14px] font-bold uppercase tracking-[0.08em] text-[#44504b]">{group.label}</h4></div>
         <span className="shrink-0 text-[14px] font-semibold text-[#68716c]">{resolvedRequirementCount(group.items)} / {group.items.length} resolved</span>
       </div>
       <div className="divide-y divide-[#e4e7e5] border-y border-[#d9d9d9]">
         {group.items.map((item) => (
           <div key={item.id} className="grid gap-2 py-3 sm:grid-cols-[minmax(0,1fr)_150px] sm:items-center">
             <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2 text-[14px] font-semibold text-[#202522]">{isRequirementComplete(item.status) ? <Check size={13} className="text-[#0f8b73]" /> : <Circle size={11} className="text-[#a0a0a0]" />}<span>{item.label}</span>{item.blocker && !(designV2 && isRequirementComplete(item.status)) ? <span className="text-[14px] font-semibold uppercase text-[#68716c]">To complete</span> : null}</div>
+              <div className="flex flex-wrap items-center gap-2 text-[14px] font-semibold text-[#202522]">{isRequirementComplete(item.status) ? <Check size={13} className="text-[#0f8b73]" /> : <Circle size={11} className="text-[#a0a0a0]" />}<span>{item.label}</span>{item.blocker && !isRequirementComplete(item.status) ? <span className="text-[14px] font-semibold uppercase text-[#68716c]">To complete</span> : null}</div>
               <div className="mt-1 text-[14px] leading-5 text-[#737373]">{requirementStatusDetail(item)}</div>
               {pendingRequirements[item.id] ? <div role="status" className="mt-1 text-[12px] font-semibold text-[#59665f]">{busy.startsWith(`requirement:${item.id}:`) ? "Saving status…" : "Status queued…"}</div> : requirementErrors[item.id] ? <div role="alert" className="mt-1 text-[12px] font-semibold text-[#9b3c2d]">{requirementErrors[item.id]}</div> : null}
             </div>
@@ -403,8 +383,7 @@ function RequirementGroup({ group, disabled, busy, pendingRequirements, requirem
 }
 
 function PrimaryButton({ busy, disabled, describedBy, onClick, children }: { busy?: boolean; disabled?: boolean; describedBy?: string; onClick: () => void; children: ReactNode }) {
-  const designV2 = useDesignV2();
-  return <button type="button" disabled={disabled || busy} aria-describedby={describedBy} onClick={onClick} className={designV2 ? "mt-3 inline-flex min-h-11 items-center gap-2 rounded-input bg-link px-5 py-2 text-value font-semibold text-paper hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:cursor-not-allowed disabled:opacity-40" : "mt-3 inline-flex min-h-11 items-center gap-2 rounded-md bg-[#08775e] px-4 py-2 text-[14px] font-semibold text-white hover:bg-[#065f4b] focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-40"}>{busy ? <LoaderCircle className="animate-spin" size={13} /> : null}{children}</button>;
+  return <button type="button" disabled={disabled || busy} aria-describedby={describedBy} onClick={onClick} className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-input bg-link px-5 py-2 text-value font-semibold text-paper hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:cursor-not-allowed disabled:opacity-40">{busy ? <LoaderCircle className="animate-spin" size={13} /> : null}{children}</button>;
 }
 
 function SecondaryButton({ disabled, onClick, children }: { disabled?: boolean; onClick: () => void; children: ReactNode }) {
@@ -417,16 +396,6 @@ function WorkflowTextArea({ label, value, disabled, onChange }: { label: string;
 
 function RecordSummary({ title, actor, date, note }: { title: string; actor: string; date: string; note: string }) {
   return <div><span className={styles.savedLabel}><CheckCircle2 size={18} aria-hidden="true" /> Decision recorded</span><h4>{title}</h4><p className={styles.recordedBy}>{actor || "Name not recorded"} · {formatRecordedAt(date)}</p>{note ? <p className={styles.recordedNote}>{note}</p> : null}</div>;
-}
-
-function decisionNextStep(outcome: string) {
-  return outcome === "accepted" || outcome === "accept"
-    ? "Prepare the admission date and client handoff. Email is reviewed separately before sending."
-    : outcome === "declined" || outcome === "decline"
-      ? "Recording Deny closes this referral. No client handoff is sent."
-      : outcome === "needs_more_information"
-        ? "Keep the referral open while you gather more information. No approval request is sent."
-        : "Choose an outcome. Nothing is signed or sent from this page.";
 }
 
 function decisionRecordState(workflow: WorkflowResponse) {
@@ -451,10 +420,9 @@ function recordedDecisionAttributes(workflow: WorkflowResponse) {
 }
 
 function DecisionPageHeading({ workflow }: { workflow: WorkflowResponse }) {
-  const designV2 = useDesignV2();
   return (
       <header className={styles.pageHeading}>
-        <div><h3>Placement decision</h3>{designV2 && !workflow.decision ? null : <p>{workflow.decision ? "Saved in the referral's activity history." : "Review the recommendation and context, then record the final outcome."}</p>}</div>
+        <div><h3>Placement decision</h3>{workflow.decision ? <p>Saved in the referral&apos;s activity history.</p> : null}</div>
         {!workflow.decision ? <span className={styles.recordState}>{decisionRecordState(workflow)}</span> : null}
       </header>
   );

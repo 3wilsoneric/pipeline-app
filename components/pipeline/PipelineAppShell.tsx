@@ -4,7 +4,6 @@ import { ReactNode, Suspense, useCallback, useEffect, useRef, useState } from "r
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import PipelineHeader from "@/components/pipeline/PipelineHeader";
-import { useDesignV2 } from "@/components/design/DesignSwitch";
 import DemoEnvironmentBanner from "@/components/pipeline/training/DemoEnvironmentBanner";
 import PipelineGuidedCoach from "@/components/pipeline/training/PipelineGuidedCoach";
 import { PipelineShellProvider } from "@/components/pipeline/pipeline-shell-context";
@@ -78,36 +77,19 @@ export default function PipelineAppShell({
 }
 
 function AppNavigation() {
-  const designV2 = useDesignV2();
   const phone = usePhoneAssessment();
   const navigationRef = useRef<HTMLElement>(null);
-  const closeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [pinned, setPinned] = useState(false);
-  const [preview, setPreview] = useState(false);
-  const expanded = pinned || preview;
-  useEffect(() => () => clearTimeout(closeTimer.current), []);
+  const expanded = pinned;
   const closeOnDestination = useCallback(() => {
-    setPreview(false);
     if (window.matchMedia("(max-width: 959px)").matches) setPinned(false);
   }, []);
   const close = () => {
-    clearTimeout(closeTimer.current);
-    setPreview(false);
     setPinned(false);
   };
   if (phone) return <Suspense fallback={null}><PipelineHeader phone onDestinationChange={closeOnDestination} /></Suspense>;
   return (
     <aside ref={navigationRef} aria-label="App navigation" data-assessment-app-navigation="standard" data-sidebar-expanded={expanded} data-sidebar-pinned={pinned} className={mobileStyles.navigation}
-      onPointerOver={() => clearTimeout(closeTimer.current)}
-      onPointerLeave={() => {
-        // A short grace period keeps the profile flyout reachable across its gap.
-        closeTimer.current = setTimeout(() => {
-          if (!navigationRef.current?.querySelector(":focus-visible:not([data-navigation-toggle])")) setPreview(false);
-        }, 140);
-      }}
-      onFocusCapture={(event) => {
-        if (!designV2 && event.target.matches(":focus-visible:not([data-navigation-toggle])")) setPreview(true);
-      }}
       onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) closeOnDestination(); }}
       onKeyDown={(event) => {
         if (expanded && event.key === "Escape") {
@@ -117,16 +99,14 @@ function AppNavigation() {
       }}>
       {expanded ? <button type="button" aria-label="Close navigation" tabIndex={-1} onClick={close} className={mobileStyles.backdrop} /> : null}
       <div id="pipeline-app-navigation" className={mobileStyles.navigationPanel}>
-        <div className={mobileStyles.navigationContent} onPointerOver={(event) => {
-          if (!designV2 && event.pointerType === "mouse" && window.matchMedia("(any-hover: hover)").matches) setPreview(true);
-        }}>
+        <div className={mobileStyles.navigationContent}>
           <Suspense fallback={<div aria-hidden="true" className={mobileStyles.sidebar} />}>
             <PipelineHeader onDestinationChange={closeOnDestination} />
           </Suspense>
         </div>
         <button type="button" data-navigation-toggle
-          aria-label={pinned ? "Collapse navigation" : preview ? "Keep navigation expanded" : "Expand navigation"}
-          title={pinned ? "Collapse navigation" : "Keep navigation expanded"}
+          aria-label={pinned ? "Collapse navigation" : "Expand navigation"}
+          title={pinned ? "Collapse navigation" : "Expand navigation"}
           aria-expanded={expanded} aria-controls="pipeline-primary-navigation"
           onClick={() => { if (pinned) close(); else setPinned(true); }} className={mobileStyles.expandButton}>
           {pinned ? <ChevronLeft size={16} aria-hidden="true" /> : <ChevronRight size={16} aria-hidden="true" />}

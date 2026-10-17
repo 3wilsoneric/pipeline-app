@@ -47,7 +47,6 @@ test("community defaults, To/Cc edits, reload and community replacement use the 
   await openRecipients(page);
   await expect(to).not.toContainText("Medication team");
   await expect(cc).toContainText("Transport");
-  await page.getByRole("dialog", { name: "Check recipients", exact: true }).getByRole("button", { name: "Back", exact: true }).click();
   const download = page.waitForEvent("download");
   await page.getByRole("link", { name: "Open Client data sheet.pdf", exact: true }).click();
   const sheet = await download;
@@ -55,7 +54,6 @@ test("community defaults, To/Cc edits, reload and community replacement use the 
   const pdf = await readFile((await sheet.path())!);
   expect(pdf.subarray(0, 5).toString()).toBe("%PDF-");
   expect(await readPdfText(pdf)).toContain("Synthetic Handoff");
-  await page.getByRole("button", { name: "Confirm packet", exact: true }).click();
   for (const width of [1440, 834, 390, 320]) {
     await page.setViewportSize({ width, height: 1000 });
     await expect(to).toBeVisible();
