@@ -6,7 +6,9 @@ import { actorApiContext, requireOperationalBaseURL } from "../support/pipeline-
 test.skip(process.env.PIPELINE_OPERATIONAL_E2E !== "true", "Uses isolated operational stores.");
 
 test("placement cancellation persists and leaves active work on the configured store", async ({ baseURL }) => {
-  const api = await actorApiContext("assessorA", requireOperationalBaseURL(baseURL));
+  const url = requireOperationalBaseURL(baseURL);
+  const api = await actorApiContext("assessorA", url);
+  const coordinator = await actorApiContext("assessmentCoordinator", url);
   try {
     const created = await createOperationalReferral(api, "assessorA", { name: `Synthetic cancellation ${randomUUID()}` });
     const accepted = await recordOperationalAcceptance(api, created);
@@ -28,14 +30,22 @@ test("placement cancellation persists and leaves active work on the configured s
     const all = (await (await api.get(`/api/referrals?q=${encodeURIComponent(saved.name)}&projection=summary`)).json()).referrals;
     expect(all.some((item: { id: number }) => item.id === saved.id)).toBe(true);
 
-    const transition = await api.post(`/api/referrals/${saved.id}/transition`, { data: {
+    const admitRequest = {
       if_match: saved.version,
       if_match_section: saved.sectionVersions.workflow,
       target_stage: "Accepted / Admitted",
       actual_admission_date: "2026-10-16",
       client_mutation_id: randomUUID(),
+    };
+    const transition = await api.post(`/api/referrals/${saved.id}/transition`, { data: admitRequest });
+    expect(transition.status()).toBe(403);
+    const coordinatorTransition = await coordinator.post(`/api/referrals/${saved.id}/transition`, { data: {
+      ...admitRequest, client_mutation_id: randomUUID(),
     } });
-    expect(transition.status()).toBe(422);
+    expect(coordinatorTransition.status()).toBe(422);
+    expect((await coordinatorTransition.json()).blockers).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: "placement_cancelled" }),
+    ]));
     const genericStageChange = await api.patch(`/api/referrals/${saved.id}`, { data: {
       if_match: saved.version,
       if_match_sections: { workflow: saved.sectionVersions.workflow },
@@ -47,7 +57,7 @@ test("placement cancellation persists and leaves active work on the configured s
     const summary = (await (await api.get(`/api/referrals/${saved.id}/admission-summary`)).json());
     expect(summary.email.can_send).toBe(false);
   } finally {
-    await api.dispose();
+    await Promise.all([api.dispose(), coordinator.dispose()]);
   }
 });
 
