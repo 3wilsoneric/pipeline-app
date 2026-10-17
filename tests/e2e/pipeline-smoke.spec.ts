@@ -1951,8 +1951,7 @@ test.describe("Referral home and packet canvas", () => {
     await expect(workspaceButton).toBeVisible();
     await workspaceButton.click();
     await expect(page.getByTestId("workspace-identity-title")).toHaveText(clientIdentityTitle);
-    // Reopening returns to the saved appointment modal; close it deliberately.
-    await page.getByRole("dialog", { name: "Schedule interview", exact: true }).getByRole("button", { name: "Close schedule", exact: true }).click();
+    // Reopening returns to the chart; the saved appointment remains in the assessment.
     await page.getByRole("button", { name: "Chart", exact: true }).click();
     await page.getByRole("button", { name: "Edit referral details", exact: true }).click();
     await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toHaveValue(clientIdentityTitle);
@@ -2513,10 +2512,10 @@ test.describe("Referral home and packet canvas", () => {
       await expect(workflowPanel.getByText(`${label} updated`, { exact: true })).toBeVisible();
     }
     await workflowPanel.getByLabel("Actual admission date").fill(calendarToday());
-    await workflowPanel.getByRole("button", { name: "Mark admitted" }).click();
-    await expect(page.getByRole("alertdialog")).toContainText("Mark this referral admitted?");
-    await page.getByRole("alertdialog").getByRole("button", { name: "Mark admitted", exact: true }).click();
-    await expect(workflowPanel.getByText("Admission recorded", { exact: true })).toBeVisible();
+    await workflowPanel.getByRole("button", { name: "Confirm admission" }).click();
+    await expect(page.getByRole("alertdialog")).toContainText("Confirm this client arrived?");
+    await page.getByRole("alertdialog").getByRole("button", { name: "Confirm admission", exact: true }).click();
+    await expect(workflowPanel.getByText("Admission confirmed", { exact: true })).toBeVisible();
     await workflowPanel.getByRole("button", { name: "Queue EHR handoff" }).click();
     await expect(workflowPanel.getByText("EHR handoff queued", { exact: true })).toBeVisible();
     await workflowPanel.getByRole("button", { name: "Record failed" }).click();

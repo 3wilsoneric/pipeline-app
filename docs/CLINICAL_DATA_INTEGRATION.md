@@ -131,9 +131,16 @@ Pipeline referral intake does not call or wait for census reconciliation. The
 referral keeps its own episode routing, documents, assessment work, and
 requirements. Once per day, `GET /api/internal/clinical/reconcile` reads one
 fresh, atomic Alamo roster snapshot and compares it with Pipeline client
-identities. It creates review candidates only; it never confirms an uncertain
-identity and never copies the resident's current census community into the
-historical referral record. Confirmed links let the unified profile read current
+identities. It creates review candidates for uncertain identities; it never
+confirms an uncertain identity or copies the resident's current census
+community into the historical referral record. For one active accepted referral
+with one previously confirmed client link, it records admission automatically
+only when no other active referral competes for that client, the current roster
+contains exactly that resident at the referral's community, identity fields
+have no conflict, and the roster's admission date is on or after the acceptance
+decision. Ambiguous, stale, cancelled, or older
+evidence leaves admission pending for a coordinator. The audit event records
+the source snapshot. Confirmed links also let the unified profile read current
 resident and community data from Alamo while joining Pipeline-owned backlog at
 request time.
 

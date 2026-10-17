@@ -29,6 +29,7 @@ export type WorkflowResponse = {
   capabilities: {
     can_update: boolean;
     can_cancel_placement: boolean;
+    can_confirm_admission: boolean;
     can_recommend: boolean;
     can_decide: boolean;
     can_email: boolean;
@@ -205,11 +206,11 @@ function requirementNextAction(requirements: AdmissionRequirement[], suffix: str
 
 // A forward transition only changes the referral's stage; the label must not imply a decision, signature, or send.
 export function transitionActionLabel(target: ReferralStage) {
-  return target === "Accepted / Admitted" ? "Mark admitted" : `Change stage to ${getStageLabel(target)}`;
+  return target === "Accepted / Admitted" ? "Confirm admission" : `Change stage to ${getStageLabel(target)}`;
 }
 
 export function transitionSuccessMessage(target: ReferralStage) {
-  return target === "Accepted / Admitted" ? "Admission recorded" : `Stage changed to ${getStageLabel(target)}`;
+  return target === "Accepted / Admitted" ? "Admission confirmed" : `Stage changed to ${getStageLabel(target)}`;
 }
 
 export function terminalStageMessage(referral: Referral) {
@@ -247,8 +248,8 @@ function acceptedHandoffNextAction(
   handoffStatus: EhrHandoffStatus,
 ) {
   const admissionBlockers = [...incompleteDecision, ...incompleteMoveIn];
-  if (admissionBlockers.length > 0) return "Admission can be recorded with open items. Complete the remaining paperwork when available.";
-  if (workflow.referral.stage !== "Accepted / Admitted") return "Admission requirements are complete. Confirm the move-in and mark the person admitted.";
+  if (admissionBlockers.length > 0) return "Admissions will confirm arrival from the daily census or a coordinator after the client moves in. Complete remaining paperwork when available.";
+  if (workflow.referral.stage !== "Accepted / Admitted") return "Await arrival confirmation from the daily census or an admissions coordinator.";
   if (incompleteEhr.length > 0) return requirementNextAction(incompleteEhr, "alongside the EHR handoff");
   if (handoffStatus === "queued") return "Confirm the downstream transfer, then record the handoff as sent or failed.";
   if (handoffStatus === "failed") return "Review the recorded failure, correct the downstream issue, and retry the handoff.";

@@ -6,7 +6,7 @@ import { requireReferralStore } from "@/lib/pipeline/referral-store";
 import { isReferralStage } from "@/lib/pipeline/referral-workflow";
 import { transitionReferral } from "@/lib/pipeline/workflow-store";
 import { withApiLogging } from "@/lib/observability/api-logging";
-import { requireMutableReferralAccess } from "@/lib/pipeline/referral-access";
+import { canConfirmAdmission, requireMutableReferralAccess } from "@/lib/pipeline/referral-access";
 import { validateClientMutationId } from "@/lib/pipeline/client-mutation-id";
 
 export const runtime = "nodejs";
@@ -37,6 +37,9 @@ export async function POST(
       return jsonError("if_match_section must be a positive workflow section version number.");
     }
     if (!isReferralStage(body.value.target_stage)) return jsonError("target_stage is invalid.");
+    if (body.value.target_stage === "Accepted / Admitted" && !canConfirmAdmission(auth.user)) {
+      return jsonError("An admissions coordinator must confirm that the client arrived.", 403);
+    }
     const mutationId = validateClientMutationId(body.value.client_mutation_id);
     if (!mutationId.ok) return jsonError(mutationId.message);
 

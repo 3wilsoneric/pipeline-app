@@ -28,12 +28,50 @@ test.describe("admission follow-through", () => {
     } finally { await context.close(); await api.dispose(); }
   });
 
-  for (const width of [1440, 390]) test(`planned dates, confirmation and reopening persist at ${width}`, async ({ browser, baseURL }, info) => {
+  test("assessors can finish handoff but cannot confirm admission", async ({ browser, baseURL }) => {
     const url = requireOperationalBaseURL(baseURL);
-    const api = await actorApiContext("assessorA", url);
+    const assessor = await actorApiContext("assessorA", url);
+    const coordinator = await actorApiContext("assessmentCoordinator", url);
+    const admin = await actorApiContext("admin", url);
     const { page, context } = await actorPage(browser, "assessorA", url);
     try {
-      const created = await createOperationalReferral(api, "assessorA", { name: "Synthetic Arrival " + randomUUID().slice(0, 8) });
+      const created = await createOperationalReferral(assessor, "assessorA", { name: `Synthetic coordinator arrival ${randomUUID()}` });
+      const referral = await recordOperationalAcceptance(assessor, created);
+      const path = `/api/referrals/${referral.id}`;
+      const assessorWorkflow = await (await assessor.get(`${path}/workflow`)).json();
+      const coordinatorWorkflow = await (await coordinator.get(`${path}/workflow`)).json();
+      const adminWorkflow = await (await admin.get(`${path}/workflow`)).json();
+      expect(assessorWorkflow.capabilities.can_confirm_admission).toBe(false);
+      expect(coordinatorWorkflow.capabilities.can_confirm_admission).toBe(true);
+      expect(adminWorkflow.capabilities.can_confirm_admission).toBe(true);
+      await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=workflow`);
+      const admission = page.getByRole("region", { name: "Admission follow-through" });
+      await expect(admission).toContainText("Awaiting arrival confirmation from the daily census or an admissions coordinator");
+      await expect(admission.getByRole("button", { name: "Confirm admission" })).toHaveCount(0);
+      await expect(admission.getByRole("button", { name: "Review email & packet" })).toBeEnabled();
+
+      const transition = await assessor.post(`${path}/transition`, { data: {
+        if_match: referral.version, if_match_section: referral.sectionVersions.workflow,
+        target_stage: "Accepted / Admitted", actual_admission_date: calendarToday(), client_mutation_id: randomUUID(),
+      } });
+      expect(transition.status()).toBe(403);
+      const genericPatch = await assessor.patch(path, { data: {
+        if_match: referral.version, if_match_sections: { workflow: referral.sectionVersions.workflow },
+        patch: { stage: "Accepted / Admitted" }, client_mutation_id: randomUUID(),
+      } });
+      expect(genericPatch.status()).toBe(403);
+      const unchanged = await readOperationalReferral(assessor, referral.id);
+      expect(unchanged.version).toBe(referral.version);
+      expect((unchanged as typeof unchanged & { stage: string }).stage).not.toBe("Accepted / Admitted");
+    } finally { await context.close(); await assessor.dispose(); await coordinator.dispose(); await admin.dispose(); }
+  });
+
+  for (const width of [1440, 390]) test(`planned dates, confirmation and reopening persist at ${width}`, async ({ browser, baseURL }, info) => {
+    const url = requireOperationalBaseURL(baseURL);
+    const api = await actorApiContext("assessmentCoordinator", url);
+    const { page, context } = await actorPage(browser, "assessmentCoordinator", url);
+    try {
+      const created = await createOperationalReferral(api, "assessmentCoordinator", { name: "Synthetic Arrival " + randomUUID().slice(0, 8) });
       let referral = await recordOperationalAcceptance(api, created);
       const original = await readOperationalReferral(api, referral.id);
       const noDate = await api.post(`/api/referrals/${referral.id}/transition`, { data: { if_match: referral.version, if_match_section: referral.sectionVersions.workflow, target_stage: "Accepted / Admitted", client_mutation_id: randomUUID() } });
@@ -64,7 +102,7 @@ test.describe("admission follow-through", () => {
       await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=workflow`);
       await expect(admission.getByLabel("Planned admission date", { exact: true })).toHaveValue("2026-10-12");
       const actualDate = admission.getByLabel("Actual admission date", { exact: true });
-      const markAdmitted = admission.getByRole("button", { name: "Mark admitted" });
+      const markAdmitted = admission.getByRole("button", { name: "Confirm admission" });
       await expect(actualDate).toBeVisible();
       await expect(markAdmitted).toBeEnabled();
       expect((await readOperationalReferral(api, referral.id)).version).toBe(planned.version);
@@ -78,7 +116,7 @@ test.describe("admission follow-through", () => {
       const confirmationRequest = page.waitForRequest((request) => request.method() === "POST"
         && request.url().endsWith(`/api/referrals/${referral.id}/transition`)
         && request.postDataJSON()?.target_stage === "Accepted / Admitted");
-      await page.getByRole("alertdialog").getByRole("button", { name: "Mark admitted", exact: true }).click();
+      await page.getByRole("alertdialog").getByRole("button", { name: "Confirm admission", exact: true }).click();
       const confirmation = (await confirmationRequest).postDataJSON() as {
         if_match: number;
         if_match_section: number;

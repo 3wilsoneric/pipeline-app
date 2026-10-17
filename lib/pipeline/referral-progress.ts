@@ -86,7 +86,7 @@ export function getReferralProgress(referral: Referral, context: WorkflowContext
       && (current.blocker || current.key.startsWith("requirement:")))
     .map((current) => current.label))];
   const awaitingAdmission = isAwaitingAdmission(referral.stage, state.outcome, context.packetSentAt);
-  const nextAction = awaitingAdmission ? "Confirm admission after the client arrives" : getNextAction(
+  const nextAction = awaitingAdmission ? "Await arrival confirmation from admissions" : getNextAction(
     referral,
     canonicalAssessment,
     state,

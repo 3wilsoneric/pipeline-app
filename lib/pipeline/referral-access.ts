@@ -20,6 +20,11 @@ export function canRecordAdmissionDecision(user: PipelineUser) {
   return canEditWorkspace(user);
 }
 
+export function canConfirmAdmission(user: PipelineUser) {
+  return canEditWorkspace(user)
+    && (user.roles.includes("assessment_coordinator") || user.roles.includes("admin"));
+}
+
 export function canViewTeamReferralBoard(user: PipelineUser) {
   return canEditWorkspace(user);
 }

@@ -38,7 +38,8 @@ for (const width of [1440, 390]) test(`accepted placement can be cancelled witho
 
   await page.goto(`/?view=referrals&screen=packet&referralId=${accepted.id}&workspaceView=workflow`);
   const admission = page.getByRole("region", { name: "Admission follow-through" });
-  await expect(admission.getByRole("button", { name: "Mark admitted" })).toBeVisible();
+  await expect(admission.getByRole("button", { name: "Confirm admission" })).toHaveCount(0);
+  await expect(admission).toContainText("Awaiting arrival confirmation from the daily census or an admissions coordinator");
   await admission.getByText("Placement did not happen").click();
   await admission.getByRole("textbox", { name: "Why was placement cancelled?" }).fill("County placed the client elsewhere.");
   await admission.getByRole("button", { name: "Record placement cancellation" }).click();
@@ -46,7 +47,7 @@ for (const width of [1440, 390]) test(`accepted placement can be cancelled witho
   await expect(confirmation).toContainText("will not email the community");
   await confirmation.getByRole("button", { name: "Record cancellation" }).click();
   await expect(admission.getByRole("status")).toContainText("Placement cancelled · County placed the client elsewhere.");
-  await expect(admission.getByRole("button", { name: "Mark admitted" })).toHaveCount(0);
+  await expect(admission.getByRole("button", { name: "Confirm admission" })).toHaveCount(0);
   await expect(admission.getByLabel("Planned admission date")).toBeDisabled();
   await expect(page.getByText("Placement was cancelled before a packet was sent.")).toBeVisible();
   await page.screenshot({ path: info.outputPath(`placement-cancelled-${width}.png`) });
@@ -70,7 +71,7 @@ for (const width of [1440, 390]) test(`accepted placement can be cancelled witho
     if_match: workflow.referral.version, if_match_section: workflow.referral.sectionVersions.workflow,
     target_stage: "Accepted / Admitted", actual_admission_date: "2026-10-16", client_mutation_id: randomUUID(),
   } });
-  expect(transition.status()).toBe(422);
+  expect(transition.status()).toBe(403);
   const activity = (await (await page.request.get(`/api/referrals/${accepted.id}/activity`)).json()).events;
   expect(activity).toEqual(expect.arrayContaining([expect.objectContaining({ action: "placement_cancelled", reason: "County placed the client elsewhere." })]));
 
