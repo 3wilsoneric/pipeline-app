@@ -65,6 +65,7 @@ for (const width of [1440, 834, 390, 320]) {
     await expect(followUp.getByText("This does not send data to ElderMark or another EHR.")).toBeVisible();
     await expect(followUp.locator("summary")).toHaveCount(1);
     await expectAccessibleDecision(page, '[aria-labelledby="decision-follow-up-title"]');
+    if (width === 1440) await page.screenshot({ path: info.outputPath("follow-up-drawer-1440.png"), animations: "disabled" });
     await followUp.getByRole("button", { name: "Close follow-up tools" }).click();
     await expect(panel.getByRole("button", { name: "Follow-up tools" })).toBeFocused();
     await expect(panel).toContainText("Add a planned admit date before sending");
