@@ -7,11 +7,13 @@ import {
   type ClinicalResident,
 } from "@/lib/clinical/clinical-data";
 import { recordPipelineMetric } from "@/lib/observability/pipeline-metrics";
+import { selectAutomaticAdmissions } from "@/lib/pipeline/clinical-admission-selection";
 import { findClinicalResidentMatch } from "@/lib/pipeline/referral-clinical-reconciliation";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import { listReferrals } from "@/lib/pipeline/referral-store";
 import type { PipelineResidentLink } from "@/lib/pipeline/resident-link-records";
 import { createResidentLink, listResidentLinks } from "@/lib/pipeline/resident-link-store";
+import { transitionReferral } from "@/lib/pipeline/workflow-store";
 
 export type ClinicalBacklogReconciliationResult = {
   status: "complete" | "source_not_fresh";
@@ -25,6 +27,8 @@ export type ClinicalBacklogReconciliationResult = {
   rejected_matches: number;
   no_match: number;
   errors: number;
+  admissions_confirmed: number;
+  admission_conflicts: number;
 };
 
 const pageSize = 200;
@@ -59,6 +63,8 @@ export async function reconcileClinicalBacklog(
     rejected_matches: 0,
     no_match: 0,
     errors: 0,
+    admissions_confirmed: 0,
+    admission_conflicts: 0,
   };
 
   if (!roster.fresh) {
@@ -119,6 +125,21 @@ export async function reconcileClinicalBacklog(
     }
   }
 
+  for (const { referral, actualDate } of selectAutomaticAdmissions(referrals, links, roster.residents, roster.dataAsOf)) {
+    try {
+      const result = await transitionReferral(
+        referral.id, "Accepted / Admitted", referral.version!, referral.sectionVersions!.workflow,
+        { id: "pipeline-clinical-reconciliation", name: "Alamo census reconciliation" },
+        `clinical-admission:${referral.id}:${actualDate}`, actualDate,
+        `Confirmed from governed Alamo census snapshot ${roster.snapshotId}.`,
+      );
+      if (result?.ok && !result.idempotentReplay) counts.admissions_confirmed += 1;
+      else counts.admission_conflicts += 1;
+    } catch {
+      counts.errors += 1;
+    }
+  }
+
   recordPipelineMetric("pipeline.clinical_backlog.reconciled", counts.candidates_created, "count", {
     operation: "clinical_backlog_reconciliation",
     result: counts.errors > 0 ? "partial" : "complete",
@@ -126,6 +147,10 @@ export async function reconcileClinicalBacklog(
   recordPipelineMetric("pipeline.clinical_backlog.no_match", counts.no_match, "count", {
     operation: "clinical_backlog_reconciliation",
     result: "complete",
+  });
+  recordPipelineMetric("pipeline.clinical_backlog.admissions_confirmed", counts.admissions_confirmed, "count", {
+    operation: "clinical_backlog_reconciliation",
+    result: counts.admission_conflicts > 0 ? "conflict" : "complete",
   });
   return { status: "complete", ...counts };
 }
@@ -156,7 +181,7 @@ async function loadClinicalRoster(request: Request) {
     cursor = page.next_cursor ?? undefined;
   } while (cursor);
 
-  return { residents, dataAsOf, fresh };
+  return { residents, snapshotId, dataAsOf, fresh };
 }
 
 async function loadReferrals() {

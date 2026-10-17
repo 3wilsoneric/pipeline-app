@@ -427,7 +427,7 @@ export default function ReferralWorkflowPanel({
   };
 
   const submitTransition = async (target: ReferralStage, actualAdmissionDate?: string) => {
-    if (target === "Accepted / Admitted" && !await confirm({ title: "Mark this referral admitted?", message: "Missing dates and documents will remain visible and unresolved. This closes the active referral stage.", confirmLabel: "Mark admitted" })) return;
+    if (target === "Accepted / Admitted" && !await confirm({ title: "Confirm this client arrived?", message: "Confirm the client actually arrived on the date entered. This records admission and closes the active referral stage. Open paperwork remains visible.", confirmLabel: "Confirm admission" })) return;
     void runMutation(
       `transition:${target}:${currentReferral.version}`,
       `/api/referrals/${currentReferral.id}/transition`,

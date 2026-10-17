@@ -19,6 +19,7 @@ import { recordPipelineMetric } from "@/lib/observability/pipeline-metrics";
 import {
   assignedOwnerForPatch,
   canAccessReferral,
+  canConfirmAdmission,
   isAssessorUser,
   requireMutableReferralAccess,
   requireReferralAccess,
@@ -137,6 +138,11 @@ export async function PATCH(
     if (!mutationId.ok) return jsonError(mutationId.message);
     const patchResult = validateReferralPatch(body.value.patch);
     if (!patchResult.ok) return jsonError(patchResult.message, patchResult.status);
+    if (patchResult.value.stage === "Accepted / Admitted"
+      && access.referral.stage !== "Accepted / Admitted"
+      && !canConfirmAdmission(auth.user)) {
+      return jsonError("An admissions coordinator must confirm that the client arrived.", 403);
+    }
     const ownerResult = await resolveOwnerPatch({
       user: auth.user,
       current: access.referral,

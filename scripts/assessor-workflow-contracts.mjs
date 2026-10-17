@@ -127,7 +127,7 @@ check("stage transitions are labeled as stage changes, never as a send, signatur
   ["Packet Needed", "Packet Review", "Assessment", "Community Review"].every((target) =>
     workflowPanel.transitionActionLabel(target).startsWith("Change stage to ")
     && !/send|sign|approv|decision/i.test(workflowPanel.transitionActionLabel(target) + workflowPanel.transitionSuccessMessage(target)))
-  && workflowPanel.transitionActionLabel("Accepted / Admitted") === "Mark admitted");
+  && workflowPanel.transitionActionLabel("Accepted / Admitted") === "Confirm admission");
 check("an ongoing interview stays the next action while unresolved packet evidence remains visible", (() => {
   const progress = referralProgress.getReferralProgress({ ...referral, date: "2026-09-15", packetStatus: "ready_for_review" }, {
     ...scheduledContext, assessmentStarted: true,

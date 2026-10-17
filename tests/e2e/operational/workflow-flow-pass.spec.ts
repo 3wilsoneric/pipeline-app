@@ -10,6 +10,7 @@ test.describe("uninterrupted workflow", () => {
 
   test("incomplete work moves in both directions and acceptance permits a later recommendation", async ({ baseURL }) => {
     const api = await actorApiContext("viewer", requireOperationalBaseURL(baseURL));
+    const coordinator = await actorApiContext("assessmentCoordinator", requireOperationalBaseURL(baseURL));
     try {
       let referral = await createOperationalReferral(api, "viewer", { dob: "", documentName: "", owner: "Unassigned" });
       for (const stage of ["Assessment", "Packet Needed", "Community Review", "New"]) {
@@ -35,12 +36,12 @@ test.describe("uninterrupted workflow", () => {
         if_match: workflow.referral.version, if_match_section: workflow.referral.sectionVersions.decision, action: "queue",
       } });
       expect(queued.status(), await queued.text()).toBe(200);
-      referral = await transitionOperationalReferral(api, await readOperationalReferral(api, referral.id), "Accepted / Admitted", calendarToday());
+      referral = await transitionOperationalReferral(coordinator, await readOperationalReferral(api, referral.id), "Accepted / Admitted", calendarToday());
       referral = await transitionOperationalReferral(api, referral, "Packet Review");
       expect((await (await api.get(`/api/referrals/${referral.id}`)).json()).referral.stage).toBe("Packet Review");
       expect((await (await api.get(`/api/referrals/${referral.id}/workflow`)).json()).referral.workflowStatus).toBe("approved_for_placement");
       expect((await (await api.get(`/api/referrals/${referral.id}/workflow`)).json()).decision).toEqual(accepted);
-    } finally { await api.dispose(); }
+    } finally { await api.dispose(); await coordinator.dispose(); }
   });
 
   test("queued save acknowledgements preserve immediate newer edits without a false conflict", async ({ browser, baseURL }) => {

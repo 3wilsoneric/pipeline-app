@@ -379,6 +379,7 @@ export async function transitionReferral(
   actor: ReferralActor,
   mutationId?: string,
   actualAdmissionDate?: unknown,
+  auditReason?: string,
 ): Promise<ReferralMutation | null> {
   const current = await getReferral(referralId);
   if (current?.placementCancellation) {
@@ -401,7 +402,7 @@ export async function transitionReferral(
     expectedVersion,
     actor,
     { workflow: expectedWorkflowVersion },
-    { mutationId, mutationScope: "referral_transition" },
+    { mutationId, mutationScope: "referral_transition", auditReason },
   );
 }
 
