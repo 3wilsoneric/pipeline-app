@@ -2500,9 +2500,13 @@ test.describe("Referral home and packet canvas", () => {
     const decisionReadback = await page.request.get(`/api/referrals/${referral.id}/decision`);
     expect(decisionReadback.ok()).toBe(true);
     expect((await decisionReadback.json()).decision).toMatchObject({ outcome: "accepted", reasonNote: "Synthetic acceptance decision for the EHR handoff journey." });
-    await expect(workflowPanel.getByRole("region", { name: "Admission paperwork and EHR handoff" })).toBeVisible();
-    await workflowPanel.getByLabel("Signed medication list status").selectOption("received");
-    await expect(workflowPanel.getByText("Signed medication list updated", { exact: true })).toBeVisible();
+    await expect(workflowPanel.getByRole("region", { name: "EHR handoff", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Workspace files", exact: true }).click();
+    const requirements = page.getByRole("region", { name: "Admission requirements", exact: true });
+    await requirements.locator("summary").click();
+    await requirements.getByRole("button", { name: "Change Signed medication list status" }).click();
+    await requirements.getByLabel("Signed medication list status").selectOption("received");
+    await expect(requirements.getByText("Signed medication list updated", { exact: true })).toBeVisible();
 
     for (const label of [
       "Signed admission agreement + LIC forms",
@@ -2510,9 +2514,11 @@ test.describe("Referral home and packet canvas", () => {
       "TB test result",
       "LIC 601 & LIC 603",
     ]) {
-      await workflowPanel.getByLabel(`${label} status`).selectOption("received");
-      await expect(workflowPanel.getByText(`${label} updated`, { exact: true })).toBeVisible();
+      await requirements.getByRole("button", { name: `Change ${label} status` }).click();
+      await requirements.getByLabel(`${label} status`).selectOption("received");
+      await expect(requirements.getByText(`${label} updated`, { exact: true })).toBeVisible();
     }
+    await page.getByRole("button", { name: "Decision", exact: true }).click();
     await workflowPanel.getByLabel("Actual admission date").fill(calendarToday());
     await workflowPanel.getByRole("button", { name: "Confirm admission" }).click();
     await expect(page.getByRole("alertdialog")).toContainText("Confirm this client arrived?");

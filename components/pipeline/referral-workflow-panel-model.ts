@@ -186,12 +186,6 @@ export function formatRequirementStatus(status: RequirementStatus) {
   return `${label[0].toUpperCase()}${label.slice(1)}`;
 }
 
-export function admissionRequirementSummary(items: AdmissionRequirement[]) {
-  const openBlockers = getBlockingRequirementsForGates(items, ["admission_decision", "move_in", "ehr_export"]);
-  if (openBlockers.length === 0) return "Admission and handoff items are complete";
-  return `${openBlockers.length} open item${openBlockers.length === 1 ? "" : "s"}`;
-}
-
 export function admissionReadinessLabel(workflow: WorkflowResponse, blockerCount: number) {
   if (workflow.decision?.outcome === "declined") return "Not required";
   if (workflow.decision?.outcome !== "accepted") return "After acceptance";

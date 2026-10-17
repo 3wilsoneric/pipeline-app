@@ -474,6 +474,7 @@ export default function ReferralPacketCanvas({
   const [chartSlot, setChartSlot] = useState<HTMLElement | null>(null);
 
   const [decisionVisitedReferral, setDecisionVisitedReferral] = useState<number | undefined>();
+  const [filesVisitedReferral, setFilesVisitedReferral] = useState<number | undefined>();
   const [decisionSaveState, setDecisionSaveState] = useState<{ referralId?: number; pending: number; failed: number }>({ pending: 0, failed: 0 });
   const [assessmentSaveState, setAssessmentSaveState] = useState<{ referralId?: number; assessmentId?: string; dirty: boolean; error: boolean; pendingOfflineSaves: number; appointmentDraft: boolean; appointmentSaving: boolean }>({ dirty: false, error: false, pendingOfflineSaves: 0, appointmentDraft: false, appointmentSaving: false });
   const [assessmentSummary, setAssessmentSummary] = useState<{
@@ -2541,6 +2542,9 @@ export default function ReferralPacketCanvas({
   useEffect(() => {
     if (readingDecision) setDecisionVisitedReferral(referralWorkspaceId);
   }, [readingDecision, referralWorkspaceId]);
+  useEffect(() => {
+    if (displayedPage === "files") setFilesVisitedReferral(referralWorkspaceId);
+  }, [displayedPage, referralWorkspaceId]);
   const editingControlsVisible = showWorkspaceEditingControls(trainingAssessmentMode, readOnly);
   const trashControlVisible = showWorkspaceTrashControl(loadedReferral, canSupervise, readOnly);
   const referralContextPacketFields = (loadedReferral?.packetFields ?? []).filter(
@@ -2793,7 +2797,7 @@ export default function ReferralPacketCanvas({
             ) : null
   );
 
-  const renderDocumentUpload = (collapsible: boolean) => (
+  const renderDocumentUpload = (collapsible: boolean, showChecklist = true) => (
     <ReferralDocumentUpload
       readOnly={readOnly || draftRecoveryLoading}
       collapsible={collapsible}
@@ -2815,7 +2819,7 @@ export default function ReferralPacketCanvas({
     >
       {historicalReadOnly ? <p className="text-sm text-[#52655d]">Files in this imported chart can be opened and downloaded. Add new files to the current referral.</p> : null}
       {renderPacketReview()}
-      <details data-document-checklist-disclosure className="mt-4 border-t border-[#dce4df] pt-3">
+      {showChecklist ? <details data-document-checklist-disclosure className="mt-4 border-t border-[#dce4df] pt-3">
         <summary className="inline-flex min-h-11 cursor-pointer items-center text-[14px] font-semibold text-[#52655d]">Document checklist</summary>
         <ul className="mt-2 grid gap-x-6 sm:grid-cols-2">
           {[...requirements, ...attachments].map((item) => {
@@ -2828,7 +2832,7 @@ export default function ReferralPacketCanvas({
             </li>;
           })}
         </ul>
-      </details>
+      </details> : null}
     </ReferralDocumentUpload>
   );
 
@@ -2960,10 +2964,10 @@ export default function ReferralPacketCanvas({
       state: assessment.error ? "Needs attention" : assessment.pendingOfflineSaves > 0 ? `${assessment.pendingOfflineSaves} to sync` : assessment.appointmentSaving ? "Appointment saving…" : "Appointment not booked",
       detail: assessment.error ? "Assessment needs attention. Check its save status." : assessment.pendingOfflineSaves > 0 ? `${assessment.pendingOfflineSaves} assessment change${assessment.pendingOfflineSaves === 1 ? "" : "s"} waiting to sync.` : assessment.appointmentSaving ? "Assessment appointment saving…" : "Assessment appointment draft is not booked.",
       action: displayedPage !== 2 ? <button type="button" onClick={() => void navigatePage(2)}>Open</button> : undefined });
-    if (decision && (decision.failed > 0 || decision.pending > 0)) parts.push({ key: "decision", label: "Decision paperwork", failed: decision.failed > 0,
+    if (decision && (decision.failed > 0 || decision.pending > 0)) parts.push({ key: "decision", label: "Admission paperwork", failed: decision.failed > 0,
       state: decision.failed > 0 ? `${decision.failed} not saved` : `${decision.pending} saving…`,
-      detail: decision.failed > 0 ? `${decision.failed} paperwork change${decision.failed === 1 ? "" : "s"} not saved. Open Decision to retry.` : `${decision.pending} paperwork change${decision.pending === 1 ? "" : "s"} saving or queued…`,
-      action: decision.failed > 0 && displayedPage !== "workflow" ? <button type="button" onClick={() => void navigatePage("workflow")}>Open</button> : undefined });
+      detail: decision.failed > 0 ? `${decision.failed} paperwork change${decision.failed === 1 ? "" : "s"} not saved. Open Files to retry.` : `${decision.pending} paperwork change${decision.pending === 1 ? "" : "s"} saving or queued…`,
+      action: decision.failed > 0 && displayedPage !== "files" ? <button type="button" onClick={() => void navigatePage("files")}>Open</button> : undefined });
     const failed = parts.some((part) => part.failed);
     // Kept safely in this browser and retried automatically: say so rather than spinning.
     const deviceOnly = !failed && (saveStatus === deviceOnlySaveStatus || (assessment?.pendingOfflineSaves ?? 0) > 0);
@@ -3202,7 +3206,7 @@ export default function ReferralPacketCanvas({
 
         {!stackVisible && decisionSaveForCurrent && decisionSaveNotice ? <div role={decisionSaveForCurrent.failed > 0 ? "alert" : "status"} className="mb-3 border-l-2 border-[#c49a57] bg-[#fffaf1] px-4 py-2 text-[12px] font-semibold text-[#634d28]">
           {decisionSaveForCurrent.failed > 0
-            ? `${decisionSaveForCurrent.failed} paperwork change${decisionSaveForCurrent.failed === 1 ? "" : "s"} not saved. Open Decision to retry.`
+            ? `${decisionSaveForCurrent.failed} paperwork change${decisionSaveForCurrent.failed === 1 ? "" : "s"} not saved. Open Files to retry.`
             : `${decisionSaveForCurrent.pending} paperwork change${decisionSaveForCurrent.pending === 1 ? "" : "s"} saving or queued…`}
         </div> : null}
 
@@ -3237,7 +3241,7 @@ export default function ReferralPacketCanvas({
             : page === "workflow" ? renderDecisionStep(readingDecision, loadedReferral)
             : renderEmailStep()}
         </div>) : null}
-        {(recordStack ? !stackVisible : !readingAssessment && !readingDecision) ? <div key={displayedPage} className="pipeline-step-enter">
+        {(recordStack ? !stackVisible && displayedPage !== "files" : !readingAssessment && !readingDecision && displayedPage !== "files") ? <div key={displayedPage} className="pipeline-step-enter">
           {displayedPage === 1 && historicalReadOnly && loadedReferral ? (
             <PacketPage id="transferred-chart" title="Chart" flush>
               <WorkspaceChartFolder>
@@ -3247,10 +3251,6 @@ export default function ReferralPacketCanvas({
             </PacketPage>
           ) : displayedPage === 1 ? (
           renderIntakePage()
-          ) : displayedPage === "files" ? (
-            <PacketPage id="packet-files" title={workspacePresentation.filesLabel}>
-              <div className="max-sm:px-3">{renderDocumentUpload(false)}</div>
-            </PacketPage>
           ) : displayedPage === "email" ? (
             renderEmailStep()
           ) : displayedPage === 3 ? (
@@ -3264,6 +3264,25 @@ export default function ReferralPacketCanvas({
               <ReferralActivityPanel referralId={referralWorkspaceId} version={loadedReferral?.version} />
             </PacketPage>
           )}
+        </div> : null}
+        {(displayedPage === "files" || (filesVisitedReferral !== undefined && filesVisitedReferral === referralWorkspaceId)) ? <div key={`files-${referralWorkspaceId}`} className="pipeline-step-enter" style={{ display: displayedPage === "files" ? undefined : "none" }} aria-hidden={displayedPage !== "files"} inert={displayedPage !== "files"}>
+          <PacketPage id="packet-files" title={workspacePresentation.filesLabel}>
+            <div className="max-sm:px-3">
+              {renderDocumentUpload(false, false)}
+              {loadedReferral && !historicalReadOnly ? <ReferralWorkflowPanel
+                key={`file-requirements-${loadedReferral.id}`}
+                referral={loadedReferral}
+                requirementsOnly
+                onReferralChange={applyConfirmedWorkflowReferral}
+                onOpenIntake={() => void navigatePage(1)}
+                onOpenAssessment={() => void navigatePage(2)}
+                onOpenFiles={() => void navigatePage("files")}
+                onOpenEmail={() => void navigatePage("email")}
+                onOpenProfile={openClientProfile}
+                onRequirementStateChange={({ pending, failed }) => setDecisionSaveState({ referralId: loadedReferral.id, pending, failed })}
+              /> : null}
+            </div>
+          </PacketPage>
         </div> : null}
         {!recordStack && loadedReferral && (readingDecision || decisionVisitedReferral === referralWorkspaceId) ? (
           <div key={`decision-${referralWorkspaceId}`} className="pipeline-step-enter" style={{ display: readingDecision ? undefined : "none" }} aria-hidden={!readingDecision} inert={!readingDecision}>

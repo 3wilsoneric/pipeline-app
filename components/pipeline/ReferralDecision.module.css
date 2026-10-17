@@ -77,8 +77,21 @@
   .details > summary:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
   .adminNote { max-width: 68ch; margin: 0 0 16px; font-size: 14px; line-height: 1.5; color: var(--decision-muted); }
   .paperwork { margin-top: 32px; border-top: 1px solid var(--color-paper-rule); padding-top: 24px; }
-  .paperwork > h3 { margin: 0 0 18px; font-size: 20px; font-weight: 700; letter-spacing: -.02em; }
-  .paperwork > div { display: grid; gap: 20px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .requirements { margin-top: 24px; border-top: 1px solid var(--color-paper-rule); }
+  .requirements summary { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 20px; min-height: 48px; padding: 14px 0; cursor: pointer; color: var(--color-ink); font-size: 15px; font-weight: 650; }
+  .requirements summary span + span { color: var(--color-ink-muted); font-size: 14px; font-weight: 400; }
+  .requirements summary:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+  .requirementList { margin: 0; padding: 0 0 16px; list-style: none; }
+  .requirementRow { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 4px 16px; border-top: 1px solid var(--color-paper-rule); padding: 8px 0; }
+  .requirementName { display: flex; align-items: center; gap: 10px; min-width: 0; font-size: 14px; font-weight: 650; }
+  .requirementName svg { flex: none; color: var(--color-ink-muted); }
+  .requirementStatus { color: var(--color-ink-muted); font-size: 14px; }
+  .requirementChange, .requirementEdit button { min-height: 44px; padding: 0 8px; color: var(--color-link); font-size: 14px; font-weight: 650; }
+  .requirementChange:focus-visible, .requirementEdit button:focus-visible, .requirementEdit select:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+  .requirementEdit { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .requirementEdit select { min-height: 44px; border: 1px solid var(--color-control-border); border-radius: var(--radius-input); background: var(--color-paper); padding: 0 8px; color: var(--color-ink); font-size: 14px; }
+  .requirementDetail, .requirementError { grid-column: 1 / -1; margin-left: 25px; color: var(--color-ink-muted); font-size: 13px; }
+  .requirementError { color: var(--color-danger); }
   .savedDecision { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 2px 20px; padding: 14px 18px; border: 1px solid var(--color-card-border); border-left: 4px solid var(--color-status-done); border-radius: var(--radius-paper); background: var(--color-status-done-soft); }
   .savedDecision[data-outcome="declined"] { border-left-color: var(--color-danger); background: var(--color-danger-soft); }
   .recordHeading { display: flex; align-items: baseline; flex-wrap: wrap; gap: 5px 12px; }
@@ -108,9 +121,11 @@
     .context { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; padding: 24px 0 0; border-left: 0; border-top: 1px solid var(--color-paper-rule); }
     .assessmentState { margin: 0; padding: 0; border: 0; }
     .consequence { grid-column: 1 / -1; margin: 0; }
-    .paperwork > div { grid-template-columns: minmax(0, 1fr); }
   }
   @media (max-width: 520px) {
+    .requirementRow { grid-template-columns: minmax(0, 1fr) auto; }
+    .requirementStatus { grid-column: 1; margin-left: 25px; }
+    .requirementChange, .requirementEdit { grid-column: 2; grid-row: 1 / 3; }
     .page { padding: 22px 14px; }
     .pageHeading { align-items: start; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }
     .pageHeading h3 { font-size: 26px; }

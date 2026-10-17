@@ -58,7 +58,7 @@ for (const width of [1440, 834, 390, 320]) {
     await expect(panel.getByRole("region", { name: "Prepare client handoff" })).toContainText("Sign the assessment before sending");
     await expect(panel.getByRole("region", { name: "Admission follow-through" }).getByText("Confirm admission after arrival")).toBeVisible();
     await expect(panel.getByRole("button", { name: "Review email & packet", exact: true })).toBeEnabled();
-    await expect(panel.getByRole("region", { name: "Admission paperwork and EHR handoff" })).toBeVisible();
+    await expect(panel.getByRole("region", { name: "EHR handoff", exact: true })).toBeVisible();
     await expect(panel.locator("summary")).toHaveCount(1); // Only the rarely used administrative controls stay folded.
     await expect(panel).toContainText("Add a planned admit date before sending");
     await expectAccessibleDecision(page);

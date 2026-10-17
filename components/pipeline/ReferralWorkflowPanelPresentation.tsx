@@ -1,11 +1,10 @@
 import ReferralAdmissionPanel from "./ReferralAdmissionPanel";
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ArrowRight, Check, CheckCircle2, Circle, Clock3, LoaderCircle, Minus } from "lucide-react";
 
 import ActionDetailDialog from "@/components/pipeline/ActionDetailDialog";
 import ReferralClientActivationPanel from "@/components/pipeline/ReferralClientActivationPanel";
 import {
-  admissionRequirementSummary,
   decisionActionState,
   deriveWorkflowPanelView,
   formatRecordedAt,
@@ -14,14 +13,12 @@ import {
   hasLegacyDecisionSubmission,
   recommendationPresentation,
   requirementDetailPresentation,
-  requirementGroups,
   requirementStatuses,
   requirementStatusDetail,
   resolvedRequirementCount,
   terminalStageMessage,
   transitionActionLabel,
   type PendingWorkflowDetail,
-  type RequirementGroupPresentation,
   type WorkflowResponse,
 } from "@/components/pipeline/referral-workflow-panel-model";
 import { getStageLabel, referralStageDefinitions, type ReferralStage } from "@/lib/pipeline/referral-workflow";
@@ -95,13 +92,10 @@ export function ReferralWorkflowPanelPresentation({
   admissionDate,
   manualIntakeReason,
   pendingDetail,
-  pendingRequirements,
-  requirementErrors,
   onRecommendationChange,
   onAdmissionDateChange,
   onSaveAdmissionDate,
   onManualIntakeReasonChange,
-  onUpdateRequirement,
   onSubmitDecision,
   onOpenUnderReviewEmail,
   onSubmitTransition,
@@ -148,21 +142,10 @@ export function ReferralWorkflowPanelPresentation({
         </div>
         {!workflow.decision ? <DecisionContext workflow={workflow} busy={busy} onOpenAssessment={onOpenAssessment} /> : null}
       </div>
-      <section className={styles.paperwork} aria-label="Admission paperwork and EHR handoff">
-          <h3>Admission paperwork &amp; EHR handoff</h3>
-          <WorkflowSecondaryColumn
-            workflow={workflow}
-            view={view}
-            busy={busy}
-            pendingRequirements={pendingRequirements}
-            requirementErrors={requirementErrors}
-            onUpdateRequirement={onUpdateRequirement}
-            onUpdateHandoff={onUpdateHandoff}
-            onRecordHandoffSent={onRecordHandoffSent}
-            onOpenHandoffFailure={onOpenHandoffFailure}
-            onOpenProfile={onOpenProfile}
-          />
-      </section>
+      {workflow.decision?.outcome === "accepted" ? <section className={styles.paperwork} aria-label="EHR handoff">
+        <EhrHandoffCard workflow={workflow} view={view} busy={busy} onUpdateHandoff={onUpdateHandoff} onRecordHandoffSent={onRecordHandoffSent} onOpenHandoffFailure={onOpenHandoffFailure} />
+        {view.currentReferral.stage === "Accepted / Admitted" ? <ReferralClientActivationPanel referralId={view.currentReferral.id} canReconcile={workflow.capabilities.can_reconcile_identity} canReview={workflow.capabilities.can_review_identity} onOpenProfile={onOpenProfile} /> : null}
+      </section> : null}
       <details className={styles.details} data-admin-controls>
           <summary>Administrative controls</summary>
           <p className={styles.adminNote}>For authorized staff. These change the referral&apos;s stage or grant a manual intake exception. They do not record the decision, sign the assessment, or send anything.</p>
@@ -295,13 +278,36 @@ function RecommendationOnFile({ workflow, selected, selectedNote, compact = fals
   </section>;
 }
 
-function WorkflowSecondaryColumn({ workflow, view, busy, pendingRequirements, requirementErrors, onUpdateRequirement, onUpdateHandoff, onRecordHandoffSent, onOpenHandoffFailure, onOpenProfile }: Pick<ReferralWorkflowPanelPresentationProps, "workflow" | "busy" | "pendingRequirements" | "requirementErrors" | "onUpdateRequirement" | "onUpdateHandoff" | "onRecordHandoffSent" | "onOpenHandoffFailure" | "onOpenProfile"> & { view: WorkflowView }) {
+export function AdmissionRequirementsPanel({ workflow, busy, message, error, pendingRequirements, requirementErrors, pendingDetail, onUpdateRequirement, onConfirmDetail, onCloseDetail }: Pick<ReferralWorkflowPanelPresentationProps, "workflow" | "busy" | "message" | "error" | "pendingRequirements" | "requirementErrors" | "pendingDetail" | "onUpdateRequirement" | "onConfirmDetail" | "onCloseDetail">) {
+  const [editingIds, setEditingIds] = useState<Set<string>>(() => new Set());
+  const items = workflow.work_items.filter((item) => item.type !== "profile_field");
+  const toggleEditing = (id: string) => setEditingIds((current) => {
+    const next = new Set(current);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    return next;
+  });
   return (
-    <div className="space-y-5">
-      <WorkflowCard title="Admission requirements" detail={admissionRequirementSummary(workflow.work_items)}><div className="space-y-5">{requirementGroups(workflow.work_items).map((group) => <RequirementGroup key={group.label} group={group} disabled={!workflow.capabilities.can_update || Boolean(busy && !busy.startsWith("requirement:"))} busy={busy} pendingRequirements={pendingRequirements} requirementErrors={requirementErrors} onChange={onUpdateRequirement} />)}</div></WorkflowCard>
-      <EhrHandoffCard workflow={workflow} view={view} busy={busy} onUpdateHandoff={onUpdateHandoff} onRecordHandoffSent={onRecordHandoffSent} onOpenHandoffFailure={onOpenHandoffFailure} />
-      {view.currentReferral.stage === "Accepted / Admitted" ? <ReferralClientActivationPanel referralId={view.currentReferral.id} canReconcile={workflow.capabilities.can_reconcile_identity} canReview={workflow.capabilities.can_review_identity} onOpenProfile={onOpenProfile} /> : null}
-    </div>
+    <section aria-label="Admission requirements" className={styles.requirements}>
+      <details>
+        <summary><span>Admission requirements</span><span>{resolvedRequirementCount(items)} / {items.length} resolved</span></summary>
+        {message ? <WorkflowNotice tone="success">{message}</WorkflowNotice> : null}
+        {error ? <WorkflowNotice tone="error">{error}</WorkflowNotice> : null}
+        <ul className={styles.requirementList}>
+          {items.map((item) => <li key={item.id} className={styles.requirementRow}>
+            <span className={styles.requirementName}>{isRequirementComplete(item.status) ? <Check size={15} aria-hidden="true" /> : <Circle size={12} aria-hidden="true" />}{item.label}</span>
+            <span className={styles.requirementStatus}>{formatRequirementStatus(pendingRequirements[item.id] ?? item.status)}</span>
+            {workflow.capabilities.can_update ? editingIds.has(item.id) ? <div className={styles.requirementEdit}>
+              <select autoFocus aria-label={`${item.label} status`} value={pendingRequirements[item.id] ?? item.status} disabled={Boolean(pendingRequirements[item.id]) || Boolean(busy && !busy.startsWith("requirement:"))} onChange={(event) => onUpdateRequirement(item, event.target.value as RequirementStatus)}>{requirementStatuses.map((status) => <option key={status} value={status}>{formatRequirementStatus(status)}</option>)}</select>
+              <button type="button" onClick={() => toggleEditing(item.id)}>Done</button>
+            </div> : <button type="button" className={styles.requirementChange} onClick={() => toggleEditing(item.id)} aria-label={`Change ${item.label} status`}>Change</button> : null}
+            {item.status !== "needed" ? <span className={styles.requirementDetail}>{requirementStatusDetail(item)}</span> : null}
+            {pendingRequirements[item.id] ? <span role="status" className={styles.requirementDetail}>{busy.startsWith(`requirement:${item.id}:`) ? "Saving status…" : "Status queued…"}</span> : requirementErrors[item.id] ? <span role="alert" className={styles.requirementError}>{requirementErrors[item.id]}</span> : null}
+          </li>)}
+        </ul>
+      </details>
+      {pendingDetail?.kind === "requirement" ? <WorkflowDetailDialog pending={pendingDetail} onConfirm={onConfirmDetail} onClose={onCloseDetail} /> : null}
+    </section>
   );
 }
 
@@ -344,29 +350,6 @@ function WorkflowDetailDialog({ pending, onConfirm, onClose }: { pending: Pendin
     return <ActionDetailDialog title="Record EHR handoff failure" description="This reason is recorded in the referral activity log for follow-up." label="Failure reason" confirmLabel="Record failure" minimumLength={3} onConfirm={onConfirm} onClose={onClose} />;
   }
   return <ActionDetailDialog {...requirementDetailPresentation(pending.item, pending.status)} onConfirm={onConfirm} onClose={onClose} />;
-}
-
-function RequirementGroup({ group, disabled, busy, pendingRequirements, requirementErrors, onChange }: { group: RequirementGroupPresentation; disabled: boolean; busy: string; pendingRequirements: Record<string, RequirementStatus>; requirementErrors: Record<string, string>; onChange: (item: AdmissionRequirement, status: RequirementStatus) => void }) {
-  return (
-    <section aria-label={`${group.label} requirements`}>
-      <div className="mb-2 flex items-end justify-between gap-3">
-        <div><h4 className="text-[14px] font-bold uppercase tracking-[0.08em] text-[#44504b]">{group.label}</h4></div>
-        <span className="shrink-0 text-[14px] font-semibold text-[#68716c]">{resolvedRequirementCount(group.items)} / {group.items.length} resolved</span>
-      </div>
-      <div className="divide-y divide-[#e4e7e5] border-y border-[#d9d9d9]">
-        {group.items.map((item) => (
-          <div key={item.id} className="grid gap-2 py-3 sm:grid-cols-[minmax(0,1fr)_150px] sm:items-center">
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2 text-[14px] font-semibold text-[#202522]">{isRequirementComplete(item.status) ? <Check size={13} className="text-[#0f8b73]" /> : <Circle size={11} className="text-[#a0a0a0]" />}<span>{item.label}</span>{item.blocker && !isRequirementComplete(item.status) ? <span className="text-[14px] font-semibold uppercase text-[#68716c]">To complete</span> : null}</div>
-              <div className="mt-1 text-[14px] leading-5 text-[#737373]">{requirementStatusDetail(item)}</div>
-              {pendingRequirements[item.id] ? <div role="status" className="mt-1 text-[12px] font-semibold text-[#59665f]">{busy.startsWith(`requirement:${item.id}:`) ? "Saving status…" : "Status queued…"}</div> : requirementErrors[item.id] ? <div role="alert" className="mt-1 text-[12px] font-semibold text-[#9b3c2d]">{requirementErrors[item.id]}</div> : null}
-            </div>
-            <select aria-label={`${item.label} status`} value={pendingRequirements[item.id] ?? item.status} disabled={disabled || Boolean(pendingRequirements[item.id])} onChange={(event) => onChange(item, event.target.value as RequirementStatus)} className="h-11 w-full border border-[#c9ceca] bg-white px-2 text-[14px] font-semibold outline-none focus:border-[#0f8b73]">{requirementStatuses.map((status) => <option key={status} value={status}>{formatRequirementStatus(status)}</option>)}</select>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
 }
 
 function PrimaryButton({ busy, disabled, describedBy, onClick, children }: { busy?: boolean; disabled?: boolean; describedBy?: string; onClick: () => void; children: ReactNode }) {
