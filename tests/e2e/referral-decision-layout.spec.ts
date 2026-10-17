@@ -14,18 +14,19 @@ import {
 
 test.skip(process.env.PIPELINE_DESKTOP_E2E !== "true", "Requires isolated desktop workspace state.");
 
-async function expectAccessibleDecision(page: Page) {
+async function expectAccessibleDecision(page: Page, selector = '[aria-label="Admission decision"]') {
   await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
-  const violations = await page.evaluate(async () => {
+  const violations = await page.evaluate(async (selector) => {
     const axe = (window as unknown as { axe: { run: (selector: string, options: object) => Promise<AxeResults> } }).axe;
-    return (await axe.run('[aria-label="Admission decision"]', { runOnly: ["wcag2a", "wcag2aa", "wcag21aa"] })).violations;
-  });
+    return (await axe.run(selector, { runOnly: ["wcag2a", "wcag2aa", "wcag21aa"] })).violations;
+  }, selector);
   expect(violations).toEqual([]);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 }
 
 for (const width of [1440, 834, 390, 320]) {
   test(`decision hierarchy and unsent acceptance at ${width}px`, async ({ page }, info) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
     await page.setViewportSize({ width, height: 950 });
     const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: "Example Jordan Rivera", community: "San Pablo", owner: "", tags: [] });
     let sends = 0;
@@ -56,10 +57,16 @@ for (const width of [1440, 834, 390, 320]) {
     await expect(panel.getByRole("heading", { name: "Accepted", exact: true })).toBeVisible();
     await expect(panel.getByRole("group", { name: "Recorded decision", exact: true })).toBeFocused();
     await expect(panel.getByRole("region", { name: "Prepare client handoff" })).toContainText("Sign the assessment before sending");
-    await expect(panel.getByRole("region", { name: "Admission follow-through" }).getByText("Confirm admission after arrival")).toBeVisible();
     await expect(panel.getByRole("button", { name: "Review email & packet", exact: true })).toBeEnabled();
-    await expect(panel.getByRole("region", { name: "EHR handoff", exact: true })).toBeVisible();
-    await expect(panel.locator("summary")).toHaveCount(1); // Only the rarely used administrative controls stay folded.
+    await expect(panel.getByText("Confirm admission after arrival")).not.toBeVisible();
+    await panel.getByRole("button", { name: "Follow-up tools" }).click();
+    const followUp = page.getByRole("dialog", { name: "Follow-up tools" });
+    await expect(followUp.getByRole("region", { name: "Placement updates" }).getByText("Confirm admission after arrival")).toBeVisible();
+    await expect(followUp.getByText("This does not send data to ElderMark or another EHR.")).toBeVisible();
+    await expect(followUp.locator("summary")).toHaveCount(1);
+    await expectAccessibleDecision(page, '[aria-labelledby="decision-follow-up-title"]');
+    await followUp.getByRole("button", { name: "Close follow-up tools" }).click();
+    await expect(panel.getByRole("button", { name: "Follow-up tools" })).toBeFocused();
     await expect(panel).toContainText("Add a planned admit date before sending");
     await expectAccessibleDecision(page);
     await page.screenshot({ path: info.outputPath(`accepted-${width}.png`), animations: "disabled" });
@@ -206,7 +213,8 @@ test("administrative stage controls are separate, labeled, and only change the s
   await expect(panel.getByRole("button", { name: "Record decision", exact: true })).toBeDisabled();
   await expect(panel.getByRole("combobox", { name: "Workflow stage" })).not.toBeVisible();
 
-  await panel.locator("summary").filter({ hasText: /^Administrative controls$/ }).click();
+  await panel.getByRole("button", { name: "Other actions" }).click();
+  await page.getByRole("dialog", { name: "Other actions" }).locator("summary").filter({ hasText: /^Administrative controls$/ }).click();
   await expect(panel).toContainText("They do not record the decision, sign the assessment, or send anything.");
   await panel.getByRole("combobox", { name: "Workflow stage", exact: true }).selectOption("Assessment");
   await expect(panel.getByText("Stage changed to Assessment", { exact: true })).toBeVisible();

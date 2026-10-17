@@ -38,16 +38,21 @@ for (const width of [1440, 390]) test(`accepted placement can be cancelled witho
 
   await page.goto(`/?view=referrals&screen=packet&referralId=${accepted.id}&workspaceView=workflow`);
   const admission = page.getByRole("region", { name: "Admission follow-through" });
-  await expect(admission.getByRole("button", { name: "Confirm admission" })).toHaveCount(0);
-  await expect(admission).toContainText("Awaiting arrival confirmation from the daily census or an admissions coordinator");
-  await admission.getByText("Placement did not happen").click();
-  await admission.getByRole("textbox", { name: "Why was placement cancelled?" }).fill("County placed the client elsewhere.");
-  await admission.getByRole("button", { name: "Record placement cancellation" }).click();
+  const followUpButton = page.getByRole("button", { name: "Follow-up tools" });
+  await followUpButton.click();
+  const updates = page.getByRole("region", { name: "Placement updates" });
+  await expect(updates.getByRole("button", { name: "Confirm admission" })).toHaveCount(0);
+  await expect(updates).toContainText("Awaiting arrival confirmation from the daily census or an admissions coordinator");
+  await updates.getByText("Placement did not happen").click();
+  await updates.getByRole("textbox", { name: "Why was placement cancelled?" }).fill("County placed the client elsewhere.");
+  await updates.getByRole("button", { name: "Record placement cancellation" }).click();
   const confirmation = page.getByRole("alertdialog", { name: "Cancel this placement?" });
   await expect(confirmation).toContainText("will not email the community");
   await confirmation.getByRole("button", { name: "Record cancellation" }).click();
-  await expect(admission.getByRole("status")).toContainText("Placement cancelled · County placed the client elsewhere.");
-  await expect(admission.getByRole("button", { name: "Confirm admission" })).toHaveCount(0);
+  await followUpButton.click();
+  await expect(updates.getByRole("status")).toContainText("Placement cancelled · County placed the client elsewhere.");
+  await expect(updates.getByRole("button", { name: "Confirm admission" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Close follow-up tools" }).click();
   await expect(admission.getByLabel("Planned admission date")).toBeDisabled();
   await expect(admission).toContainText("No handoff can be sent for this cancelled placement.");
   await page.screenshot({ path: info.outputPath(`placement-cancelled-${width}.png`) });

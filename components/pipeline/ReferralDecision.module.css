@@ -11,6 +11,20 @@
   .pageHeading { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 26px; }
   .pageHeading h3 { margin: 0; font-size: clamp(26px, 2.4vw, 32px); font-weight: 720; line-height: 1.2; letter-spacing: -.035em; }
   .pageHeading p { margin: 8px 0 0; color: var(--decision-muted); font-size: 16px; }
+  .followUpBar { display: flex; justify-content: flex-end; margin: -4px 0 12px; }
+  .followUpTrigger { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 12px; border: 1px solid var(--color-control-border); border-radius: var(--radius-input); background: var(--color-paper); color: var(--color-ink-2); font-size: 14px; font-weight: 650; }
+  .followUpTrigger:hover { border-color: var(--color-ink-muted); color: var(--color-ink); }
+  .followUpTrigger:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+  .followUpDrawer { width: min(520px, 100vw); max-width: none; height: 100dvh; max-height: none; margin: 0 0 0 auto; padding: 0; overflow: hidden; border: 0; border-left: 1px solid var(--color-card-border); background: var(--color-page); box-shadow: var(--shadow-popover); color: var(--color-ink); }
+  .followUpDrawer[open] { display: flex; flex-direction: column; }
+  .followUpDrawer::backdrop { background: rgb(15 23 42 / 0.28); }
+  .followUpHead { display: flex; align-items: center; gap: 12px; min-height: 60px; padding: 0 16px 0 24px; border-bottom: 1px solid var(--color-card-border); background: var(--color-paper); }
+  .followUpHead h2 { margin: 0; font-size: 19px; font-weight: 700; }
+  .followUpHead button { display: grid; place-items: center; width: 44px; height: 44px; margin-left: auto; border-radius: var(--radius-input); color: var(--color-ink-muted); }
+  .followUpHead button:hover { background: var(--color-segment); color: var(--color-ink); }
+  .followUpHead button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 1px; }
+  .followUpBody { flex: 1; min-height: 0; padding: 24px; overflow-y: auto; overscroll-behavior: contain; }
+  .followUpBody > * + * { margin-top: 24px; }
   .recordState { flex-shrink: 0; padding: 6px 11px; border: 1px solid var(--color-control-border); border-radius: var(--radius-chip); background: var(--color-sheet); font-size: 13px; font-weight: 650; }
   .layout { display: grid; grid-template-columns: minmax(0, 1fr) 270px; gap: clamp(24px, 4vw, 48px); margin-top: 22px; align-items: start; }
   .layout[data-recorded] { display: block; margin-top: 0; }
@@ -123,6 +137,7 @@
     .consequence { grid-column: 1 / -1; margin: 0; }
   }
   @media (max-width: 520px) {
+    .followUpBody { padding: 20px 16px; }
     .requirementRow { grid-template-columns: minmax(0, 1fr) auto; }
     .requirementStatus { grid-column: 1; margin-left: 25px; }
     .requirementChange, .requirementEdit { grid-column: 2; grid-row: 1 / 3; }

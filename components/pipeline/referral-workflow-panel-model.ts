@@ -64,11 +64,11 @@ export const requirementStatuses: RequirementStatus[] = [
 ];
 
 export const handoffDescriptions: Record<EhrHandoffStatus, string> = {
-  sent: "Sent and recorded",
-  queued: "Queued for transfer",
-  failed: "Failed; reason recorded",
-  ready: "Ready to queue",
-  not_ready: "Available after acceptance",
+  sent: "recorded as sent",
+  queued: "marked queued",
+  failed: "failure recorded",
+  ready: "not recorded",
+  not_ready: "not recorded",
 };
 
 export function deriveWorkflowPanelView(workflow: WorkflowResponse) {

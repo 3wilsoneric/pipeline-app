@@ -19,8 +19,11 @@ for (const width of [1440, 390]) test(`accepted work resumes the client handoff 
   await expect(handoff.getByRole("list", { name: "Handoff progress" })).toHaveCount(0);
   await expect(handoff).toContainText("Review the recipients, client summary and chart files before sending.");
   await expect(page.getByRole("button", { name: "Mark admitted", exact: true })).toHaveCount(0);
-  await expect(page.getByLabel("Actual admission date", { exact: true })).toHaveValue("");
-  await expect(page.getByRole("button", { name: "Confirm admission", exact: true })).toBeEnabled();
+  await page.getByRole("button", { name: "Follow-up tools" }).click();
+  const followUp = page.getByRole("dialog", { name: "Follow-up tools" });
+  await expect(followUp.getByLabel("Actual admission date", { exact: true })).toHaveValue("");
+  await expect(followUp.getByRole("button", { name: "Confirm admission", exact: true })).toBeEnabled();
+  await followUp.getByRole("button", { name: "Close follow-up tools" }).click();
   await page.screenshot({ path: info.outputPath(`handoff-steps-${width}.png`), animations: "disabled" });
   await handoff.getByLabel("Planned admission date", { exact: true }).fill("2026-10-12");
   await handoff.getByRole("button", { name: "Review email & packet", exact: true }).click();

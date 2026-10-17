@@ -511,12 +511,12 @@ export default function ReferralWorkflowPanel({
       `/api/referrals/${currentReferral.id}/ehr-handoff`,
       "POST",
       { if_match: currentReferral.version, if_match_section: sections.decision, action, failure_reason: failureReason },
-      action === "mark_sent" ? "EHR handoff recorded as sent" : action === "mark_failed" ? "EHR handoff failure recorded" : "EHR handoff queued",
+      action === "mark_sent" ? "External transfer recorded as sent" : action === "mark_failed" ? "External transfer failure recorded" : "External transfer marked queued",
     );
   };
 
   const recordHandoffSent = async () => {
-    if (!await confirm({ title: "Record EHR handoff as sent?", message: "Confirm the downstream transfer succeeded before continuing.", confirmLabel: "Record as sent" })) return;
+    if (!await confirm({ title: "Record external transfer as sent?", message: "Pipeline does not send this data to ElderMark. Confirm the transfer happened outside Pipeline before recording it here.", confirmLabel: "Record as sent" })) return;
     updateHandoff("mark_sent");
   };
 

@@ -46,9 +46,11 @@ test.describe("admission follow-through", () => {
       expect(adminWorkflow.capabilities.can_confirm_admission).toBe(true);
       await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=workflow`);
       const admission = page.getByRole("region", { name: "Admission follow-through" });
-      await expect(admission).toContainText("Awaiting arrival confirmation from the daily census or an admissions coordinator");
-      await expect(admission.getByRole("button", { name: "Confirm admission" })).toHaveCount(0);
       await expect(admission.getByRole("button", { name: "Review email & packet" })).toBeEnabled();
+      await page.getByRole("button", { name: "Follow-up tools" }).click();
+      const updates = page.getByRole("region", { name: "Placement updates" });
+      await expect(updates).toContainText("Awaiting arrival confirmation from the daily census or an admissions coordinator");
+      await expect(updates.getByRole("button", { name: "Confirm admission" })).toHaveCount(0);
 
       const transition = await assessor.post(`${path}/transition`, { data: {
         if_match: referral.version, if_match_section: referral.sectionVersions.workflow,
@@ -101,15 +103,17 @@ test.describe("admission follow-through", () => {
       expect(planned.stage).not.toBe("Accepted / Admitted");
       await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=workflow`);
       await expect(admission.getByLabel("Planned admission date", { exact: true })).toHaveValue("2026-10-12");
-      const actualDate = admission.getByLabel("Actual admission date", { exact: true });
-      const markAdmitted = admission.getByRole("button", { name: "Confirm admission" });
+      await page.getByRole("button", { name: "Follow-up tools" }).click();
+      const updates = page.getByRole("region", { name: "Placement updates" });
+      const actualDate = updates.getByLabel("Actual admission date", { exact: true });
+      const markAdmitted = updates.getByRole("button", { name: "Confirm admission" });
       await expect(actualDate).toBeVisible();
       await expect(markAdmitted).toBeEnabled();
       expect((await readOperationalReferral(api, referral.id)).version).toBe(planned.version);
       await page.screenshot({ path: info.outputPath(`admission-${width}.png`) });
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
       await markAdmitted.click();
-      await expect(admission).toContainText("Enter the client's actual arrival date");
+      await expect(updates).toContainText("Enter the client's actual arrival date");
       expect((await readOperationalReferral(api, referral.id)).version).toBe(planned.version);
       await actualDate.fill(calendarToday());
       await markAdmitted.click();

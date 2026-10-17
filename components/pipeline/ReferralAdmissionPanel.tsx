@@ -11,22 +11,20 @@ type Props = {
   disabled: boolean;
   onAdmissionDateChange: (value: string) => void;
   onSaveAdmissionDate: () => void;
+};
+
+type PlacementUpdatesProps = {
+  referral: Referral;
+  disabled: boolean;
   onMarkAdmitted?: (actualAdmissionDate: string) => void;
   onSavePlacementCancellation?: (reason: string) => Promise<boolean>;
 };
 
-export default function ReferralAdmissionPanel({ referral, packetSentAt, admissionDate, disabled, onAdmissionDateChange, onSaveAdmissionDate, onMarkAdmitted, onSavePlacementCancellation }: Props) {
+const inputClass = "mt-1 block h-10 w-full border border-[#c9ceca] bg-white px-3 text-[12px] text-[#202320] focus-visible:outline-[#0f8b73] disabled:bg-[#f4f6f5]";
+
+export default function ReferralAdmissionPanel({ referral, packetSentAt, admissionDate, disabled, onAdmissionDateChange, onSaveAdmissionDate }: Props) {
   const admitted = referral.stage === "Accepted / Admitted";
   const cancelled = Boolean(referral.placementCancellation);
-  const [actualAdmissionDate, setActualAdmissionDate] = useState(referral.actualAdmissionDate ?? "");
-  const [dateNeeded, setDateNeeded] = useState(false);
-  const [cancellationReasonDraft, setCancellationReasonDraft] = useState<string | null>(null);
-  const [editingCancellation, setEditingCancellation] = useState(false);
-  const cancellationReason = cancellationReasonDraft ?? referral.placementCancellation?.reason ?? "";
-  const cancellationDirty = cancellationReasonDraft !== null && cancellationReasonDraft !== (referral.placementCancellation?.reason ?? "");
-  const [savingCancellation, setSavingCancellation] = useState(false);
-  const actualDateInput = useRef<HTMLInputElement>(null);
-  const inputClass = "mt-1 block h-10 w-full border border-[#c9ceca] bg-white px-3 text-[12px] text-[#202320] focus-visible:outline-[#0f8b73] disabled:bg-[#f4f6f5]";
   // After acceptance the packet review is this page's one main action until it has been sent.
   const buttonClass = packetSentAt || cancelled
     ? "min-h-10 border border-[#0f8b73] px-3 py-2 text-[12px] font-semibold text-[#0f6f5e] disabled:opacity-50 focus-visible:outline-[#0f8b73]"
@@ -42,7 +40,22 @@ export default function ReferralAdmissionPanel({ referral, packetSentAt, admissi
     <p id="planned-admission-help" className="text-[11px] text-[#68716c]">{cancelled ? packetSentAt ? "The planned date and sent handoff remain in history. No new handoff can be sent for this cancelled placement." : "The planned date remains in history. No handoff can be sent for this cancelled placement." : packetSentAt ? "The packet has been sent. Reviewing it or changing the planned date does not send another email." : "You can review the email and packet now. Add a planned admit date before sending; it will populate the email automatically."}</p>
     {packetSentAt ? <p role="status" className="text-[12px] font-semibold text-[#0f6f5e]">Packet sent {formatProfileDate(packetSentAt)}{admitted || cancelled ? "" : " · Awaiting admission"}</p> : null}
     {admitted ? <p role="status" className="text-[12px] text-[#303b34]">Admission confirmed{referral.actualAdmissionDate ? ` · ${formatProfileDate(referral.actualAdmissionDate)}` : " · Actual date not recorded"}. This workspace remains available in Finished referrals and All Workspaces.</p> : null}
-    {!admitted ? <div className="mt-6 border-t border-[#dce4df] pt-5">
+  </section>;
+}
+
+export function ReferralPlacementUpdates({ referral, disabled, onMarkAdmitted, onSavePlacementCancellation }: PlacementUpdatesProps) {
+  const admitted = referral.stage === "Accepted / Admitted";
+  const cancelled = Boolean(referral.placementCancellation);
+  const [actualAdmissionDate, setActualAdmissionDate] = useState(referral.actualAdmissionDate ?? "");
+  const [dateNeeded, setDateNeeded] = useState(false);
+  const [cancellationReasonDraft, setCancellationReasonDraft] = useState<string | null>(null);
+  const [editingCancellation, setEditingCancellation] = useState(false);
+  const cancellationReason = cancellationReasonDraft ?? referral.placementCancellation?.reason ?? "";
+  const cancellationDirty = cancellationReasonDraft !== null && cancellationReasonDraft !== (referral.placementCancellation?.reason ?? "");
+  const [savingCancellation, setSavingCancellation] = useState(false);
+  const actualDateInput = useRef<HTMLInputElement>(null);
+  if (admitted) return null;
+  return <section aria-label="Placement updates" className="border-b border-[#dce4df] pb-5">
       <h5 className="text-[16px] font-semibold text-[#25372d]">Placement updates</h5>
       {cancelled ? <p role="status" className="mt-2 text-sm font-semibold">Placement cancelled · {referral.placementCancellation?.reason}</p> : null}
       {!cancelled && onMarkAdmitted ? <div className="mt-4 rounded-md border border-[#dce4df] bg-[#f8faf9] p-3 sm:p-4">
@@ -75,7 +88,6 @@ export default function ReferralAdmissionPanel({ referral, packetSentAt, admissi
         <p className="text-sm">Recording this change does not email the community. The acceptance and any sent handoff stay in the record.</p>
         <button type="submit" disabled={disabled || savingCancellation || !cancellationReason.trim() || cancelled && !cancellationDirty} className="min-h-10 border px-3 py-2 text-sm font-semibold disabled:opacity-50">{savingCancellation ? "Saving…" : cancelled ? "Save explanation" : "Record placement cancellation"}</button>
       </form> : null}
-    </div> : null}
     </div> : null}
   </section>;
 }

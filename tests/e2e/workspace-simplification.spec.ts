@@ -158,9 +158,11 @@ for (const width of [1440, 390]) {
     await expect(requirements.getByRole("combobox", { name: "Signed medication list status" })).toBeVisible();
     if (width < 640) await page.getByLabel("Workspace view", { exact: true }).selectOption({ label: "Decision" });
     else await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: "Decision", exact: true }).click();
-    await decision.locator("summary").filter({ hasText: /^Administrative controls$/ }).click();
+    await decision.getByRole("button", { name: "Follow-up tools" }).click();
+    await page.getByRole("dialog", { name: "Follow-up tools" }).locator("summary").filter({ hasText: /^Administrative controls$/ }).click();
     await decision.getByRole("combobox", { name: "Workflow stage", exact: true }).selectOption("Assessment");
     await expect.poll(async () => (await (await page.request.get(`/api/referrals/${referral.id}`)).json()).referral.stage).toBe("Assessment");
+    await decision.getByRole("button", { name: "Follow-up tools" }).click();
     await decision.getByRole("combobox", { name: "Workflow stage", exact: true }).selectOption("New");
     await expect.poll(async () => (await (await page.request.get(`/api/referrals/${referral.id}`)).json()).referral.stage).toBe("New");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
