@@ -126,10 +126,10 @@ const expectedGuideResults: Readonly<Record<string, string>> = {
   "calendar-filters": "The current assessor and date scope, limited to what your account can access.",
   "calendar-workspace": "Appointment details and a route back to its linked referral.",
   "client-directory": "Matching client charts, with identity details to distinguish similar names.",
-  "operations-briefing-header": "The current census date and snapshot update time.",
-  "operations-briefing-metrics": "Current census and reconciliation status; unavailable values are never treated as zero.",
+  "operations-briefing-header": "The combined admissions and census report.",
+  "operations-briefing-metrics": "Current census, active referrals, accepted clients awaiting arrival, and Pipeline-recorded admissions. Unavailable is never zero.",
   "operations-briefing-communities": "The current census count by community and any data-quality warnings.",
-  "operations-briefing-source": "The census source and any limits on interpreting the snapshot.",
+  "operations-briefing-source": "Pipeline and clinical source dates, and limits on comparing admissions with census.",
 };
 
 // Acknowledging a tooltip is not evidence that a clinical or delivery action occurred.
@@ -249,12 +249,12 @@ export const operatorGuidedTutorials: readonly OperatorGuidedTutorial[] = [
       step("team-search", "/?view=referrals", "workspace-search", "Find a team referral", "Search by client or referral details after choosing the intended scope. Clear filters when the expected referral is not listed."),
       step("team-calendar", "/?screen=calendar", "calendar-filters", "Review appointment coverage", "Use the permitted assessor scope and date filters to review the team schedule."),
     ] }),
-  tutorial({ id: "run-report", title: "View reports", context: "app", persona: "supervisor", audiences: supervisorRoles, summary: "Read the current census briefing.",
+  tutorial({ id: "run-report", title: "View reports", context: "app", persona: "supervisor", audiences: supervisorRoles, summary: "Read the admissions and census report.",
     steps: [
-      step("briefing-period", "/?screen=operations", "operations-briefing-header", "Check the snapshot date", "Confirm the data date and update time before using the figures."),
-      step("briefing-metrics", "/?screen=operations", "operations-briefing-metrics", "Read the census", "Use the current census and reconciliation status together. Unavailable is not zero.", "confirm", true),
+      step("briefing-period", "/?screen=operations", "operations-briefing-header", "Open the report", "Use the report for a joint view of Pipeline admissions and the current clinical census."),
+      step("briefing-metrics", "/?screen=operations", "operations-briefing-metrics", "Read the headline figures", "Separate today's census from Pipeline referrals, pending arrivals, and recorded admissions. Unavailable is not zero.", "confirm", true),
       step("briefing-communities", "/?screen=operations", "operations-briefing-communities", "Review communities", "Review each community count and its reconciliation status. Missing values are not inferred.", "confirm", true),
-      step("briefing-source", "/?screen=operations", "operations-briefing-source", "Check availability", "This briefing uses Pipeline's current-census feed. It does not report a weekly change because a prior-period snapshot is not stored here."),
+      step("briefing-source", "/?screen=operations", "operations-briefing-source", "Check the sources", "Check both source dates. Pipeline admissions do not imply a census change; no prior-period census or governed discharge series is available here."),
     ] }),
 ];
 
