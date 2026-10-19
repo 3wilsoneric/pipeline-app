@@ -31,9 +31,9 @@ referral side of it through one server-to-server endpoint:
   assessor, and most recent placement from a signed assessment (or null when
   absent). An accepted active workspace without a planned or actual admit date
   remains in moving-through even if it has left the board; cancelled placements
-  and confirmed arrivals do not. Event rows retain only client name,
-  destination, owner, leadership status, and the bounded Pipeline path already
-  authorized for the board. Arrays are capped and their coverage flag turns false instead
+  and confirmed arrivals do not. Beyond those context fields, event rows
+  retain client name, destination, status, date where relevant, and the bounded
+  Pipeline path already authorized for the board. Arrays are capped and their coverage flag turns false instead
   of silently presenting a truncated result as complete. The card and
   management profile contain PHI
   and are therefore limited to the authenticated Platform integration. Raw
