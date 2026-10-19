@@ -360,13 +360,13 @@ test("unfinished planned date and file choices resume after closing the workspac
   await expect.poll(async () => (await (await page.request.get(endpoint)).json()).draft?.review?.selectedFiles?.ids?.length).toBe(2);
   await page.goto("/");
   await page.goto(url);
-  const resumed = await openRecipients(page);
+  const resumed = await openAdmitDate(page);
   await expect(resumed.getByLabel("Planned admit date", { exact: true })).toHaveValue("2026-10-25");
   await expect(resumed.getByRole("checkbox", { name: "Include Optional referral note.txt" })).toBeChecked();
   await expect(resumed.getByRole("checkbox", { name: /I verified/ })).not.toBeChecked();
   changedRevision = true;
   await page.reload();
-  const refreshed = await openRecipients(page);
+  const refreshed = await openAdmitDate(page);
   await expect(refreshed.getByRole("checkbox", { name: "Include Optional referral note.txt" })).not.toBeChecked();
   await expect(refreshed.getByLabel("Planned admit date", { exact: true })).toHaveValue("2026-10-25");
 });

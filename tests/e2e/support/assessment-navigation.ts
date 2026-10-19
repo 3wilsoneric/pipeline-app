@@ -21,6 +21,7 @@ export async function editPreparedAnswer(page: Page, label: string) {
     await openAssessmentChart(page);
     const record = page.getByRole("article", { name: "Assessment record", exact: true });
     await record.locator(":scope > details > summary").click();
+    await record.locator("details summary").filter({ hasText: "Record details" }).click();
     await record.getByRole("button", { name: `Edit ${label}`, exact: true }).click();
     return;
   }

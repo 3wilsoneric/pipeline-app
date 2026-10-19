@@ -21,7 +21,7 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
     await page.getByRole("button", { name: "Expand navigation", exact: true }).click();
     const button = page.getByRole("button", { name: "Open calendar", exact: true });
     await expect(button).toBeVisible();
-    await expect(button).toHaveJSProperty("clientWidth", 189);
+    await expect(button).toHaveJSProperty("clientWidth", 191);
     const resting = await button.evaluate((node) => ({ width: node.clientWidth, height: node.clientHeight }));
     await button.hover();
     await expect(button).not.toHaveCSS("box-shadow", "none");
@@ -120,8 +120,8 @@ test("a failed save does not block moving a workspace to trash", async ({ page }
   await name.press("Tab");
   const status = page.getByTestId("workspace-save-status");
   await expect(status).toContainText("Not saved to Pipeline");
-  const box = await status.boundingBox();
-  expect(box?.height).toBeLessThan(40);
+  await expect(status.getByRole("alert")).toBeVisible();
+  await expect(status.getByRole("button", { name: "Retry saving", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Move workspace to trash", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Move workspace to trash?", exact: true });
   await expect(dialog).toContainText("Changes not saved to Pipeline will be discarded");

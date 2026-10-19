@@ -29,8 +29,7 @@ test("the first editable assessment frame retains immediate input", async ({ pag
   });
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentMode=prepare&assessmentSection=diagnosis_clinical`);
   await expect.poll(async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment.secondary_diagnoses).toEqual(["Synthetic immediate answer"]);
-  await page.getByRole("button", { name: /^Recorded answers:/ }).click();
-  await expect(page.getByRole("region", { name: "Recorded answers", exact: true })).toContainText("Synthetic immediate answer");
+  await expect(page.locator("#assessment-secondary_diagnoses")).toHaveValue("Synthetic immediate answer");
 });
 
 for (const refreshFails of [false, true]) test(`partial dropped batch retries without duplicates and retains same-name revisions${refreshFails ? " after a failed chart refresh" : ""}`, async ({ page }, info) => {
@@ -130,10 +129,7 @@ test("a lost assessment save reply retries the same mutation without losing the 
   await expect.poll(async () => (await read()).current_symptoms).toBe("Synthetic next answer after interrupted saving.");
   await page.reload();
   await page.getByLabel("Assessment section", { exact: true }).selectOption({ label: "Clinical history & presentation" });
-  await page.getByRole("button", { name: /^Recorded answers:/ }).click();
-  const reference = page.getByRole("region", { name: "Recorded answers", exact: true });
-  await expect(reference).toContainText("Synthetic first answer");
-  await expect(reference).toContainText("Synthetic next answer after interrupted saving.");
   await expect(diagnosis).toHaveValue("Synthetic first answer");
+  await expect(page.locator("#assessment-current_symptoms")).toHaveValue("Synthetic next answer after interrupted saving.");
   expect((await read()).signed_at).toBeNull();
 });

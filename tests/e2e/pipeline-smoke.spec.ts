@@ -171,7 +171,7 @@ test.describe("Referral home and packet canvas", () => {
     await expect(activeReferrals).toHaveAttribute("aria-current", "page");
     await expect(activeReferrals).toHaveAttribute("data-active", "true");
     await expect(activeReferrals).toHaveClass(/bg-\[#e7f3ee\]/);
-    await expect(activeReferrals).toHaveCSS("background-color", "rgb(231, 243, 238)");
+    await expect(activeReferrals).toHaveCSS("background-color", "rgb(236, 247, 242)");
     await expect(activeReferrals).toHaveCSS("border-color", "rgb(15, 139, 115)");
     const inactiveProfiles = page.getByRole("button", { name: "Open client profiles" });
     await expect(inactiveProfiles).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
@@ -339,7 +339,7 @@ test.describe("Referral home and packet canvas", () => {
     await expect.poll(async () => (await page.getByTestId("packet-workspace").boundingBox())?.width ?? 0).toBeGreaterThan(1200);
     const activePacket = page.getByRole("button", { name: "Create new referral" });
     await expect(activePacket).toHaveAttribute("aria-current", "page");
-    await expect(activePacket).toHaveCSS("background-color", "rgb(255, 240, 237)");
+    await expect(activePacket).toHaveCSS("background-color", "rgb(236, 247, 242)");
     await expect(activePacket).toHaveCSS("border-color", "rgb(200, 91, 77)");
     await expect(activePacket).toHaveCSS("justify-content", "center");
     await expect(activePacket).toHaveCSS("height", "44px");

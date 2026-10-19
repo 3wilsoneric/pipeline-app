@@ -455,7 +455,7 @@
     /* Files and Activity a size down, Trash a size further (owner, 2026-09-27). */
     .verticalFlow .actions > .utilityTab { min-height: 28px; font-size: calc(var(--text-meta) - 1px); }
     .verticalFlow .actions > .utilityTab svg { width: 13px; height: 13px; }
-    .verticalFlow .actions > .trashTab { min-height: 26px; font-size: calc(var(--text-meta) - 2px); }
+    .verticalFlow .actions > .trashTab { min-height: 44px; font-size: calc(var(--text-meta) - 2px); }
     .verticalFlow .actions > .trashTab svg { width: 12px; height: 12px; }
     /* The merged-changes check has no visible mark in the rail (owner: "don't need that"); screen readers still hear it. */
     .verticalFlow .actions > .syncStatus { position: absolute; width: 1px; min-height: 0; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }

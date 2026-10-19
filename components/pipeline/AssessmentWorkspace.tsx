@@ -2112,7 +2112,14 @@ export default function AssessmentWorkspace({
   };
 
   const focusAnswer = (field: AssessmentToolFieldKey) => {
-    rememberPhoneQuestion(field);
+    // On desktop the questions stay mounted in one scrolling editor. Remember
+    // the return target without publishing a new route on every focus change;
+    // that route update can remount the editor before the first keystroke lands.
+    if (phoneLayout) rememberPhoneQuestion(field);
+    else {
+      phoneQuestionRef.current = field;
+      questionSectionRef.current = activeSection;
+    }
     if (focusedFieldRef.current?.field === field) return;
     focusedFieldRef.current = { field, value: JSON.stringify(draftRef.current[field]), reason: getAssessmentUnableReason(draftRef.current, field) };
   };
@@ -2620,7 +2627,6 @@ export default function AssessmentWorkspace({
               onChange={updateField}
               onFieldFocus={(field) => {
                 focusAnswer(field);
-                rememberPhoneQuestion(field);
                 if (preparing && !stackedQuestionsView) setActiveSection(assessmentToolFieldDefinitions.find((definition) => definition.key === field)!.section);
               }}
               onFieldBlur={commitAnswer}

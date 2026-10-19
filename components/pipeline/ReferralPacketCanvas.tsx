@@ -1324,12 +1324,21 @@ export default function ReferralPacketCanvas({
     const restore = () => {
       const control = canvasRef.current?.querySelectorAll<HTMLElement>(`[data-chart-edit="${CSS.escape(target.label)}"]`)[Math.max(target.index, 0)];
       if (!control && attempts++ < 120) { frame = window.requestAnimationFrame(restore); return; }
-      chartReturnRef.current = null;
-      control?.scrollIntoView({ block: "center" });
+      control?.scrollIntoView({ block: "center", behavior: "instant" });
       control?.focus({ preventScroll: true });
+      // Supporting chart sections can settle after the tab itself appears.
+      // Keep the return target until its focused control is actually on screen.
+      const bounds = control?.getBoundingClientRect();
+      if (bounds && (bounds.bottom <= 0 || bounds.top >= window.innerHeight) && attempts++ < 120) {
+        frame = window.requestAnimationFrame(restore);
+        return;
+      }
+      chartReturnRef.current = null;
     };
-    frame = window.requestAnimationFrame(restore);
-    return () => window.cancelAnimationFrame(frame);
+    // The Chart portal and route update settle on the next paint; restoring
+    // immediately can scroll a still-moving page that then snaps back to top.
+    const settle = window.setTimeout(() => { frame = window.requestAnimationFrame(restore); }, 80);
+    return () => { window.clearTimeout(settle); window.cancelAnimationFrame(frame); };
   }, [activePage]);
 
   const receiveRemoteReferral = (latest: Referral, updatedBy?: string, force = false) => {
@@ -2972,7 +2981,7 @@ export default function ReferralPacketCanvas({
     const parts: { key: string; label: string; failed: boolean; state: string; detail: string; action?: ReactNode }[] = [];
     if (saveError || isSaving || hasPendingWorkspaceChanges) parts.push({ key: "referral", label: "Referral details", failed: Boolean(saveError),
       state: saveError ? "Not saved" : "Saving…", detail: saveError || saveStatus,
-      action: saveError && hasReferral && hasPendingWorkspaceChanges ? <button type="button" onClick={() => void saveWorkspaceDraft()} disabled={isSaving}>Retry</button> : undefined });
+      action: saveError && hasReferral && hasPendingWorkspaceChanges ? <button type="button" aria-label="Retry saving" onClick={() => void saveWorkspaceDraft()} disabled={isSaving}>Retry</button> : undefined });
     if (assessment && (assessment.error || assessment.pendingOfflineSaves > 0 || assessment.appointmentSaving || assessment.appointmentDraft)) parts.push({ key: "assessment", label: "Assessment", failed: assessment.error,
       state: assessment.error ? "Needs attention" : assessment.pendingOfflineSaves > 0 ? `${assessment.pendingOfflineSaves} to sync` : assessment.appointmentSaving ? "Appointment saving…" : "Appointment not booked",
       detail: assessment.error ? "Assessment needs attention. Check its save status." : assessment.pendingOfflineSaves > 0 ? `${assessment.pendingOfflineSaves} assessment change${assessment.pendingOfflineSaves === 1 ? "" : "s"} waiting to sync.` : assessment.appointmentSaving ? "Assessment appointment saving…" : "Assessment appointment draft is not booked.",
@@ -2988,7 +2997,7 @@ export default function ReferralPacketCanvas({
     const Icon = failed ? CircleAlert : saving ? LoaderCircle : deviceOnly ? UploadCloud : CheckCircle2;
     const summary = failed ? "Not saved" : deviceOnly ? "Waiting to sync" : saving ? "Saving…" : "All changes saved";
     const summaryDetail = failed ? "Not saved to Pipeline" : deviceOnly ? "Saved on this device · waiting to sync" : summary;
-    return <section aria-label="Saving" data-save-center data-state={failed ? "failed" : deviceOnly ? "waiting" : saving ? "saving" : "saved"} className={workspaceFolderStyles.saveCenter}>
+    return <section aria-label="Saving" data-testid="workspace-save-status" data-save-center data-state={failed ? "failed" : deviceOnly ? "waiting" : saving ? "saving" : "saved"} className={workspaceFolderStyles.saveCenter}>
       <p role={failed ? "alert" : "status"} aria-live="polite" title={summaryDetail} className={workspaceFolderStyles.saveCenterSummary}>
         <Icon size={15} aria-hidden="true" className={saving ? "motion-safe:animate-spin" : undefined} />
         <span aria-hidden="true">{summary}</span><span className="sr-only">{summaryDetail}</span>
