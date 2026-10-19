@@ -33,7 +33,8 @@ export function rememberLatestNote(referralId: number, body: string, updatedAt: 
 export function useLatestNotes(referralIds: readonly number[]) {
   const generation = usePipelineDataGeneration();
   const value = useSyncExternalStore(subscribe, snapshot, () => empty);
-  const ids = [...new Set(referralIds)].sort((left, right) => left - right).slice(0, 300).join(",");
+  const ids = [...new Set(referralIds.filter((id) => Number.isSafeInteger(id) && id > 0))]
+    .sort((left, right) => left - right).slice(0, 300).join(",");
   // The revision and account boundary must be reactive snapshot values too.
   // Reading mutable module counters here lets React Compiler memoize them away.
   const noteRevision = value.revision;

@@ -85,6 +85,7 @@ const result = {
     ordinary_api_p95_ms: run.api.ordinary.p95_ms,
     heavy_api_p95_ms: run.api.heavy.p95_ms,
     api_errors: run.api.errors,
+    api_failures: run.api.failures,
     certification_limits: run.certification_limits,
   })),
   fixture_mode: "sanitized_test_only",

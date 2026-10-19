@@ -544,6 +544,8 @@ function summarizeApi(samples) {
   return {
     requests: samples.length,
     errors: samples.length - successful.length,
+    failures: samples.filter((sample) => sample.status < 200 || sample.status >= 400)
+      .map(({ route, status }) => ({ route, status })),
     p50_ms: round(percentile(durations, 0.5)),
     p95_ms: round(percentile(durations, 0.95)),
     max_ms: round(durations.at(-1) ?? 0),
