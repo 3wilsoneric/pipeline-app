@@ -65,7 +65,7 @@ Role: file lookup, not a second working policy or a current health claim. Start 
 - `app/api/referrals/facets/route.ts` - canonical server-side referral facet counts.
 - `lib/pipeline/resident-link-store.ts` - local-development and transactional PostgreSQL identity-link adapters.
 - `app/api/resident-links/*` - candidate creation, listing, and reviewer confirmation/rejection routes.
-- `lib/pipeline/clinical-backlog-reconciliation.ts` - daily, aggregate-only Alamo roster comparison that proposes Pipeline resident-link candidates without mutating referrals.
+- `lib/pipeline/clinical-backlog-reconciliation.ts` - daily Alamo roster comparison that creates review candidates and confirms uniquely verified admissions through audited identity and workflow mutations; its response contains aggregate counts only.
 - `app/api/internal/clinical/reconcile/route.ts` - worker-authenticated daily clinical backlog reconciliation endpoint.
 - `lib/pipeline/unified-profile.ts` - server-only Alamo/Pipeline joined profile read model.
 - `lib/pipeline/workflow-records.ts` - shared decision, requirement, and workflow-context contracts.

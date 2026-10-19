@@ -131,16 +131,20 @@ Pipeline referral intake does not call or wait for census reconciliation. The
 referral keeps its own episode routing, documents, assessment work, and
 requirements. Once per day, `GET /api/internal/clinical/reconcile` reads one
 fresh, atomic Alamo roster snapshot and compares it with Pipeline client
-identities. It creates review candidates for uncertain identities; it never
-confirms an uncertain identity or copies the resident's current census
-community into the historical referral record. For one active accepted referral
-with one previously confirmed client link, it records admission automatically
-only when no other active referral competes for that client, the current roster
-contains exactly that resident at the referral's community, identity fields
-have no conflict, and the roster's admission date is on or after the acceptance
-decision. Ambiguous, stale, cancelled, or older
-evidence leaves admission pending for a coordinator. The audit event records
-the source snapshot. Confirmed links also let the unified profile read current
+identities. It creates review candidates for uncertain identities and never
+copies the resident's current census community into the historical referral.
+For an accepted referral with a planned date that has passed, the worker can
+confirm an exact, unique current resident identity after checking name, DOB,
+resident number, community, actual admit date, and one fresh source snapshot
+against the governed full client record. It audits the confirmed link and then
+records admission only when no other active referral competes for that client
+and the actual admit date follows the acceptance decision. Previously confirmed
+links require the same DOB agreement. Missing or conflicting DOB, ambiguous
+names, stale data, cancelled placements, and older admissions leave the
+referral pending for coordinator review. This deliberately leaves cases without
+a unique governed DOB pending; a verified identity source is the trigger for
+broader automation. The admission audit records the source snapshot. Confirmed
+links also let the unified profile read current
 resident and community data from Alamo while joining Pipeline-owned backlog at
 request time.
 

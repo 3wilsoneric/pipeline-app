@@ -3,16 +3,17 @@ import "server-only";
 import {
   ClinicalDataError,
   getClinicalAuthMode,
+  getClinicalClient,
   getClinicalRoster,
   type ClinicalResident,
 } from "@/lib/clinical/clinical-data";
 import { recordPipelineMetric } from "@/lib/observability/pipeline-metrics";
-import { selectAutomaticAdmissions } from "@/lib/pipeline/clinical-admission-selection";
+import { selectAdmissionIdentityCandidates, selectAutomaticAdmissions, verifiedAdmissionBirthDate } from "@/lib/pipeline/clinical-admission-selection";
 import { findClinicalResidentMatch } from "@/lib/pipeline/referral-clinical-reconciliation";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import { listReferrals } from "@/lib/pipeline/referral-store";
 import type { PipelineResidentLink } from "@/lib/pipeline/resident-link-records";
-import { createResidentLink, listResidentLinks } from "@/lib/pipeline/resident-link-store";
+import { createResidentLink, listResidentLinks, reviewResidentLink } from "@/lib/pipeline/resident-link-store";
 import { transitionReferral } from "@/lib/pipeline/workflow-store";
 
 export type ClinicalBacklogReconciliationResult = {
@@ -76,6 +77,9 @@ export async function reconcileClinicalBacklog(
   }
 
   const counts = { ...base };
+  const workingLinks = [...links];
+  const verifiedResidents = [...roster.residents];
+  const noMatchClients = new Set<string>();
   const linksByClient = groupLinksByClient(links);
   for (const [clientId, referral] of clients) {
     const currentLinks = linksByClient.get(clientId) ?? [];
@@ -92,6 +96,7 @@ export async function reconcileClinicalBacklog(
       ?? findClinicalResidentMatch(referral, roster.residents);
     if (!match) {
       counts.no_match += 1;
+      noMatchClients.add(clientId);
       continue;
     }
     if (currentLinks.some((link) => link.status === "rejected" && link.resident_key === match.resident.resident_key)) {
@@ -120,12 +125,49 @@ export async function reconcileClinicalBacklog(
       }
       counts.candidates_created += 1;
       linksByClient.set(clientId, [...currentLinks, result.link]);
+      workingLinks.push(result.link);
     } catch {
       counts.errors += 1;
     }
   }
 
-  for (const { referral, actualDate } of selectAutomaticAdmissions(referrals, links, roster.residents, roster.dataAsOf)) {
+  for (const { referral, resident } of selectAdmissionIdentityCandidates(referrals, workingLinks, roster.residents, roster.dataAsOf)) {
+    try {
+      if (resident.date_of_birth === referral.dob && workingLinks.some((link) => link.pipeline_client_id === referral.clientId
+        && link.resident_key === resident.resident_key && link.status === "confirmed")) continue;
+      const detail = await getClinicalClient(request, resident.canonical_client_id!);
+      const dob = verifiedAdmissionBirthDate(referral, resident, detail, roster.snapshotId, roster.dataAsOf);
+      if (!dob) continue;
+      const verifiedIndex = verifiedResidents.findIndex((row) => row.resident_key === resident.resident_key);
+      verifiedResidents[verifiedIndex] = { ...resident, date_of_birth: dob };
+      if (workingLinks.some((link) => link.pipeline_client_id === referral.clientId
+        && link.resident_key === resident.resident_key && link.status === "confirmed")) continue;
+      const actor = { id: "pipeline-clinical-reconciliation", name: "Alamo census reconciliation" };
+      const existing = workingLinks.find((link) => link.pipeline_client_id === referral.clientId
+        && link.resident_key === resident.resident_key && link.status === "candidate");
+      const created = existing ? null : await createResidentLink({
+        pipeline_client_id: referral.clientId!, display_name: referral.name, date_of_birth: dob,
+        referral_id: referral.id, resident_key: resident.resident_key,
+        resident_number: resident.resident_number, community_id: resident.community_id,
+        match_method: "imported", match_confidence: 1,
+      }, actor, `clinical-census-identity:${referral.clientId}:${resident.resident_key}`);
+      if (created && !created.ok) { counts.admission_conflicts += 1; continue; }
+      const candidate = existing ?? created?.link;
+      if (!candidate || candidate.status !== "candidate") { counts.admission_conflicts += 1; continue; }
+      if (created) { counts.candidates_created += 1; workingLinks.push(candidate); }
+      const reviewed = await reviewResidentLink(candidate.link_id, {
+        action: "confirm", review_note: `Verified current census identity, date of birth, community and admit date in governed snapshot ${roster.snapshotId}.`,
+      }, actor, candidate.version);
+      if (!reviewed?.ok) { counts.admission_conflicts += 1; continue; }
+      if (noMatchClients.delete(referral.clientId!)) counts.no_match -= 1;
+      const index = workingLinks.findIndex((link) => link.link_id === candidate.link_id);
+      if (index >= 0) workingLinks[index] = reviewed.link;
+    } catch {
+      counts.errors += 1;
+    }
+  }
+
+  for (const { referral, actualDate } of selectAutomaticAdmissions(referrals, workingLinks, verifiedResidents, roster.dataAsOf)) {
     try {
       const result = await transitionReferral(
         referral.id, "Accepted / Admitted", referral.version!, referral.sectionVersions!.workflow,
