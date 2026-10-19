@@ -105,6 +105,7 @@ export async function getPlatformAdmissionsSummary() {
         plannedAdmissionDate: getPlannedAdmissionDate(referral) || null,
         actualAdmissionDate: referral.actualAdmissionDate ?? null,
         placementCancelled: Boolean(referral.placementCancellation),
+        placementCancelledAt: referral.placementCancellation?.cancelledAt ?? null,
         assessmentScheduledDate,
         assessmentScheduledDurationMinutes: workflowContext?.assessmentScheduledDurationMinutes ?? null,
         assessmentComplete: Boolean(workflowContext?.assessmentComplete ?? referral.assessment?.completedAt),

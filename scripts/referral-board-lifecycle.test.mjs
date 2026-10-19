@@ -76,6 +76,12 @@ test("admission leaves Decision immediately while an unsent handoff remains avai
   assert.equal(board({ ...referral, admissionDate: "2026-09-21" }, { ...signed, decision: accepted, packetSentAt: sent }).detail, "Awaiting admit", "a planned admission date is not admission");
 });
 
+test("a cancelled placement has a distinct did-not-move-in status and leaves active work", () => {
+  const result = board({ ...referral, admissionDecision: accepted, placementCancellation: { reason: "Did not move in", cancelledAt: "2026-10-16T10:00:00Z" }, workflowStatus: "closed" });
+  assert.equal(result.stage, null);
+  assert.equal(result.detail, "Did not move in");
+});
+
 test("reassessment reopens current work; archives never return to the board", () => {
   const reassessment = { decision: accepted, assessmentCreatedAt: "2026-09-21T00:00:00Z", assessmentStarted: true };
   assert.equal(board(admitted, reassessment).stage, "in_progress");

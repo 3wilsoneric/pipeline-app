@@ -19,6 +19,7 @@ const referral = (overrides) => ({
   plannedAdmissionDate: null,
   actualAdmissionDate: null,
   placementCancelled: false,
+  placementCancelledAt: null,
   assessmentScheduledDate: null,
   assessmentScheduledDurationMinutes: null,
   assessmentComplete: false,
@@ -110,7 +111,7 @@ test("snapshots the live board by column and status with client identity and dri
     medications: ["Medication A", "Medication B"],
     medication_source: "signed_assessment",
   });
-  assert.equal(summary.contract_version, "3.4");
+  assert.equal(summary.contract_version, "3.5");
   assert.equal(summary.history.coverage_start_month, "2025-01");
   assert.deepEqual(summary.history.monthly.map((row) => row.month), [
     "2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09",
@@ -123,6 +124,7 @@ test("snapshots the live board by column and status with client identity and dri
     move_ins_complete: true,
     admitted_last_week_complete: true,
     moving_through_complete: true,
+    did_not_move_in_complete: true,
     weekly_trend_complete: true,
   });
   assert.deepEqual(summary.briefing.recent_referrals.map((row) => row.client_name), ["Alex Morgan"]);
@@ -175,7 +177,7 @@ test("briefing separates actual admissions from planned arrivals and carries eac
 test("accepted clients without an admit date remain visible even after leaving the board, except cancelled placements", () => {
   const summary = summarize([
     referral({ clientName: "Accepted without date", decisionOutcome: "accepted", boardColumn: null, boardStatus: "Admitted" }),
-    referral({ clientName: "Cancelled", decisionOutcome: "accepted", boardColumn: null, placementCancelled: true }),
+    referral({ clientName: "Cancelled", decisionOutcome: "accepted", boardColumn: null, placementCancelled: true, placementCancelledAt: "2026-09-25T12:00:00Z" }),
     referral({ clientName: "Arrived", decisionOutcome: "accepted", boardColumn: null, actualAdmissionDate: "2026-09-25" }),
     referral({ clientName: "Historical", decisionOutcome: "accepted", boardColumn: null, currentWorkspace: false }),
   ]);
@@ -183,7 +185,11 @@ test("accepted clients without an admit date remain visible even after leaving t
     ["Accepted without date", "decision", "Accepted · no planned admit date"],
   ]);
   assert.equal(summary.upcoming_admissions.no_planned_date, 1);
+  assert.deepEqual(summary.briefing.did_not_move_in.map((row) => [row.client_name, row.status]), [["Cancelled", "Did not move in"]]);
   const report = buildAdmissionsCensusReport(summary);
+  assert.equal(report.briefing.did_not_move_in[0].status, "Did not move in");
+  assert.equal(report.briefing.did_not_move_in[0].cancelled_at, "2026-09-25T12:00:00Z");
+  assert.equal(summary.briefing.admitted_last_week.some((row) => row.client_name === "Cancelled"), false);
   assert.deepEqual(JSON.parse(JSON.stringify(report.briefing.moving_through)), [{
     client_name: "Accepted without date", stage: "decision", phase: "needs_date", planned_at: null, status: "Accepted · no planned admit date",
     community: "San Pablo", owner: "Andrew", source_name: "County behavioral health",
@@ -221,6 +227,7 @@ test("marks capped briefing slices incomplete instead of presenting truncation a
     move_ins_complete: false,
     admitted_last_week_complete: true,
     moving_through_complete: false,
+    did_not_move_in_complete: true,
     weekly_trend_complete: true,
   });
   assert.equal(summary.briefing.recent_referrals.length, 500);

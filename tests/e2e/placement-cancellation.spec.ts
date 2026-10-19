@@ -55,10 +55,10 @@ for (const width of [1440, 390]) test(`accepted placement can be cancelled witho
   const confirmation = page.getByRole("alertdialog", { name: "Cancel this placement?" });
   await expect(confirmation).toContainText("will not email the community");
   await confirmation.getByRole("button", { name: "Cancel", exact: true }).click();
-  await expect(admission.getByText("Placement cancelled · County placed the client elsewhere.")).toHaveCount(0);
+  await expect(admission.getByText("Did not move in · County placed the client elsewhere.")).toHaveCount(0);
   await admission.getByRole("button", { name: "Record placement cancellation" }).click();
   await confirmation.getByRole("button", { name: "Record cancellation" }).click();
-  await expect(admission.getByRole("status")).toContainText("Placement cancelled · County placed the client elsewhere.");
+  await expect(admission.getByRole("status")).toContainText("Did not move in · County placed the client elsewhere.");
   await expect(admission.getByRole("button", { name: "Edit cancellation reason" })).toBeVisible();
   await expect(admission.getByLabel("Planned admission date")).toHaveCount(0);
   await page.screenshot({ path: info.outputPath(`placement-cancelled-${width}.png`) });
