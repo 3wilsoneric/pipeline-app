@@ -849,15 +849,16 @@ function toWorkItem(
 
 async function loadOperationalReferrals(user?: PipelineUser) {
   const scope = user ? scopeReferralListOptions(user, {}) : {};
-  const [active, accepted, declined, reassessments] = await Promise.all([
+  const [active, accepted, declined, reassessments, cancelled] = await Promise.all([
     loadReferralPages({ ...scope, activeOnly: true }),
     loadReferralPages({ ...scope, stage: "Accepted / Admitted" }),
     loadReferralPages({ ...scope, stage: "Declined" }),
     loadReferralPages({ ...scope, postOutcomeAssessment: true }),
+    loadReferralPages({ ...scope, placementCancelled: true }),
   ]);
   return [
     ...new Map(
-      [...active, ...accepted, ...declined, ...reassessments].map((referral) => [referral.id, referral]),
+      [...active, ...accepted, ...declined, ...reassessments, ...cancelled].map((referral) => [referral.id, referral]),
     ).values(),
   ];
 }
