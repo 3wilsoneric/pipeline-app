@@ -575,6 +575,7 @@ test("iPad folder scrolling does not turn the Home deck", async ({ baseURL }) =>
     const page = await context.newPage();
     await homeFixture(page, undefined, 10);
     await page.goto("/");
+    await page.getByRole("button", { name: "View full Home" }).tap();
     const open = page.getByRole("button", { name: "Open referral received folder", exact: true });
     await open.tap();
     const dialog = page.getByRole("dialog", { name: "Referral received folder", exact: true });

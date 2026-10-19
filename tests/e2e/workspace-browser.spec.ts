@@ -62,7 +62,8 @@ for (const [name, engine] of [["Chromium", chromium], ["WebKit", webkit]] as con
         page.on("pageerror", (error) => errors.push(error.message));
         const requests = await mockDirectory(page);
         await page.goto("/");
-        await expect(page.getByRole("region", { name: "Current work", exact: true })).toBeVisible();
+        const home = width < 1024 ? page.getByTestId("mobile-assessor-home") : page.getByRole("region", { name: "Current work", exact: true });
+        await expect(home).toBeVisible();
         await expect(page.getByRole("button", { name: "All workspaces", exact: true })).toHaveCount(0);
         await page.screenshot({ path: info.outputPath(`home-${name}-${width}.png`) });
         await openWorkspaces(page);
@@ -80,7 +81,7 @@ for (const [name, engine] of [["Chromium", chromium], ["WebKit", webkit]] as con
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
         await page.screenshot({ path: info.outputPath(`directory-${name}-${width}.png`) });
         await page.goBack();
-        await expect(page.getByRole("region", { name: "Current work", exact: true })).toBeVisible();
+        await expect(home).toBeVisible();
         await expect(page.getByRole("dialog", { name: "All workspaces", exact: true })).toHaveCount(0);
         expect(errors).toEqual([]);
       } finally { await closeTestBrowser(browser); }
