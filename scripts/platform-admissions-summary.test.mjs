@@ -118,13 +118,16 @@ test("snapshots the live board by column and status with client identity and dri
     recent_referrals_complete: true,
     assessments_complete: true,
     move_ins_complete: true,
+    admitted_last_week_complete: true,
+    moving_through_complete: true,
     weekly_trend_complete: true,
   });
   assert.deepEqual(summary.briefing.recent_referrals.map((row) => row.client_name), ["Alex Morgan"]);
   assert.equal(summary.briefing.recent_referrals[0].source_name, "County behavioral health");
   assert.deepEqual(summary.briefing.upcoming_assessments.map((row) => [row.client_name, row.scheduled_at]), [["Alex Morgan", "2026-09-27"]]);
-  assert.equal(summary.briefing.planned_move_ins.length, 1);
-  assert.equal(summary.briefing.planned_move_ins[0].readiness, "blocked");
+  assert.equal(summary.briefing.planned_move_ins.length, 0, "past dates are not described as coming up");
+  assert.deepEqual([summary.briefing.last_week_start, summary.briefing.last_week_end, summary.briefing.week_start, summary.briefing.week_end], ["2026-09-14", "2026-09-20", "2026-09-21", "2026-09-27"]);
+  assert.equal(summary.briefing.moving_through.length, 4);
   assert.equal(summary.briefing.weekly_trend.length, 12);
   assert.deepEqual(summary.briefing.weekly_trend.at(-1), { week_start: "2026-09-21", received: 0, accepted: 0 });
 });
@@ -144,6 +147,23 @@ test("does not present months before Pipeline coverage as zero activity", () => 
 test("uses an explicit fallback when the referral has no recorded name", () => {
   const summary = summarize([referral({ clientName: "  " })]);
   assert.equal(summary.board.cards[0].client_name, "Name not recorded");
+});
+
+test("briefing separates actual admissions from planned arrivals and carries each recorded origin", () => {
+  const summary = summarize([
+    referral({ clientName: "Admitted last week", boardColumn: null, actualAdmissionDate: "2026-09-18", currentWorkspace: false }),
+    referral({ clientName: "Admitted earlier", boardColumn: null, actualAdmissionDate: "2026-09-12", currentWorkspace: false }),
+    referral({ clientName: "Planned tomorrow", decisionOutcome: "accepted", plannedAdmissionDate: "2026-09-27", boardColumn: "decision", boardStatus: "Awaiting admit" }),
+    referral({ clientName: "Date already passed", decisionOutcome: "accepted", plannedAdmissionDate: "2026-09-24", boardColumn: "decision", boardStatus: "Awaiting admit" }),
+    referral({ clientName: "Denied", decisionOutcome: "declined", boardColumn: "decision", boardStatus: "Denied" }),
+  ]);
+  assert.deepEqual(summary.briefing.admitted_last_week.map((row) => row.client_name), ["Admitted last week"]);
+  assert.deepEqual(summary.briefing.planned_move_ins.map((row) => row.client_name), ["Planned tomorrow"]);
+  assert.deepEqual(summary.briefing.moving_through.map((row) => row.client_name), ["Date already passed", "Planned tomorrow"]);
+  for (const row of [summary.briefing.admitted_last_week[0], summary.briefing.planned_move_ins[0], summary.briefing.moving_through[0]]) {
+    assert.equal(row.source_name, "County behavioral health");
+    assert.equal(row.referring_county, "Contra Costa");
+  }
 });
 
 test("uses the canonical appointment timestamp and excludes appointments that already ended", () => {
@@ -172,6 +192,8 @@ test("marks capped briefing slices incomplete instead of presenting truncation a
     recent_referrals_complete: false,
     assessments_complete: false,
     move_ins_complete: false,
+    admitted_last_week_complete: true,
+    moving_through_complete: false,
     weekly_trend_complete: true,
   });
   assert.equal(summary.briefing.recent_referrals.length, 500);
