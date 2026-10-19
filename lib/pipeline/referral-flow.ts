@@ -5,6 +5,7 @@ import { resolveReferralWorkflowStatus } from "./workflow-status";
 import { getAssessmentToolCoverage } from "../assessment/assessment-tool-schema";
 import type { PipelineWorkspaceLocation } from "./work-continuity";
 import { isDocumentRequirementType } from "./document-requirements";
+import { getWorkspaceAdmissionOutcome } from "./workspace-presentation";
 
 export const activeReferralFlowStates = [
   { key: "ready_to_schedule", label: "Intake & scheduling", emptyLabel: "No intake or scheduling work" },
@@ -38,7 +39,7 @@ export function getReferralBoardState(
   context: WorkflowContext = {},
   state: WorkspaceStateProjection = getWorkspaceState(referral, context),
 ): ReferralBoardState {
-  if (referral.placementCancellation) return boardCard(null, "Placement cancelled", "Review cancellation", "workflow");
+  if (referral.placementCancellation) return boardCard(null, getWorkspaceAdmissionOutcome(referral).label, "Review cancellation", "workflow");
   if (state.lifecycle !== "active" || referral.workflowStatus === "closed") {
     return boardCard(null, "Closed", "Open workspace", "chart");
   }

@@ -5,7 +5,7 @@
 // Platform documents the consumer side in
 // alamo-platform-app/docs/platform/admissions-zone.md.
 
-export const PLATFORM_ADMISSIONS_SUMMARY_VERSION = "3.4";
+export const PLATFORM_ADMISSIONS_SUMMARY_VERSION = "3.5";
 
 const DAY_MS = 86_400_000;
 const TREND_MONTHS = 6;
@@ -45,6 +45,7 @@ export type PlatformSummaryReferral = {
   plannedAdmissionDate: string | null;
   actualAdmissionDate: string | null;
   placementCancelled: boolean;
+  placementCancelledAt: string | null;
   assessmentScheduledDate: string | null;
   assessmentScheduledDurationMinutes: number | null;
   assessmentComplete: boolean;
@@ -256,7 +257,7 @@ export function buildPlatformAdmissionsSummary(input: PlatformAdmissionsSummaryI
   const lastWeekEnd = addDays(weekStart, -1);
   const recentStart = addDays(today, -13);
   const briefingStatus = (referral: PlatformSummaryReferral) =>
-    (leadershipStatus[referral.boardStatus] ?? referral.boardStatus.trim()) ||
+    referral.placementCancelled ? "Did not move in" : (leadershipStatus[referral.boardStatus] ?? referral.boardStatus.trim()) ||
     (referral.actualAdmissionDate ? "Admitted" : referral.decisionOutcome === "accepted" ? "Accepted" : referral.decisionOutcome === "declined" ? "Declined" : "Closed");
   const recentReferrals = input.referrals
     .filter((referral) => inWindow(referral.receivedDate, recentStart, today))
@@ -321,6 +322,21 @@ export function buildPlatformAdmissionsSummary(input: PlatformAdmissionsSummaryI
       pipeline_path: referral.pipelinePath,
     }))
     .sort((left, right) => right.admitted_at.localeCompare(left.admitted_at) || left.client_name.localeCompare(right.client_name));
+  const didNotMoveIn = input.referrals
+    .filter((referral) => referral.placementCancelled && inWindow(referral.placementCancelledAt, addDays(today, -29), today))
+    .map((referral) => ({
+      referral_id: referral.referralId,
+      client_name: referral.clientName.trim() || "Name not recorded",
+      cancelled_at: referral.placementCancelledAt!,
+      status: "Did not move in" as const,
+      community: referral.community.trim() || "Unassigned",
+      owner: referral.unassigned ? "Unassigned" : referral.owner,
+      source_name: boundedText(referral.managementProfile.referralSource, 160),
+      referring_county: boundedText(referral.managementProfile.referringCounty, 120),
+      prior_placement: boundedText(referral.managementProfile.priorPlacement, 160),
+      pipeline_path: referral.pipelinePath,
+    }))
+    .sort((left, right) => right.cancelled_at.localeCompare(left.cancelled_at) || left.client_name.localeCompare(right.client_name));
   const movingThrough = input.referrals
     .filter((referral) => referral.currentWorkspace && !referral.placementCancelled && !referral.actualAdmissionDate &&
       (referral.decisionOutcome === "accepted" || (referral.boardColumn && isActiveReferral(referral))))
@@ -378,6 +394,7 @@ export function buildPlatformAdmissionsSummary(input: PlatformAdmissionsSummaryI
         move_ins_complete: plannedMoveIns.length <= MAX_BRIEFING_SCHEDULE,
         admitted_last_week_complete: admittedLastWeek.length <= MAX_BRIEFING_REFERRALS,
         moving_through_complete: movingThrough.length <= MAX_BRIEFING_REFERRALS,
+        did_not_move_in_complete: didNotMoveIn.length <= MAX_BRIEFING_REFERRALS,
         weekly_trend_complete: true,
       },
       recent_referrals: recentReferrals.slice(0, MAX_BRIEFING_REFERRALS),
@@ -385,6 +402,7 @@ export function buildPlatformAdmissionsSummary(input: PlatformAdmissionsSummaryI
       planned_move_ins: plannedMoveIns.slice(0, MAX_BRIEFING_SCHEDULE),
       admitted_last_week: admittedLastWeek.slice(0, MAX_BRIEFING_REFERRALS),
       moving_through: movingThrough.slice(0, MAX_BRIEFING_REFERRALS),
+      did_not_move_in: didNotMoveIn.slice(0, MAX_BRIEFING_REFERRALS),
       weekly_trend: weeklyTrend,
     },
     history: {

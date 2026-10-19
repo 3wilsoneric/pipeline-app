@@ -25,6 +25,7 @@
 .communityBar span { display: block; height: 100%; border-radius: var(--radius-chip); background: var(--color-primary); }
 .communityCount { text-align: right; font-size: 17px; font-variant-numeric: tabular-nums; }
 .weekGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 36px; border-bottom: 1px solid var(--color-paper-rule); }
+.outcomeList { border-bottom: 1px solid var(--color-paper-rule); }
 .weekSection { min-width: 0; padding: 25px 0 28px; }
 .weekSection + .weekSection { border-left: 1px solid var(--color-paper-rule); padding-left: 36px; }
 .weekHeading strong { color: var(--color-primary); font-size: 30px; line-height: 1; font-variant-numeric: tabular-nums; }

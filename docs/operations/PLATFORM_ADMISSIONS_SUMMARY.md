@@ -22,7 +22,7 @@ referral side of it through one server-to-server endpoint:
   `metrics`, `upcoming_admissions`, and `history` (six-month counts and median
   days to decision) sit beside it. `metrics.active_referrals` excludes declined
   referrals while `board.total` and `metrics.on_board` continue to describe all
-  cards still visible on the board. Contract 3.4 also publishes `briefing`: the
+  cards still visible on the board. Contract 3.5 also publishes `briefing`: the
   Los Angeles reporting date, explicit completeness flags, the trailing 14 days
   of referrals with source and county, remaining assessments scheduled through
   Sunday, planned move-ins for the Monday-through-Sunday week, and 12 weekly
@@ -31,7 +31,9 @@ referral side of it through one server-to-server endpoint:
   assessor, and most recent placement from a signed assessment (or null when
   absent). An accepted active workspace without a planned or actual admit date
   remains in moving-through even if it has left the board; cancelled placements
-  and confirmed arrivals do not. Moving rows include a canonical work phase and
+  and confirmed arrivals do not. A cancelled placement has the distinct status
+  "Did not move in" and appears in the recent 30-day `did_not_move_in` outcome
+  slice; it never counts as an admission or an active referral. Moving rows include a canonical work phase and
   planned date, if any, for the briefing's filtered drill-down. A passed planned
   date is still pending until the governed census reconciliation confirms an
   actual admission. Beyond those context fields, event rows

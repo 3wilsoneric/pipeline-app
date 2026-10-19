@@ -16,6 +16,7 @@ export function buildAdmissionsCensusReport(summary: PlatformAdmissionsSummary) 
         move_ins_complete: summary.briefing.coverage.move_ins_complete,
         admitted_last_week_complete: summary.briefing.coverage.admitted_last_week_complete,
         moving_through_complete: summary.briefing.coverage.moving_through_complete,
+        did_not_move_in_complete: summary.briefing.coverage.did_not_move_in_complete,
       },
       admitted_last_week: summary.briefing.admitted_last_week.map(({ client_name, admitted_at, community, owner, source_name, referring_county, prior_placement, pipeline_path }) =>
         ({ client_name, admitted_at, community, owner, source_name, referring_county, prior_placement, pipeline_path })),
@@ -23,6 +24,8 @@ export function buildAdmissionsCensusReport(summary: PlatformAdmissionsSummary) 
         ({ client_name, planned_at, community, owner, readiness, source_name, referring_county, prior_placement, pipeline_path })),
       moving_through: summary.briefing.moving_through.map(({ client_name, stage, phase, planned_at, status, community, owner, source_name, referring_county, prior_placement, pipeline_path }) =>
         ({ client_name, stage, phase, planned_at, status, community, owner, source_name, referring_county, prior_placement, pipeline_path })),
+      did_not_move_in: summary.briefing.did_not_move_in.map(({ client_name, cancelled_at, status, community, owner, source_name, referring_county, prior_placement, pipeline_path }) =>
+        ({ client_name, cancelled_at, status, community, owner, source_name, referring_county, prior_placement, pipeline_path })),
     },
   };
 }

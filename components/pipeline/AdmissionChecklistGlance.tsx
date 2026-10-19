@@ -181,7 +181,7 @@ export function ChartProcess({ referralId, assessment, record, entry, appointmen
       </dl> : null}
     </ChartStage>
     {accepted || packet?.state === "done" ? <ChartStage id={`chart-finish-${referralId}`} title="Placement" filed={referral?.stage === "Accepted / Admitted" || Boolean(referral?.placementCancellation)}
-      status={referral?.placementCancellation ? "Placement cancelled" : referral?.stage === "Accepted / Admitted" ? "Admitted" : packet ? (packet.state === "done" ? `${packet.label} · ${packet.detail}` : packet.label) : undefined}
+      status={referral?.placementCancellation ? "Did not move in" : referral?.stage === "Accepted / Admitted" ? "Admitted" : packet ? (packet.state === "done" ? `${packet.label} · ${packet.detail}` : packet.label) : undefined}
       action={onOpenFinish ? <button type="button" onClick={onOpenFinish} className={styles.open}>Open placement<ArrowRight size={16} aria-hidden="true" /></button> : null}>
       {referral?.admissionDate || referral?.actualAdmissionDate ? <dl className={styles.facts}>
         {referral?.admissionDate ? <div><dt>Planned admission date</dt><dd>{formatProfileDate(referral.admissionDate) ?? referral.admissionDate}</dd></div> : null}
