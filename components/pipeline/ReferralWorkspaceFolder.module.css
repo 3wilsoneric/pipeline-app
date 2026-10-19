@@ -414,6 +414,8 @@
     .verticalFlow .actions > .utilityTab:hover:not(:disabled) { background: var(--color-segment); color: var(--color-ink); }
     .verticalFlow .actions > .utilityTab[aria-current="page"] { background: var(--color-segment); color: var(--color-ink); font-weight: 600; }
     .verticalFlow .actions > .createTab.createTab { margin: 4px 0 10px; }
+    .verticalFlow .saveNotice { display: flex; flex-wrap: wrap; width: calc(100% - 20px); max-width: none; }
+    .verticalFlow .saveNotice [role="alert"] { flex: 0 0 100%; overflow-wrap: anywhere; }
     /* Set well apart from the step above: a divider, then a large button (owner: "bigger, more separation"). */
     /* The record's saving, in one place in the rail: one short line when saved; compact rows when not. */
     .verticalFlow .saveCenter { margin: 4px 0 2px; border: 1px solid var(--color-card-border); border-radius: var(--radius-input); background: var(--color-paper); overflow: hidden; }
