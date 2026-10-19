@@ -46,6 +46,8 @@ test.describe("admission follow-through", () => {
       const placement = page.getByRole("region", { name: "Placement follow-through" });
       await expect(placement.getByRole("heading", { name: "Meet the Client", exact: true })).toBeVisible();
       await expect(placement.getByRole("button", { name: /Confirm admission/i })).toHaveCount(0);
+      await placement.getByRole("button", { name: "More actions" }).click();
+      await expect(page.getByRole("region", { name: "Confirm actual admission" })).toHaveCount(0);
 
       const transition = await assessor.post(`${path}/transition`, { data: {
         if_match: referral.version, if_match_section: referral.sectionVersions.workflow,
@@ -61,6 +63,30 @@ test.describe("admission follow-through", () => {
       expect(unchanged.version).toBe(referral.version);
       expect((unchanged as typeof unchanged & { stage: string }).stage).not.toBe("Accepted / Admitted");
     } finally { await context.close(); await assessor.dispose(); await coordinator.dispose(); await admin.dispose(); }
+  });
+
+  test("coordinator records an actual arrival from Placement", async ({ browser, baseURL }) => {
+    const url = requireOperationalBaseURL(baseURL);
+    const api = await actorApiContext("assessmentCoordinator", url);
+    const { page, context } = await actorPage(browser, "assessmentCoordinator", url);
+    try {
+      const created = await createOperationalReferral(api, "assessmentCoordinator", { name: `Synthetic verified arrival ${randomUUID()}` });
+      const referral = await recordOperationalAcceptance(api, created);
+      await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
+      await page.getByRole("button", { name: "More actions" }).click();
+      const confirmation = page.getByRole("region", { name: "Confirm actual admission" });
+      await expect(confirmation.getByRole("button", { name: "Record admission" })).toBeDisabled();
+      await confirmation.locator('input[type="date"]').fill(calendarToday());
+      await confirmation.getByRole("checkbox", { name: /I confirm this client arrived/ }).check();
+      await confirmation.getByRole("button", { name: "Record admission" }).click();
+      const dialog = page.getByRole("alertdialog", { name: "Confirm actual admission?" });
+      await expect(dialog).toContainText("does not send an email or create a census identity link");
+      await dialog.getByRole("button", { name: "Record admission" }).click();
+      await expect(page.getByRole("region", { name: "Placement follow-through" })).toContainText("Admitted");
+      const saved = (await (await api.get(`/api/referrals/${referral.id}`)).json()).referral as { stage: string; actualAdmissionDate?: string };
+      expect(saved.stage).toBe("Accepted / Admitted");
+      expect(saved.actualAdmissionDate).toBe(calendarToday());
+    } finally { await context.close(); await api.dispose(); }
   });
 
   for (const width of [1440, 390]) test(`planned dates and coordinator fallback persist at ${width}`, async ({ browser, baseURL }, info) => {

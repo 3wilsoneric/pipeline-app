@@ -1,6 +1,6 @@
 "use client";
 
-import { getPlannedAdmissionDate } from "@/lib/pipeline/admission-lifecycle";
+import { actualAdmissionDateError, getPlannedAdmissionDate } from "@/lib/pipeline/admission-lifecycle";
 import { useConfirmationDialog } from "./useConfirmationDialog";
 
 import { useCallback, useEffect, useEffectEvent, useRef, useState, type ReactNode, type RefObject } from "react";
@@ -457,6 +457,25 @@ export default function ReferralWorkflowPanel({
     );
   };
 
+  const confirmActualAdmission = async (actualDate: string) => {
+    if (!workflow.capabilities.can_confirm_admission || workflow.decision?.outcome !== "accepted"
+      || currentReferral.placementCancellation || currentReferral.stage === "Accepted / Admitted") return;
+    const dateError = actualAdmissionDateError(actualDate);
+    if (dateError) { setError(dateError); return; }
+    if (!await confirm({
+      title: "Confirm actual admission?",
+      message: `Confirm ${currentReferral.name} arrived at ${currentReferral.community} on ${actualDate}. This records admission in Pipeline; it does not send an email or create a census identity link.`,
+      confirmLabel: "Record admission",
+    })) return;
+    await runMutation(
+      `actual-admission:${currentReferral.id}:${actualDate}`,
+      `/api/referrals/${currentReferral.id}/transition`,
+      "POST",
+      { if_match: currentReferral.version, if_match_section: sections.workflow, target_stage: "Accepted / Admitted", actual_admission_date: actualDate },
+      "Admission recorded",
+    );
+  };
+
   const savePlacementCancellation = async (reason: string) => {
     if (!currentReferral.placementCancellation && !await confirm({
       title: "Cancel this placement?",
@@ -589,6 +608,7 @@ export default function ReferralWorkflowPanel({
       onSubmitDecision={submitDecision}
       onOpenUnderReviewEmail={() => { if (workflow.recommendation?.outcome === "needs_more_information") { setEmailError(""); setEmailRecommendation(workflow.recommendation); } }}
       onSubmitTransition={submitTransition}
+      onConfirmAdmission={(actualDate) => void confirmActualAdmission(actualDate)}
       onSavePlacementCancellation={savePlacementCancellation}
       onAuthorizeManualIntake={authorizeManualIntake}
       onConfirmDetail={confirmDetail}

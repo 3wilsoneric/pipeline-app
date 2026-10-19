@@ -23,6 +23,7 @@ import {
 import { getStageLabel, referralStageDefinitions, type ReferralStage } from "@/lib/pipeline/referral-workflow";
 import type { AdmissionRequirement, AssessmentRecommendation, RequirementStatus } from "@/lib/pipeline/referral-types";
 import { isRequirementComplete } from "@/lib/pipeline/workflow-records";
+import { calendarToday } from "@/lib/pipeline/calendar-date";
 import styles from "./ReferralDecision.module.css";
 
 type RecommendationDraft = {
@@ -50,6 +51,7 @@ type ReferralWorkflowPanelPresentationProps = {
   onSubmitDecision: () => void;
   onOpenUnderReviewEmail?: () => void;
   onSubmitTransition: (target: ReferralStage) => void;
+  onConfirmAdmission: (actualDate: string) => void;
   onSavePlacementCancellation: (reason: string) => Promise<boolean>;
   onAuthorizeManualIntake: () => void;
   onConfirmDetail: (detail: string) => void;
@@ -81,6 +83,7 @@ export function ReferralWorkflowPanelPresentation({
   onSubmitDecision,
   onOpenUnderReviewEmail,
   onSubmitTransition,
+  onConfirmAdmission,
   onSavePlacementCancellation,
   onAuthorizeManualIntake,
   onConfirmDetail,
@@ -100,7 +103,11 @@ export function ReferralWorkflowPanelPresentation({
   const followUpRef = useRef<HTMLDialogElement>(null);
   const followUpTriggerRef = useRef<HTMLButtonElement>(null);
   const [followUpOpen, setFollowUpOpen] = useState(false);
+  const [actualAdmissionDate, setActualAdmissionDate] = useState("");
+  const [arrivalVerified, setArrivalVerified] = useState(false);
   const openFollowUp = () => {
+    setActualAdmissionDate("");
+    setArrivalVerified(false);
     setFollowUpOpen(true);
     if (!followUpRef.current?.open) followUpRef.current?.showModal();
   };
@@ -131,6 +138,16 @@ export function ReferralWorkflowPanelPresentation({
         <div className={styles.followUpHead}><h2 id="placement-actions-title">Placement actions</h2><button type="button" aria-label="Close placement actions" onClick={closeFollowUp}><X size={18} aria-hidden="true" /></button></div>
         <div className={styles.followUpBody}>
           {view.currentReferral.stage !== "Accepted / Admitted" && workflow.capabilities.can_cancel_placement ? <div className={styles.drawerSection}><h3>Placement change</h3><ReferralAdmissionPanel key={workflow.referral.id} referral={workflow.referral} packetSentAt={workflow.context.packetSentAt} admissionDate={admissionDate} disabled={!workflow.capabilities.can_update || Boolean(busy)} onAdmissionDateChange={onAdmissionDateChange} onSaveAdmissionDate={onSaveAdmissionDate} onSavePlacementCancellation={onSavePlacementCancellation} showReviewButton={false} showDateEditor={false} /></div> : null}
+          {view.currentReferral.stage !== "Accepted / Admitted" && !workflow.referral.placementCancellation && workflow.capabilities.can_confirm_admission ? <section className={styles.drawerSection} aria-label="Confirm actual admission">
+            <h3>Confirm arrival</h3>
+            <p className={styles.adminNote}>For coordinators and admins after the client actually arrives. Use the actual admission date, not the planned date. This does not send Meet the Client.</p>
+            <form className="space-y-3" onSubmit={(event) => { event.preventDefault(); closeFollowUp(); onConfirmAdmission(actualAdmissionDate); }}>
+              <label className="block text-sm font-semibold" htmlFor="actual-admission-date">Actual admission date</label>
+              <input id="actual-admission-date" aria-label="Actual admission date" type="date" required max={calendarToday()} value={actualAdmissionDate} onChange={(event) => setActualAdmissionDate(event.target.value)} disabled={Boolean(busy)} className="h-11 w-full border border-[#c9ceca] bg-white px-3 text-sm" />
+              <label className="flex items-start gap-2 text-sm"><input type="checkbox" required checked={arrivalVerified} onChange={(event) => setArrivalVerified(event.target.checked)} disabled={Boolean(busy)} className="mt-1" />I confirm this client arrived at this community on the actual admission date.</label>
+              <button type="submit" disabled={Boolean(busy) || !actualAdmissionDate || !arrivalVerified} className="min-h-11 border border-[#0f8b73] px-4 py-2 text-sm font-semibold text-[#0f6f5e] disabled:opacity-50">Record admission</button>
+            </form>
+          </section> : null}
           <section className={styles.drawerSection} data-admin-controls><h3>Administrative controls</h3><p className={styles.adminNote}>Changing the stage does not send Meet the Client or confirm admission.</p><label className="mb-4 flex flex-wrap items-center gap-3 text-[14px] font-medium text-[#59645e]">Referral stage<select aria-label="Workflow stage" value={workflow.referral.stage} disabled={Boolean(busy) || !workflow.capabilities.can_update || Boolean(workflow.referral.placementCancellation)} onChange={(event) => onSubmitTransition(event.target.value as ReferralStage)} className="h-11 border border-[#c9ceca] bg-white px-3 text-[#303b34]">{referralStageDefinitions.filter((item) => !item.terminal || item.stage === workflow.referral.stage).map((item) => <option key={item.stage} value={item.stage}>{item.label}</option>)}</select></label></section>
         </div>
       </dialog>
