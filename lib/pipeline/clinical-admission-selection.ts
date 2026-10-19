@@ -37,7 +37,7 @@ export function selectAutomaticAdmissions(
     if (matches.length !== 1) return [];
     const resident = matches[0];
     if (pipelineCommunityFromClinicalName(resident.community_name) !== referral.community) return [];
-    if (!normalizedName(referral.name) || normalizedName(resident.display_name) !== normalizedName(referral.name)) return [];
+    if (!admissionNamesMatch(referral.name, resident.display_name)) return [];
     const dob = normalizeSourceCalendarDate(referral.dob);
     if (!dob || normalizeSourceCalendarDate(resident.date_of_birth) !== dob) return [];
     if (findGovernedIdentityConflict({
@@ -70,12 +70,12 @@ export function selectAdmissionIdentityCandidates(
   const identityCounts = new Map<string, number>();
   for (const referral of active) {
     if (referral.clientId) clientCounts.set(referral.clientId, (clientCounts.get(referral.clientId) ?? 0) + 1);
-    const identity = `${normalizedName(referral.name)}\0${normalizeSourceCalendarDate(referral.dob)}\0${referral.community}`;
+    const identity = `${admissionNameKey(referral.name)}\0${normalizeSourceCalendarDate(referral.dob)}\0${referral.community}`;
     identityCounts.set(identity, (identityCounts.get(identity) ?? 0) + 1);
   }
   const residentsByNameCommunity = new Map<string, ClinicalResident[]>();
   for (const resident of residents) {
-    const key = `${normalizedName(resident.display_name)}\0${pipelineCommunityFromClinicalName(resident.community_name)}`;
+    const key = `${admissionNameKey(resident.display_name)}\0${pipelineCommunityFromClinicalName(resident.community_name)}`;
     const group = residentsByNameCommunity.get(key) ?? [];
     group.push(resident);
     residentsByNameCommunity.set(key, group);
@@ -90,7 +90,7 @@ export function selectAdmissionIdentityCandidates(
     if (!referral.clientId || referral.admissionDecision?.outcome !== "accepted"
       || !Number.isInteger(referral.version) || !Number.isInteger(referral.sectionVersions?.workflow)
       || clientCounts.get(referral.clientId) !== 1) return [];
-    const name = normalizedName(referral.name);
+    const name = admissionNameKey(referral.name);
     const dob = normalizeSourceCalendarDate(referral.dob);
     const plannedDate = normalizeSourceCalendarDate(getPlannedAdmissionDate(referral));
     const decisionDate = normalizeSourceCalendarDate(referral.admissionDecision?.decidedAt);
@@ -100,6 +100,7 @@ export function selectAdmissionIdentityCandidates(
     const matches = residentsByNameCommunity.get(`${name}\0${referral.community}`) ?? [];
     if (matches.length !== 1) return [];
     const resident = matches[0];
+    if (!admissionNamesMatch(referral.name, resident.display_name)) return [];
     const actualDate = normalizeSourceCalendarDate(resident.admit_date);
     const residentDob = normalizeSourceCalendarDate(resident.date_of_birth);
     if ((resident.date_of_birth && residentDob !== dob)
@@ -115,6 +116,24 @@ export function selectAdmissionIdentityCandidates(
 
 function normalizedName(value: string) {
   return value.normalize("NFKD").toLowerCase().match(/[a-z0-9]+/g)?.join(" ") ?? "";
+}
+
+/** A single middle initial is optional; all other name parts must match. */
+function admissionNameKey(value: string) {
+  const parts = normalizedName(value).split(" ").filter(Boolean);
+  return parts.length === 3 && parts[1].length === 1
+    ? `${parts[0]} ${parts[2]}`
+    : parts.join(" ");
+}
+
+function admissionNamesMatch(left: string, right: string) {
+  const key = admissionNameKey(left);
+  if (!key || key !== admissionNameKey(right)) return false;
+  const leftParts = normalizedName(left).split(" ");
+  const rightParts = normalizedName(right).split(" ");
+  return leftParts.length !== 3 || rightParts.length !== 3
+    || leftParts[1].length !== 1 || rightParts[1].length !== 1
+    || leftParts[1] === rightParts[1];
 }
 
 export function verifiedAdmissionBirthDate(
