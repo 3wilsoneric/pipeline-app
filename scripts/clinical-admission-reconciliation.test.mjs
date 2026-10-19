@@ -58,6 +58,13 @@ test("an overdue accepted referral needs unique census identity before an automa
     "a governed roster DOB can verify a current resident without an older canonical client record");
   assert.equal(select([referral], [{ ...resident, canonical_client_id: null, date_of_birth: null }]).length, 0);
   assert.equal(select([referral], [{ ...resident, canonical_client_id: null, date_of_birth: "1970-01-02" }]).length, 0);
+  const middleInitial = { ...resident, display_name: "Synthetic A. Client", canonical_client_id: null };
+  assert.equal(select([referral], [middleInitial]).length, 1);
+  assert.equal(select([{ ...referral, name: "Synthetic B. Client" }], [middleInitial]).length, 0,
+    "two conflicting recorded middle initials must not be treated as the same identity");
+  assert.equal(select([referral], [middleInitial, { ...resident, resident_key: "site:43", display_name: "Synthetic B. Client" }]).length, 0,
+    "two census residents with the same first and last name are ambiguous even with different initials");
+  assert.equal(select([referral], [{ ...middleInitial, display_name: "Synthetic A. Other" }]).length, 0);
 });
 
 test("current census client detail must verify DOB, resident number, community and snapshot", () => {
@@ -88,6 +95,9 @@ test("only a uniquely confirmed current resident with matching identity, communi
   assert.equal(select([referral], [link], [{ ...resident, community_name: "Turlock" }]).length, 0);
   assert.equal(select([referral], [link], [{ ...resident, date_of_birth: "1971-01-01" }]).length, 0);
   assert.equal(select([referral], [link], [{ ...resident, date_of_birth: null }]).length, 0);
+  assert.equal(select([referral], [link], [{ ...resident, display_name: "Synthetic A. Client" }]).length, 1);
+  assert.equal(select([{ ...referral, name: "Synthetic B. Client" }], [link], [{ ...resident, display_name: "Synthetic A. Client" }]).length, 0);
+  assert.equal(select([referral], [link], [{ ...resident, display_name: "Synthetic A. Other" }]).length, 0);
   assert.equal(select([referral], [link], [{ ...resident, admit_date: twoDaysAgo }], today).length, 0);
   assert.equal(select([referral], [link], [resident], yesterday).length, 0);
   assert.equal(select([{ ...referral, placementCancellation: { reason: "Placed elsewhere" } }]).length, 0);
