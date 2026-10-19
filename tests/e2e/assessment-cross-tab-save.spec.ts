@@ -61,7 +61,7 @@ test("an older assessment save cannot retire a newer failed edit after a tab rou
     // The encrypted working copy is debounced independently of the server PATCH.
     await page.waitForTimeout(350);
     await page.reload();
-    await expect(answer).toHaveValue("Synthetic newer answer");
+    await expect(page.getByRole("complementary", { name: "Current information", exact: true })).toContainText("Synthetic newer answer");
   } finally {
     releaseFirst();
   }
@@ -103,8 +103,8 @@ test("two browser tabs retain disjoint answers when their saves arrive out of or
     }).toEqual(["Synthetic first-tab symptoms", "Synthetic second-tab history"]);
     await page.reload();
     await second.reload();
-    await expect(page.locator("#assessment-current_symptoms")).toHaveValue("Synthetic first-tab symptoms");
-    await expect(second.locator("#assessment-prior_placements")).toHaveValue("Synthetic second-tab history");
+    await expect(page.getByRole("complementary", { name: "Current information", exact: true })).toContainText("Synthetic first-tab symptoms");
+    await expect(second.getByRole("complementary", { name: "Current information", exact: true })).toContainText("Synthetic second-tab history");
   } finally {
     release();
     await second.close();

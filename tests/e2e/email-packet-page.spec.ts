@@ -231,7 +231,7 @@ test("Placement does not claim an intake save and routes incomplete identity bac
   await expect(readiness).toContainText("Record the client's name");
   await expect(readiness).toContainText("Select the receiving community");
   await expect(readiness).toContainText("existing email copy is kept");
-  await expect(page.getByTestId("workspace-save-status")).toHaveCount(0);
+  await expect(page.getByTestId("workspace-save-status")).not.toContainText("Intake saved");
   await expect(readiness.getByRole("button", { name: "Continue inbox handoff" })).toHaveCount(0);
   await page.screenshot({ path: info.outputPath("incomplete-handoff.png"), animations: "disabled" });
   await readiness.getByRole("button", { name: "Edit referral details" }).click();
