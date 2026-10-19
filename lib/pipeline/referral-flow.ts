@@ -57,7 +57,7 @@ function decisionBoardState(referral: Referral, context: WorkflowContext, state:
   if (referral.stage === "Accepted / Admitted" || referral.workflowStatus === "admitted") {
     return boardCard(null, "Admitted", context.packetSentAt ? "Open workspace" : "Send Meet the Client", context.packetSentAt ? "chart" : "email");
   }
-  if (state.outcome === "declined") return boardCard("decision", "Denied", "Review decision", "workflow");
+  if (state.outcome === "declined") return boardCard(null, "Denied", "Open workspace", "workflow");
   if (state.outcome === "accepted") return acceptedBoardState(referral, context, state);
   if (["recommendation_submitted", "decision_pending"].includes(referral.workflowStatus ?? "")) {
     return boardCard("decision", "Under review", "Record decision", "workflow");

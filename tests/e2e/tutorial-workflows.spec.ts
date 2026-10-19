@@ -205,6 +205,10 @@ for (const outcome of ["Deny", "Under review"]) test(outcome + " does not fabric
   await expect(page.getByTestId("guided-coach-panel")).toContainText(outcome === "Deny" ? "Denied. No admission packet is needed." : "Saved under review.");
   await page.getByRole("navigation", { name: "Tutorial navigation" }).getByRole("button", { name: "Next: Back on the board", exact: true }).click();
   await expect(page.locator("#tutorial-step")).toHaveValue("8");
+  if (outcome === "Deny") {
+    await expect(page.getByTestId("guided-coach-panel")).toContainText("leaves the active board");
+    await expect(page.getByRole("button", { name: "Open Taylor Rivera", exact: true })).toHaveCount(0);
+  }
   await chooseStep(page, 7);
   await expect(page.getByText("No admission is needed for this outcome.")).toBeVisible();
   expect(writes).toEqual([]);

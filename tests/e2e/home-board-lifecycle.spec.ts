@@ -39,7 +39,9 @@ test("Home keeps accepted work in Decision and graduates recorded admissions to 
   expect(transition.status(), await transition.text()).toBe(200);
   const admitted = await request.get("/api/operations/home");
   expect(admitted.status()).toBe(200);
-  expect((await admitted.json()).workflow.board_items).not.toEqual(expect.arrayContaining([expect.objectContaining({ referral_id: referral.id })]));
+  const admittedWorkflow = (await admitted.json()).workflow;
+  expect(admittedWorkflow.board_items).not.toEqual(expect.arrayContaining([expect.objectContaining({ referral_id: referral.id })]));
+  expect(admittedWorkflow.all_board_items).not.toEqual(expect.arrayContaining([expect.objectContaining({ referral_id: referral.id })]));
   const workspaces = await request.get("/api/referrals?workspace=all&stage=Accepted%20%2F%20Admitted");
   expect(workspaces.status()).toBe(200);
   expect((await workspaces.json()).referrals).toEqual(expect.arrayContaining([expect.objectContaining({
@@ -47,4 +49,32 @@ test("Home keeps accepted work in Decision and graduates recorded admissions to 
   })]));
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=email`);
   await expect(page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: "Placement", exact: true })).toBeVisible();
+});
+
+test("Home clears a denied decision from the active board but keeps its workspace", async ({ request, page }) => {
+  const referral = await createOperationalReferral(request, "assessmentCoordinator", {
+    owner: "Unassigned", name: "Synthetic Board Denial",
+  });
+  const decision = await request.put(`/api/referrals/${referral.id}/decision`, { data: {
+    if_match: referral.version,
+    if_match_section: referral.sectionVersions.decision,
+    outcome: "declined",
+    reason_code: "clinical_fit",
+    reason_note: "Synthetic decision for the Home lifecycle test. Contains no PHI.",
+  } });
+  expect(decision.status(), await decision.text()).toBe(200);
+  expect((await decision.json()).referral).toMatchObject({ stage: "Declined", workflowStatus: "declined" });
+
+  const home = await request.get("/api/operations/home");
+  expect(home.status()).toBe(200);
+  const { workflow } = await home.json();
+  expect(workflow.board_items).not.toEqual(expect.arrayContaining([expect.objectContaining({ referral_id: referral.id })]));
+  expect(workflow.all_board_items).not.toEqual(expect.arrayContaining([expect.objectContaining({ referral_id: referral.id })]));
+
+  const workspaces = await request.get("/api/referrals?workspace=all&stage=Declined");
+  expect(workspaces.status()).toBe(200);
+  expect((await workspaces.json()).referrals).toEqual(expect.arrayContaining([expect.objectContaining({ id: referral.id, workflowStatus: "declined" })]));
+
+  await page.goto("/");
+  await expect(page.getByRole("button", { name: "Open Synthetic Board Denial", exact: true })).toHaveCount(0);
 });

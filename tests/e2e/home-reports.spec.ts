@@ -424,7 +424,7 @@ test.describe("role-scoped home and reports", () => {
     };
     const boardItems = [
       ...items,
-      { ...items[0], referral_id: 7001, client_name: "Mara Denied", workflow_status: "declined", outcome_state: "declined", flow_state: "complete", next_action: "Decision recorded", board: { stage: "decision", detail: "Denied", next_action: "Review decision", location: { view: "workflow" } } },
+      { ...items[0], referral_id: 7001, client_name: "Mara Denied", workflow_status: "declined", outcome_state: "declined", flow_state: "complete", next_action: "Decision recorded", board: { stage: null, detail: "Denied", next_action: "Open workspace", location: { view: "workflow" } } },
       { ...items[0], referral_id: 7002, client_name: "Nora Admitted", workflow_status: "admitted", outcome_state: "accepted", flow_state: "complete", next_action: "Admission recorded", board: { stage: null, detail: "Completed", next_action: "Open workspace", location: { view: "chart" } } },
     ];
     await page.route("**/api/operations/home", (route) => route.fulfill({
@@ -461,7 +461,7 @@ test.describe("role-scoped home and reports", () => {
     await expect(page.getByRole("tab", { name: "Board", exact: true })).toHaveAttribute("aria-selected", "true");
     await expect(homeModule.getByText("Team referrals", { exact: true })).toHaveCount(0);
     const homeBoard = homeModule.getByRole("region", { name: "Current work board" });
-    await expect(homeBoard.locator("[data-board-card]")).toHaveCount(12);
+    await expect(homeBoard.locator("[data-board-card]")).toHaveCount(11);
     for (const stage of ["Referral received", "In progress", "Decision"]) await expect(homeBoard.getByRole("heading", { name: stage })).toBeVisible();
     await expect(page.locator("[data-home-module]").first()).toHaveAttribute("data-home-module", "current-work");
     await expect(page.getByRole("tab", { name: "Upcoming assessments", exact: true })).toBeVisible();
@@ -470,12 +470,12 @@ test.describe("role-scoped home and reports", () => {
     await page.getByRole("button", { name: "Open current work" }).click();
     const board = page.getByRole("dialog", { name: "Current work", exact: true }).getByRole("region", { name: "Current work board" });
     const cards = board.locator("[data-board-card]");
-    await expect(cards).toHaveCount(12);
+    await expect(cards).toHaveCount(11);
     await expect(board.getByRole("button", { name: "Open Kai Ribbon" })).toBeVisible();
     for (const stage of ["Referral received", "In progress", "Decision"]) await expect(board.getByRole("heading", { name: stage })).toBeVisible();
     await expect(board.getByRole("button", { name: "Open Blake Ribbon" })).toContainText("Assessment scheduled");
     await expect(board.getByRole("button", { name: "Open Dana Ribbon" })).toContainText("Under review");
-    await expect(board.getByRole("button", { name: "Open Mara Denied", exact: true })).toContainText("Denied");
+    await expect(board.getByRole("button", { name: "Open Mara Denied", exact: true })).toHaveCount(0);
     await expect(board.getByRole("button", { name: "Open Nora Admitted", exact: true })).toHaveCount(0);
     await page.setViewportSize({ width: 390, height: 844 });
     await expect.poll(() => board.evaluate((element) => element.scrollWidth - element.clientWidth)).toBeLessThanOrEqual(0);
@@ -486,7 +486,7 @@ test.describe("role-scoped home and reports", () => {
     await page.goBack();
     await board.getByRole("combobox", { name: "Referral stage" }).selectOption("in_progress");
     await expect(board.getByRole("button", { name: "Open Kai Ribbon" })).toBeVisible();
-    await expect(board.locator("[data-board-card]")).toHaveCount(12);
+    await expect(board.locator("[data-board-card]")).toHaveCount(11);
   });
 
   test("combines Pipeline admissions with current census in Reports", async ({ page }) => {
