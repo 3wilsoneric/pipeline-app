@@ -7,6 +7,7 @@ export function buildAdmissionsCensusReport(summary: PlatformAdmissionsSummary) 
     generated_at: summary.generated_at,
     board_columns: summary.board.columns.map(({ key, label, count }) => ({ key, label, count })),
     briefing: {
+      window_end: summary.briefing.window_end,
       week_start: summary.briefing.week_start,
       week_end: summary.briefing.week_end,
       last_week_start: summary.briefing.last_week_start,
@@ -20,8 +21,8 @@ export function buildAdmissionsCensusReport(summary: PlatformAdmissionsSummary) 
         ({ client_name, admitted_at, community, owner, source_name, referring_county, prior_placement, pipeline_path })),
       planned_move_ins: summary.briefing.planned_move_ins.map(({ client_name, planned_at, community, owner, readiness, source_name, referring_county, prior_placement, pipeline_path }) =>
         ({ client_name, planned_at, community, owner, readiness, source_name, referring_county, prior_placement, pipeline_path })),
-      moving_through: summary.briefing.moving_through.map(({ client_name, stage, status, community, owner, source_name, referring_county, prior_placement, pipeline_path }) =>
-        ({ client_name, stage, status, community, owner, source_name, referring_county, prior_placement, pipeline_path })),
+      moving_through: summary.briefing.moving_through.map(({ client_name, stage, phase, planned_at, status, community, owner, source_name, referring_county, prior_placement, pipeline_path }) =>
+        ({ client_name, stage, phase, planned_at, status, community, owner, source_name, referring_county, prior_placement, pipeline_path })),
     },
   };
 }

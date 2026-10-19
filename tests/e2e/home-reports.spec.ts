@@ -517,11 +517,14 @@ test.describe("role-scoped home and reports", () => {
         { key: "decision", label: "Decision", count: 3 },
       ],
       briefing: {
-        week_start: "2026-09-28", week_end: "2026-10-04", last_week_start: "2026-09-21", last_week_end: "2026-09-27",
+        window_end: "2026-09-28", week_start: "2026-09-28", week_end: "2026-10-04", last_week_start: "2026-09-21", last_week_end: "2026-09-27",
         coverage: { admitted_last_week_complete: true, move_ins_complete: true, moving_through_complete: true },
         admitted_last_week: [{ client_name: "Synthetic Admit", admitted_at: "2026-09-25", community: "San Pablo", source_name: "County hospital", referring_county: "Contra Costa", pipeline_path: "/?view=referrals&screen=packet&referralId=8" }],
         planned_move_ins: [{ client_name: "Synthetic Arrival", planned_at: "2026-09-30", community: "San Pablo", readiness: "ready", source_name: "Referral partner", referring_county: "Solano", pipeline_path: "/?view=referrals&screen=packet&referralId=10" }],
-        moving_through: [{ client_name: "Synthetic Assessee", stage: "in_progress", status: "Assessment underway", community: "San Pablo", owner: "Test Assessor", source_name: "Community hospital", referring_county: null, pipeline_path: "/?view=referrals&screen=packet&referralId=9" }],
+        moving_through: [
+          { client_name: "Synthetic Assessee", stage: "in_progress", phase: "intake_assessment", planned_at: null, status: "Assessment underway", community: "San Pablo", owner: "Test Assessor", source_name: "Community hospital", referring_county: null, pipeline_path: "/?view=referrals&screen=packet&referralId=9" },
+          { client_name: "Synthetic No Date", stage: "decision", phase: "needs_date", planned_at: null, status: "Accepted · no planned admit date", community: "Victoria's House", owner: "Other Assessor", source_name: "County", referring_county: null, pipeline_path: "/?view=referrals&screen=packet&referralId=11" },
+        ],
       },
     } }) : route.fulfill({ status: 503, json: { error: "Referral storage is unavailable." } }));
 
@@ -531,11 +534,16 @@ test.describe("role-scoped home and reports", () => {
     await expect(page.getByRole("heading", { name: "Admissions & census" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Census by community" })).toContainText("108");
     await expect(page.getByRole("region", { name: "Admitted last week" })).toContainText("Synthetic Admit");
-    await expect(page.getByRole("region", { name: "Admitted last week" })).toContainText("County hospital · County: Contra Costa");
+    await expect(page.getByRole("region", { name: "Admitted last week" })).toContainText("Origin: County hospital · County: Contra Costa");
     await expect(page.getByRole("region", { name: "Planned admits this week" })).toContainText("Synthetic Arrival");
-    await expect(page.getByRole("region", { name: "Planned admits this week" })).toContainText("Referral partner · County: Solano");
-    await expect(page.getByRole("region", { name: "Clients moving through" })).toContainText("Synthetic Assessee");
-    await expect(page.getByRole("region", { name: "Clients moving through" })).toContainText("Community hospital");
+    await expect(page.getByRole("region", { name: "Planned admits this week" })).toContainText("Origin: Referral partner · County: Solano");
+    const movingSection = page.getByRole("region", { name: "Clients moving through" });
+    await expect(movingSection).toContainText("Synthetic No Date");
+    await expect(movingSection).not.toContainText("Synthetic Assessee");
+    await movingSection.getByRole("button", { name: /Intake & assessment/ }).click();
+    await expect(movingSection).toContainText("Synthetic Assessee");
+    await expect(movingSection).toContainText("Origin: Community hospital");
+    await expect(page.getByRole("link", { name: "Explore San Pablo census in Alamo Platform" })).toHaveAttribute("href", "https://www.alamoplatform.com/communities/337?focus=census");
     await expect(page.getByRole("heading", { name: "What happened each month" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Connect Platform" })).toHaveCount(0);
     await expect(page.getByRole("combobox", { name: "Report", exact: true })).toHaveCount(0);

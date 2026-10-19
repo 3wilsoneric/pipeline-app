@@ -110,7 +110,7 @@ test("snapshots the live board by column and status with client identity and dri
     medications: ["Medication A", "Medication B"],
     medication_source: "signed_assessment",
   });
-  assert.equal(summary.contract_version, "3.3");
+  assert.equal(summary.contract_version, "3.4");
   assert.equal(summary.history.coverage_start_month, "2025-01");
   assert.deepEqual(summary.history.monthly.map((row) => row.month), [
     "2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09",
@@ -163,6 +163,7 @@ test("briefing separates actual admissions from planned arrivals and carries eac
   assert.deepEqual(summary.briefing.admitted_last_week.map((row) => row.client_name), ["Admitted last week"]);
   assert.deepEqual(summary.briefing.planned_move_ins.map((row) => row.client_name), ["Planned tomorrow"]);
   assert.deepEqual(summary.briefing.moving_through.map((row) => row.client_name), ["Date already passed", "Planned tomorrow"]);
+  assert.deepEqual(summary.briefing.moving_through.map((row) => [row.phase, row.planned_at]), [["awaiting_arrival", "2026-09-24"], ["awaiting_arrival", "2026-09-27"]]);
   for (const row of [summary.briefing.admitted_last_week[0], summary.briefing.planned_move_ins[0], summary.briefing.moving_through[0]]) {
     assert.equal(row.source_name, "County behavioral health");
     assert.equal(row.referring_county, "Contra Costa");
@@ -184,11 +185,12 @@ test("accepted clients without an admit date remain visible even after leaving t
   assert.equal(summary.upcoming_admissions.no_planned_date, 1);
   const report = buildAdmissionsCensusReport(summary);
   assert.deepEqual(JSON.parse(JSON.stringify(report.briefing.moving_through)), [{
-    client_name: "Accepted without date", stage: "decision", status: "Accepted · no planned admit date",
+    client_name: "Accepted without date", stage: "decision", phase: "needs_date", planned_at: null, status: "Accepted · no planned admit date",
     community: "San Pablo", owner: "Andrew", source_name: "County behavioral health",
     referring_county: "Contra Costa", prior_placement: "Acute hospital",
     pipeline_path: "/?view=referrals&screen=packet&referralId=1",
   }]);
+  assert.equal(report.briefing.window_end, "2026-09-26");
 });
 
 test("uses the canonical appointment timestamp and excludes appointments that already ended", () => {

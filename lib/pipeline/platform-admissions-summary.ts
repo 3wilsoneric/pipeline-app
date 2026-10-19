@@ -5,7 +5,7 @@
 // Platform documents the consumer side in
 // alamo-platform-app/docs/platform/admissions-zone.md.
 
-export const PLATFORM_ADMISSIONS_SUMMARY_VERSION = "3.3";
+export const PLATFORM_ADMISSIONS_SUMMARY_VERSION = "3.4";
 
 const DAY_MS = 86_400_000;
 const TREND_MONTHS = 6;
@@ -328,6 +328,10 @@ export function buildPlatformAdmissionsSummary(input: PlatformAdmissionsSummaryI
       referral_id: referral.referralId,
       client_name: referral.clientName.trim() || "Name not recorded",
       stage: referral.boardColumn ?? "decision",
+      phase: referral.decisionOutcome === "accepted"
+        ? referral.plannedAdmissionDate ? "awaiting_arrival" : "needs_date"
+        : referral.boardColumn === "decision" ? "decision_pending" : "intake_assessment",
+      planned_at: dayKey(referral.plannedAdmissionDate),
       status: referral.decisionOutcome === "accepted" && !referral.plannedAdmissionDate
         ? "Accepted · no planned admit date" : briefingStatus(referral),
       community: referral.community.trim() || "Unassigned",

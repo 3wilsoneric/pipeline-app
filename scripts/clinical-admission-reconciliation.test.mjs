@@ -14,6 +14,7 @@ function fixtures() {
     id: 42, version: 3, sectionVersions: { workflow: 2 }, clientId: "client-42",
     createdAt: `${yesterday}T08:00:00Z`, name: "Synthetic Client", dob: "1970-01-01",
     stage: "Community Review", community: "San Pablo", workspaceStatus: "active",
+    plannedAdmissionDate: yesterday,
     admissionDecision: { outcome: "accepted", decidedAt: `${yesterday}T12:00:00Z` },
   };
   const link = {
@@ -34,6 +35,7 @@ test("only a uniquely confirmed current resident with matching identity, communi
     selectAutomaticAdmissions(referrals, links, residents, asOf);
   assert.equal(select().length, 1);
   assert.equal(select()[0].actualDate, today);
+  assert.equal(select([{ ...referral, plannedAdmissionDate: twoDaysAgo }]).length, 1, "a passed plan is confirmed only by the governed roster match");
   assert.equal(select([referral], [{ ...link, status: "candidate" }]).length, 0);
   assert.equal(select([referral], [link, { ...link, resident_key: "site:other" }]).length, 0);
   assert.equal(select([referral], [link, { ...link, status: "candidate", resident_key: "site:other" }]).length, 0);
