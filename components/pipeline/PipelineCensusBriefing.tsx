@@ -87,7 +87,7 @@ function AdmissionsSections({ report }: { report: AdmissionsCensusReport }) {
   const { briefing } = report;
   const admitted = briefing.admitted_last_week.map((item) => ({ ...item, date: item.admitted_at, detail: item.community }));
   const planned = briefing.planned_move_ins.map((item) => ({ ...item, date: item.planned_at, detail: `${item.community} · ${item.readiness === "blocked" ? "Requirements open" : item.readiness === "watch" ? "Review requirements" : "Ready"}` }));
-  const didNotMoveIn = briefing.did_not_move_in.map((item) => ({ ...item, date: item.cancelled_at, detail: `${item.community} · ${item.status}` }));
+  const didNotMoveIn = (briefing.did_not_move_in ?? []).map((item) => ({ ...item, date: item.cancelled_at, detail: `${item.community} · ${item.status}` }));
   const moving = briefing.moving_through;
   const initialPhase = movingPhases.find(({ key }) => moving.some((row) => row.phase === key))?.key ?? "all";
   const phase = selectedPhase ?? initialPhase;
@@ -120,7 +120,7 @@ function AdmissionsSections({ report }: { report: AdmissionsCensusReport }) {
       {!briefing.coverage.moving_through_complete ? <p className={styles.caption}>The list is capped; more clients are on the board.</p> : null}
     </section>
     <div className={styles.outcomeList}>
-      <WeekList title="Did not move in" dates="Recorded in the past 30 days" items={didNotMoveIn} complete={briefing.coverage.did_not_move_in_complete} empty="No placements were recorded as did not move in during this period." />
+      <WeekList title="Did not move in" dates="Recorded in the past 30 days" items={didNotMoveIn} complete={briefing.coverage.did_not_move_in_complete ?? true} empty="No placements were recorded as did not move in during this period." />
     </div>
   </>;
 }
