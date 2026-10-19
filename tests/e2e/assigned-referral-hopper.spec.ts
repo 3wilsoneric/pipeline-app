@@ -140,6 +140,7 @@ for (const width of [390, 1440]) {
     await page.setViewportSize({ width, height: 960 });
     const { items } = await mockHopper(page);
     await page.goto("/");
+    if (width < 1024) await page.getByRole("button", { name: "View full Home" }).click();
     await expect(page.getByRole("button", { name: "Pipeline home", exact: true })).toBeVisible();
     const hopper = page.getByRole("region", { name: "Current work", exact: true });
     await expect(hopper.locator("[data-board-card]")).toHaveCount(7);
@@ -155,6 +156,7 @@ for (const width of [390, 1440]) {
     await page.screenshot({ path: testInfo.outputPath(`hopper-${width}.png`) });
     await page.getByRole("button", { name: "Pipeline home", exact: true }).click();
     await page.reload();
+    if (width < 1024) await page.getByRole("button", { name: "View full Home" }).click();
     if (width < 1024) await hopper.getByRole("combobox", { name: "Referral stage", exact: true }).selectOption("decision");
     await expect(hopper.getByRole("button", { name: "Open Quinn Patel", exact: true })).toBeVisible();
   });

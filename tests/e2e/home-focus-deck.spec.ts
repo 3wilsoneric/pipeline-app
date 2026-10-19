@@ -63,6 +63,7 @@ for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 950 });
     await homeFixture(page, undefined, 2);
     await page.goto("/");
+    await openFullHomeOnPhone(page, width);
     await expect(page.locator("html")).toHaveAttribute("data-design", "v2");
     for (const stage of ["received", "decision", "in_progress"]) {
       if (width < 1024) await page.getByRole("combobox", { name: "Referral stage", exact: true }).selectOption(stage);
@@ -167,10 +168,15 @@ async function homeFixture(page: Page, moduleIds = ["current-work", "new-assignm
   return acknowledgments;
 }
 
+async function openFullHomeOnPhone(page: Page, width: number) {
+  if (width < 1024) await page.getByRole("button", { name: "View full Home" }).click();
+}
+
 for (const width of [1440, 390]) test(`folder All and Mine switch instantly without changing stages at ${width}px`, async ({ page }, info) => {
   await page.setViewportSize({ width, height: 900 });
   await homeFixture(page, undefined, 2, true, false, "mixed");
   await page.goto("/");
+  await openFullHomeOnPhone(page, width);
   for (const [index, title] of ["Referral received", "In progress", "Decision"].entries()) {
     if (width < 1024) await page.getByRole("combobox", { name: "Referral stage", exact: true }).selectOption(["received", "in_progress", "decision", "decision"][index]);
     const opener = page.getByRole("button", { name: `Open ${title.toLowerCase()} folder`, exact: true });
@@ -218,6 +224,7 @@ for (const width of [1440, 834, 390, 320]) test(`focus deck keeps the foreground
   await page.setViewportSize({ width, height: 900 });
   const acknowledged = await homeFixture(page);
   await page.goto("/");
+  await openFullHomeOnPhone(page, width);
   const deck = page.getByTestId("home-focus-deck");
   const tabs = deck.getByRole("tab");
   await expect(tabs).toHaveText(["BoardBoard1", "Upcoming assessmentsUpcoming1", "New assignmentsNew7"]);
@@ -280,6 +287,7 @@ for (const { width, count } of [{ width: 1440, count: 5 }, { width: 1440, count:
     await page.setViewportSize({ width, height: 900 });
     await homeFixture(page, undefined, count);
     await page.goto("/");
+    await openFullHomeOnPhone(page, width);
     const deck = page.getByTestId("home-focus-deck");
     const stage = page.getByTestId("home-focus-stage");
     const board = deck.getByRole("tabpanel", { name: "Board", exact: true });
@@ -346,6 +354,7 @@ test("horizontal gestures turn the deck, vertical and cancelled gestures do not,
   await page.setViewportSize({ width: 390, height: 850 });
   await homeFixture(page);
   await page.goto("/");
+  await openFullHomeOnPhone(page, 390);
   const stage = page.getByTestId("home-focus-stage");
   await expect(page.getByRole("tab", { name: "Board", exact: true })).toHaveAttribute("aria-selected", "true");
   const bounds = (await stage.boundingBox())!;
@@ -385,6 +394,7 @@ for (const width of [1440, 834, 390, 320]) test(`stage folder expands in place w
   await page.setViewportSize({ width, height: 950 });
   await homeFixture(page, undefined, 10);
   await page.goto("/");
+  await openFullHomeOnPhone(page, width);
   const source = page.locator('[data-board-stage="received"]');
   const open = source.getByRole("button", { name: "Open referral received folder", exact: true });
   await expect(open).toBeVisible();
@@ -524,8 +534,8 @@ test("an expanded stage stays visible when the window becomes narrow", async ({ 
   await expect(folder.getByRole("button", { name: "Open Jordan Chen", exact: true })).toBeVisible();
   await folder.getByRole("button", { name: "Close in progress folder", exact: true }).click();
   await expect(folder).toHaveCount(0);
-  await expect(page.getByLabel("Referral stage")).toHaveValue("in_progress");
   await expect(page.getByRole("button", { name: "Open in progress folder", exact: true })).toBeFocused();
+  await expect(page.getByLabel("Referral stage")).toHaveValue("in_progress");
 });
 
 test("expanded folders retain stage accents and long file labels stay readable", async ({ page }, info) => {

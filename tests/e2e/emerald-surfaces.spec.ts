@@ -41,6 +41,9 @@ async function syntheticHome(page: Page, scope: "personal" | "team" = "team") {
     await route.fulfill({ response, json: payload });
   });
   await page.goto("/");
+  if ((page.viewportSize()?.width ?? 1440) < 1024) {
+    await page.getByRole("button", { name: "View full Home" }).click();
+  }
   // The active board excludes the sixth fixture's completed admission.
   await expect(page.locator("[data-board-card]")).toHaveCount(5);
   await expect(page.getByRole("button", { name: "Pipeline home", exact: true })).toBeVisible();

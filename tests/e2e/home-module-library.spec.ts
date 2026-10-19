@@ -96,6 +96,7 @@ for (const width of [1440, 390]) {
       await route.fulfill({ response, json: payload });
     });
     await page.goto("/");
+    if (width < 1024) await page.getByRole("button", { name: "View full Home" }).click();
     const work = page.getByRole("region", { name: "Current work", exact: true });
     await expect(work.getByRole("button", { name: "Open referral received folder" })).toBeVisible();
     await expect(work.getByText("No referrals here", { exact: true }).first()).toBeVisible();
@@ -111,7 +112,9 @@ for (const width of [1440, 390]) {
     await expect(card).toBeVisible();
     await expect(page.getByRole("button", { name: /^(Remove Board from Home|Move Board)$/ })).toHaveCount(0);
     await page.getByRole("button", { name: "Done", exact: true }).click();
+    if (width < 1024) await page.getByRole("button", { name: "View full Home" }).click();
     await page.reload();
+    if (width < 1024) await page.getByRole("button", { name: "View full Home" }).click();
     await expect(card).toBeVisible();
     await work.screenshot({ path: testInfo.outputPath(`always-open-work-${width}.png`) });
     await card.click();
