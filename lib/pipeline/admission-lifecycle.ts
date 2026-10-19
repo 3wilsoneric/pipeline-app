@@ -7,7 +7,7 @@ export function handoffWorkspaceView(
   assessment: { signedAt?: string | null; packetSentAt?: string | null },
 ): "workflow" | "email" | null {
   if (referral.workspaceStatus === "historical" || referral.stage === "Accepted / Admitted" || referral.placementCancellation || !assessment.signedAt) return null;
-  if (referral.admissionDecision?.outcome === "accepted" && getPlannedAdmissionDate(referral) && !assessment.packetSentAt) return "email";
+  if (referral.admissionDecision?.outcome === "accepted") return "email";
   return "workflow";
 }
 

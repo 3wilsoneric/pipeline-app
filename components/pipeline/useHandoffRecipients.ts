@@ -5,11 +5,12 @@ import { fetchCurrentPipelineUser, fetchPipelineJson } from "@/lib/auth/authenti
 import { usePersonaSwitchSave } from "@/lib/demo/persona-switch-save";
 import { addListRecipients, parseRecipientText, type CommunityRecipientList, type RecipientFields } from "@/lib/pipeline/community-recipient-lists";
 import { emptyMeetClientMessage, type MeetClientMessage } from "@/lib/notifications/meet-client-message";
+import { parseMeetClientReviewDraft, type MeetClientReviewDraft } from "@/lib/notifications/meet-client-review-draft";
 import type { MedicationReview } from "@/lib/notifications/meet-client-medications";
 import { currentVolatileHandoffRecovery, forgetVolatileHandoffRecovery, registerHandoffEditor, rememberVolatileHandoffRecovery } from "@/lib/pipeline/volatile-recovery";
 
-type DraftFields = RecipientFields & { message: MeetClientMessage; medicationReview: MedicationReview | null };
-const empty = (): DraftFields => ({ to: [], cc: [], message: emptyMeetClientMessage(), medicationReview: null });
+type DraftFields = RecipientFields & { message: MeetClientMessage; medicationReview: MedicationReview | null; review: MeetClientReviewDraft };
+const empty = (): DraftFields => ({ to: [], cc: [], message: emptyMeetClientMessage(), medicationReview: null, review: { plannedDate: null, selectedFiles: null } });
 const emptyInput = () => ({ to: "", cc: "" });
 type Session = { key: string; version: number; fields: DraftFields; input: ReturnType<typeof emptyInput>; saved: string; queued: string; queue: Promise<void>; error: string };
 
@@ -38,12 +39,12 @@ export function useHandoffRecipients(referralId: number | undefined, community: 
       let note = "";
       try { templates = (await fetchPipelineJson<{ lists: CommunityRecipientList[] }>("/api/community-recipient-lists", { cache: "no-store", signal: controller.signal })).lists; }
       catch { note = "Community list unavailable. Add authorized recipients below."; }
-      const stored = endpoint ? await fetchPipelineJson<{ draft: (RecipientFields & { community: string; message?: MeetClientMessage; medicationReview?: MedicationReview | null }) | null; version: number }>(endpoint, { signal: controller.signal }) : { draft: null, version: 0 };
+      const stored = endpoint ? await fetchPipelineJson<{ draft: (RecipientFields & { community: string; message?: MeetClientMessage; medicationReview?: MedicationReview | null; review?: MeetClientReviewDraft }) | null; version: number }>(endpoint, { signal: controller.signal }) : { draft: null, version: 0 };
       if (session.current !== current || controller.signal.aborted) return;
       const template = templates.find((list) => list.community === community);
       const values = stored.draft?.community === community ? stored.draft : template ?? empty();
       current.version = stored.version;
-      current.fields = { to: values.to, cc: values.cc, message: stored.draft?.message ?? emptyMeetClientMessage(), medicationReview: stored.draft?.medicationReview ?? null };
+      current.fields = { to: values.to, cc: values.cc, message: stored.draft?.message ?? emptyMeetClientMessage(), medicationReview: stored.draft?.medicationReview ?? null, review: parseMeetClientReviewDraft(stored.draft?.community === community ? stored.draft.review : null) ?? empty().review };
       current.saved = JSON.stringify(current.fields);
       current.queued = current.saved;
       let volatile = referralId ? await currentVolatileHandoffRecovery(referralId, community) : null;
@@ -54,7 +55,7 @@ export function useHandoffRecipients(referralId: number | undefined, community: 
         volatile = null;
       }
       if (volatile) {
-        current.fields = { ...volatile.fields, medicationReview: volatile.fields.medicationReview ?? null };
+        current.fields = { ...volatile.fields, medicationReview: volatile.fields.medicationReview ?? null, review: parseMeetClientReviewDraft(volatile.fields.review) ?? empty().review };
         current.input = volatile.input;
         current.error = "Handoff edits are only in this open tab. Retry saving before sending.";
       }
@@ -102,6 +103,14 @@ export function useHandoffRecipients(referralId: number | undefined, community: 
     current.fields = { ...current.fields, message: next }; setFields(current.fields); setMessage(current.error ? "Changes not saved. Retry saving." : "Saving handoff draft...");
     if (messageSaveTimer.current) clearTimeout(messageSaveTimer.current);
     messageSaveTimer.current = setTimeout(() => { messageSaveTimer.current = null; save(); }, 400);
+  };
+  const changeReview = (next: Partial<MeetClientReviewDraft>) => {
+    const current = session.current;
+    if (!current || !endpoint || loading || !current.saved) return;
+    current.fields = { ...current.fields, review: { ...current.fields.review, ...next } };
+    setFields(current.fields);
+    setMessage(current.error ? "Changes not saved. Retry saving." : "Saving handoff draft...");
+    save();
   };
   const changeRecipientInput = (lane: keyof RecipientFields, input: string) => {
     const current = session.current;
@@ -158,7 +167,7 @@ export function useHandoffRecipients(referralId: number | undefined, community: 
       const stored = await fetchPipelineJson<{ draft: DraftFields & { community: string } | null; version: number }>(endpoint, { cache: "no-store" });
       if (session.current !== current) return;
       const persisted = stored.draft?.community === community ? stored.draft : null;
-      if (persisted && JSON.stringify({ to: persisted.to, cc: persisted.cc, message: persisted.message, medicationReview: persisted.medicationReview ?? null }) === JSON.stringify(current.fields)) {
+      if (persisted && JSON.stringify({ to: persisted.to, cc: persisted.cc, message: persisted.message, medicationReview: persisted.medicationReview ?? null, review: parseMeetClientReviewDraft(persisted.review) ?? empty().review }) === JSON.stringify(current.fields)) {
         current.version = stored.version;
         current.saved = JSON.stringify(current.fields);
         current.queued = current.saved;
@@ -218,7 +227,7 @@ export function useHandoffRecipients(referralId: number | undefined, community: 
     window.addEventListener("beforeunload", leave);
     return () => window.removeEventListener("beforeunload", leave);
   }, []);
-  return { fields: loading ? empty() : fields, recipientInput: loading ? emptyInput() : recipientInput, inputError, changeRecipientInput, hasPendingRecipients: !loading && Object.values(recipientInput).some(value => value.trim()), lists: loading ? [] : lists, loading, message: loading ? "Loading recipients..." : message, error: loading ? "" : error, change, changeMessage, flush, leave, retry, applyCommunityList, reload: () => setReloadKey((value) => value + 1), editable: Boolean(referralId) && !loading && Boolean(session.current?.saved) };
+  return { fields: loading ? empty() : fields, recipientInput: loading ? emptyInput() : recipientInput, inputError, changeRecipientInput, hasPendingRecipients: !loading && Object.values(recipientInput).some(value => value.trim()), lists: loading ? [] : lists, loading, message: loading ? "Loading recipients..." : message, error: loading ? "" : error, change, changeMessage, changeReview, flush, leave, retry, applyCommunityList, reload: () => setReloadKey((value) => value + 1), editable: Boolean(referralId) && !loading && Boolean(session.current?.saved) };
 }
 
 export type HandoffRecipients = ReturnType<typeof useHandoffRecipients>;

@@ -3,7 +3,7 @@
 import { getPlannedAdmissionDate } from "@/lib/pipeline/admission-lifecycle";
 import { useConfirmationDialog } from "./useConfirmationDialog";
 
-import { useCallback, useEffect, useEffectEvent, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useEffectEvent, useRef, useState, type ReactNode, type RefObject } from "react";
 import { usePersonaSwitchSave } from "@/lib/demo/persona-switch-save";
 
 import {
@@ -37,6 +37,7 @@ type ReferralWorkflowPanelProps = {
   onOpenAssessment: () => void;
   onOpenFiles: () => void;
   onOpenEmail: () => void;
+  onOpenDecision?: () => void;
   onOpenProfile: (canonicalClientId: string) => void;
   onDone?: () => Promise<void>;
   compactRecommendation?: boolean;
@@ -46,6 +47,8 @@ type ReferralWorkflowPanelProps = {
   beforeWorkspaceExitRef?: RefObject<(() => Promise<void>) | null>;
   onRequirementStateChange?: (state: { pending: number; failed: number }) => void;
   requirementsOnly?: boolean;
+  placementOnly?: boolean;
+  children?: ReactNode;
 };
 
 type RecommendationDraft = {
@@ -62,6 +65,7 @@ export default function ReferralWorkflowPanel({
   onOpenAssessment,
   onOpenFiles,
   onOpenEmail,
+  onOpenDecision,
   onOpenProfile,
   onDone,
   compactRecommendation = false,
@@ -71,6 +75,8 @@ export default function ReferralWorkflowPanel({
   beforeWorkspaceExitRef,
   onRequirementStateChange,
   requirementsOnly = false,
+  placementOnly = false,
+  children,
 }: ReferralWorkflowPanelProps) {
   const { confirm, confirmationDialog } = useConfirmationDialog();
   const [workflow, setWorkflow] = useState<WorkflowResponse | null>(null);
@@ -125,11 +131,11 @@ export default function ReferralWorkflowPanel({
     }
   });
   useEffect(() => {
-    if (compactRecommendation || requirementsOnly || !workspaceActive || !beforeWorkspaceNavigationRef) return;
+    if (compactRecommendation || requirementsOnly || placementOnly || !workspaceActive || !beforeWorkspaceNavigationRef) return;
     const guard = (destination?: "email") => guardInternalNavigation(destination);
     beforeWorkspaceNavigationRef.current = guard;
     return () => { if (beforeWorkspaceNavigationRef.current === guard) beforeWorkspaceNavigationRef.current = null; };
-  }, [beforeWorkspaceNavigationRef, compactRecommendation, requirementsOnly, workspaceActive]);
+  }, [beforeWorkspaceNavigationRef, compactRecommendation, requirementsOnly, placementOnly, workspaceActive]);
   useEffect(() => {
     if (compactRecommendation || requirementsOnly || !beforeWorkspaceExitRef) return;
     const guard = () => guardWorkspaceExit();
@@ -311,8 +317,12 @@ export default function ReferralWorkflowPanel({
     return result;
   };
 
-  if (loading && !workflow) return requirementsOnly ? <div role="status">Loading admission requirements...</div> : compactRecommendation ? <span className={assessmentStyles.recoveryButton}>Loading decision...</span> : <ReferralWorkflowPanelLoading />;
-  if (!workflow) return requirementsOnly ? <WorkflowNotice tone="error">{error || "Admission requirements could not be loaded."} <button type="button" onClick={() => { setLoading(true); void loadWorkflow().catch(() => { setError("Admission requirements could not be loaded."); setLoading(false); }); }}>Retry</button></WorkflowNotice> : compactRecommendation ? <button type="button" className={assessmentStyles.recoveryButton} onClick={() => void loadWorkflow().catch(() => setError("Decision unavailable. Try again."))}>Retry decision</button> : <WorkflowNotice tone="error">{error || "Workflow could not be loaded."}</WorkflowNotice>;
+  if (loading && !workflow) return placementOnly ? <section aria-label="Placement follow-through"><p role="status">Loading placement status…</p>{children}</section>
+    : requirementsOnly ? <div role="status">Loading admission requirements...</div> : compactRecommendation ? <span className={assessmentStyles.recoveryButton}>Loading decision...</span> : <ReferralWorkflowPanelLoading />;
+  if (!workflow) return placementOnly ? <section aria-label="Placement follow-through">
+    {error ? <WorkflowNotice tone="error">Placement status could not be loaded. Meet the Client remains available below. <button type="button" onClick={() => void loadWorkflow().catch(() => setError("Placement status could not be loaded."))}>Retry status</button></WorkflowNotice> : <p role="status">Loading placement status…</p>}
+    {children}
+  </section> : requirementsOnly ? <WorkflowNotice tone="error">{error || "Admission requirements could not be loaded."} <button type="button" onClick={() => { setLoading(true); void loadWorkflow().catch(() => { setError("Admission requirements could not be loaded."); setLoading(false); }); }}>Retry</button></WorkflowNotice> : compactRecommendation ? <button type="button" className={assessmentStyles.recoveryButton} onClick={() => void loadWorkflow().catch(() => setError("Decision unavailable. Try again."))}>Retry decision</button> : <WorkflowNotice tone="error">{error || "Workflow could not be loaded."}</WorkflowNotice>;
 
   const { currentReferral } = deriveWorkflowPanelView(workflow);
   const sections = normalizeReferralSectionVersions(currentReferral.sectionVersions);
@@ -414,7 +424,7 @@ export default function ReferralWorkflowPanel({
     }
     const outcome = recommendationDraft.outcome === "accept" ? "accepted" : "declined";
     if (!await confirm({ title: outcome === "accepted" ? "Accept this referral?" : "Deny this referral?", message: decisionConfirmationMessage(outcome, false), confirmLabel: outcome === "accepted" ? "Record acceptance" : "Record denial", destructive: outcome === "declined" })) return;
-    void runMutation(
+    const saved = await runMutation(
       `decision:${currentReferral.version}:${sections.decision}:${JSON.stringify(recommendationDraft)}`,
       `/api/referrals/${currentReferral.id}/decision`,
       "PUT",
@@ -427,15 +437,16 @@ export default function ReferralWorkflowPanel({
       },
       "Decision recorded",
     );
+    if (saved && outcome === "accepted") onOpenEmail();
   };
 
-  const submitTransition = async (target: ReferralStage, actualAdmissionDate?: string) => {
-    if (target === "Accepted / Admitted" && !await confirm({ title: "Confirm this client arrived?", message: "Confirm the client actually arrived on the date entered. This records admission and closes the active referral stage. Open paperwork remains visible.", confirmLabel: "Confirm admission" })) return;
+  const submitTransition = async (target: ReferralStage) => {
+    if (target === "Accepted / Admitted") return;
     void runMutation(
       `transition:${target}:${currentReferral.version}`,
       `/api/referrals/${currentReferral.id}/transition`,
       "POST",
-      { if_match: currentReferral.version, if_match_section: sections.workflow, target_stage: target, ...(actualAdmissionDate ? { actual_admission_date: actualAdmissionDate } : {}) },
+      { if_match: currentReferral.version, if_match_section: sections.workflow, target_stage: target },
       transitionSuccessMessage(target),
     );
   };
@@ -505,21 +516,6 @@ export default function ReferralWorkflowPanel({
     );
   };
 
-  const updateHandoff = (action: "queue" | "mark_sent" | "mark_failed" | "retry", failureReason = "") => {
-    void runMutation(
-      `ehr:${action}:${currentReferral.version}:${sections.decision}`,
-      `/api/referrals/${currentReferral.id}/ehr-handoff`,
-      "POST",
-      { if_match: currentReferral.version, if_match_section: sections.decision, action, failure_reason: failureReason },
-      action === "mark_sent" ? "Outside-system entry recorded complete" : action === "mark_failed" ? "Outside-system issue recorded" : "Outside-system entry marked pending",
-    );
-  };
-
-  const recordHandoffSent = async () => {
-    if (!await confirm({ title: "Record outside-system entry as complete?", message: "Confirm staff completed the entry outside Pipeline. This only records its status; Pipeline does not send data to ElderMark.", confirmLabel: "Mark complete" })) return;
-    updateHandoff("mark_sent");
-  };
-
   if (compactRecommendation && recommendationAssessmentId !== workflow.context.assessmentId) return null;
   const compactOutcome = workflow.decision ? (workflow.decision.outcome === "accepted" ? "accept" : "decline")
     : recommendationDirty.current ? recommendationDraft.outcome : workflow.recommendation?.outcome ?? "";
@@ -542,8 +538,7 @@ export default function ReferralWorkflowPanel({
     const current = pendingDetail;
     setPendingDetail(null);
     if (!current) return;
-    if (current.kind === "ehr_failure") updateHandoff("mark_failed", detail);
-    else void saveRequirement(current.item, current.status, detail);
+    void saveRequirement(current.item, current.status, detail);
   };
 
   if (requirementsOnly) return <>{confirmationDialog}<AdmissionRequirementsPanel
@@ -561,6 +556,8 @@ export default function ReferralWorkflowPanel({
 
   return (
     <>{confirmationDialog}{emailDialog}<ReferralWorkflowPanelPresentation
+      placementOnly={placementOnly}
+      placementContent={children}
       workflow={workflow}
       busy={busy || (Object.keys(pendingRequirements).length > 0 ? "requirement:queued" : "")}
       message={message}
@@ -588,13 +585,12 @@ export default function ReferralWorkflowPanel({
       onSubmitTransition={submitTransition}
       onSavePlacementCancellation={savePlacementCancellation}
       onAuthorizeManualIntake={authorizeManualIntake}
-      onUpdateHandoff={updateHandoff}
-      onRecordHandoffSent={recordHandoffSent}
-      onOpenHandoffFailure={() => setPendingDetail({ kind: "ehr_failure" })}
       onConfirmDetail={confirmDetail}
       onCloseDetail={() => setPendingDetail(null)}
       onOpenIntake={onOpenIntake}
       onOpenAssessment={onOpenAssessment}
+      onOpenDecision={onOpenDecision}
+      onOpenPlacement={onOpenEmail}
       onOpenFiles={onOpenFiles}
       onOpenProfile={onOpenProfile}
     /></>

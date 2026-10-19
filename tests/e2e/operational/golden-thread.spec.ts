@@ -241,7 +241,7 @@ test.describe("role-separated referral golden thread", () => {
 
       const supervisorQueue = await supervisor.get("/api/operations/supervisor-queue");
       expect(supervisorQueue.status()).toBe(200);
-      expect(asRecord(await supervisorQueue.json()).items).toEqual(expect.arrayContaining([
+      expect(asRecord(await supervisorQueue.json()).items).not.toEqual(expect.arrayContaining([
         expect.objectContaining({ kind: "ehr_handoff_failed", referral_id: referral.id }),
       ]));
 

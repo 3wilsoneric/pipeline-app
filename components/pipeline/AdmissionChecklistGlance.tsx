@@ -11,7 +11,6 @@ import type { AssessmentToolFieldKey } from "@/lib/assessment/assessment-tool-sc
 import { formatProfileDate } from "@/lib/pipeline/client-profile-presentation";
 import {
   decisionProgressSteps,
-  handoffDescriptions,
   requirementGroups,
   resolvedRequirementCount,
   type WorkflowResponse,
@@ -75,14 +74,13 @@ export default function AdmissionChecklistGlance({ referralId, onOpenDecision }:
 }
 
 // "Where this referral stands" (docs/design/DECISIONS.md, "Chart as home"): the Decision page's own
-// milestones, plus the recommendation, admission date, and manual outside-system status, so the Chart ends as the whole story.
+// milestones, recommendation, and admission dates, so the Chart ends as the whole story.
 export function ReferralStandingGlance({ referralId, children }: { referralId: number; children?: ReactNode }) {
   const workflow = useReferralWorkflow(referralId);
   // The appointment (children) never waits on the workflow read.
   if (!workflow) return children ? <section className={styles.glance}><div className={styles.appointment}>{children}</div></section> : null;
   const steps = decisionProgressSteps(workflow);
   const { recommendation, decision, referral } = workflow;
-  const handoff = referral.ehrHandoff;
   return <section aria-labelledby={`standing-${referralId}`} className={styles.glance} data-chart-standing>
     <header className={styles.header}><div><h2 id={`standing-${referralId}`}>Where this referral stands</h2></div></header>
     <ol className={styles.steps}>
@@ -95,11 +93,11 @@ export function ReferralStandingGlance({ referralId, children }: { referralId: n
         </span>
       </li>)}
     </ol>
-    {recommendation || referral.admissionDate || (decision?.outcome === "accepted" && handoff) ? <dl className={styles.facts}>
+    {recommendation || referral.admissionDate || referral.actualAdmissionDate ? <dl className={styles.facts}>
       {recommendation ? <div><dt>Placement recommendation</dt><dd>{recommendation.outcome === "accept" ? "Accept" : recommendation.outcome === "decline" ? "Deny" : "Under review"}{recommendation.reasonNote ? <span>{recommendation.reasonNote}</span> : null}</dd></div> : null}
       {decision?.reasonNote ? <div><dt>Decision reason</dt><dd>{decision.reasonNote}</dd></div> : null}
-      {referral.admissionDate ? <div><dt>Admission date</dt><dd>{formatProfileDate(referral.admissionDate) ?? referral.admissionDate}</dd></div> : null}
-      {decision?.outcome === "accepted" && handoff ? <div><dt>Outside-system entry</dt><dd>{handoffDescriptions[handoff.status]}{handoff.sentAt ? <span>{formatProfileDate(handoff.sentAt)}</span> : null}</dd></div> : null}
+      {referral.admissionDate ? <div><dt>Planned admission date</dt><dd>{formatProfileDate(referral.admissionDate) ?? referral.admissionDate}</dd></div> : null}
+      {referral.stage === "Accepted / Admitted" && referral.actualAdmissionDate ? <div><dt>Actual admission date</dt><dd>{formatProfileDate(referral.actualAdmissionDate) ?? referral.actualAdmissionDate}</dd></div> : null}
     </dl> : null}
     {children ? <div className={styles.appointment}>{children}</div> : null}
   </section>;
@@ -141,7 +139,7 @@ function summaryText(field: AssessmentToolFieldKey, value: unknown) {
 }
 
 // Chart built by the process (docs/design/DECISIONS.md, "Chart built by the process"; owner, 2026-09-27): the
-// Chart reads in the order of the work — Assessment, Decision, Finish & send — and each finished step is filed
+// Chart reads in the order of the work — Assessment, Decision, Placement — and each finished step is filed
 // here with its stamp (what and when), while every step remains reachable in the rail. A step still under way
 // shows its status in one line, with the way into it. All wording is existing.
 export function ChartProcess({ referralId, assessment, record, entry, appointment, onOpenAssessment, onOpenDecision, onOpenFinish }: {
@@ -165,7 +163,6 @@ export function ChartProcess({ referralId, assessment, record, entry, appointmen
   const assessmentFiled = Boolean(assessment?.signed_at) || signed?.state === "done";
   const decisionFiled = decided?.state === "done";
   const referral = workflow?.referral;
-  const handoff = referral?.ehrHandoff;
   const accepted = workflow?.decision?.outcome === "accepted";
   return <div className={styles.process} data-chart-process>
     <ChartStage id={`chart-assessment-${referralId}`} title="Assessment" filed={assessmentFiled}
@@ -183,12 +180,12 @@ export function ChartProcess({ referralId, assessment, record, entry, appointmen
         {workflow.decision?.reasonNote ? <div><dt>Decision reason</dt><dd>{workflow.decision.reasonNote}</dd></div> : null}
       </dl> : null}
     </ChartStage>
-    {accepted || packet?.state === "done" ? <ChartStage id={`chart-finish-${referralId}`} title="Finish & send" filed={packet?.state === "done"}
-      status={packet ? (packet.state === "done" ? `${packet.label} · ${packet.detail}` : packet.label) : undefined}
-      action={onOpenFinish ? <button type="button" onClick={onOpenFinish} className={styles.open}>Finish & send<ArrowRight size={16} aria-hidden="true" /></button> : null}>
-      {referral?.admissionDate || (accepted && handoff) ? <dl className={styles.facts}>
-        {referral?.admissionDate ? <div><dt>Admission date</dt><dd>{formatProfileDate(referral.admissionDate) ?? referral.admissionDate}</dd></div> : null}
-        {accepted && handoff ? <div><dt>Outside-system entry</dt><dd>{handoffDescriptions[handoff.status]}{handoff.sentAt ? <span>{formatProfileDate(handoff.sentAt)}</span> : null}</dd></div> : null}
+    {accepted || packet?.state === "done" ? <ChartStage id={`chart-finish-${referralId}`} title="Placement" filed={referral?.stage === "Accepted / Admitted" || Boolean(referral?.placementCancellation)}
+      status={referral?.placementCancellation ? "Placement cancelled" : referral?.stage === "Accepted / Admitted" ? "Admitted" : packet ? (packet.state === "done" ? `${packet.label} · ${packet.detail}` : packet.label) : undefined}
+      action={onOpenFinish ? <button type="button" onClick={onOpenFinish} className={styles.open}>Open placement<ArrowRight size={16} aria-hidden="true" /></button> : null}>
+      {referral?.admissionDate || referral?.actualAdmissionDate ? <dl className={styles.facts}>
+        {referral?.admissionDate ? <div><dt>Planned admission date</dt><dd>{formatProfileDate(referral.admissionDate) ?? referral.admissionDate}</dd></div> : null}
+        {referral?.stage === "Accepted / Admitted" && referral.actualAdmissionDate ? <div><dt>Actual admission date</dt><dd>{formatProfileDate(referral.actualAdmissionDate) ?? referral.actualAdmissionDate}</dd></div> : null}
       </dl> : null}
     </ChartStage> : null}
   </div>;

@@ -27,15 +27,18 @@ export default function DirectHandoffPreview({ prepare, onBack, onDone, editor, 
   const run = async (send = false) => {
     if (busy || sending) return;
     setBusy(true); setError("");
+    let completed = false;
     try {
       const promise = prepare(send ? record?.id : undefined);
       request.current = promise;
       const next = await promise;
       setRecord(next); setEditing(false);
+      completed = send && next.status === "submitted";
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : "The handoff could not be confirmed.");
       if (send) setRecord(null);
     } finally { setBusy(false); }
+    if (completed) onDone();
   };
   return <div>
     {editing ? editor : record ? <CommunicationRecord record={record} history={record.status !== "ready"} /> : !ready ? <div role="status"><h3>Finish preparing the packet</h3><ul>{readinessReasons.map(reason => <li key={reason}>{reason}</li>)}</ul></div> : !error ? <p className={styles.muted} role="status">Preparing the exact email and preserving every attachment…</p> : null}

@@ -127,7 +127,7 @@ check("stage transitions are labeled as stage changes, never as a send, signatur
   ["Packet Needed", "Packet Review", "Assessment", "Community Review"].every((target) =>
     workflowPanel.transitionActionLabel(target).startsWith("Change stage to ")
     && !/send|sign|approv|decision/i.test(workflowPanel.transitionActionLabel(target) + workflowPanel.transitionSuccessMessage(target)))
-  && workflowPanel.transitionActionLabel("Accepted / Admitted") === "Confirm admission");
+  && !workflowPanel.transitionActionLabel("Accepted / Admitted").includes("Confirm admission"));
 check("an ongoing interview stays the next action while unresolved packet evidence remains visible", (() => {
   const progress = referralProgress.getReferralProgress({ ...referral, date: "2026-09-15", packetStatus: "ready_for_review" }, {
     ...scheduledContext, assessmentStarted: true,
@@ -684,11 +684,11 @@ check("staff reviews the exact packet and verified recipients before saving the 
   && assessmentChartWorkspace.includes("onSelectedFileIdsChange(files.filter((item) => next.has(item.document_id)).map((item) => item.document_id))")
   && assessmentChartWorkspace.includes('aria-label={groupedLicForms ? "Include LIC 601, LIC 602, LIC 603 files"')
   && assessmentChartWorkspace.includes("I verified that each recipient is authorized to receive this summary and the packet files.")
-  && assessmentChartWorkspace.includes('ready={canSendHandoff(email, selectedFileIds, emailDraft, confirmed, sending)}')
+  && assessmentChartWorkspace.includes('ready={canSendHandoff(email, referral, selectedFileIds, emailDraft, confirmed, sending)}')
   && assessmentChartWorkspace.includes('selected_file_ids: selectedFileIds')
   && assessmentChartWorkspace.includes('const selectionIssue = packetSelectionIssue(email, selectedFileIds);')
   && !assessmentChartWorkspace.includes('medicationReviewReady')
-  && assessmentChartWorkspace.includes('return !sending && handoffReadinessReasons(email, selectedFileIds, draft, confirmed, sending).length === 0;')
+  && assessmentChartWorkspace.includes('return !sending && handoffReadinessReasons(email, referral, selectedFileIds, draft, confirmed, sending).length === 0;')
   && outlookDraftControls.includes('const preparationDisabled = disabled || !ready || isDemo || state.occupied')
   && outlookDraftControls.includes('disabled={preparationDisabled}')
   && outlookDraftControls.includes("Save to Outlook Drafts"));

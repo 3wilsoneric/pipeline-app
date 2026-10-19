@@ -46,5 +46,5 @@ test("Home keeps accepted work in Decision and graduates recorded admissions to 
     id: referral.id, workflowStatus: "admitted", actualAdmissionDate: "2026-09-21",
   })]));
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=email`);
-  await expect(page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: "Finish & send", exact: true })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: "Placement", exact: true })).toBeVisible();
 });

@@ -36,18 +36,19 @@ for (const width of [1440, 390]) test(`accepted placement can be cancelled witho
   } });
   expect(ownerSession.status(), await ownerSession.text()).toBe(200);
 
-  await page.goto(`/?view=referrals&screen=packet&referralId=${accepted.id}&workspaceView=workflow`);
-  const admission = page.getByRole("region", { name: "Admission follow-through" });
+  await page.goto(`/?view=referrals&screen=packet&referralId=${accepted.id}&workspaceView=email`);
+  await expect(page.getByRole("region", { name: "Placement follow-through" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Placement did not happen" })).toHaveCount(0);
+  await page.getByRole("button", { name: "More actions" }).click();
+  const actions = page.getByRole("dialog", { name: "Placement actions" });
+  await expect(actions).toBeVisible();
+  await expect(actions).not.toContainText(/ElderMark|manual entry|Mark pending|Record issue/i);
+  await page.screenshot({ path: info.outputPath(`placement-actions-${width}.png`), animations: "disabled" });
+  const admission = actions.getByRole("region", { name: "Admission follow-through" });
   const cancellationButton = admission.getByRole("button", { name: "Placement did not happen" });
   await expect(cancellationButton).toBeVisible();
   await expect(admission.getByRole("textbox", { name: "Why was placement cancelled?" })).toHaveCount(0);
-  const followUpButton = page.getByRole("button", { name: "Follow-up tools" });
-  await followUpButton.click();
-  const updates = page.getByRole("region", { name: "Placement updates" });
-  await expect(updates.getByRole("button", { name: "Confirm admission" })).toHaveCount(0);
-  await expect(updates).toContainText("Awaiting arrival confirmation from the daily census or an admissions coordinator");
-  await expect(updates.getByRole("button", { name: "Placement did not happen" })).toHaveCount(0);
-  await page.getByRole("button", { name: "Close follow-up tools" }).click();
+  await expect(page.getByRole("button", { name: "Confirm admission" })).toHaveCount(0);
   await cancellationButton.click();
   await admission.getByRole("textbox", { name: "Why was placement cancelled?" }).fill("County placed the client elsewhere.");
   await admission.getByRole("button", { name: "Record placement cancellation" }).click();
@@ -59,11 +60,7 @@ for (const width of [1440, 390]) test(`accepted placement can be cancelled witho
   await confirmation.getByRole("button", { name: "Record cancellation" }).click();
   await expect(admission.getByRole("status")).toContainText("Placement cancelled · County placed the client elsewhere.");
   await expect(admission.getByRole("button", { name: "Edit cancellation reason" })).toBeVisible();
-  await followUpButton.click();
-  await expect(page.getByRole("region", { name: "Placement updates" })).toHaveCount(0);
-  await page.getByRole("button", { name: "Close follow-up tools" }).click();
-  await expect(admission.getByLabel("Planned admission date")).toBeDisabled();
-  await expect(admission).toContainText("No handoff can be sent for this cancelled placement.");
+  await expect(admission.getByLabel("Planned admission date")).toHaveCount(0);
   await page.screenshot({ path: info.outputPath(`placement-cancelled-${width}.png`) });
 
   const workflow = (await (await page.request.get(`/api/referrals/${accepted.id}/workflow`)).json());

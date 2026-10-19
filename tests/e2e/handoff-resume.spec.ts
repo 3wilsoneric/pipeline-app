@@ -13,20 +13,22 @@ for (const width of [1440, 390]) test(`accepted work resumes the client handoff 
   });
   const workspace = `/?view=referrals&screen=packet&referralId=${referral.id}`;
   await page.goto(workspace);
-  const handoff = page.getByRole("region", { name: "Prepare client handoff", exact: true });
+  const handoff = page.getByRole("region", { name: "Placement follow-through", exact: true });
   await expect(handoff).toBeVisible();
-  await expect(page).toHaveURL(/workspaceView=workflow/);
-  await expect(handoff.getByRole("list", { name: "Handoff progress" })).toHaveCount(0);
-  await expect(handoff).toContainText("Review the recipients, client summary and chart files before sending.");
+  await expect(page).toHaveURL(/workspaceView=email/);
+  await expect(handoff).toContainText("Accepted · Not sent");
   await expect(page.getByRole("button", { name: "Mark admitted", exact: true })).toHaveCount(0);
-  await page.getByRole("button", { name: "Follow-up tools" }).click();
-  const followUp = page.getByRole("dialog", { name: "Follow-up tools" });
-  await expect(followUp.getByLabel("Actual admission date", { exact: true })).toHaveValue("");
-  await expect(followUp.getByRole("button", { name: "Confirm admission", exact: true })).toBeEnabled();
-  await followUp.getByRole("button", { name: "Close follow-up tools" }).click();
+  await expect(handoff.getByRole("button", { name: "Confirm admission", exact: true })).toHaveCount(0);
   await page.screenshot({ path: info.outputPath(`handoff-steps-${width}.png`), animations: "disabled" });
-  await handoff.getByLabel("Planned admission date", { exact: true }).fill("2026-10-12");
-  await handoff.getByRole("button", { name: "Review email & packet", exact: true }).click();
+  const review = handoff.getByRole("region", { name: "Review client handoff", exact: true });
+  await review.getByLabel("Planned admit date", { exact: true }).fill("2026-10-12");
+  const to = review.getByRole("combobox", { name: /^To/ });
+  await to.fill("care@example.invalid");
+  await to.press("Enter");
+  await review.getByRole("checkbox", { name: /I verified/ }).check();
+  await review.getByRole("button", { name: "Preview email", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Meet the Client email", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Close email preview", exact: true }).click();
   await expect(page.getByRole("region", { name: "Email and referral packet", exact: true })).toBeVisible();
 
   // A normal reopen must override an old saved Chart location.
@@ -55,7 +57,7 @@ test("signed work opens Decision while unsigned work keeps its questionnaire loc
   await page.goto(`${workspace}&workspaceStage=assessment&workspaceEntry=resume`);
   await expect(page.getByRole("region", { name: "Admission decision", exact: true })).toBeVisible();
   await expect(page).toHaveURL(/workspaceView=workflow/);
-  await expect(page.getByRole("region", { name: "Prepare client handoff", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Placement follow-through", exact: true })).toHaveCount(0);
 });
 
 test("late handoff loading does not override a deliberate navigation choice", async ({ page }) => {

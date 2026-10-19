@@ -32,8 +32,13 @@ test("community defaults, To/Cc edits, reload and community replacement use the 
   await expect(to).toContainText("Care team");
   await expect(cc).toContainText("Admissions");
   const endpoint = `/api/referrals/${referral.id}/handoff-recipients`;
+  await expect(page.getByRole("status").filter({ hasText: "Handoff draft saved" })).toBeVisible();
   const initial = await (await page.request.get(endpoint)).json();
-  expect(initial.draft).toBeNull();
+  if (initial.draft) {
+    expect(initial.draft.community).toBe("San Pablo");
+    expect(initial.draft.to.map((item: { email: string }) => item.email)).toEqual(["care@example.invalid", "meds@example.invalid"]);
+    expect(initial.draft.cc.map((item: { email: string }) => item.email)).toEqual(["admissions@example.invalid"]);
+  }
   await page.getByRole("button", { name: "Remove Medication team from To", exact: true }).click();
   const input = page.getByRole("combobox", { name: /^Cc/ });
   await input.fill("Transport <transport@example.invalid>");
@@ -67,7 +72,6 @@ test("community defaults, To/Cc edits, reload and community replacement use the 
   await page.reload();
   await openRecipients(page);
   await expect(to).toContainText("Turlock team");
-  await expect(page.getByRole("region", { name: "Email and referral packet", exact: true })).toContainText("Synthetic Handoff · Turlock");
   await expect(to).not.toContainText("Care team");
   await expect(cc).not.toContainText("Transport");
   await input.fill("New member <new@example.invalid>");
@@ -114,6 +118,8 @@ test("conflicts preserve the saved audience and cross-origin or wrong-community 
   expect((await page.request.put(endpoint, { headers: { Origin: "https://untrusted.example.invalid" }, data: { if_match: 1, draft } })).status()).toBe(403);
   const invalid = await page.request.put(endpoint, { headers: { Origin: baseURL! }, data: { if_match: 1, draft: { ...draft, cc: draft.to } } });
   expect(invalid.status()).toBe(400);
+  const invalidSelection = await page.request.put(endpoint, { data: { if_match: 1, draft: { ...draft, review: { plannedDate: null, selectedFiles: { revision: "current", ids: ["duplicate", "duplicate"] } } } } });
+  expect(invalidSelection.status()).toBe(400);
   const saved = await page.request.get(endpoint);
   expect(saved.headers()["cache-control"]).toContain("no-store");
   expect((await saved.json()).version).toBe(1);

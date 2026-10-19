@@ -36,9 +36,9 @@ const testAssessor = {
 
 async function createReferralFromIntake(page: Page) {
   await page.getByRole("button", { name: "Create referral", exact: true }).click();
-  const handoff = page.getByRole("dialog", { name: "Workspace created", exact: true });
+  const handoff = page.getByRole("region", { name: "Workspace created", exact: true });
   await expect(handoff).toBeVisible();
-  await handoff.getByRole("button", { name: "Close workspace created", exact: true }).click();
+  await handoff.getByRole("button", { name: "Dismiss workspace next steps", exact: true }).click();
 }
 
 const clinicalMockPort = Number(process.env.PIPELINE_E2E_CLINICAL_PORT ?? "3299");
@@ -2375,7 +2375,7 @@ test.describe("Referral home and packet canvas", () => {
     await expect(page.getByRole("button", { name: "Decision", exact: true })).toBeEnabled();
   });
 
-  test("versions the EHR handoff and records failure recovery explicitly", async ({ page }) => {
+  test("shows admitted status and client profile without manual ElderMark controls", async ({ page }) => {
     const now = new Date().toISOString();
     const create = await page.request.post("/api/referrals", {
       data: {
@@ -2496,11 +2496,11 @@ test.describe("Referral home and packet canvas", () => {
     await recordDecision.click();
     await expect(page.getByRole("alertdialog")).toContainText("accepted");
     await page.getByRole("alertdialog").getByRole("button", { name: "Record acceptance", exact: true }).click();
-    await expect(workflowPanel.getByRole("status").filter({ hasText: "Decision recorded" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Placement follow-through" }).getByRole("heading", { name: "Meet the Client" })).toBeVisible();
     const decisionReadback = await page.request.get(`/api/referrals/${referral.id}/decision`);
     expect(decisionReadback.ok()).toBe(true);
     expect((await decisionReadback.json()).decision).toMatchObject({ outcome: "accepted", reasonNote: "Synthetic acceptance decision for the EHR handoff journey." });
-    await expect(workflowPanel.getByRole("button", { name: "Follow-up tools" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "More actions" })).toBeVisible();
     await page.getByRole("button", { name: "Workspace files", exact: true }).click();
     const requirements = page.getByRole("region", { name: "Admission requirements", exact: true });
     await requirements.locator("summary").click();
@@ -2518,49 +2518,29 @@ test.describe("Referral home and packet canvas", () => {
       await requirements.getByLabel(`${label} status`).selectOption("received");
       await expect(requirements.getByText(`${label} updated`, { exact: true })).toBeVisible();
     }
-    await page.getByRole("button", { name: "Decision", exact: true }).click();
-    await workflowPanel.getByRole("button", { name: "Follow-up tools" }).click();
-    const followUp = page.getByRole("dialog", { name: "Follow-up tools" });
-    await followUp.getByLabel("Actual admission date").fill(calendarToday());
-    await followUp.getByRole("button", { name: "Confirm admission" }).click();
-    await expect(page.getByRole("alertdialog")).toContainText("Confirm this client arrived?");
-    await page.getByRole("alertdialog").getByRole("button", { name: "Confirm admission", exact: true }).click();
-    await expect(workflowPanel.getByText("Admission confirmed", { exact: true })).toBeVisible();
-    await workflowPanel.getByRole("button", { name: "Follow-up tools" }).click();
-    await followUp.getByRole("button", { name: "Mark pending" }).click();
-    await expect(followUp.getByText("Outside-system entry marked pending", { exact: true })).toBeVisible();
-    await followUp.getByRole("button", { name: "Record issue" }).click();
-    const handoffFailureDialog = page.getByRole("dialog", { name: "Record outside-system issue" });
-    await handoffFailureDialog.getByRole("textbox", { name: "Issue", exact: true }).fill("Synthetic downstream rejection");
-    await handoffFailureDialog.getByRole("button", { name: "Record issue" }).click();
-    await expect(workflowPanel.getByText("Outside-system issue recorded", { exact: true })).toBeVisible();
-    const exceptions: SupervisorExceptionSnapshot["items"] = [];
-    let queueOffset: number | null = 0;
-    while (queueOffset !== null) {
-      const response = await page.request.get(`/api/operations/supervisor-queue?offset=${queueOffset}`);
-      expect(response.ok()).toBeTruthy();
-      const queue = await response.json() as SupervisorExceptionSnapshot;
-      expect(queue.items.length).toBeLessThanOrEqual(250);
-      exceptions.push(...queue.items);
-      if (queue.next_offset != null) expect(queue.next_offset).toBeGreaterThan(queueOffset);
-      queueOffset = queue.next_offset ?? null;
-    }
-    expect(exceptions).toEqual(expect.arrayContaining([
-      expect.objectContaining({ kind: "ehr_handoff_failed", referral_id: referral.id }),
-    ]));
-    await workflowPanel.getByRole("button", { name: "Follow-up tools" }).click();
-    await followUp.getByRole("button", { name: "Mark pending again" }).click();
-    await expect(followUp.getByText("Outside-system entry marked pending", { exact: true })).toBeVisible();
-    await followUp.getByRole("button", { name: "Mark complete" }).click();
-    await expect(page.getByRole("alertdialog")).toContainText("This only records its status; Pipeline does not send data to ElderMark.");
-    await page.getByRole("alertdialog").getByRole("button", { name: "Mark complete", exact: true }).click();
-    await expect(workflowPanel.getByText("Outside-system entry recorded complete", { exact: true })).toBeVisible();
-    await workflowPanel.getByRole("button", { name: "Follow-up tools" }).click();
-    await expect(followUp.getByText("Outside-system entry recorded complete.", { exact: true })).toBeVisible();
-    await expect(followUp.getByText(/admitted-client profile appears only after the governed Alamo roster contains the person/i)).toBeVisible();
-    await followUp.getByRole("button", { name: "Close follow-up tools" }).click();
+    const admissionWorkflow = (await (await page.request.get(`/api/referrals/${referral.id}/workflow`)).json());
+    const confirmed = await page.request.post(`/api/referrals/${referral.id}/transition`, { data: {
+      if_match: admissionWorkflow.referral.version,
+      if_match_section: admissionWorkflow.referral.sectionVersions.workflow,
+      target_stage: "Accepted / Admitted",
+      actual_admission_date: calendarToday(),
+      client_mutation_id: `ehr-admit-${randomUUID()}`,
+    } });
+    expect(confirmed.ok(), await confirmed.text()).toBeTruthy();
+    await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
+    const placement = page.getByRole("region", { name: "Placement follow-through" });
+    await expect(placement.getByRole("status").filter({ hasText: "Admitted" })).toBeVisible();
+    await placement.getByRole("button", { name: "More actions" }).click();
+    const actions = placement.getByRole("dialog", { name: "Placement actions" });
+    await expect(actions).not.toContainText(/ElderMark|manual entry|Mark pending|Record issue/i);
+    await actions.getByRole("button", { name: "Close placement actions" }).click();
+    await page.getByRole("button", { name: "Chart", exact: true }).click();
+    const chartPlacement = page.locator(`section[data-chart-stage="Placement"]`);
+    await expect(chartPlacement).toContainText("Admitted");
+    await expect(chartPlacement).toContainText("Actual admission date");
+    await page.getByRole("button", { name: "Placement", exact: true }).click();
 
-    const admittedProfile = workflowPanel.getByRole("region", { name: "Admitted client profile" });
+    const admittedProfile = placement.getByRole("region", { name: "Admitted client profile" });
     await expect(admittedProfile).toBeVisible();
     await expect(admittedProfile.getByRole("button", { name: "Check Alamo roster" })).toBeVisible();
 
@@ -2649,25 +2629,9 @@ test.describe("Referral home and packet canvas", () => {
       };
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(profile) });
     });
-    const plannedDate = workflowPanel.getByLabel("Planned admission date");
-    await expect(plannedDate).toBeEnabled();
-    await plannedDate.fill("2026-10-06");
-    let blockDateSave = true;
-    await page.route(`**/api/referrals/${referral.id}`, (route) => {
-      if (route.request().method() === "PATCH" && blockDateSave) {
-        return route.fulfill({ status: 503, json: { error: "Synthetic planned date save interruption" } });
-      }
-      return route.continue();
-    });
-    await admittedProfile.getByRole("button", { name: "Open client profile" }).click();
-    await expect(workflowPanel.getByRole("alert")).toContainText("The admission date could not be saved. Stay here and retry.");
-    await expect(page).toHaveURL(/screen=packet/);
-    await expect(plannedDate).toHaveValue("2026-10-06");
-    blockDateSave = false;
     await admittedProfile.getByRole("button", { name: "Open client profile" }).click();
     await expect(page).toHaveURL(/screen=profile.*clientId=client-sanitized-100/);
     await expect(page.getByRole("main", { name: "Client profile for Avery Example" })).toBeVisible();
-    expect((await (await page.request.get(`/api/referrals/${referral.id}`)).json()).referral.plannedAdmissionDate).toBe("2026-10-06");
   });
 
   test("allows an optional decline reason and preserves an attributed decision when it is supplied", async ({ page }) => {

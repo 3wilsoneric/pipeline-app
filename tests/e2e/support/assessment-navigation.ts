@@ -12,10 +12,16 @@ export async function editPreparedAnswer(page: Page, label: string) {
   if (await input.isVisible()) { await input.click(); return; }
   const reference = page.getByRole("complementary", { name: "Current information", exact: true });
   if (await reference.isVisible()) {
-    if (!await reference.getByRole("button", { name: `Edit ${label}`, exact: true }).isVisible()) {
-      await reference.getByRole("button", { name: /^Current information/ }).click();
-    }
-    await reference.getByRole("button", { name: `Edit ${label}`, exact: true }).click();
+    const edit = reference.getByRole("button", { name: `Edit ${label}`, exact: true });
+    if (await edit.isVisible()) { await edit.click(); return; }
+    const expand = reference.getByRole("button", { name: /^Current information/ });
+    if (await expand.isVisible()) { await expand.click(); await edit.click(); return; }
+    // The split interview shows this topic's reference as text. The full Chart
+    // retains the edit action for prepared answers outside the current topic.
+    await openAssessmentChart(page);
+    const record = page.getByRole("article", { name: "Assessment record", exact: true });
+    await record.locator(":scope > details > summary").click();
+    await record.getByRole("button", { name: `Edit ${label}`, exact: true }).click();
     return;
   }
   const clientInfo = page.getByRole("button", { name: "Client info", exact: true });

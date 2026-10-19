@@ -1,7 +1,7 @@
 "use client";
 
 import { getPlannedAdmissionDate, plannedAdmissionDateError } from "@/lib/pipeline/admission-lifecycle";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import HandoffDraftStatus, { HandoffDraftError } from "./HandoffDraftStatus";
 import { ArrowRight, Check, FileText, LoaderCircle, Paperclip, RefreshCw, X } from "lucide-react";
 
@@ -10,12 +10,12 @@ import type {
   AssessmentSummaryReport,
 } from "@/lib/assessment/assessment-summary";
 import { fetchPipelineJson, PipelineApiError } from "@/lib/auth/authenticated-fetch";
+import { normalizeReferralSectionVersions } from "@/lib/pipeline/referral-sections";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import ReadableChartText from "@/components/pipeline/ReadableChartText";
 import ReferralHandoffContacts from "./ReferralHandoffContacts";
 import type { HandoffRecipients } from "./useHandoffRecipients";
 import MeetClientMessageEditor from "./MeetClientMessageEditor";
-import MeetClientAdmissionReview from "./MeetClientAdmissionReview";
 import AdmissionPacketAccessControls from "./AdmissionPacketAccessControls";
 import OutlookHandoffControls from "./OutlookHandoffControls";
 import DirectHandoffPreview from "./DirectHandoffPreview";
@@ -86,12 +86,23 @@ export default function AssessmentChartWorkspace({ referralId, active = true, so
   const [loading, setLoading] = useState(Boolean(referralId));
   const [sending, setSending] = useState(false);
   const [savingDate, setSavingDate] = useState(false);
+  const [admissionDateDraft, setAdmissionDateDraft] = useState("");
+  const [admissionDateError, setAdmissionDateError] = useState("");
+  const [admissionDateConflict, setAdmissionDateConflict] = useState(false);
+  const admissionDateDirty = useRef(false);
+  const reviewDateEdited = useRef(false);
+  const reviewFilesEdited = useRef(false);
+  const packetRevision = useRef("");
+  const admissionDateMutation = useRef<{ key: string; id: string } | null>(null);
+  const admissionDateInFlight = useRef(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const recipients = emailDraft?.fields.to.map((contact) => contact.email) ?? [];
   const ccRecipients = emailDraft?.fields.cc.map((contact) => contact.email) ?? [];
   const [confirmed, setConfirmed] = useState(false);
   const [selectedFileIds, setSelectedFileIds] = useState<string[]>([]);
+  const storedReview = emailDraft?.fields.review;
+  const draftLoading = emailDraft?.loading;
   const [existingDraft, setExistingDraft] = useState<OutlookDraftView | null>(null);
   const [reviewStep, setReviewStep] = useState<number | null>(null);
   const [reviewedCount, setReviewedCount] = useState(0);
@@ -103,11 +114,20 @@ export default function AssessmentChartWorkspace({ referralId, active = true, so
   const sendRequest = useRef<{ key: string; mutationId: string } | null>(null);
   const sendInFlight = useRef(false);
   const summaryRequestKey = useRef("");
+  const previewButtonRef = useRef<HTMLButtonElement>(null);
+  const restorePreviewFocus = useRef(false);
+  useEffect(() => {
+    if (reviewStep !== null || !restorePreviewFocus.current) return;
+    restorePreviewFocus.current = false;
+    previewButtonRef.current?.focus({ preventScroll: true });
+  }, [reviewStep]);
 
   const load = useCallback(async () => {
     if (!referralId) return;
     setLoading(true);
     setError("");
+    setAdmissionDateError("");
+    setAdmissionDateConflict(false);
     setConfirmed(false);
     setReviewedCount(0);
     setExampleReviewed(false);
@@ -119,7 +139,10 @@ export default function AssessmentChartWorkspace({ referralId, active = true, so
         { cache: "no-store" },
       );
       setPayload(next);
-      setSelectedFileIds(next.email.admission_packet.default_selected_ids);
+      if (!admissionDateDirty.current) setAdmissionDateDraft(getPlannedAdmissionDate(next.referral));
+      if (packetRevision.current !== next.email.admission_packet.revision) reviewFilesEdited.current = false;
+      packetRevision.current = next.email.admission_packet.revision;
+      if (!reviewFilesEdited.current) setSelectedFileIds(next.email.admission_packet.default_selected_ids);
       setExistingDraft(next.email.outlook_draft && !["sent", "discarded"].includes(next.email.outlook_draft.status) ? next.email.outlook_draft : null);
       return next;
     } catch (loadError) {
@@ -128,6 +151,23 @@ export default function AssessmentChartWorkspace({ referralId, active = true, so
       setLoading(false);
     }
   }, [referralId]);
+
+  // The per-user handoff draft may load after the referral summary. Restore only
+  // choices made against the same saved date and packet revision.
+  useEffect(() => {
+    if (!payload || !storedReview || draftLoading) return;
+    const savedDate = getPlannedAdmissionDate(payload.referral);
+    if (!reviewDateEdited.current && !admissionDateDirty.current) {
+      setAdmissionDateDraft(storedReview.plannedDate?.base === savedDate ? storedReview.plannedDate.value : savedDate);
+    }
+    if (!reviewFilesEdited.current) {
+      const available = new Set(payload.email.admission_packet.files.map((file) => file.document_id));
+      const savedFiles = storedReview.selectedFiles;
+      setSelectedFileIds(savedFiles?.revision === payload.email.admission_packet.revision
+        && savedFiles.ids.every((id) => available.has(id))
+        ? savedFiles.ids : payload.email.admission_packet.default_selected_ids);
+    }
+  }, [payload, storedReview, draftLoading]);
 
   // Kept-mounted redesign steps must not show the summary fetched before the
   // Decision page saved its admit date. Don't reset an open review, or repeatedly
@@ -140,30 +180,17 @@ export default function AssessmentChartWorkspace({ referralId, active = true, so
     summaryRequestKey.current = key;
     void load();
   }, [active, referralId, sourceVersion, composerOpen, savingDate, sending, load]);
+  useEffect(() => {
+    const warn = (event: BeforeUnloadEvent) => {
+      if (!admissionDateInFlight.current) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, []);
   const recipientKey = JSON.stringify([referralId, recipients, ccRecipients, emailDraft?.recipientInput]);
   useEffect(() => { setConfirmed(false); setReviewedCount((count) => Math.min(count, 1)); }, [recipientKey]);
-
-  const confirmAdmissionDate = async (saved: Referral) => {
-    onReferralChange?.(saved);
-    setPayload((current) => current ? { ...current, referral: saved } : current);
-    const next = await fetchPipelineJson<ChartPayload>(`/api/referrals/${saved.id}/admission-summary`, { cache: "no-store" });
-    if (getPlannedAdmissionDate(next.referral) !== getPlannedAdmissionDate(saved) || !next.report?.signed || !next.email.eligible) {
-      throw new PipelineApiError("The handoff changed. Reload and check the saved admit date before continuing.", 409);
-    }
-    setPayload(next);
-    // Saving the admit date increments the referral version, which also changes
-    // the generated sheet's document ID. Keep staff's file choices across it.
-    setSelectedFileIds((current) => next.email.admission_packet.files
-      .filter((file) => file.generated || current.includes(file.document_id))
-      .map((file) => file.document_id));
-    // This date change already fetched and checked the matching summary. Closing
-    // the dialog must not treat it as an external revision and restart the review.
-    summaryRequestKey.current = `${saved.id}:${sourceVersion === undefined ? "entry" : next.referral.version}`;
-    setConfirmed(false);
-    setExampleReviewed(false);
-    setReviewedCount(1);
-    setReviewStep(null);
-  };
 
   const emailMeetClient = async (outlookToken: string, delivery: "outlook" | "assessor" = "outlook") => {
     if (!canStartMeetClientSend(payload, selectedFileIds, confirmed, sendInFlight.current, repeatSendConfirmed)) return;
@@ -256,6 +283,67 @@ export default function AssessmentChartWorkspace({ referralId, active = true, so
   if (unavailable) return unavailable;
   const readyPayload = payload!;
   const sent = Boolean(readyPayload.email.sent_at) || acceptedReferralId === referralId;
+  const previewAfterDate = async () => {
+    if (admissionDateInFlight.current || admissionDateConflict) return;
+    if (admissionDateDraft && plannedAdmissionDateError(admissionDateDraft)) {
+      setAdmissionDateError(plannedAdmissionDateError(admissionDateDraft) ?? "");
+      return;
+    }
+    if (admissionDateDraft === getPlannedAdmissionDate(readyPayload.referral)) {
+      setReviewedCount(4);
+      setReviewStep(4);
+      return;
+    }
+    admissionDateInFlight.current = true;
+    setSavingDate(true);
+    onSendingChange?.(true);
+    setAdmissionDateError("");
+    let dateSaved = false;
+    try {
+      const referral = readyPayload.referral;
+      const key = JSON.stringify([referral.id, referral.version, admissionDateDraft]);
+      if (admissionDateMutation.current?.key !== key) admissionDateMutation.current = { key, id: crypto.randomUUID() };
+      const { referral: saved } = await fetchPipelineJson<{ referral: Referral }>(`/api/referrals/${referral.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ if_match: referral.version, if_match_sections: { intake: normalizeReferralSectionVersions(referral.sectionVersions).intake },
+          client_mutation_id: admissionDateMutation.current.id, patch: { plannedAdmissionDate: admissionDateDraft } }),
+      });
+      dateSaved = true;
+      admissionDateDirty.current = false;
+      reviewDateEdited.current = false;
+      emailDraft?.changeReview({ plannedDate: null });
+      onReferralChange?.(saved);
+      setPayload((current) => current ? { ...current, referral: saved } : current);
+      // Keep the saved-date failure visible if the follow-up summary fetch fails.
+      // The parent version update must not trigger an automatic load that clears it.
+      summaryRequestKey.current = `${saved.id}:${sourceVersion === undefined ? "entry" : saved.version}`;
+      const next = await fetchPipelineJson<ChartPayload>(`/api/referrals/${saved.id}/admission-summary`, { cache: "no-store" });
+      if (getPlannedAdmissionDate(next.referral) !== admissionDateDraft || !next.report?.signed || !next.email.eligible) {
+        throw new PipelineApiError("The handoff changed. Reload and check the saved admit date before continuing.", 409);
+      }
+      setPayload(next);
+      // The generated sheet gets a new ID when the referral version changes.
+      const nextSelected = next.email.admission_packet.files
+        .filter((file) => file.generated || selectedFileIds.includes(file.document_id))
+        .map((file) => file.document_id);
+      setSelectedFileIds(nextSelected);
+      packetRevision.current = next.email.admission_packet.revision;
+      if (reviewFilesEdited.current) emailDraft?.changeReview({ selectedFiles: { revision: next.email.admission_packet.revision, ids: nextSelected } });
+      summaryRequestKey.current = `${saved.id}:${sourceVersion === undefined ? "entry" : next.referral.version}`;
+      setExampleReviewed(false);
+      setReviewedCount(4);
+      setReviewStep(4);
+    } catch (failure) {
+      setAdmissionDateConflict(dateSaved || failure instanceof PipelineApiError && failure.status === 409);
+      setAdmissionDateError(dateSaved
+        ? `The planned date was saved, but the handoff could not advance. ${failure instanceof Error ? failure.message : "Reload and try again."}`
+        : failure instanceof Error ? failure.message : "The planned date could not be saved. Try again.");
+    } finally {
+      admissionDateInFlight.current = false;
+      setSavingDate(false);
+      onSendingChange?.(false);
+    }
+  };
   const prepareAnotherHandoff = async () => {
     if (sending || savingDate) return;
     const accepted = await confirmRepeatSend({
@@ -269,7 +357,7 @@ export default function AssessmentChartWorkspace({ referralId, active = true, so
       setAcceptedReferralId(null);
       sendRequest.current = null;
       setRepeatSendConfirmed(true);
-      setReviewStep(0);
+      setReviewStep(1);
     }
   };
   const deliveryStatus = meetClientDeliveryStatus(readyPayload.email, selectedFileIds, sent, sending, confirmed, recipients);
@@ -278,55 +366,49 @@ export default function AssessmentChartWorkspace({ referralId, active = true, so
   </button>;
 
   const renderReviewBody = (step: number, inline = false) => {
-    if (step === 0) return <MeetClientAdmissionReview referral={readyPayload.referral} editable={readyPayload.email.can_edit_recipients} demo={readyPayload.email.example_only}
-      onConfirm={confirmAdmissionDate} onReviewWithoutDate={() => { setConfirmed(false); setReviewedCount(1); setReviewStep(null); }}
-      onSavingChange={(saving) => { setSavingDate(saving); onSendingChange?.(saving); }} onReload={() => void load()} />;
     return step < 4 ? <HandoffReviewStep payload={readyPayload} draft={emailDraft} confirmed={confirmed} onConfirmed={setConfirmed}
-          selectedFileIds={selectedFileIds} onSelectedFileIdsChange={(ids) => { setSelectedFileIds(ids); setConfirmed(false); sendRequest.current = null; }}
-          onBack={() => { if (inline) setReviewedCount(0); else setReviewStep(0); }}
+          previewButtonRef={previewButtonRef}
+          selectedFileIds={selectedFileIds} onSelectedFileIdsChange={(ids) => { reviewFilesEdited.current = true; setSelectedFileIds(ids); emailDraft?.changeReview({ selectedFiles: { revision: readyPayload.email.admission_packet.revision, ids } }); setConfirmed(false); sendRequest.current = null; }}
+          admissionDate={admissionDateDraft} onAdmissionDateChange={(date) => { const base = getPlannedAdmissionDate(readyPayload.referral); admissionDateDirty.current = date !== base; reviewDateEdited.current = date !== base; setAdmissionDateDraft(date); emailDraft?.changeReview({ plannedDate: date === base ? null : { base, value: date } }); setAdmissionDateError(""); }}
+          admissionDateError={admissionDateError} admissionDateConflict={admissionDateConflict} savingDate={savingDate}
+          onReloadDate={() => { admissionDateDirty.current = false; setAdmissionDateConflict(false); setAdmissionDateError(""); void load(); }}
+          onBack={inline ? undefined : () => setReviewStep(null)}
           onOpenFiles={onOpenFiles ? () => { setReviewStep(null); onOpenFiles(); } : undefined}
           onOpenAssessment={onOpenAssessment ? () => { setReviewStep(null); onOpenAssessment(); } : undefined}
-          onContinue={() => { setReviewedCount(4); setReviewStep(4); }} />
+          onContinue={() => void previewAfterDate()} />
           : <MeetClientEmailPreview email={readyPayload.email} report={readyPayload.report} emailDraft={emailDraft} referral={readyPayload.referral}
             selectedFileIds={selectedFileIds}
             confirmed={confirmed} sending={sending} sent={sent && !repeatSendConfirmed && !existingDraft} error={error} message={message} refresh={refresh}
-            onBack={() => setReviewStep(1)} onReviewComplete={() => { setExampleReviewed(readyPayload.email.example_only); setReviewStep(null); }}
+            onBack={() => setReviewStep(1)} onReviewComplete={() => { setExampleReviewed(readyPayload.email.example_only); setReviewStep(null); if (!readyPayload.email.example_only) void load().then((next) => { if (next) onReferralChange?.(next.referral); }); }}
             preparedDraft={existingDraft} onExistingDraft={(draft) => { setExistingDraft(draft); if (!draft && existingDraft) { setConfirmed(false); setReviewedCount(0); setReviewStep(null); } }}
             onPrepareDirect={prepareDirect} onPrepareOutlook={emailMeetClient} onOutlookSent={() => { setAcceptedReferralId(readyPayload.referral.id); setRepeatSendConfirmed(false); }} />;
   };
-  const renderReviewDialog = () => (active && reviewStep !== null ? <MeetClientComposeDialog key={reviewStep} step={reviewStep} compact={reviewStep === 4 && existingDraft?.delivery_method === "assessor_email"} sending={sending || savingDate} onClose={() => setReviewStep(null)}>
+  const renderReviewDialog = () => (active && reviewStep !== null ? <MeetClientComposeDialog key={reviewStep} step={reviewStep} compact={reviewStep === 4 && existingDraft?.delivery_method === "assessor_email"} sending={sending || savingDate} onClose={() => { restorePreviewFocus.current = reviewStep === 4; setReviewStep(null); }}>
     {renderReviewBody(reviewStep)}
   </MeetClientComposeDialog> : null);
 
+  const inlineReview = !composerOpen && !sent && !existingDraft && !exampleReviewed && Boolean(readyPayload.report?.signed) && readyPayload.email.eligible;
   const renderEmailPage = () => (
     <section data-guide-target="workspace-packet-preview" className={styles.page} aria-label="Email and referral packet">
-      <header className={styles.pageHeader}>
+      {!embedded ? <header className={styles.pageHeader}>
         <div><h2>Meet the Client</h2><p>{formatClientIdentityTitle({ name: readyPayload.report ? readyPayload.report.meetClient.name : readyPayload.referral.name, referralId: readyPayload.referral.id })} · {(readyPayload.report ? resolveClientCommunity(readyPayload.report.meetClient.community) : resolveClientCommunity(readyPayload.referral.community)) || "Community not selected"}</p></div>
         <span data-guide-target="packet-delivery-status" role="status" aria-label="Email delivery status" className={sent ? styles.deliveryStatus : "sr-only"} data-sent={sent || undefined}>{deliveryStatus}</span>
-      </header>
+      </header> : <span data-guide-target="packet-delivery-status" role="status" aria-label="Email delivery status" className="sr-only" data-sent={sent || undefined}>{deliveryStatus}</span>}
       {!composerOpen ? <ChartStatusMessage error={error} message={message} /> : null}
-      {!composerOpen ? <HandoffDraftError value={emailDraft} /> : null}
-      {!composerOpen && readyPayload.email.example_only ? <p role="status" className={styles.previewNote}>Not production yet — no email will be sent.</p> : null}
-      {!composerOpen && !sent && !existingDraft && !exampleReviewed && reviewedCount === 0 && readyPayload.report?.signed && readyPayload.email.eligible
-        ? <section className={styles.inlineDateReview} aria-label="Prepare client handoff">
-            <h3>Prepare the client handoff</h3>
-            <p>Check the planned admit date, then review the summary, selected files and recipients before previewing the email.</p>
-            {renderReviewBody(0)}
-          </section>
-        : !composerOpen && !sent && !existingDraft && !exampleReviewed && reviewedCount > 0 && readyPayload.report?.signed && readyPayload.email.eligible
+      {!composerOpen && !inlineReview ? <HandoffDraftError value={emailDraft} /> : null}
+      {inlineReview
         ? <section className={styles.inlineHandoffReview} aria-label="Review client handoff">
-            <header><h3>Review the handoff</h3><p>Check the summary, selected files and recipients. Preview the email before sending.</p></header>
             {renderReviewBody(1, true)}
           </section>
         : <HandoffOverview payload={readyPayload} sent={sent} exampleReviewed={exampleReviewed} finishActions={finishActions}
         existingDraft={existingDraft} composerOpen={composerOpen} reviewedCount={reviewedCount} onPreviewEmail={() => {
           if (readyPayload.email.previously_sent && !sent && !existingDraft && !repeatSendConfirmed) void prepareAnotherHandoff();
-          else setReviewStep(sent || exampleReviewed || existingDraft ? 4 : Math.min(reviewedCount, 4));
+          else setReviewStep(sent || exampleReviewed || existingDraft ? 4 : 1);
         }}
         onPrepareAnother={readyPayload.email.can_send && sent && !existingDraft ? () => void prepareAnotherHandoff() : undefined}
         onOpenIntake={onOpenIntake} onOpenAssessment={onOpenAssessment} onOpenDecision={onOpenDecision} />}
       {!readyPayload.email.example_only ? <CommunicationHistory referralId={readyPayload.referral.id} refreshKey={`${sent}:${composerOpen}`}
-        onPrepareUpdated={readyPayload.email.can_send ? () => { if (existingDraft) setReviewStep(4); else if (sent || readyPayload.email.previously_sent) void prepareAnotherHandoff(); else void load().then(next => { if (next) setReviewStep(0); }); } : undefined} /> : null}
+        onPrepareUpdated={readyPayload.email.can_send ? () => { if (existingDraft) setReviewStep(4); else if (sent || readyPayload.email.previously_sent) void prepareAnotherHandoff(); else void load().then(next => { if (next) setReviewStep(1); }); } : undefined} /> : null}
       {renderReviewDialog()}
       {confirmationDialog}
     </section>
@@ -439,7 +521,7 @@ function HandoffSection({ title, items, children }: { title: string; items: Asse
   return <section className={styles.handoffSection} aria-label={title}><h3>{title}</h3>{children}<dl>{items.map((item, index) => <div key={`${item.label}-${index}`} data-handoff-field={item.label}><dt>{item.label}</dt><dd><ReadableChartText value={item.value} /></dd></div>)}</dl></section>;
 }
 
-const handoffStepTitles: Record<number, string> = { 0: "Confirm admit date", 1: "Review handoff", 4: "Preview email" };
+const handoffStepTitles: Record<number, string> = { 1: "Review handoff", 4: "Preview email" };
 
 function MeetClientComposeDialog({ step, compact, sending, onClose, children }: { step: number; compact: boolean; sending: boolean; onClose: () => void; children: React.ReactNode }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -451,9 +533,9 @@ function MeetClientComposeDialog({ step, compact, sending, onClose, children }: 
     titleRef.current?.focus();
     return () => { dialog?.close(); if (previousFocus instanceof HTMLElement && previousFocus.isConnected) previousFocus.focus(); };
   }, []);
-  return <dialog ref={dialogRef} className={`${styles.composeDialog} ${step < 4 ? styles.reviewDialog : ""} ${step === 0 ? styles.admissionDateDialog : ""} ${compact ? styles.inboxReadyDialog : ""}`} aria-label={step === 4 ? "Meet the Client email" : handoffStepTitles[step]} aria-busy={sending}
+  return <dialog ref={dialogRef} className={`${styles.composeDialog} ${step < 4 ? styles.reviewDialog : ""} ${compact ? styles.inboxReadyDialog : ""}`} aria-label={step === 4 ? "Meet the Client email" : handoffStepTitles[step]} aria-busy={sending}
     onCancel={(event) => { event.preventDefault(); if (!sending) onClose(); }}>
-    <header className={styles.dialogHeader}><div><span className={styles.stepNumber}>{step === 0 ? 1 : step === 1 ? 2 : 3} / 3</span><h2 ref={titleRef} tabIndex={-1}>{handoffStepTitles[step]}</h2></div><button type="button" aria-label={step === 4 ? "Close email preview" : "Close handoff review"} onClick={onClose} disabled={sending}><X size={22} aria-hidden="true" /></button></header>
+    <header className={styles.dialogHeader}><div><span className={styles.stepNumber}>{step === 1 ? 1 : 2} / 2</span><h2 ref={titleRef} tabIndex={-1}>{handoffStepTitles[step]}</h2></div><button type="button" aria-label={step === 4 ? "Close email preview" : "Close handoff review"} onClick={onClose} disabled={sending}><X size={22} aria-hidden="true" /></button></header>
     {children}
   </dialog>;
 }
@@ -584,27 +666,39 @@ function ChartSourceFooter({ report }: { report: AssessmentSummaryReport }) {
   );
 }
 
-function HandoffReviewStep({ payload, draft, confirmed, onConfirmed, selectedFileIds, onSelectedFileIdsChange, onBack, onContinue, onOpenFiles, onOpenAssessment }: {
+function HandoffReviewStep({ payload, draft, confirmed, onConfirmed, selectedFileIds, onSelectedFileIdsChange, admissionDate, onAdmissionDateChange, admissionDateError, admissionDateConflict, savingDate, onReloadDate, onBack, onContinue, onOpenFiles, onOpenAssessment, previewButtonRef }: {
   payload: ChartPayload; draft?: HandoffRecipients; confirmed: boolean;
-  onConfirmed: (value: boolean) => void; onBack: () => void; onContinue: () => void;
+  onConfirmed: (value: boolean) => void; onBack?: () => void; onContinue: () => void;
+  admissionDate: string; onAdmissionDateChange: (value: string) => void; admissionDateError: string;
+  admissionDateConflict: boolean; savingDate: boolean; onReloadDate: () => void;
   selectedFileIds: string[]; onSelectedFileIdsChange: (ids: string[]) => void;
   onOpenFiles?: () => void; onOpenAssessment?: () => void;
+  previewButtonRef?: RefObject<HTMLButtonElement | null>;
 }) {
   const recipientCheckReady = confirmed && handoffDraftReady(draft) && Boolean(draft.fields.to.length);
   return <div className={styles.composer}>
     <div className={styles.composeScroll}>
       {payload.email.example_only ? <p role="status" className={styles.demoNotice}>Demo only — no email will be sent.</p> : null}
+      <div className={styles.reviewContent}>
+        <label className={styles.admissionDateField}>Planned admit date
+          <input type="date" value={admissionDate} readOnly={!payload.email.can_edit_recipients} disabled={savingDate || admissionDateConflict || !handoffDraftReady(draft)}
+            onChange={(event) => onAdmissionDateChange(event.target.value)} aria-describedby="handoff-admit-date-help" />
+        </label>
+        <p id="handoff-admit-date-help" className={styles.sourceNote}>Required before sending. You can review the email and packet now; the date will be added to the email when saved.</p>
+        {admissionDateError ? <p role="alert" className={styles.notice}>{admissionDateError}</p> : null}
+        {admissionDateConflict ? <button type="button" className={styles.textButton} onClick={onReloadDate}>Reload saved date</button> : null}
+      </div>
       <details className={styles.reviewDisclosure}>
         <summary>Client summary <span>View the signed assessment details</span></summary>
         <HandoffSummaryReview report={payload.report} onOpenAssessment={onOpenAssessment} />
       </details>
-      <AdmissionPacketReview email={payload.email} referral={payload.referral} selectedFileIds={selectedFileIds} onSelectedFileIdsChange={onSelectedFileIdsChange} onOpenFiles={onOpenFiles} />
+      <AdmissionPacketReview email={payload.email} referral={payload.referral} selectedFileIds={selectedFileIds} onSelectedFileIdsChange={onSelectedFileIdsChange} onOpenFiles={onOpenFiles} editable={handoffDraftReady(draft)} />
       <HandoffRecipientReview draft={draft} community={payload.referral.community} editable={payload.email.can_edit_recipients} confirmed={confirmed} onConfirmed={onConfirmed} />
     </div>
     <footer className={styles.toolbar}>
-      <button type="button" className={styles.textButton} onClick={onBack}>Back</button>
-      <button type="button" className={styles.sendButton} disabled={!recipientCheckReady || Boolean(packetSelectionIssue(payload.email, selectedFileIds))} onClick={onContinue}>
-        Preview email<ArrowRight size={18} aria-hidden="true" />
+      {onBack ? <button type="button" className={styles.textButton} onClick={onBack}>Back</button> : <span />}
+      <button ref={previewButtonRef} type="button" className={styles.sendButton} disabled={!recipientCheckReady || Boolean(packetSelectionIssue(payload.email, selectedFileIds)) || savingDate || admissionDateConflict || Boolean(admissionDate && plannedAdmissionDateError(admissionDate))} onClick={onContinue}>
+        {savingDate ? "Saving planned date…" : "Preview email"}<ArrowRight size={18} aria-hidden="true" />
       </button>
     </footer>
   </div>;
@@ -633,8 +727,8 @@ function HandoffRecipientReview({ draft, community, editable, confirmed, onConfi
       </div>;
 }
 
-function AdmissionPacketReview({ email, referral, selectedFileIds, onSelectedFileIdsChange, onOpenFiles }: {
-  email: ChartPayload["email"]; referral: Referral; selectedFileIds: string[]; onSelectedFileIdsChange: (ids: string[]) => void; onOpenFiles?: () => void;
+function AdmissionPacketReview({ email, referral, selectedFileIds, onSelectedFileIdsChange, onOpenFiles, editable }: {
+  email: ChartPayload["email"]; referral: Referral; selectedFileIds: string[]; onSelectedFileIdsChange: (ids: string[]) => void; onOpenFiles?: () => void; editable: boolean;
 }) {
   const files = email.admission_packet.files;
   const isLicForm = (file: (typeof files)[number]) => file.category === "LIC 602" || file.category === "LIC 601/603";
@@ -654,7 +748,7 @@ function AdmissionPacketReview({ email, referral, selectedFileIds, onSelectedFil
         <div className="flex items-center gap-3 rounded border border-[var(--color-paper-rule)] bg-[var(--color-sheet)] p-3">
           <input type="checkbox" aria-label={groupedLicForms ? "Include LIC 601, LIC 602, LIC 603 files" : `Include ${file.name}`}
             checked={selectedCount === rowFiles.length} ref={groupedLicForms ? (input) => { if (input) input.indeterminate = selectedCount > 0 && selectedCount < rowFiles.length; } : undefined}
-            disabled={file.generated} onChange={(event) => {
+            disabled={file.generated || !editable} onChange={(event) => {
               const next = new Set(selectedFileIds);
               for (const item of rowFiles) { if (event.target.checked) next.add(item.document_id); else next.delete(item.document_id); }
               onSelectedFileIdsChange(files.filter((item) => next.has(item.document_id)).map((item) => item.document_id));
@@ -685,7 +779,7 @@ function MeetClientEmailPreview({ preparedDraft, onExistingDraft, email, report,
   onPrepareOutlook: (token: string, delivery?: "outlook" | "assessor") => Promise<OutlookDraftView | undefined>; onOutlookSent: () => void;
 }) {
   const selectedNames = selectedPacketFiles(email, selectedFileIds).map((file) => file.name);
-  const readinessReasons = handoffReadinessReasons(email, selectedFileIds, emailDraft, confirmed, sending);
+  const readinessReasons = handoffReadinessReasons(email, referral, selectedFileIds, emailDraft, confirmed, sending);
   if (!preparedDraft && !email.example_only) return <div className={styles.composeScroll} style={{ padding: "20px 24px" }}>
     <DirectHandoffPreview refresh={refresh} prepare={onPrepareDirect} onBack={onBack} onDone={onReviewComplete} ready={readinessReasons.length === 0} sending={sending} readinessReasons={readinessReasons}
       editor={<MeetClientMessageEditor initialEditing summary={report?.meetClient} preview={email.preview} preparedBy={email.prepared_by ?? ""}
@@ -716,15 +810,17 @@ function MeetClientEmailPreview({ preparedDraft, onExistingDraft, email, report,
     {emailDraft && !preparedDraft ? <HandoffDraftStatus value={emailDraft} /> : null}
     {sent || email.example_only ? renderCompletion() : <footer className={`${styles.toolbar} ${styles.outlookToolbar}`}>
       {!preparedDraft ? <button type="button" className={styles.textButton} disabled={sending} onClick={onBack}>Back to recipients</button> : null}
-      <OutlookHandoffControls selected referralId={referral.id} demo={false} ready={canSendHandoff(email, selectedFileIds, emailDraft, confirmed, sending)} readinessReasons={readinessReasons} sending={sending}
+      <OutlookHandoffControls selected referralId={referral.id} demo={false} ready={canSendHandoff(email, referral, selectedFileIds, emailDraft, confirmed, sending)} readinessReasons={readinessReasons} sending={sending}
         onPrepare={onPrepareOutlook} onEmail={() => onPrepareOutlook("", "assessor")} onSent={onOutlookSent} onExistingDraft={onExistingDraft} />
     </footer>}
   </div>;
 }
 
-function handoffReadinessReasons(email: ChartPayload["email"], selectedFileIds: string[], draft: HandoffRecipients | undefined, confirmed: boolean, sending: boolean): string[] {
+function handoffReadinessReasons(email: ChartPayload["email"], referral: Referral, selectedFileIds: string[], draft: HandoffRecipients | undefined, confirmed: boolean, sending: boolean): string[] {
   if (sending) return ["Preparing your handoff. Please wait."];
   const reasons = [...email.base_blockers];
+  const dateIssue = plannedAdmissionDateError(getPlannedAdmissionDate(referral));
+  if (dateIssue) reasons.push(dateIssue);
   const selectionIssue = packetSelectionIssue(email, selectedFileIds);
   if (selectionIssue) reasons.push(selectionIssue);
   if (!email.can_send) reasons.push("This workspace cannot prepare a handoff with your current access. Ask an administrator to check your access.");
@@ -736,8 +832,8 @@ function handoffReadinessReasons(email: ChartPayload["email"], selectedFileIds: 
   return reasons;
 }
 
-function canSendHandoff(email: ChartPayload["email"], selectedFileIds: string[], draft: HandoffRecipients | undefined, confirmed: boolean, sending: boolean) {
-  return !sending && handoffReadinessReasons(email, selectedFileIds, draft, confirmed, sending).length === 0;
+function canSendHandoff(email: ChartPayload["email"], referral: Referral, selectedFileIds: string[], draft: HandoffRecipients | undefined, confirmed: boolean, sending: boolean) {
+  return !sending && handoffReadinessReasons(email, referral, selectedFileIds, draft, confirmed, sending).length === 0;
 }
 
 

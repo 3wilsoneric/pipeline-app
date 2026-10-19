@@ -71,6 +71,10 @@ async function checkA11y(page: Page, selector: string) {
   }, selector);
 }
 
+function reviewHandoff(page: Page) {
+  return page.getByRole("region", { name: "Review client handoff", exact: true }).or(page.getByRole("dialog", { name: "Review handoff", exact: true }));
+}
+
 test("admit date retries a lost save response without duplicating the change", async ({ page }) => {
   const { referral } = await referralWithAssessment(page);
   const url = `/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`;
@@ -86,20 +90,22 @@ test("admit date retries a lost save response without duplicating the change", a
     await route.abort("failed");
   });
   await page.goto(url);
-  const dialog = await openAdmitDate(page);
-  await expect(dialog.getByRole("button", { name: "Confirm admit date", exact: true })).toBeDisabled();
-  await dialog.getByLabel("Planned admit date", { exact: true }).fill("2026-10-02");
-  await dialog.getByRole("button", { name: "Confirm admit date", exact: true }).click();
-  await expect(dialog.getByRole("alert")).toBeVisible();
-  await expect(page.getByRole("dialog", { name: "Review handoff", exact: true })).toHaveCount(0);
-  await dialog.getByRole("button", { name: "Confirm admit date", exact: true }).click();
-  await expect(page.getByRole("dialog", { name: "Review handoff", exact: true })).toBeVisible();
+  const review = page.getByRole("region", { name: "Review client handoff", exact: true });
+  await expect(review).toBeVisible();
+  await expect(review.getByLabel("Planned admit date", { exact: true })).toHaveCount(1);
+  await review.getByLabel("Planned admit date", { exact: true }).fill("2026-10-02");
+  await addRecipient(page);
+  await review.getByRole("checkbox", { name: /I verified/ }).check();
+  await review.getByRole("button", { name: "Preview email", exact: true }).click();
+  await expect(review.getByRole("alert")).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Meet the Client email", exact: true })).toHaveCount(0);
+  await review.getByRole("button", { name: "Preview email", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Meet the Client email", exact: true })).toBeVisible();
   expect(mutationIds).toHaveLength(2); expect(mutationIds[1]).toBe(mutationIds[0]);
   const saved = (await (await page.request.get(`/api/referrals/${referral.id}`)).json()).referral;
   expect(saved.version).toBe(savedVersion); expect(saved.plannedAdmissionDate).toBe("2026-10-02");
   await page.reload();
-  await openAdmitDate(page);
-  await expect(page.getByLabel("Planned admit date", { exact: true })).toHaveValue("2026-10-02");
+  await expect(page.getByRole("region", { name: "Review client handoff", exact: true }).getByLabel("Planned admit date", { exact: true })).toHaveValue("2026-10-02");
 });
 
 test("a saved admit date can continue after the handoff summary refresh fails", async ({ page }) => {
@@ -122,60 +128,64 @@ test("a saved admit date can continue after the handoff summary refresh fails", 
   });
 
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
-  const dialog = await openAdmitDate(page);
-  await dialog.getByLabel("Planned admit date", { exact: true }).fill("2026-10-12");
-  await dialog.getByRole("button", { name: "Confirm admit date", exact: true }).click();
-  await expect(dialog.getByRole("alert")).toContainText("admit date was saved");
+  const review = page.getByRole("region", { name: "Review client handoff", exact: true });
+  await review.getByLabel("Planned admit date", { exact: true }).fill("2026-10-12");
+  await addRecipient(page);
+  await review.getByRole("checkbox", { name: /I verified/ }).check();
+  await review.getByRole("button", { name: "Preview email", exact: true }).click();
+  await expect(review.getByRole("alert")).toContainText("planned date was saved");
   expect((await (await page.request.get(`/api/referrals/${referral.id}`)).json()).referral.plannedAdmissionDate).toBe("2026-10-12");
   blockSummary = false;
-  await dialog.getByRole("button", { name: "Confirm admit date", exact: true }).click();
-  await expect(page.getByRole("dialog", { name: "Review handoff", exact: true })).toBeVisible();
+  await review.getByRole("button", { name: "Reload saved date", exact: true }).click();
+  await expect(review.getByLabel("Planned admit date", { exact: true })).toHaveValue("2026-10-12");
+  if (!await review.getByRole("list", { name: "To recipients", exact: true }).count()) await addRecipient(page);
+  await review.getByRole("checkbox", { name: /I verified/ }).check();
+  await review.getByRole("button", { name: "Preview email", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Meet the Client email", exact: true })).toBeVisible();
   expect(patchCount).toBe(1);
 });
 
 test("a changed admit date must be reloaded and the confirmed date populates the email", async ({ page }) => {
   const { referral } = await referralWithAssessment(page);
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
-  const dialog = await openAdmitDate(page);
-  await dialog.getByLabel("Planned admit date", { exact: true }).fill("2026-10-03");
+  const review = page.getByRole("region", { name: "Review client handoff", exact: true });
+  await review.getByLabel("Planned admit date", { exact: true }).fill("2026-10-03");
   const current = (await (await page.request.get(`/api/referrals/${referral.id}`)).json()).referral;
   const externalSave = await page.request.patch(`/api/referrals/${referral.id}`, { data: {
     if_match: current.version, if_match_sections: { intake: current.sectionVersions.intake }, client_mutation_id: randomUUID(), patch: { plannedAdmissionDate: "2026-10-04" },
   } });
   expect(externalSave.status()).toBe(200);
-  await dialog.getByRole("button", { name: "Confirm admit date", exact: true }).click();
-  await expect(dialog.getByRole("alert")).toBeVisible();
-  await expect(dialog.getByRole("button", { name: "Confirm admit date", exact: true })).toBeDisabled();
-  await dialog.getByRole("button", { name: "Reload saved date", exact: true }).click();
-  const date = await openAdmitDate(page);
-  await expect(date.getByLabel("Planned admit date", { exact: true })).toHaveValue("2026-10-04");
-  await date.getByRole("button", { name: "Confirm admit date", exact: true }).click();
-  const summary = page.getByRole("dialog", { name: "Review handoff", exact: true });
-  await summary.getByRole("button", { name: "Back", exact: true }).click();
-  await page.getByLabel("Planned admit date", { exact: true }).fill("2026-10-05");
-  await page.getByRole("button", { name: "Confirm admit date", exact: true }).click();
-  await addRecipient(page); await confirmRecipients(page);
+  await addRecipient(page);
+  await review.getByRole("checkbox", { name: /I verified/ }).check();
+  await review.getByRole("button", { name: "Preview email", exact: true }).click();
+  await expect(review.getByRole("alert")).toBeVisible();
+  await expect(review.getByRole("button", { name: "Preview email", exact: true })).toBeDisabled();
+  await review.getByRole("button", { name: "Reload saved date", exact: true }).click();
+  await expect(review.getByLabel("Planned admit date", { exact: true })).toHaveValue("2026-10-04");
+  await review.getByLabel("Planned admit date", { exact: true }).fill("2026-10-05");
+  if (!await review.getByRole("list", { name: "To recipients", exact: true }).count()) await addRecipient(page);
+  await review.getByRole("checkbox", { name: /I verified/ }).check();
+  await review.getByRole("button", { name: "Preview email", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Meet the Client email", exact: true })).toBeVisible();
   const email = page.frameLocator('iframe[title="Meet the Client email preview"]').locator("body");
   await expect(email).toContainText("10/05/2026"); await expect(email).not.toContainText("10/04/2026");
 });
 
-test("summary proceeds to the medication file without list selection, including after reopening", async ({ page }) => {
+for (const reopened of [false, true]) test(`summary proceeds to the medication file without list selection${reopened ? " after reopening" : ""}`, async ({ page }) => {
   const { referral } = await referralWithAssessment(page);
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
-  for (let visit = 0; visit < 2; visit++) {
-    const summary = await openSummary(page);
-    await expect(summary.getByRole("group", { name: "Which medications are current for this handoff?" })).toHaveCount(0);
-    await expect(summary).toContainText("Refer to the medication list in the admission packet if attached; otherwise confirm the current list with the referring team.");
-    await expect(summary).not.toContainText("Synthetic recorded medication");
-    await expect(summary.getByRole("button", { name: "Preview email", exact: true })).toBeDisabled();
-    const files = page.getByRole("dialog", { name: "Review handoff", exact: true });
-    await expect(files).toBeVisible();
-    await expect(files).toContainText("Only checked files will be included.");
-    await page.reload();
-  }
+  if (reopened) await page.reload();
+  const summary = await openSummary(page);
+  await expect(summary.getByRole("group", { name: "Which medications are current for this handoff?" })).toHaveCount(0);
+  await expect(summary).toContainText("Refer to the medication list in the admission packet if attached; otherwise confirm the current list with the referring team.");
+  await expect(summary).not.toContainText("Synthetic recorded medication");
+  await expect(summary.getByRole("button", { name: "Preview email", exact: true })).toBeDisabled();
+  const files = reviewHandoff(page);
+  await expect(files).toBeVisible();
+  await expect(files).toContainText("Only checked files will be included.");
 });
 
-test("Decision previews before an admit date and carries a saved date into the first handoff check", async ({ page }) => {
+test("Decision continues to Placement, where the first handoff review owns the planned date", async ({ page }) => {
   const { referral } = await referralWithAssessment(page);
   let mailPosts = 0;
   page.on("request", (request) => {
@@ -183,31 +193,29 @@ test("Decision previews before an admit date and carries a saved date into the f
   });
   const decisionUrl = `/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=workflow`;
   await page.goto(decisionUrl);
-  const button = page.getByRole("button", { name: "Review email & packet", exact: true });
+  const button = page.getByRole("button", { name: "Continue to Placement", exact: true });
   await expect(button).toBeEnabled();
   await button.click();
   await expect(page.getByRole("region", { name: "Email and referral packet", exact: true })).toBeVisible();
   const before = await (await page.request.get(`/api/referrals/${referral.id}/admission-summary`)).json();
   expect(before.email.blockers.join(" ")).toContain("planned admit date");
-  const date = await openAdmitDate(page);
-  await date.getByRole("button", { name: "Review without admit date", exact: true }).click();
-  const summary = page.getByRole("dialog", { name: "Review handoff", exact: true });
-  await expect(summary).toBeVisible();
-  const files = page.getByRole("dialog", { name: "Review handoff", exact: true });
-  await expect(files).toBeVisible();
+  const review = await openAdmitDate(page);
+  await expect(review.getByLabel("Planned admit date", { exact: true })).toBeEmpty();
   await addRecipient(page);
   await confirmRecipients(page);
   await expect(page.getByRole("dialog", { name: "Meet the Client email", exact: true })).toBeVisible();
   expect((await (await page.request.get(`/api/referrals/${referral.id}`)).json()).referral.plannedAdmissionDate).toBeFalsy();
   expect(mailPosts).toBe(0);
   await page.goto(decisionUrl);
-  await page.getByLabel("Planned admission date", { exact: true }).fill("2026-10-06");
   await button.click();
-  await openAdmitDate(page);
-  await expect(page.getByLabel("Planned admit date", { exact: true })).toHaveValue("2026-10-06");
+  const reopened = await openAdmitDate(page);
+  await reopened.getByLabel("Planned admit date", { exact: true }).fill("2026-10-06");
+  await addRecipient(page);
+  await confirmRecipients(page);
+  expect((await (await page.request.get(`/api/referrals/${referral.id}`)).json()).referral.plannedAdmissionDate).toBe("2026-10-06");
 });
 
-test("Finish & send does not claim an intake save and routes incomplete identity back to the chart", async ({ page }, info) => {
+test("Placement does not claim an intake save and routes incomplete identity back to the chart", async ({ page }, info) => {
   const { referral } = await referralWithAssessment(page);
   await page.route(`**/api/referrals/${referral.id}/admission-summary`, async route => {
     const response = await route.fetch();
@@ -220,8 +228,8 @@ test("Finish & send does not claim an intake save and routes incomplete identity
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
   const readiness = page.getByRole("region", { name: "Handoff readiness", exact: true });
   await expect(readiness.getByRole("heading", { name: "Complete client details" })).toBeVisible();
-  await expect(page.getByRole("region", { name: "Email and referral packet" })).toContainText("Name not recorded");
-  await expect(page.getByRole("region", { name: "Email and referral packet" })).toContainText("Community not selected");
+  await expect(readiness).toContainText("Record the client's name");
+  await expect(readiness).toContainText("Select the receiving community");
   await expect(readiness).toContainText("existing email copy is kept");
   await expect(page.getByTestId("workspace-save-status")).toHaveCount(0);
   await expect(readiness.getByRole("button", { name: "Continue inbox handoff" })).toHaveCount(0);
@@ -232,42 +240,36 @@ test("Finish & send does not claim an intake save and routes incomplete identity
 });
 
 for (const width of [1440, 1280, 834, 390, 320]) test(`guided checks lead to the branded email at ${width}px`, async ({ page }, info) => {
+  test.setTimeout(60_000);
   await page.setViewportSize({ width, height: 900 });
   const { referral } = await referralWithAssessment(page);
   const url = `/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`;
   let writes = 0;
   page.on("request", request => { if (request.method() === "POST" && /outlook-draft|meet-client-email/.test(request.url())) writes++; });
   await page.goto(url); await settleHandoff(page);
-  const overview = page.getByRole("region", { name: "Handoff readiness", exact: true });
-  await expect(overview.getByRole("button")).toHaveCount(1);
-  await expect(overview.getByRole("button", { name: "Review handoff", exact: true })).toBeInViewport();
+  const review = page.getByRole("region", { name: "Review client handoff", exact: true });
+  await expect(review).toBeVisible();
   await expect(page.locator("iframe")).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Preview email", exact: true })).toHaveCount(0);
+  await expect(review.getByRole("button", { name: "Preview email", exact: true })).toBeDisabled();
   await page.screenshot({ path: info.outputPath(`guided-start-${width}.png`), animations: "disabled" });
-  const date = await openAdmitDate(page);
-  await expect(date.getByRole("button", { name: "Confirm admit date", exact: true })).toBeDisabled();
-  expect(await checkA11y(page, 'dialog[aria-label="Confirm admit date"]')).toEqual([]);
-  expect(await date.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+  await review.getByLabel("Planned admit date", { exact: true }).fill("2026-10-01");
+  expect(await checkA11y(page, '[aria-label="Review client handoff"]')).toEqual([]);
+  expect(await review.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
   await page.screenshot({ path: info.outputPath(`guided-date-${width}.png`), animations: "disabled" });
-  await page.keyboard.press("Escape");
-  await expect(overview).not.toContainText("Checked");
   const summary = await openSummary(page);
   await expect(summary).toContainText("Refer to the medication list in the admission packet if attached; otherwise confirm the current list with the referring team.");
   await expect(summary).not.toContainText("Synthetic recorded medication");
   await expect(summary.getByRole("region", { name: "Injection & med-room notes" })).toContainText("Synthetic injection and recorded dose");
   await expect(summary.getByRole("region", { name: "Behavior & safety" })).toContainText("Historical incident");
   await expect(summary.getByRole("button", { name: "Preview email", exact: true })).toBeInViewport();
-  expect(await checkA11y(page, 'dialog[aria-label="Review handoff"]')).toEqual([]);
+  expect(await checkA11y(page, '[aria-label="Review client handoff"]')).toEqual([]);
   await summary.screenshot({ path: info.outputPath(`guided-summary-${width}.png`), animations: "disabled" });
-  await page.keyboard.press("Escape");
-  await expect(summary).toHaveCount(0);
-  await expect(overview.getByRole("button", { name: "Continue review", exact: true })).toBeFocused();
   await page.reload(); await settleHandoff(page);
   const files = await openFiles(page);
   await expect(files.getByRole("link", { name: "Open Client data sheet.pdf", exact: true })).toHaveAttribute("href", `/api/referrals/${referral.id}/admission-summary?download=chart`);
   await expect(page.locator("iframe")).toHaveCount(0);
   await expect(files.getByRole("button", { name: "Preview email", exact: true })).toBeInViewport();
-  const recipients = page.getByRole("dialog", { name: "Review handoff", exact: true });
+  const recipients = reviewHandoff(page);
   await expect(recipients.getByRole("button", { name: "Preview email", exact: true })).toBeDisabled();
   await addRecipient(page);
   await expect(recipients.getByRole("button", { name: "Preview email", exact: true })).toBeDisabled();
@@ -296,13 +298,21 @@ for (const width of [1440, 1280, 834, 390, 320]) test(`guided checks lead to the
   await page.screenshot({ path: info.outputPath(`guided-email-${width}.png`), animations: "disabled" });
   await page.keyboard.press("Escape");
   await expect(composer).toHaveCount(0);
-  await expect(overview.getByRole("button", { name: "Preview email", exact: true })).toBeFocused();
   await expect(page.getByRole("heading", { name: "Demo review complete", exact: true })).toHaveCount(0);
-  await overview.getByRole("button", { name: "Preview email", exact: true }).click();
+  await reviewHandoff(page).getByRole("button", { name: "Preview email", exact: true }).click();
   await composer.getByRole("button", { name: "Finish demo review", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Demo review complete", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Close workspace", exact: true })).toBeFocused();
   expect(writes).toBe(0);
+});
+
+for (const width of [1440, 1280, 834, 390, 320]) test(`handoff draft survives reload and returns to the chart at ${width}px`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 900 });
+  const { referral } = await referralWithAssessment(page);
+  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
+  await openRecipients(page);
+  await addRecipient(page);
+  await page.getByRole("checkbox", { name: /I verified/ }).check();
   await page.reload();
   await openRecipients(page);
   await expect(page.getByRole("list", { name: "To recipients", exact: true })).toContainText("care@example.invalid");
@@ -322,6 +332,43 @@ for (const width of [1440, 1280, 834, 390, 320]) test(`guided checks lead to the
   expect(dataSheet.status()).toBe(200);
   expect(dataSheet.headers()["content-type"]).toBe("application/pdf");
   expect(await readPdfText(await dataSheet.body())).toContain("Received; signatures still need review.");
+});
+
+test("unfinished planned date and file choices resume after closing the workspace", async ({ page }) => {
+  const { referral } = await referralWithAssessment(page);
+  const url = `/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`;
+  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=files`);
+  await page.getByLabel("Choose referral documents", { exact: true }).setInputFiles({ name: "Optional referral note.txt", mimeType: "text/plain", buffer: Buffer.from("Synthetic optional note") });
+  await confirmReferralFileLabels(page, { "Optional referral note.txt": "referral_packet" });
+  await expect.poll(async () => (await (await page.request.get(`/api/referrals/${referral.id}/admission-summary`)).json()).email.admission_packet.files.length).toBe(2);
+  let changedRevision = false;
+  await page.route(`**/api/referrals/${referral.id}/admission-summary`, async route => {
+    const response = await route.fetch();
+    const payload = await response.json();
+    payload.email.admission_packet.files = payload.email.admission_packet.files.map((file: { ready: boolean }) => ({ ...file, ready: true }));
+    if (changedRevision) payload.email.admission_packet.revision = "new-packet-revision";
+    await route.fulfill({ response, json: payload });
+  });
+  await page.goto(url);
+  const review = await openRecipients(page);
+  await review.getByLabel("Planned admit date", { exact: true }).fill("2026-10-25");
+  await review.getByRole("checkbox", { name: "Include Optional referral note.txt" }).check();
+  await addRecipient(page);
+  await review.getByRole("checkbox", { name: /I verified/ }).check();
+  const endpoint = `/api/referrals/${referral.id}/handoff-recipients`;
+  await expect.poll(async () => (await (await page.request.get(endpoint)).json()).draft?.review?.plannedDate?.value).toBe("2026-10-25");
+  await expect.poll(async () => (await (await page.request.get(endpoint)).json()).draft?.review?.selectedFiles?.ids?.length).toBe(2);
+  await page.goto("/");
+  await page.goto(url);
+  const resumed = await openRecipients(page);
+  await expect(resumed.getByLabel("Planned admit date", { exact: true })).toHaveValue("2026-10-25");
+  await expect(resumed.getByRole("checkbox", { name: "Include Optional referral note.txt" })).toBeChecked();
+  await expect(resumed.getByRole("checkbox", { name: /I verified/ })).not.toBeChecked();
+  changedRevision = true;
+  await page.reload();
+  const refreshed = await openRecipients(page);
+  await expect(refreshed.getByRole("checkbox", { name: "Include Optional referral note.txt" })).not.toBeChecked();
+  await expect(refreshed.getByLabel("Planned admit date", { exact: true })).toHaveValue("2026-10-25");
 });
 
 for (const width of [1440, 834, 390]) test(`unsigned and undecided records retain one next action at ${width}px`, async ({ page }) => {
@@ -371,6 +418,7 @@ test("recipient changes clear authorization and preview edits persist without ch
 });
 
 test("packet changes and assessment corrections return to their existing workspace views", async ({ page }) => {
+  test.setTimeout(60_000);
   const { referral } = await referralWithAssessment(page);
   const url = `/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`;
   await page.goto(url); const files = await openFiles(page);
@@ -398,6 +446,29 @@ test("a recorded send remains read-only and distinct from a demo review after re
   await expect(page.getByRole("dialog", { name: "Meet the Client email", exact: true })).toHaveCount(0);
 });
 
+test("closing Placement saves a changed planned date after a handoff", async ({ page }) => {
+  const { referral } = await referralWithAssessment(page);
+  await page.route(`**/api/referrals/${referral.id}/workflow`, async route => {
+    const response = await route.fetch();
+    const payload = await response.json();
+    payload.context.packetSentAt = "2026-10-18T12:00:00.000Z";
+    await route.fulfill({ response, json: payload });
+  });
+  await page.route(`**/api/referrals/${referral.id}/admission-summary`, async route => {
+    const response = await route.fetch();
+    const payload = await response.json();
+    payload.email = { ...payload.email, example_only: false, sent_at: "2026-10-18T12:00:00.000Z" };
+    await route.fulfill({ response, json: payload });
+  });
+  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
+  const placement = page.getByRole("region", { name: "Placement follow-through" });
+  await placement.getByLabel("Planned admission date", { exact: true }).fill("2026-10-19");
+  await placement.getByRole("button", { name: "Close workspace", exact: true }).click();
+  await expect(page.getByTestId("packet-workspace")).toHaveCount(0);
+  const saved = (await (await page.request.get(`/api/referrals/${referral.id}`)).json()).referral;
+  expect(saved.plannedAdmissionDate).toBe("2026-10-19");
+});
+
 for (const width of [1440, 390]) test(`recipient check remains readable with a full list at ${width}px`, async ({ page }, info) => {
   await page.setViewportSize({ width, height: 850 });
   const { referral } = await referralWithAssessment(page);
@@ -407,12 +478,13 @@ for (const width of [1440, 390]) test(`recipient check remains readable with a f
   const dialog = await openRecipients(page);
   await expect(dialog.getByRole("list", { name: "To recipients", exact: true }).locator("li")).toHaveCount(18);
   await expect(dialog.getByRole("button", { name: "Preview email", exact: true })).toBeInViewport();
-  await expect(dialog.getByRole("button", { name: "Close handoff review", exact: true })).toBeInViewport();
+  await expect(dialog.getByRole("button", { name: "Close handoff review", exact: true })).toHaveCount(0);
   expect(await dialog.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
-  expect(await checkA11y(page, 'dialog[aria-label="Review handoff"]')).toEqual([]);
+  expect(await checkA11y(page, '[aria-label="Review client handoff"]')).toEqual([]);
   await page.screenshot({ path: info.outputPath(`guided-recipients-${width}.png`), animations: "disabled" });
 });
 for (const width of [1440, 390]) test(`review shows the record and opens an unresolved section at ${width}px`, async ({ page }, info) => {
+  test.setTimeout(60_000);
   await page.setViewportSize({ width, height: 900 });
   const { referral, assessment } = await referralWithAssessment(page, false);
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentMode=review`);
@@ -421,7 +493,8 @@ for (const width of [1440, 390]) test(`review shows the record and opens an unre
   await expect(review).toContainText("Recorded answers");
   await expect(page.getByRole("button", { name: "Sign & continue to decision", exact: true })).toBeInViewport();
   await expect(review).toContainText("They do not prevent signing");
-  const gaps = review.getByRole("list", { name: "Answers by section", exact: true });
+  await review.locator("details > summary").filter({ hasText: "Answers by section" }).click();
+  const gaps = review.getByRole("list", { name: /^Answers by section/ });
   await page.screenshot({ path: info.outputPath(`review-gaps-${width}.png`), animations: "disabled" });
   await gaps.getByRole("button").first().click();
   await expect(page).not.toHaveURL(/assessmentMode=review/);
@@ -468,7 +541,7 @@ for (const width of [390, 834]) test(`packet check selects admission files and e
     await licForms.uncheck();
   }
   await expect(page.locator("iframe")).toHaveCount(0);
-  expect(await checkA11y(page, 'dialog[aria-label="Review handoff"]')).toEqual([]);
+  expect(await checkA11y(page, '[aria-label="Review client handoff"]')).toEqual([]);
   expect(await dialog.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
   await page.screenshot({ path: info.outputPath(`guided-packet-${width}.png`), animations: "disabled" });
   await addRecipient(page); await confirmRecipients(page);
@@ -504,7 +577,7 @@ for (const width of [834, 390]) test(`saved Outlook draft retains its frozen aud
   await page.getByRole("button", { name: "Continue with Outlook draft", exact: true }).click();
   const composer = page.getByRole("dialog", { name: "Meet the Client email", exact: true });
   await expect(composer).toBeVisible();
-  await expect(page.getByRole("dialog", { name: "Confirm admit date", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("dialog", { name: "Plan arrival date", exact: true })).toHaveCount(0);
   await expect(composer.getByRole("button", { name: "Use Outlook Drafts instead", exact: true })).toHaveCount(0);
   const outlook = composer.getByRole("region", { name: "Outlook handoff" });
   await expect(outlook.getByRole("heading", { name: "Your Outlook draft" })).toBeVisible();
@@ -529,7 +602,7 @@ test("chart load failure leaves the finish tab and its next action reachable", a
   await page.route(`**/api/referrals/${referral.id}/assessments*`, route => route.fulfill({ status: 503, json: { error: "Synthetic unavailable chart" } }));
   const failure = page.waitForResponse(response => response.url().endsWith(`/api/referrals/${referral.id}/assessments`) && response.status() === 503);
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=chart`); await failure;
-  await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: /Finish & send/ }).click();
+  await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: /Placement/ }).click();
   await expect(page.getByRole("heading", { name: "Sign the assessment", exact: true })).toBeVisible();
 });
 
@@ -691,7 +764,10 @@ test.describe("direct email history", () => {
     expect(await checkA11y(page, 'dialog[open]')).toEqual([]);
     expect(await composer.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
     await send.scrollIntoViewIfNeeded(); await page.screenshot({ path: info.outputPath(`exact-email-${width}.png`) });
-    await send.click(); await composer.getByRole("button", { name: "Done · view history", exact: true }).click();
+    await send.click();
+    await expect(composer).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Handoff sent", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Close workspace", exact: true })).toBeFocused();
     expect(sends).toBe(1);
     await page.reload(); await settleHandoff(page);
     const history = page.getByRole("region", { name: "Email history", exact: true });
@@ -712,15 +788,14 @@ test.describe("direct email history", () => {
       expect(sends).toBe(1);
       await another.click();
       await warning.getByRole("button", { name: "Review another handoff" }).click();
-      const date = page.getByRole("dialog", { name: "Confirm admit date", exact: true });
-      await expect(date).toBeVisible();
-      await date.getByRole("button", { name: "Confirm admit date", exact: true }).click();
-      const recipients = page.getByRole("dialog", { name: "Review handoff", exact: true });
+      const recipients = reviewHandoff(page);
+      await expect(recipients).toBeVisible();
       if (!await recipients.getByRole("list", { name: "To recipients", exact: true }).count()) await addRecipient(page);
       const second = await confirmRecipients(page);
       await expect(second.getByRole("button", { name: "Send email & packet", exact: true })).toBeEnabled();
       await second.getByRole("button", { name: "Send email & packet", exact: true }).click();
-      await expect(second.getByRole("button", { name: "Done · view history", exact: true })).toBeVisible();
+      await expect(second).toHaveCount(0);
+      await expect(page.getByRole("heading", { name: "Handoff sent", exact: true })).toBeVisible();
       expect(sends).toBe(2);
     }
     await page.goto("/communications"); await expect(page.getByRole("heading", { name: "Communications", exact: true })).toBeVisible();

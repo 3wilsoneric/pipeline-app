@@ -9,24 +9,16 @@
 .reviewDisclosure > summary:focus-visible { outline: 2px solid #087d66; outline-offset: -3px; }
 .reviewDisclosure .reviewContent { padding-top: 8px; }
 .reviewSectionHeading { margin: 0 0 8px; color: #234d40; font-size: 17px; font-weight: 650; }
-.inlineDateReview { max-width: 760px; margin: 24px 0 48px; border: 1px solid var(--color-paper-rule); border-radius: var(--radius-paper); background: var(--color-sheet); overflow: hidden; }
-.inlineDateReview > h3 { margin: 0; padding: 24px 32px 0; color: #234d40; font-size: 24px; font-weight: 650; letter-spacing: -.02em; }
-.inlineDateReview > p { margin: 0; padding: 8px 32px 0; color: var(--color-ink-muted); font-size: 15px; line-height: 1.5; }
-.inlineDateReview .composer { overflow: visible; }
-.inlineDateReview .composeScroll { overflow: visible; }
-.inlineHandoffReview { max-width: 960px; margin: 24px 0 48px; border: 1px solid var(--color-paper-rule); border-radius: var(--radius-paper); background: var(--color-sheet); }
-.inlineHandoffReview > header { padding: 24px 32px 8px; }
+.inlineHandoffReview { min-width: 0; }
+.inlineHandoffReview > header { padding: 0 0 8px; }
 .inlineHandoffReview > header h3 { margin: 0; color: #234d40; font-size: 24px; font-weight: 650; letter-spacing: -.02em; }
 .inlineHandoffReview > header p { margin: 8px 0 0; color: var(--color-ink-muted); font-size: 15px; line-height: 1.5; }
 .inlineHandoffReview .composer, .inlineHandoffReview .composeScroll { overflow: visible; }
 .inlineHandoffReview .toolbar { position: sticky; bottom: 0; z-index: 2; }
+.inlineHandoffReview .reviewContent > .sourceNote { margin: 0; padding: 8px 0 0; }
 @media (max-width: 640px) {
   .reviewDisclosure > summary { padding: 16px; }
-  .inlineDateReview { margin: 8px 0 24px; }
-  .inlineDateReview > h3 { padding: 20px 16px 0; font-size: 21px; }
-  .inlineDateReview > p { padding: 8px 16px 0; }
-  .inlineHandoffReview { margin: 8px 0 24px; }
-  .inlineHandoffReview > header { padding: 20px 16px 8px; }
+  .inlineHandoffReview > header { padding: 0 16px 8px; }
   .inlineHandoffReview > header h3 { font-size: 21px; }
 }
   .page { width: 100%; max-width: 1480px; margin: 0 auto; color: var(--color-ink); }
@@ -228,6 +220,3 @@
     .reviewDialog .toolbar > span { font-size: 13px; color: var(--color-ink-muted); }
   }
   .reviewLanding .taskActions { justify-content: flex-start; margin: 0 0 28px; }
-  .admissionDateDialog { width: min(600px, calc(100vw - 24px)); height: min(500px, calc(100dvh - 24px)); border: 1px solid var(--color-control-border); border-radius: 12px; }
-  .admissionDateDialog .toolbar { flex-wrap: wrap; }
-  .admissionDateDialog .toolbar > span { font-size: 14px; color: var(--color-ink-muted); }

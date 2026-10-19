@@ -121,7 +121,7 @@ const actionLabels: Record<string, string> = {
   admission_declined: "Admission denied",
   meet_client_email_preview_saved: "Email preview and packet saved",
   meet_client_email_submitted: "Email submitted for delivery",
-  ehr_handoff_updated: "Outside-system entry status updated",
+  ehr_handoff_updated: "ElderMark entry status updated",
 };
 
 type LabelledActivityEvent = { action: string; entity_type?: string };

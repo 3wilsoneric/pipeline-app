@@ -4,7 +4,6 @@ import type {
   AdmissionRequirement,
   AssessmentRecommendation,
   AssessmentReview,
-  EhrHandoffStatus,
   Referral,
   RequirementGate,
   RequirementStatus,
@@ -40,9 +39,7 @@ export type WorkflowResponse = {
   };
 };
 
-export type PendingWorkflowDetail =
-  | { kind: "requirement"; item: AdmissionRequirement; status: RequirementStatus }
-  | { kind: "ehr_failure" };
+export type PendingWorkflowDetail = { kind: "requirement"; item: AdmissionRequirement; status: RequirementStatus };
 
 export type DecisionOutcomeDraft = AdmissionDecision["outcome"] | "";
 
@@ -63,19 +60,9 @@ export const requirementStatuses: RequirementStatus[] = [
   "not_applicable",
 ];
 
-export const handoffDescriptions: Record<EhrHandoffStatus, string> = {
-  sent: "recorded complete",
-  queued: "pending",
-  failed: "issue recorded",
-  ready: "not started",
-  not_ready: "not started",
-};
-
 export function deriveWorkflowPanelView(workflow: WorkflowResponse) {
   const incompleteDecision = getBlockingRequirementsForGates(workflow.work_items, ["admission_decision"]);
   const incompleteMoveIn = getBlockingRequirementsForGates(workflow.work_items, ["move_in"]);
-  const incompleteEhr = getBlockingRequirementsForGates(workflow.work_items, ["ehr_export"]);
-  const handoffStatus = workflow.referral.ehrHandoff?.status ?? "not_ready";
   const decisionDisclosureIsOpen = shouldOpenDecisionDisclosure(workflow);
   const assessmentState = currentAssessmentState(workflow);
   return {
@@ -88,9 +75,6 @@ export function deriveWorkflowPanelView(workflow: WorkflowResponse) {
       && ["New", "Packet Needed"].includes(workflow.referral.stage),
     incompleteDecision,
     incompleteMoveIn,
-    incompleteEhr,
-    ehrIsBlocked: workflow.decision?.outcome !== "accepted" || Boolean(workflow.referral.placementCancellation),
-    handoffStatus,
     decisionDisclosureIsOpen,
     decisionDisclosureKey: disclosureState(decisionDisclosureIsOpen),
   };
@@ -149,7 +133,7 @@ export function requirementGroups(items: AdmissionRequirement[]): RequirementGro
   const definitions: Array<{ label: string; detail: string; gates: RequirementGate[] }> = [
     { label: "Decision readiness", detail: "Missing items stay visible while the decision proceeds.", gates: ["admission_decision"] },
     { label: "Move-in readiness", detail: "Missing move-in items can be completed after admission is recorded.", gates: ["move_in"] },
-    { label: "EHR readiness", detail: "Track remaining paperwork alongside the downstream handoff.", gates: ["ehr_export"] },
+    { label: "Additional paperwork", detail: "Track remaining documents without holding up placement.", gates: ["ehr_export"] },
     { label: "Intake and assessment", detail: "Earlier profile and assessment requirements remain available for review.", gates: ["profile_completion", "pre_assessment"] },
   ];
   return definitions.flatMap((definition) => {
@@ -193,14 +177,9 @@ export function admissionReadinessLabel(workflow: WorkflowResponse, blockerCount
   return workflow.referral.stage === "Accepted / Admitted" ? "Recorded" : "Ready to record";
 }
 
-function requirementNextAction(requirements: AdmissionRequirement[], suffix: string) {
-  const next = [...requirements].sort((left, right) => left.dueAt.localeCompare(right.dueAt))[0];
-  return `${next.label} can be completed ${suffix}.`;
-}
-
 // A forward transition only changes the referral's stage; the label must not imply a decision, signature, or send.
 export function transitionActionLabel(target: ReferralStage) {
-  return target === "Accepted / Admitted" ? "Confirm admission" : `Change stage to ${getStageLabel(target)}`;
+  return `Change stage to ${getStageLabel(target)}`;
 }
 
 export function transitionSuccessMessage(target: ReferralStage) {
@@ -209,7 +188,7 @@ export function transitionSuccessMessage(target: ReferralStage) {
 
 export function terminalStageMessage(referral: Referral) {
   return referral.stage === "Accepted / Admitted"
-    ? "Admission is recorded. Outside-system entry can be tracked separately."
+    ? "Admitted."
     : "This referral is closed as declined.";
 }
 
@@ -219,36 +198,6 @@ function shouldOpenDecisionDisclosure(workflow: WorkflowResponse) {
 
 function disclosureState(open: boolean) {
   return open ? "ready" : "pending";
-}
-
-export function decisionHandoffNextAction(
-  workflow: WorkflowResponse,
-  incompleteDecision: AdmissionRequirement[],
-  incompleteMoveIn: AdmissionRequirement[],
-  incompleteEhr: AdmissionRequirement[],
-  handoffStatus: EhrHandoffStatus,
-) {
-  if (!workflow.decision) return "Acceptance can be recorded now. Assessment answers, signing, and packet sending are separate steps.";
-  if (!workflow.context.assessmentSigned && workflow.decision.outcome === "accepted") return "Accepted. Continue the questionnaire and sign when ready. No packet has been sent by this decision.";
-  if (workflow.decision.outcome === "declined") return "The referral is closed by the supervisor's decline decision; no outside-system entry is needed.";
-  return acceptedHandoffNextAction(workflow, incompleteDecision, incompleteMoveIn, incompleteEhr, handoffStatus);
-}
-
-function acceptedHandoffNextAction(
-  workflow: WorkflowResponse,
-  incompleteDecision: AdmissionRequirement[],
-  incompleteMoveIn: AdmissionRequirement[],
-  incompleteEhr: AdmissionRequirement[],
-  handoffStatus: EhrHandoffStatus,
-) {
-  const admissionBlockers = [...incompleteDecision, ...incompleteMoveIn];
-  if (admissionBlockers.length > 0) return "Admissions will confirm arrival from the daily census or a coordinator after the client moves in. Complete remaining paperwork when available.";
-  if (workflow.referral.stage !== "Accepted / Admitted") return "Await arrival confirmation from the daily census or an admissions coordinator.";
-  if (incompleteEhr.length > 0) return requirementNextAction(incompleteEhr, "alongside outside-system entry");
-  if (handoffStatus === "queued") return "Complete the entry outside Pipeline, then record it as complete or note an issue.";
-  if (handoffStatus === "failed") return "Review the recorded issue and mark the outside-system entry pending again when ready.";
-  if (handoffStatus === "sent") return "Outside-system entry is recorded complete; roster availability and identity linking remain governed separately.";
-  return "Outside-system entry has not been recorded in Pipeline.";
 }
 
 export function decisionConfirmationMessage(outcome: AdmissionDecision["outcome"], updating: boolean) {
@@ -395,10 +344,6 @@ export function reviewStatusLabel(review: AssessmentReview | null) {
 
 export function formatOutcome(value: string) {
   return value.replaceAll("_", " ").replace(/^./, (character) => character.toUpperCase());
-}
-
-export function handoffDescription(status: EhrHandoffStatus) {
-  return handoffDescriptions[status];
 }
 
 export function referralFromConflictPayload(payload: unknown) {

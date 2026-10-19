@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import type { ClinicalCensusResponse } from "@/lib/clinical/clinical-contracts";
 import type { AdmissionsCensusReport } from "@/lib/pipeline/admissions-census-report";
+import styles from "./PipelineCensusBriefing.module.css";
 
 export default function PipelineCensusBriefing() {
   const [census, setCensus] = useState<ClinicalCensusResponse | null>(null);
@@ -29,155 +30,120 @@ export default function PipelineCensusBriefing() {
     return () => { active = false; };
   }, [retry]);
 
-  return <main aria-label="Reports" data-testid="operations-workspace" className="h-full overflow-y-auto bg-page px-4 py-5 text-ink-2 sm:px-7 sm:py-7">
-    <article data-monday-census-briefing="true" className="mx-auto max-w-[1300px] border-t-[5px] border-primary bg-paper px-5 shadow-card sm:px-9">
-      <header data-guide-target="operations-briefing-header" className="flex flex-wrap items-end justify-between gap-4 border-b-2 border-ink-2 py-7">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[0.15em] text-primary">Pipeline reports</p>
-          <h1 className="mt-2 text-[clamp(1.8rem,3vw,2.6rem)] font-semibold leading-tight tracking-[-0.05em]">Admissions &amp; census</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-ink-muted">The referral journey alongside today’s recorded community census.</p>
-        </div>
-        <button type="button" onClick={() => { setLoading(true); setRetry((value) => value + 1); }} disabled={loading} className="rounded-md border border-paper-rule px-4 py-2 text-sm font-semibold text-action hover:bg-primary-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-50">Refresh report</button>
+  return <main aria-label="Reports" data-testid="operations-workspace" className={styles.page}>
+    <article data-monday-census-briefing="true" className={styles.briefing}>
+      <header data-guide-target="operations-briefing-header" className={styles.masthead}>
+        <div><p className={styles.overline}>Pipeline reports · Weekly briefing</p><h1>Admissions &amp; census</h1><p className={styles.deck}>The recorded community census and the placements moving through Pipeline.</p></div>
+        <button type="button" onClick={() => { setLoading(true); setRetry((value) => value + 1); }} disabled={loading} className={styles.refresh}>Refresh report</button>
       </header>
 
-      {loading ? <p role="status" className="py-14 text-sm text-ink-muted">Loading admissions and census…</p> : null}
-      {!loading && !census && !admissions ? <p role="alert" className="py-14 text-sm text-ink-muted">Admissions and census information is unavailable right now. Try refreshing the report.</p> : null}
+      {loading ? <p role="status" className={styles.loading}>Loading admissions and census…</p> : null}
+      {!loading && !census && !admissions ? <p role="alert" className={styles.loading}>Admissions and census information is unavailable right now. Try refreshing the report.</p> : null}
       {!loading && (census || admissions) ? <>
-        {(censusError || admissionsError) ? <p role="status" className="mt-5 border-l-4 border-stage-orange bg-stage-orange-tile px-4 py-3 text-sm text-stage-orange">
-          <strong>Partial report.</strong> {censusError ? "Current census is unavailable. " : ""}{admissionsError ? "Pipeline admissions are unavailable. " : ""}Available figures remain visible below.
-        </p> : null}
-        {census?.freshness.warning ? <p role="status" className="mt-5 border-l-4 border-stage-orange bg-stage-orange-tile px-4 py-3 text-sm text-stage-orange"><strong>Census update delayed.</strong> {census.freshness.warning}</p> : null}
-
-        <section data-guide-target="operations-briefing-metrics" aria-label="Admissions and census metrics" className="grid border-b-2 border-ink-2 sm:grid-cols-2 xl:grid-cols-4">
-          <Metric label="Current census" value={formatNumber(census?.portfolio_census_total ?? null)} detail={census ? "Clinical snapshot · " + formatDate(census.data_as_of) : "Clinical feed unavailable"} />
-          <Metric label="Active referrals" value={formatNumber(admissions?.metrics.active_referrals ?? null)} detail="Current Pipeline board" />
-          <Metric label="Awaiting arrival" value={formatNumber(admissions?.metrics.awaiting_admission ?? null)} detail="Accepted, without recorded arrival" />
-          <Metric label="Admitted this month" value={formatNumber(admissions?.history.month_outcomes.admitted ?? null)} detail="Pipeline actual admit dates" />
-        </section>
-
+        {censusError || admissionsError ? <p role="status" className={styles.warning}><strong>Partial report.</strong> {censusError ? "Current census is unavailable. " : ""}{admissionsError ? "Pipeline admissions are unavailable. " : ""}Available records remain below.</p> : null}
+        {census?.freshness.warning ? <p role="status" className={styles.warning}><strong>Census update delayed.</strong> {census.freshness.warning}</p> : null}
+        <BriefingLead census={census} admissions={admissions} />
         {admissions ? <AdmissionsSections report={admissions} /> : null}
         {census ? <CensusCommunities census={census} /> : null}
       </> : null}
 
-      <footer data-guide-target="operations-briefing-source" className="mt-6 border-t border-paper-rule py-5 text-xs leading-5 text-ink-muted">
-        Admissions figures come from Pipeline referral records{admissions ? ", updated " + formatTimestamp(admissions.generated_at) : ""}. Current census comes from the Alamo Platform clinical snapshot{census ? " dated " + formatDate(census.data_as_of) : ""}. Pipeline does not receive a prior-period census or governed discharge series here, so this report does not infer census change from Pipeline admissions.
+      <footer data-guide-target="operations-briefing-source" className={styles.source}>
+        Pipeline referral records{admissions ? ` updated ${formatTimestamp(admissions.generated_at)}` : ""} · Alamo Platform clinical snapshot{census ? ` dated ${formatDate(census.data_as_of)}` : ""}. Admissions are recorded events; without a prior census and discharge history, they do not measure census change.
       </footer>
     </article>
   </main>;
 }
 
-function Metric({ label, value, detail }: { label: string; value: string; detail: string }) {
-  return <div className="min-h-32 border-b border-paper-rule px-2 py-5 sm:px-4 xl:border-b-0 xl:border-l xl:first:border-l-0">
-    <p className="text-xs font-bold uppercase tracking-[0.1em] text-ink-muted">{label}</p>
-    <p className="mt-3 text-[2rem] font-semibold leading-none tracking-[-0.04em] tabular-nums">{value}</p>
-    <p className="mt-3 text-xs leading-5 text-ink-muted">{detail}</p>
-  </div>;
+function BriefingLead({ census, admissions }: { census: ClinicalCensusResponse | null; admissions: AdmissionsCensusReport | null }) {
+  const waiting = admissions?.metrics.awaiting_admission;
+  const admitted = admissions?.history.month_outcomes.admitted;
+  const overdue = admissions?.upcoming_admissions.past_planned_date;
+  return <section data-guide-target="operations-briefing-metrics" aria-label="Census and placement overview" className={styles.lead}>
+    <div className={styles.censusFigure}>
+      <p className={styles.overline}>Current census</p>
+      <p className={styles.censusNumber} data-unavailable={!census || census.portfolio_census_total === null || undefined}>{formatNumber(census?.portfolio_census_total ?? null)}</p>
+      <p className={styles.caption}>Recorded community census{census ? ` · ${formatDate(census.data_as_of)}` : " · Clinical feed unavailable"}</p>
+    </div>
+    <div className={styles.leadNarrative}>
+      <h2>Where admissions stand</h2>
+      {admissions ? <>
+        <p><strong>{formatNumber(waiting ?? null)} accepted placements</strong> are still awaiting a recorded arrival. <strong>{formatNumber(admitted ?? null)}</strong> actual admissions were recorded this month in Pipeline.</p>
+        {overdue ? <p className={styles.attention}><strong>{overdue} planned {overdue === 1 ? "date has" : "dates have"} passed.</strong> Check whether the client arrived or the placement changed.</p> : <p className={styles.quiet}>No planned arrival dates have passed without an admission record.</p>}
+        {admissions.metrics.stale || admissions.metrics.unassigned ? <p className={styles.quiet}>{admissions.metrics.stale} stale referrals and {admissions.metrics.unassigned} unassigned referrals remain on the board.</p> : null}
+      </> : <p>Pipeline admission records are unavailable. The clinical census can still be reviewed below.</p>}
+    </div>
+  </section>;
 }
 
 function AdmissionsSections({ report }: { report: AdmissionsCensusReport }) {
+  const boardTotal = report.board_columns.reduce((sum, column) => sum + column.count, 0);
   const months = report.history.monthly;
   const maximum = Math.max(1, ...months.flatMap((row) => [row.received, row.accepted, row.declined, row.admitted]));
   return <>
-    <section aria-label="Admission flow" className="grid gap-7 border-b border-paper-rule py-8 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
-      <div>
-        <SectionHeading eyebrow="Current work" title="Where referrals stand" />
-        <div className="mt-5 grid grid-cols-3 gap-2 sm:gap-3">
-          {report.board_columns.map((column) => <div key={column.key} className="rounded-lg border border-paper-rule bg-page px-3 py-4 sm:px-4">
-            <p className="text-2xl font-semibold tabular-nums tracking-[-0.04em] sm:text-3xl">{column.count}</p>
-            <p className="mt-2 text-xs font-medium leading-4 text-ink-muted sm:text-sm">{column.label}</p>
-          </div>)}
-        </div>
-        <p className="mt-3 text-xs leading-5 text-ink-muted">Current board positions, not all historical referrals.</p>
+    <section aria-labelledby="current-work-heading" className={styles.section}>
+      <div className={styles.sectionHeading}><div><p className={styles.overline}>Current work</p><h2 id="current-work-heading">The referral board</h2></div><p>{report.metrics.active_referrals} active referrals</p></div>
+      <p className={styles.sectionIntro}>Each segment shows a current board position. These are files in progress, not historical outcomes.</p>
+      <div className={styles.boardTrack} role="img" aria-label={report.board_columns.map((column) => `${column.label}: ${column.count}`).join(", ")}>
+        {report.board_columns.map((column) => <span key={column.key} className={styles.boardSegment} data-stage={column.key} style={{ width: `${boardTotal ? column.count / boardTotal * 100 : 0}%` }} />)}
       </div>
-      <div className="rounded-lg border border-paper-rule bg-primary-soft px-5 py-5">
-        <p className="text-xs font-bold uppercase tracking-[0.13em] text-primary">What needs attention</p>
-        <p className="mt-4 text-sm leading-6"><strong>{report.metrics.stale}</strong> stale referrals · <strong>{report.metrics.unassigned}</strong> unassigned</p>
-        <p className="mt-2 text-sm leading-6"><strong>{report.upcoming_admissions.next_7_days}</strong> planned arrivals in the next 7 days · <strong>{report.upcoming_admissions.past_planned_date}</strong> past planned date</p>
-        <p className="mt-3 text-xs leading-5 text-ink-muted">Planned arrivals are not admitted until an actual admit date is recorded.</p>
-      </div>
+      <ul className={styles.boardLegend}>{report.board_columns.map((column) => <li key={column.key} data-stage={column.key}><span className={styles.legendDot} aria-hidden="true" /><strong>{column.count}</strong><span>{column.label}</span></li>)}</ul>
     </section>
 
-    <section aria-labelledby="admissions-history-heading" className="border-b border-paper-rule py-8">
-      <SectionHeading eyebrow="Six-month view" title="Admission activity" id="admissions-history-heading" />
-      <p className="mt-2 text-sm leading-6 text-ink-muted">Events in each month: referrals received, decisions accepted or declined, and actual admissions recorded in Pipeline. These are separate events, not a same-month conversion rate.</p>
-      {months.length ? <div className="mt-5 overflow-x-auto rounded-lg border border-paper-rule focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary" role="region" aria-label="Monthly admission activity" tabIndex={0}>
-        <div className="grid min-w-[600px]" style={{ gridTemplateColumns: "repeat(" + months.length + ", minmax(100px, 1fr))" }}>
-          {months.map((row) => <div key={row.month} className="border-r border-paper-rule px-3 py-4 last:border-r-0">
-            <p className="text-sm font-semibold">{formatMonth(row.month)}</p>
-            <div className="mt-4 space-y-2">
-              <HistoryBar label="Received" count={row.received} maximum={maximum} color="bg-primary" />
-              <HistoryBar label="Accepted" count={row.accepted} maximum={maximum} color="bg-stage-blue" />
-              <HistoryBar label="Declined" count={row.declined} maximum={maximum} color="bg-ink-muted" />
-              <HistoryBar label="Admitted" count={row.admitted} maximum={maximum} color="bg-stage-orange" />
+    <section aria-labelledby="admissions-history-heading" className={styles.section}>
+      <div className={styles.sectionHeading}><div><p className={styles.overline}>Six-month view</p><h2 id="admissions-history-heading">What happened each month</h2></div></div>
+      <p className={styles.sectionIntro}>Received, accepted, denied and admitted are dated events. An acceptance and admission may occur in different months.</p>
+      {months.length ? <div className={styles.chartRegion} role="region" aria-label="Monthly admission activity" tabIndex={0}>
+        <div className={styles.chartKey} aria-hidden="true"><span data-series="received">Received</span><span data-series="accepted">Accepted</span><span data-series="declined">Denied</span><span data-series="admitted">Admitted</span></div>
+        <div className={styles.monthChart} style={{ gridTemplateColumns: `repeat(${months.length}, minmax(94px, 1fr))` }}>
+          {months.map((row) => <div key={row.month} className={styles.monthGroup}>
+            <div className={styles.barGroup} aria-hidden="true">
+              {(["received", "accepted", "declined", "admitted"] as const).map((key) => <span key={key} data-series={key} className={styles.monthBar} style={{ height: `${Math.max(2, row[key] / maximum * 100)}%` }}><span>{row[key]}</span></span>)}
             </div>
+            <p>{formatMonth(row.month)}</p>
           </div>)}
         </div>
-        <p className="border-t border-paper-rule px-3 py-3 text-xs leading-5 text-ink-muted">History begins {formatMonth(report.history.coverage_start_month ?? months[0].month)}; earlier months are not shown as zero.</p>
-      </div> : <p className="mt-5 text-sm text-ink-muted">No dated admission history is available yet.</p>}
+        <table className="sr-only"><caption>Monthly admission activity</caption><thead><tr><th>Month</th><th>Received</th><th>Accepted</th><th>Denied</th><th>Admitted</th></tr></thead><tbody>{months.map((row) => <tr key={row.month}><th>{formatMonth(row.month)}</th><td>{row.received}</td><td>{row.accepted}</td><td>{row.declined}</td><td>{row.admitted}</td></tr>)}</tbody></table>
+        <p className={styles.chartFoot}>History begins {formatMonth(report.history.coverage_start_month ?? months[0].month)}. Earlier months are not shown as zero.</p>
+      </div> : <p className={styles.empty}>No dated admission history is available yet.</p>}
     </section>
 
-    <section aria-label="Coming up" className="grid gap-8 border-b border-paper-rule py-8 lg:grid-cols-2">
-      <ScheduleList title="Assessments this week" items={report.briefing.upcoming_assessments.map((item) => ({
-        key: "assessment-" + item.pipeline_path, name: item.client_name, date: formatTimestamp(item.scheduled_at),
-        detail: item.community + " · " + item.owner, path: item.pipeline_path,
-      }))} complete={report.briefing.coverage.assessments_complete} />
-      <ScheduleList title="Planned move-ins this week" items={report.briefing.planned_move_ins.map((item) => ({
-        key: "arrival-" + item.pipeline_path, name: item.client_name, date: formatDate(item.planned_at),
-        detail: item.community + " · " + (item.readiness === "blocked" ? "Requirements open" : item.readiness === "watch" ? "Review requirements" : "Ready"), path: item.pipeline_path,
-      }))} complete={report.briefing.coverage.move_ins_complete} />
+    <section aria-labelledby="coming-up-heading" className={styles.section}>
+      <div className={styles.sectionHeading}><div><p className={styles.overline}>Next seven days</p><h2 id="coming-up-heading">Coming up</h2></div></div>
+      <div className={styles.scheduleGrid}>
+        <ScheduleList title="Assessments this week" items={report.briefing.upcoming_assessments.map((item) => ({ key: `assessment-${item.pipeline_path}`, name: item.client_name, date: formatTimestamp(item.scheduled_at), detail: `${item.community} · ${item.owner}`, path: item.pipeline_path }))} complete={report.briefing.coverage.assessments_complete} />
+        <ScheduleList title="Planned move-ins this week" items={report.briefing.planned_move_ins.map((item) => ({ key: `arrival-${item.pipeline_path}`, name: item.client_name, date: formatDate(item.planned_at), detail: `${item.community} · ${item.readiness === "blocked" ? "Requirements open" : item.readiness === "watch" ? "Review requirements" : "Ready"}`, path: item.pipeline_path }))} complete={report.briefing.coverage.move_ins_complete} />
+      </div>
     </section>
   </>;
 }
 
-function SectionHeading({ eyebrow, title, id }: { eyebrow: string; title: string; id?: string }) {
-  return <div><p className="text-xs font-bold uppercase tracking-[0.13em] text-primary">{eyebrow}</p><h2 id={id} className="mt-1 text-xl font-semibold tracking-[-0.035em]">{title}</h2></div>;
-}
-
-function HistoryBar({ label, count, maximum, color }: { label: string; count: number; maximum: number; color: string }) {
-  return <div><div className="flex justify-between gap-1 text-[11px] text-ink-muted"><span>{label}</span><strong className="tabular-nums text-ink-2">{count}</strong></div><div aria-hidden="true" className="mt-1 h-1.5 rounded-full bg-page"><div className={"h-full rounded-full " + color} style={{ width: String(count / maximum * 100) + "%" }} /></div></div>;
-}
-
 type ScheduleItem = { key: string; name: string; date: string; detail: string; path: string };
 function ScheduleList({ title, items, complete }: { title: string; items: ScheduleItem[]; complete: boolean }) {
-  return <section aria-label={title}>
-    <div className="flex items-baseline justify-between gap-3 border-b border-paper-rule pb-3"><h2 className="text-lg font-semibold tracking-[-0.03em]">{title}</h2><span className="text-sm font-semibold tabular-nums text-primary">{items.length}{complete ? "" : "+"}</span></div>
-    {items.length ? <ul className="divide-y divide-paper-rule">{items.slice(0, 5).map((item) => <li key={item.key} className="py-3">
-      <a href={item.path} className="flex items-start justify-between gap-3 rounded-sm text-sm font-semibold text-action hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"><span>{item.name}</span><span className="shrink-0 text-right text-xs font-medium text-ink-muted">{item.date}</span></a>
-      <p className="mt-1 text-xs text-ink-muted">{item.detail}</p>
-    </li>)}</ul> : <p className="py-5 text-sm text-ink-muted">No {title.toLowerCase()} are recorded.</p>}
-    {items.length > 5 ? <p className="text-xs text-ink-muted">And {items.length - 5} more in this week’s schedule.</p> : null}
-    {!complete ? <p className="mt-2 text-xs text-stage-orange">Schedule list is capped; the displayed count is a minimum.</p> : null}
+  return <section aria-label={title} className={styles.schedule}>
+    <h3>{title}</h3>
+    {items.length ? <ul>{items.slice(0, 5).map((item) => <li key={item.key}><a href={item.path}>{item.name}<span>{item.date}</span></a><p>{item.detail}</p></li>)}</ul> : <p className={styles.empty}>No {title.toLowerCase()} are recorded.</p>}
+    {items.length > 5 ? <p className={styles.caption}>And {items.length - 5} more in this week&apos;s schedule.</p> : null}
+    {!complete ? <p className={styles.caption}>Schedule list is capped; more may be planned.</p> : null}
   </section>;
 }
 
 function CensusCommunities({ census }: { census: ClinicalCensusResponse }) {
-  const communities = census.communities;
-  const verified = communities.filter((row) => row.reconciliation_status === "matched").length;
+  const communities = [...census.communities].sort((a, b) => (b.current_census ?? -1) - (a.current_census ?? -1));
+  const maximum = Math.max(1, ...communities.map((row) => row.current_census ?? 0));
   const needsReview = communities.filter((row) => row.reconciliation_status === "mismatch").length;
-  return <section data-guide-target="operations-briefing-communities" className="py-8" aria-labelledby="briefing-communities-heading">
-    <div className="flex flex-wrap items-end justify-between gap-3 border-b border-ink-2 pb-3">
-      <SectionHeading eyebrow="Clinical snapshot" title="Census by community" id="briefing-communities-heading" />
-      <p className="text-xs text-ink-muted">{verified} reconciled · {needsReview} need review</p>
-    </div>
-    {communities.length ? <div className="grid gap-2 pt-4 sm:grid-cols-2 xl:grid-cols-3">{communities.map((row) => <div key={row.community_id} className="flex items-start justify-between gap-3 rounded-lg border border-paper-rule px-4 py-4">
-      <div><p className="font-semibold">{row.community_name}</p><p className={"mt-1 text-xs " + (row.reconciliation_status === "mismatch" ? "text-stage-orange" : "text-ink-muted")}>{reconciliationLabel(row.reconciliation_status)}</p></div>
-      <p className="text-2xl font-semibold tabular-nums tracking-[-0.04em]">{formatNumber(row.current_census)}</p>
-    </div>)}</div> : <p className="py-6 text-sm text-ink-muted">No community census values are available in this snapshot.</p>}
-    <p className="mt-4 text-xs leading-5 text-ink-muted">Missing community values are unavailable, not zero. A reconciliation warning means the community count and roster differ.</p>
+  return <section data-guide-target="operations-briefing-communities" className={styles.section} aria-labelledby="briefing-communities-heading">
+    <div className={styles.sectionHeading}><div><p className={styles.overline}>Clinical snapshot</p><h2 id="briefing-communities-heading">Census by community</h2></div><p>{needsReview ? `${needsReview} need review` : "Counts reconciled"}</p></div>
+    {communities.length ? <ul className={styles.communityList}>{communities.map((row) => <li key={row.community_id}>
+      <div className={styles.communityLabel}><strong>{row.community_name}</strong><span className={row.reconciliation_status === "mismatch" ? styles.needsReview : undefined}>{reconciliationLabel(row.reconciliation_status)}</span></div>
+      <div className={styles.communityBar} aria-hidden="true"><span style={{ width: `${row.current_census === null ? 0 : row.current_census / maximum * 100}%` }} /></div>
+      <strong className={styles.communityCount}>{formatNumber(row.current_census)}</strong>
+    </li>)}</ul> : <p className={styles.empty}>No community census values are available in this snapshot.</p>}
+    <p className={styles.caption}>An unavailable value is not zero. “Needs review” means the community count and roster differ.</p>
   </section>;
 }
 
-function reconciliationLabel(status: ClinicalCensusResponse["reconciliation_status"]) {
-  return status === "matched" ? "Reconciled" : status === "mismatch" ? "Needs review" : "Not compared";
-}
-
+function reconciliationLabel(status: ClinicalCensusResponse["reconciliation_status"]) { return status === "matched" ? "Reconciled" : status === "mismatch" ? "Needs review" : "Not compared"; }
 function formatNumber(value: number | null) { return value === null ? "Unavailable" : value.toLocaleString("en-US"); }
-function formatDate(value: string) {
-  const date = new Date(value.slice(0, 10) + "T00:00:00Z");
-  return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(date);
-}
+function formatDate(value: string) { const date = new Date(value.slice(0, 10) + "T00:00:00Z"); return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(date); }
 function formatMonth(value: string) { return new Intl.DateTimeFormat("en-US", { month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(value + "-01T00:00:00Z")); }
-function formatTimestamp(value: string) {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(date);
-}
+function formatTimestamp(value: string) { const date = new Date(value); return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(date); }

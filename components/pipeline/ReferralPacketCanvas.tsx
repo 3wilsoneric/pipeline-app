@@ -241,7 +241,7 @@ const savedWorkspaceSteps: ReadonlyArray<WorkspaceStep> = [
   { page: 3, label: "Chart" },
   { page: 2, label: "Assessment" },
   { page: "workflow", label: "Decision" },
-  { page: "email", label: "Finish & send" },
+  { page: "email", label: "Placement" },
 ];
 
 const importedWorkspaceSteps: ReadonlyArray<{ page: WorkspaceStage; label: string }> = [
@@ -499,6 +499,7 @@ export default function ReferralPacketCanvas({
   const emailSendingRef = useRef(false);
   const assessmentNavigationRef = useRef<((destination?: "email") => Promise<void>) | null>(null);
   const decisionExitRef = useRef<(() => Promise<void>) | null>(null);
+  const placementExitRef = useRef<(() => Promise<void>) | null>(null);
   const preserveIntakeBeforeNavigationRef = useRef<() => Promise<void>>(async () => undefined);
   const [savedAt, setSavedAt] = useState(referral?.id ? "Loading referral..." : "Draft");
   const [loadedReferral, setLoadedReferral] = useState<Referral | null>(null);
@@ -517,6 +518,7 @@ export default function ReferralPacketCanvas({
       await leaveHandoff();
       await assessmentNavigationRef.current?.();
       await decisionExitRef.current?.();
+      await placementExitRef.current?.();
     };
     beforeNavigationRef.current = waitForDelivery;
     return () => {
@@ -1686,7 +1688,7 @@ export default function ReferralPacketCanvas({
 
   const openPage = (page: WorkspaceView, editField?: ReferralChartEditField, assessmentMode?: "review" | null) => {
     entryResolvedRef.current = true;
-    // Kept-mounted steps keep Finish & send mounted, so a send in progress never blocks moving around.
+    // Kept-mounted steps keep Placement mounted, so a send in progress never blocks moving around.
     if (emailSendingRef.current && !recordStack) return;
     if (page !== 2) setPreparingReferralId(null);
     setActivePage(page);
@@ -2176,6 +2178,8 @@ export default function ReferralPacketCanvas({
     if (!onOpenAssignedWork || emailSendingRef.current) return;
     await handoff.leave();
     await assessmentNavigationRef.current?.();
+    await decisionExitRef.current?.();
+    await placementExitRef.current?.();
     await preserveIntakeBeforeNavigationRef.current();
     onOpenAssignedWork();
   };
@@ -2531,7 +2535,7 @@ export default function ReferralPacketCanvas({
   const readingAssessment = (displayedPage === 2 || displayedPage === 3) && !historicalReadOnly;
   const readingDecision = displayedPage === "workflow" && Boolean(loadedReferral);
   // Kept-mounted steps (docs/design/DECISIONS.md, "Kept-mounted steps"): on wide screens with the
-  // redesign, Chart, Assessment, Decision, and Finish & send load once and stay mounted; one shows at a
+  // redesign, Chart, Assessment, Decision, and Placement load once and stay mounted; one shows at a
   // time, as before. Switching shows another without unmounting, so no step has to finish saving first.
   const recordStack = verticalFlow && Boolean(loadedReferral) && !historicalReadOnly && !workspacePresentation.usesSourceProfile && !trainingAssessmentMode && !trainingIntakeMode;
   const stackVisible = recordStack && recordStepPages.has(displayedPage);
@@ -2842,7 +2846,7 @@ export default function ReferralPacketCanvas({
           <button type="button" onClick={() => { setShowCreationHandoff(false); onWorkspaceLocationChange?.({ view: "chart" }); }} className="min-h-11 rounded px-3 text-sm font-semibold text-[#365b4d] hover:bg-[#eaf2ed] focus-visible:outline-2" aria-label="Dismiss workspace next steps">Dismiss</button>
         </div>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <button type="button" disabled={permissionReadOnly} onClick={() => void continueCreatedWorkspace(true)} className="flex min-h-20 items-center gap-3 rounded-lg bg-[#08765e] p-4 text-left text-white hover:bg-[#065c49] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#08765e] disabled:opacity-50"><CalendarClock size={22} aria-hidden="true" /><span><strong className="block text-base">Schedule assessment</strong><small className="block text-sm">Choose a date, time and meeting details.</small></span></button>
+          <button type="button" disabled={permissionReadOnly} onClick={() => void continueCreatedWorkspace(true)} className="flex min-h-20 items-center gap-3 rounded-lg bg-[#08765e] p-4 text-left text-white hover:bg-[#065c49] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary)] disabled:opacity-50"><CalendarClock size={22} aria-hidden="true" /><span><strong className="block text-base">Schedule assessment</strong><small className="block text-sm">Choose a date, time and meeting details.</small></span></button>
           <button type="button" disabled={permissionReadOnly} onClick={() => void continueCreatedWorkspace(false)} className="flex min-h-20 items-center gap-3 rounded-lg border border-[#c6d6ce] bg-white p-4 text-left text-[#234a3c] hover:bg-[#eaf2ed] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#08765e] disabled:opacity-50"><FolderOpen size={22} aria-hidden="true" /><span><strong className="block text-base">Assessment prep</strong><small className="block text-sm">Fill in what is known before the interview.</small></span></button>
         </div>
         {saveError ? <p role="alert" className="mt-3 text-sm leading-6 text-[#59645e]">{saveError}</p> : null}
@@ -2851,10 +2855,7 @@ export default function ReferralPacketCanvas({
 
 
   // Step pages, shared by the one-page record and the page-by-page layout.
-  const renderEmailStep = () => (
-            <PacketPage id="packet-email" title="Finish & send" flush>
-              <WorkspaceChartFolder>
-              <AssessmentChartWorkspace key={referralWorkspaceId} referralId={referralWorkspaceId} emailPage
+  const renderMeetClient = () => <AssessmentChartWorkspace key={referralWorkspaceId} referralId={referralWorkspaceId} emailPage embedded
                 active={displayedPage === "email"} sourceVersion={designV2 ? loadedReferral?.version : undefined}
                 onReferralChange={applyConfirmedWorkflowReferral}
                 onSendingChange={(sending) => { emailSendingRef.current = sending; setEmailSending(sending); }}
@@ -2865,7 +2866,19 @@ export default function ReferralPacketCanvas({
                 finishActions={onOpenAssignedWork ? <button type="button" disabled={emailSending || emailFinishing} onClick={() => {
                   setEmailFinishing(true);
                   void openAssignedWork().catch((error) => setSaveError(error instanceof Error ? error.message : "The workspace could not be saved.")).finally(() => setEmailFinishing(false));
-                }} className="min-h-12 rounded-md bg-[#087d66] px-6 text-[16px] font-semibold text-white hover:bg-[#06634f] focus-visible:outline-2 disabled:opacity-50">{emailFinishing ? "Saving..." : "Close workspace"}</button> : null} />
+                }} className="min-h-12 rounded-md bg-primary px-6 text-[16px] font-semibold text-paper hover:bg-primary-hover focus-visible:outline-2 disabled:opacity-50">{emailFinishing ? "Saving..." : "Close workspace"}</button> : null} />;
+  const renderEmailStep = () => (
+            <PacketPage id="packet-email" title="Placement" flush>
+              <WorkspaceChartFolder>
+              {loadedReferral ? <ReferralWorkflowPanel key={`placement-${referralWorkspaceId}`} referral={loadedReferral} placementOnly workspaceActive={displayedPage === "email"}
+                beforeWorkspaceExitRef={placementExitRef}
+                onReferralChange={applyConfirmedWorkflowReferral}
+                onOpenIntake={() => void navigatePage(1)}
+                onOpenAssessment={() => void navigatePage(2)}
+                onOpenFiles={() => void navigatePage("files")}
+                onOpenDecision={() => void navigatePage("workflow")}
+                onOpenEmail={() => void navigatePage("email")}
+                onOpenProfile={openClientProfile}>{renderMeetClient()}</ReferralWorkflowPanel> : renderMeetClient()}
               </WorkspaceChartFolder>
             </PacketPage>
   );

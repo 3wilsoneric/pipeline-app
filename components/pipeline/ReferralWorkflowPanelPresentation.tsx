@@ -1,4 +1,4 @@
-import ReferralAdmissionPanel, { ReferralPlacementUpdates } from "./ReferralAdmissionPanel";
+import ReferralAdmissionPanel from "./ReferralAdmissionPanel";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ArrowRight, Check, CheckCircle2, Circle, Clock3, LoaderCircle, Minus, PanelRightOpen, X } from "lucide-react";
 
@@ -9,7 +9,6 @@ import {
   deriveWorkflowPanelView,
   formatRecordedAt,
   formatRequirementStatus,
-  handoffDescription,
   hasLegacyDecisionSubmission,
   recommendationPresentation,
   requirementDetailPresentation,
@@ -22,7 +21,7 @@ import {
   type WorkflowResponse,
 } from "@/components/pipeline/referral-workflow-panel-model";
 import { getStageLabel, referralStageDefinitions, type ReferralStage } from "@/lib/pipeline/referral-workflow";
-import type { AdmissionRequirement, AssessmentRecommendation, EhrHandoffStatus, RequirementStatus } from "@/lib/pipeline/referral-types";
+import type { AdmissionRequirement, AssessmentRecommendation, RequirementStatus } from "@/lib/pipeline/referral-types";
 import { isRequirementComplete } from "@/lib/pipeline/workflow-records";
 import styles from "./ReferralDecision.module.css";
 
@@ -30,24 +29,6 @@ type RecommendationDraft = {
   outcome: AssessmentRecommendation["outcome"] | "";
   reasonCode: string;
   reasonNote: string;
-};
-
-type HandoffActionProps = {
-  workflow: WorkflowResponse;
-  currentReferral: WorkflowResponse["referral"];
-  busy: string;
-  ehrIsBlocked: boolean;
-  onUpdateHandoff: (action: "queue" | "retry") => void;
-  onRecordHandoffSent: () => void;
-  onOpenHandoffFailure: () => void;
-};
-
-const handoffContentByStatus: Record<EhrHandoffStatus, (props: HandoffActionProps) => ReactNode> = {
-  failed: ({ workflow, busy, ehrIsBlocked, onUpdateHandoff }) => <SecondaryButton disabled={Boolean(busy) || !workflow.capabilities.can_update || ehrIsBlocked} onClick={() => onUpdateHandoff("retry")}>Mark pending again</SecondaryButton>,
-  queued: ({ workflow, busy, ehrIsBlocked, onRecordHandoffSent, onOpenHandoffFailure }) => <><SecondaryButton disabled={Boolean(busy) || !workflow.capabilities.can_update || ehrIsBlocked} onClick={onRecordHandoffSent}>Mark complete</SecondaryButton><SecondaryButton disabled={Boolean(busy)} onClick={onOpenHandoffFailure}>Record issue</SecondaryButton></>,
-  sent: () => <div className="space-y-2"><div className="flex items-center gap-2 text-[14px] font-bold text-[#0f6f5e]"><CheckCircle2 size={15} /> Outside-system entry recorded complete.</div><p className="text-[12px] leading-5 text-[#68716c]">The admitted-client profile appears only after the governed Alamo roster contains the person and an explicit identity link is confirmed.</p></div>,
-  ready: (props) => <QueueHandoffButton {...props} />,
-  not_ready: (props) => <QueueHandoffButton {...props} />,
 };
 
 type ReferralWorkflowPanelPresentationProps = {
@@ -68,19 +49,20 @@ type ReferralWorkflowPanelPresentationProps = {
   onUpdateRequirement: (item: AdmissionRequirement, status: RequirementStatus) => void;
   onSubmitDecision: () => void;
   onOpenUnderReviewEmail?: () => void;
-  onSubmitTransition: (target: ReferralStage, actualAdmissionDate?: string) => void;
+  onSubmitTransition: (target: ReferralStage) => void;
   onSavePlacementCancellation: (reason: string) => Promise<boolean>;
   onAuthorizeManualIntake: () => void;
-  onUpdateHandoff: (action: "queue" | "retry") => void;
-  onRecordHandoffSent: () => void;
-  onOpenHandoffFailure: () => void;
   onConfirmDetail: (detail: string) => void;
   onCloseDetail: () => void;
   onOpenIntake: () => void;
   onOpenAssessment: () => void;
+  onOpenDecision?: () => void;
+  onOpenPlacement?: () => void;
   onOpenFiles: () => void;
   onOpenProfile: (canonicalClientId: string) => void;
   onDone?: () => void;
+  placementOnly?: boolean;
+  placementContent?: ReactNode;
 };
 
 export function ReferralWorkflowPanelPresentation({
@@ -101,16 +83,17 @@ export function ReferralWorkflowPanelPresentation({
   onSubmitTransition,
   onSavePlacementCancellation,
   onAuthorizeManualIntake,
-  onUpdateHandoff,
-  onRecordHandoffSent,
-  onOpenHandoffFailure,
   onConfirmDetail,
   onCloseDetail,
   onOpenIntake,
   onOpenAssessment,
+  onOpenDecision,
+  onOpenPlacement,
   onOpenFiles,
   onOpenProfile,
   onDone,
+  placementOnly = false,
+  placementContent,
 }: ReferralWorkflowPanelPresentationProps) {
   const view = deriveWorkflowPanelView(workflow);
   const resultRef = useRef<HTMLDivElement>(null);
@@ -131,17 +114,41 @@ export function ReferralWorkflowPanelPresentation({
     }
   }, [decisionId, message]);
 
+  if (placementOnly) return <section aria-label="Placement follow-through" className={styles.page}>
+    {message ? <WorkflowNotice tone="success">{message}</WorkflowNotice> : null}
+    {error ? <WorkflowNotice tone="error">{error}</WorkflowNotice> : null}
+    {workflow.decision?.outcome !== "accepted" ? <><div className={styles.placementIntro}><h3>Placement follows an accepted decision</h3><p>{workflow.decision ? "This referral was denied. Its decision remains in the record." : "Record the decision first. The assessment remains available to finish or review."}</p>{onOpenDecision ? <PrimaryButton onClick={onOpenDecision}>Open decision <ArrowRight size={17} aria-hidden="true" /></PrimaryButton> : null}</div>{placementContent ? <div className={styles.placementHandoff}>{placementContent}</div> : null}</> : <>
+      <div className={styles.placementIntro}><div className={styles.placementHeading}><div><h3>Meet the Client</h3><p role="status">{workflow.referral.placementCancellation ? "Placement cancelled" : view.currentReferral.stage === "Accepted / Admitted" ? "Admitted" : workflow.context.packetSentAt ? "Sent · Awaiting verified admission" : "Accepted · Not sent"}</p></div><button ref={followUpTriggerRef} type="button" aria-haspopup="dialog" aria-expanded={followUpOpen} className={styles.followUpTrigger} onClick={openFollowUp}><PanelRightOpen size={18} aria-hidden="true" />More actions</button></div></div>
+      <div className={styles.placementMain}>
+        {workflow.context.packetSentAt && view.currentReferral.stage !== "Accepted / Admitted" ? <div className={styles.placementPlan}>
+          <h4>Planned arrival</h4>
+          <ReferralAdmissionPanel key={workflow.referral.id} referral={workflow.referral} packetSentAt={workflow.context.packetSentAt} admissionDate={admissionDate} disabled={!workflow.capabilities.can_update || Boolean(busy)} onAdmissionDateChange={onAdmissionDateChange} onSaveAdmissionDate={onSaveAdmissionDate} showReviewButton={false} showCancellation={false} />
+        </div> : null}
+        {placementContent ? <div className={styles.placementHandoff}>{placementContent}</div> : null}
+      </div>
+      {view.currentReferral.stage === "Accepted / Admitted" ? <section className={styles.paperwork} aria-label="Client profile"><ReferralClientActivationPanel referralId={view.currentReferral.id} canReconcile={workflow.capabilities.can_reconcile_identity} canReview={workflow.capabilities.can_review_identity} onOpenProfile={onOpenProfile} /></section> : null}
+      <dialog ref={followUpRef} aria-labelledby="placement-actions-title" className={styles.followUpDrawer} onClose={() => { setFollowUpOpen(false); followUpTriggerRef.current?.focus(); }} onClick={(event) => { if (event.target === event.currentTarget) event.currentTarget.close(); }}>
+        <div className={styles.followUpHead}><h2 id="placement-actions-title">Placement actions</h2><button type="button" aria-label="Close placement actions" onClick={closeFollowUp}><X size={18} aria-hidden="true" /></button></div>
+        <div className={styles.followUpBody}>
+          {view.currentReferral.stage !== "Accepted / Admitted" && workflow.capabilities.can_cancel_placement ? <div className={styles.drawerSection}><h3>Placement change</h3><ReferralAdmissionPanel key={workflow.referral.id} referral={workflow.referral} packetSentAt={workflow.context.packetSentAt} admissionDate={admissionDate} disabled={!workflow.capabilities.can_update || Boolean(busy)} onAdmissionDateChange={onAdmissionDateChange} onSaveAdmissionDate={onSaveAdmissionDate} onSavePlacementCancellation={onSavePlacementCancellation} showReviewButton={false} showDateEditor={false} /></div> : null}
+          <section className={styles.drawerSection} data-admin-controls><h3>Administrative controls</h3><p className={styles.adminNote}>Changing the stage does not send Meet the Client or confirm admission.</p><label className="mb-4 flex flex-wrap items-center gap-3 text-[14px] font-medium text-[#59645e]">Referral stage<select aria-label="Workflow stage" value={workflow.referral.stage} disabled={Boolean(busy) || !workflow.capabilities.can_update || Boolean(workflow.referral.placementCancellation)} onChange={(event) => onSubmitTransition(event.target.value as ReferralStage)} className="h-11 border border-[#c9ceca] bg-white px-3 text-[#303b34]">{referralStageDefinitions.filter((item) => !item.terminal || item.stage === workflow.referral.stage).map((item) => <option key={item.stage} value={item.stage}>{item.label}</option>)}</select></label></section>
+        </div>
+      </dialog>
+    </>}
+    {pendingDetail ? <WorkflowDetailDialog pending={pendingDetail} onConfirm={onConfirmDetail} onClose={onCloseDetail} /> : null}
+  </section>;
+
   return (
     <section data-guide-target="workspace-decision" aria-label="Admission decision" className={styles.page}>
       {!workflow.decision ? <DecisionPageHeading workflow={workflow} /> : null}
-      <div className={styles.followUpBar}><button ref={followUpTriggerRef} type="button" aria-haspopup="dialog" aria-expanded={followUpOpen} className={styles.followUpTrigger} onClick={openFollowUp}><PanelRightOpen size={18} aria-hidden="true" />{workflow.decision?.outcome === "accepted" ? "Follow-up tools" : "Other actions"}</button></div>
+      {workflow.decision?.outcome !== "accepted" ? <div className={styles.followUpBar}><button ref={followUpTriggerRef} type="button" aria-haspopup="dialog" aria-expanded={followUpOpen} className={styles.followUpTrigger} onClick={openFollowUp}><PanelRightOpen size={18} aria-hidden="true" />Other actions</button></div> : null}
       {!followUpOpen && message ? <div className={message === "Decision recorded" ? "sr-only" : undefined}><WorkflowNotice tone="success">{message}</WorkflowNotice></div> : null}
       {!followUpOpen && error ? <WorkflowNotice tone="error">{error}</WorkflowNotice> : null}
 
       <div className={styles.layout} data-recorded={Boolean(workflow.decision) || undefined}>
         <div className={styles.main} ref={resultRef} {...recordedDecisionAttributes(workflow)}>
           <DecisionCard workflow={workflow} busy={busy} recommendation={recommendation} onRecommendationChange={onRecommendationChange} onSubmitDecision={onSubmitDecision} onOpenUnderReviewEmail={onOpenUnderReviewEmail} onOpenAssessment={onOpenAssessment} />
-          {workflow.decision?.outcome === "accepted" ? <AdmissionHandoff workflow={workflow} busy={busy} admissionDate={admissionDate} onAdmissionDateChange={onAdmissionDateChange} onSaveAdmissionDate={onSaveAdmissionDate} onSavePlacementCancellation={onSavePlacementCancellation} /> : null}
+          {workflow.decision?.outcome === "accepted" && onOpenPlacement ? <div className={styles.decisionNext}><p>The decision is recorded. Continue in Placement to plan the arrival and prepare Meet the Client.</p><PrimaryButton disabled={Boolean(busy)} onClick={onOpenPlacement}>Continue to Placement <ArrowRight size={17} aria-hidden="true" /></PrimaryButton></div> : null}
           {showDecisionDone(workflow) && onDone ? (
             <div className={styles.done}>
               <p>{workflow.referral.placementCancellation ? "Placement cancelled. The earlier decision and handoff remain in the record." : workflow.decision ? "No client handoff is needed." : "The referral stays open. Return when you have more information."}</p>
@@ -151,15 +158,12 @@ export function ReferralWorkflowPanelPresentation({
         </div>
         {!workflow.decision ? <DecisionContext workflow={workflow} busy={busy} onOpenAssessment={onOpenAssessment} /> : null}
       </div>
-      {workflow.decision?.outcome === "accepted" && view.currentReferral.stage === "Accepted / Admitted" ? <section className={styles.paperwork} aria-label="Client profile"><ReferralClientActivationPanel referralId={view.currentReferral.id} canReconcile={workflow.capabilities.can_reconcile_identity} canReview={workflow.capabilities.can_review_identity} onOpenProfile={onOpenProfile} /></section> : null}
 
       <dialog ref={followUpRef} aria-labelledby="decision-follow-up-title" className={styles.followUpDrawer} onClose={() => { setFollowUpOpen(false); followUpTriggerRef.current?.focus(); }} onClick={(event) => { if (event.target === event.currentTarget) event.currentTarget.close(); }}>
         <div className={styles.followUpHead}><h2 id="decision-follow-up-title">{workflow.decision?.outcome === "accepted" ? "Follow-up tools" : "Other actions"}</h2><button type="button" aria-label="Close follow-up tools" onClick={closeFollowUp}><X size={18} aria-hidden="true" /></button></div>
         <div className={styles.followUpBody}>
           {followUpOpen && message ? <WorkflowNotice tone="success">{message}</WorkflowNotice> : null}
           {followUpOpen && error ? <WorkflowNotice tone="error">{error}</WorkflowNotice> : null}
-          {workflow.decision?.outcome === "accepted" ? <ReferralPlacementUpdates key={workflow.referral.id} referral={workflow.referral} disabled={!workflow.capabilities.can_update || Boolean(busy)} onMarkAdmitted={workflow.capabilities.can_confirm_admission ? (actualDate) => { closeFollowUp(); onSubmitTransition("Accepted / Admitted", actualDate); } : undefined} /> : null}
-          {workflow.decision?.outcome === "accepted" ? <EhrHandoffCard workflow={workflow} view={view} busy={busy} onUpdateHandoff={onUpdateHandoff} onRecordHandoffSent={() => { closeFollowUp(); onRecordHandoffSent(); }} onOpenHandoffFailure={() => { closeFollowUp(); onOpenHandoffFailure(); }} /> : null}
           <details className={styles.details} data-admin-controls>
           <summary>Administrative controls</summary>
           <p className={styles.adminNote}>For authorized staff. These change the referral&apos;s stage or grant a manual intake exception. They do not record the decision, sign the assessment, or send anything.</p>
@@ -192,15 +196,6 @@ function DecisionContext({ workflow, busy, onOpenAssessment }: Pick<ReferralWork
     </div>
     {declined ? <div className={styles.consequence}><h4>Referral closed</h4><p>The decision is in the activity history. No client handoff is needed.</p></div> : null}
   </aside>;
-}
-
-function AdmissionHandoff({ workflow, busy, admissionDate, onAdmissionDateChange, onSaveAdmissionDate, onSavePlacementCancellation }: Pick<ReferralWorkflowPanelPresentationProps, "workflow" | "busy" | "admissionDate" | "onAdmissionDateChange" | "onSaveAdmissionDate" | "onSavePlacementCancellation">) {
-  const cancelled = Boolean(workflow.referral.placementCancellation);
-  return <section className={styles.handoff} aria-label="Prepare client handoff">
-    <h4>{cancelled ? "Placement cancelled" : workflow.context.packetSentAt ? "Client handoff sent" : "Prepare the client handoff"}</h4>
-    <p>{cancelled ? workflow.context.packetSentAt ? "The handoff was sent before placement was cancelled. You can review the earlier email and packet." : "The accepted decision remains recorded. You can review the email and packet, but this placement cannot be sent." : workflow.context.packetSentAt ? "The handoff is recorded. You can return to the email and packet to review what was sent." : workflow.context.assessmentSigned ? "Review the recipients, client summary and chart files before sending." : "You can preview the packet now. Sign the assessment before sending."}</p>
-    <ReferralAdmissionPanel key={workflow.referral.id} referral={workflow.referral} packetSentAt={workflow.context.packetSentAt} admissionDate={admissionDate} disabled={!workflow.capabilities.can_update || Boolean(busy)} onAdmissionDateChange={onAdmissionDateChange} onSaveAdmissionDate={onSaveAdmissionDate} onSavePlacementCancellation={workflow.capabilities.can_cancel_placement ? onSavePlacementCancellation : undefined} />
-  </section>;
 }
 
 function CurrentGateCard({
@@ -327,22 +322,6 @@ export function AdmissionRequirementsPanel({ workflow, busy, message, error, pen
   );
 }
 
-function EhrHandoffCard({ workflow, view, busy, onUpdateHandoff, onRecordHandoffSent, onOpenHandoffFailure }: Pick<ReferralWorkflowPanelPresentationProps, "workflow" | "busy" | "onUpdateHandoff" | "onRecordHandoffSent" | "onOpenHandoffFailure"> & { view: WorkflowView }) {
-  const { currentReferral, handoffStatus, ehrIsBlocked } = view;
-  const handoffContent = handoffContentByStatus[handoffStatus];
-  return (
-    <WorkflowCard title="Outside-system entry" detail={`Manual status: ${handoffDescription(handoffStatus)}. Staff track work done outside Pipeline here; this control does not send data to ElderMark.`}>
-      <div className="flex flex-wrap gap-2">
-        {handoffContent({ workflow, currentReferral, busy, ehrIsBlocked, onUpdateHandoff, onRecordHandoffSent, onOpenHandoffFailure })}
-      </div>
-    </WorkflowCard>
-  );
-}
-
-function QueueHandoffButton({ workflow, busy, ehrIsBlocked, onUpdateHandoff }: HandoffActionProps) {
-  return <SecondaryButton disabled={Boolean(busy) || !workflow.capabilities.can_update || ehrIsBlocked} onClick={() => onUpdateHandoff("queue")}>Mark pending</SecondaryButton>;
-}
-
 export function ReferralWorkflowPanelLoading() {
   return <div className="flex min-h-64 items-center justify-center gap-2 text-[12px] text-[#737373]"><LoaderCircle className="animate-spin" size={16} /> Loading decision...</div>;
 }
@@ -362,9 +341,6 @@ function WorkflowCard({ title, detail, children }: { title: string; detail: stri
 }
 
 function WorkflowDetailDialog({ pending, onConfirm, onClose }: { pending: PendingWorkflowDetail; onConfirm: (detail: string) => void; onClose: () => void }) {
-  if (pending.kind === "ehr_failure") {
-    return <ActionDetailDialog title="Record outside-system issue" description="This reason is recorded in the referral activity log for follow-up." label="Issue" confirmLabel="Record issue" minimumLength={3} onConfirm={onConfirm} onClose={onClose} />;
-  }
   return <ActionDetailDialog {...requirementDetailPresentation(pending.item, pending.status)} onConfirm={onConfirm} onClose={onClose} />;
 }
 

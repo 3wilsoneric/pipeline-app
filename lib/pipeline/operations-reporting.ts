@@ -136,8 +136,8 @@ const reportCatalog: OperationsReportDefinition[] = [
   },
   {
     id: "ehr_handoff",
-    label: "Outside-system entry status",
-    description: "Accepted referrals and their manually recorded outside-system status.",
+    label: "ElderMark entry status",
+    description: "Accepted referrals and their manually recorded ElderMark entry status.",
     cadence: "Current",
     audience: "Operations",
     filters: ["community", "owner"],

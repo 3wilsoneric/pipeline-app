@@ -20,10 +20,10 @@ test("normal reopening follows handoff progress without inventing admission or r
   assert.equal(dates.handoffWorkspaceView(referral, {}), null);
   assert.equal(dates.handoffWorkspaceView(referral, signed), "workflow");
   const accepted = { ...referral, admissionDecision: { outcome: "accepted" } };
-  assert.equal(dates.handoffWorkspaceView(accepted, signed), "workflow");
+  assert.equal(dates.handoffWorkspaceView(accepted, signed), "email");
   const prepared = { ...accepted, plannedAdmissionDate: "2026-10-01" };
   assert.equal(dates.handoffWorkspaceView(prepared, signed), "email");
-  assert.equal(dates.handoffWorkspaceView(prepared, { ...signed, packetSentAt: "2026-09-21T11:00:00Z" }), "workflow");
+  assert.equal(dates.handoffWorkspaceView(prepared, { ...signed, packetSentAt: "2026-09-21T11:00:00Z" }), "email");
   assert.equal(dates.handoffWorkspaceView(prepared, {}), null, "new unsigned reassessment does not inherit the old handoff route");
   assert.equal(dates.handoffWorkspaceView({ ...prepared, workspaceStatus: "historical" }, signed), null);
   assert.equal(dates.handoffWorkspaceView({ ...prepared, stage: "Accepted / Admitted" }, signed), null);

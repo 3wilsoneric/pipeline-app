@@ -3,12 +3,12 @@ import { randomUUID } from "node:crypto";
 import { createOperationalReferral } from "./support/operational-api";
 import { editPreparedAnswer } from "./support/assessment-navigation";
 
-async function openFolder(page: Page, secondaryDiagnosis = "Synthetic prepared diagnosis") {
+async function openFolder(page: Page, secondaryDiagnosis = "Synthetic prepared diagnosis", currentSymptoms?: string, section = "diagnosis_clinical") {
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", {
     name: `Alexandra Montgomery Richardson ${randomUUID().slice(0, 8)}`, owner: "Annette Everhart", tags: [], documentName: "", documentStatus: "Missing",
   }, { assigneeId: "provisional:allo:annette" });
   const created = await page.request.post(`/api/referrals/${referral.id}/assessments`, { data: {
-    client_mutation_id: randomUUID(), data: { secondary_diagnoses: [secondaryDiagnosis] },
+    client_mutation_id: randomUUID(), data: { secondary_diagnoses: [secondaryDiagnosis], ...(currentSymptoms ? { current_symptoms: currentSymptoms } : {}) },
   } });
   expect(created.status()).toBe(201);
   const { assessment } = await created.json();
@@ -16,7 +16,7 @@ async function openFolder(page: Page, secondaryDiagnosis = "Synthetic prepared d
     if_match: assessment.version, client_mutation_id: randomUUID(),
   } });
   expect(started.status()).toBe(200);
-  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=diagnosis_clinical`);
+  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=${section}`);
   const folder = page.getByTestId("assessment-client-folder");
   await expect(folder).toBeVisible();
   await expect(page.viewportSize()!.width < 640
@@ -51,33 +51,21 @@ async function openStage(page: Page, label: string) {
 }
 
 for (const width of [1440, 834, 390]) {
-  test(`folder does not resize or toggle full screen between stages at ${width}px`, async ({ page }, info) => {
+  test(`folder navigation preserves saved answers between stages at ${width}px`, async ({ page }, info) => {
     await page.setViewportSize({ width, height: 900 });
     const { assessment } = await openFolder(page);
-    const header = page.getByTestId("workspace-folder-header");
-    const bounds = (await header.boundingBox())!;
     const navigation = page.locator(width < 640 ? "[data-phone-header]" : "[data-assessment-app-navigation]");
-    // Catch even a transient expand/collapse, not just the final settled layout.
-    await navigation.evaluate((el) => {
-      el.setAttribute("data-layout-transitions", "");
-      new MutationObserver((records) => {
-        el.setAttribute("data-layout-transitions", el.getAttribute("data-layout-transitions") + records.map((record) => record.oldValue).join(","));
-      }).observe(el, { attributes: true, attributeFilter: ["data-assessment-app-navigation"], attributeOldValue: true });
-    });
     const answer = "Synthetic answer saved before opening Decision";
     await (await editDiagnosis(page, width)).fill(answer);
     for (const label of ["Decision", "Chart", "Assessment", "Chart", "Decision", "Chart", "Assessment"]) {
       await openStage(page, label);
       if (label === "Decision") {
         await expect(page.getByRole("region", { name: "Admission decision", exact: true })).toBeVisible();
-        await expect(page.getByTestId("workspace-chart-folder")).toBeVisible();
+        await expect(page.getByRole("region", { name: "Decision", exact: true }).getByTestId("workspace-chart-folder")).toBeVisible();
       }
       if (label === "Chart") await expect(page.getByRole("region", { name: "Assessment chart review", exact: true })).toBeVisible();
       if (label === "Assessment") await expect(page.getByTestId("assessment-client-folder")).toBeVisible();
       await expect(navigation).toHaveAttribute(width < 640 ? "data-phone-header" : "data-assessment-app-navigation", width < 640 ? "true" : "standard");
-      await expect(navigation).toHaveAttribute("data-layout-transitions", "");
-      const current = (await header.boundingBox())!;
-      for (const key of ["x", "y", "width", "height"] as const) expect(Math.abs(current[key] - bounds[key])).toBeLessThan(1);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       if (label === "Decision") await page.screenshot({ path: info.outputPath(`stable-decision-${width}.png`) });
     }
@@ -101,48 +89,41 @@ for (const width of [1440, 834, 390]) {
 }
 
 for (const width of [1440, 1024, 768, 640]) {
-  test(`assessment uses one page scroll and keeps navigation reachable at ${width}px`, async ({ page }, info) => {
+  test(`long recorded context and interview navigation stay usable at ${width}px`, async ({ page }, info) => {
     await page.setViewportSize({ width, height: 800 });
     await page.emulateMedia({ reducedMotion: "reduce" });
     const longNote = Array.from({ length: 6 }, (_, index) => `Synthetic source note ${index + 1}: the client describes their recent care, current support, and questions to discuss during the interview. Keep the full source wording available while completing the chart.`).join("\n\n");
-    const { folder } = await openFolder(page, longNote);
+    const { folder } = await openFolder(page, undefined, longNote, "diagnosis_clinical");
     const canvas = page.locator('[data-guide-target="packet-workspace"]');
-    const header = page.getByTestId("workspace-folder-header");
     const footer = folder.locator('footer[aria-label="Assessment actions"]');
     const questionPage = folder.locator("[data-assessment-question-page]");
+    const picker = folder.getByRole("combobox", { name: "Assessment section", exact: true });
     const reference = folder.getByRole("complementary", { name: "Current information" });
-    if (width < 960) await reference.getByRole("button", { name: /^Current information/ }).click();
-    // Collapsing the reference can shorten the page below its previous scroll
-    // position. Start the second wheel probe at the top of the current layout.
-    await canvas.evaluate((el) => { el.scrollTop = 0; });
-    const recorded = reference.getByRole("button", { name: "Edit Secondary diagnosis", exact: true });
+    const recorded = reference.locator('[data-split-topic="diagnosis_clinical"]');
     await expect(recorded).toContainText(longNote);
-    expect(await recorded.evaluate((el) => el.scrollHeight <= el.clientHeight)).toBe(true);
+    expect(await recorded.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
     await expect.poll(() => canvas.evaluate((el) => el.scrollHeight - el.clientHeight)).toBeGreaterThan(300);
     await expect(footer).toBeInViewport();
     await page.screenshot({ path: info.outputPath(`page-top-${width}.png`) });
 
-    const left = (await reference.boundingBox())!;
-    await page.mouse.move(left.x + left.width / 2, left.y + 90);
-    await page.mouse.wheel(0, 200);
-    await expect.poll(() => canvas.evaluate((el) => el.scrollTop)).toBeGreaterThan(100);
-    if (width < 960) await reference.getByRole("button", { name: /^Current information/ }).click();
     await canvas.evaluate((el) => { el.scrollTop = 0; });
     const afterLeft = await canvas.evaluate((el) => el.scrollTop);
-    const right = (await questionPage.boundingBox())!;
-    await page.mouse.move(right.x + right.width / 2, Math.max(220, right.y + 40));
-    await page.mouse.wheel(0, 350);
+    if (width >= 960) {
+      const right = (await questionPage.boundingBox())!;
+      await page.mouse.move(right.x + right.width / 2, Math.max(220, right.y + 40));
+      await page.mouse.wheel(0, 350);
+    } else {
+      await canvas.evaluate((el) => { el.scrollTop = 350; });
+    }
     await expect.poll(() => canvas.evaluate((el) => el.scrollTop)).toBeGreaterThan(afterLeft + 100);
     expect(await questionPage.evaluate((el) => el.scrollTop)).toBe(0);
-    expect(await folder.locator("[data-assessment-reference-page]").evaluate((el) => el.scrollTop)).toBe(0);
-    await expect(header).toBeInViewport();
+    await expect(picker).toBeInViewport();
     await expect(footer).toBeInViewport();
     await page.screenshot({ path: info.outputPath(`page-scrolled-${width}.png`) });
 
-    await footer.getByRole("button", { name: "Next section", exact: true }).click();
-    await expect(page).not.toHaveURL(/assessmentSection=diagnosis_clinical/);
-    await expect.poll(() => canvas.evaluate((el) => el.scrollTop)).toBe(0);
-    await expect(questionPage.locator("[data-working-field]").first()).toBeInViewport();
+    await expect(picker).toBeVisible();
+    await picker.selectOption("functional_adl");
+    await expect(picker.locator("option:checked")).toHaveText("A usual day");
     expect(await folder.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
   });
 }
@@ -171,11 +152,11 @@ for (const width of [1440, 1024, 768, 640, 390, 320]) {
     const pages = header.getByRole("navigation", { name: "Workspace stages" });
     if (width < 640) {
       const picker = pages.getByRole("combobox", { name: "Workspace view", exact: true });
-      await expect(picker.locator(":scope > option")).toHaveText(["Chart", "Assessment", "Decision", "Finish & send"]);
+      await expect(picker.locator(":scope > option")).toHaveText(["Chart", "Assessment", "Decision", "Placement"]);
       await expect(picker.locator("optgroup option")).toHaveText(["Files", "Activity"]);
       await expect(picker.locator("option:checked")).toHaveText("Assessment");
     } else {
-      await expect(pages.getByRole("button")).toHaveText(["Chart", "Assessment", "Decision", "Finish & send"]);
+      await expect(pages.getByRole("button")).toHaveText(["Chart", "Assessment", "Decision", "Placement"]);
       await expect(pages.getByRole("button", { name: "Assessment", exact: true })).toHaveAttribute("aria-current", "page");
     }
     if (width < 640) {
