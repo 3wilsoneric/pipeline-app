@@ -8,6 +8,7 @@ import {
   type ClinicalResident,
 } from "@/lib/clinical/clinical-data";
 import { recordPipelineMetric } from "@/lib/observability/pipeline-metrics";
+import { normalizeSourceCalendarDate } from "@/lib/pipeline/calendar-date";
 import { selectAdmissionIdentityCandidates, selectAutomaticAdmissions, verifiedAdmissionBirthDate } from "@/lib/pipeline/clinical-admission-selection";
 import { findClinicalResidentMatch } from "@/lib/pipeline/referral-clinical-reconciliation";
 import type { Referral } from "@/lib/pipeline/referral-types";
@@ -135,8 +136,14 @@ export async function reconcileClinicalBacklog(
     try {
       if (resident.date_of_birth === referral.dob && workingLinks.some((link) => link.pipeline_client_id === referral.clientId
         && link.resident_key === resident.resident_key && link.status === "confirmed")) continue;
-      const detail = await getClinicalClient(request, resident.canonical_client_id!);
-      const dob = verifiedAdmissionBirthDate(referral, resident, detail, roster.snapshotId, roster.dataAsOf);
+      const dob = resident.canonical_client_id
+        ? verifiedAdmissionBirthDate(
+          referral, resident, await getClinicalClient(request, resident.canonical_client_id),
+          roster.snapshotId, roster.dataAsOf,
+        )
+        : normalizeSourceCalendarDate(resident.date_of_birth) === normalizeSourceCalendarDate(referral.dob)
+          ? normalizeSourceCalendarDate(referral.dob)
+          : null;
       if (!dob) continue;
       const verifiedIndex = verifiedResidents.findIndex((row) => row.resident_key === resident.resident_key);
       verifiedResidents[verifiedIndex] = { ...resident, date_of_birth: dob };

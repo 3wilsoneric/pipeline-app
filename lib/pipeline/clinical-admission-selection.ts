@@ -101,7 +101,10 @@ export function selectAdmissionIdentityCandidates(
     if (matches.length !== 1) return [];
     const resident = matches[0];
     const actualDate = normalizeSourceCalendarDate(resident.admit_date);
-    if (!resident.canonical_client_id || !resident.resident_number || !actualDate
+    const residentDob = normalizeSourceCalendarDate(resident.date_of_birth);
+    if ((resident.date_of_birth && residentDob !== dob)
+      || (!resident.canonical_client_id && residentDob !== dob)
+      || !resident.resident_number || !actualDate
       || actualDate < decisionDate || actualDate > dataAsOf || actualAdmissionDateError(actualDate)) return [];
     if (clientLinks.some((link) => (link.status === "confirmed" && link.resident_key !== resident.resident_key)
       || (link.status === "candidate" && link.resident_key !== resident.resident_key)

@@ -54,6 +54,10 @@ test("an overdue accepted referral needs unique census identity before an automa
   assert.equal(select([referral], [resident, { ...resident, resident_key: "site:43" }]).length, 0);
   assert.equal(select([referral], [{ ...resident, community_name: "Turlock" }]).length, 0);
   assert.equal(select([referral], [resident], [{ pipeline_client_id: referral.clientId, status: "rejected", resident_key: resident.resident_key }]).length, 0);
+  assert.equal(select([referral], [{ ...resident, canonical_client_id: null }]).length, 1,
+    "a governed roster DOB can verify a current resident without an older canonical client record");
+  assert.equal(select([referral], [{ ...resident, canonical_client_id: null, date_of_birth: null }]).length, 0);
+  assert.equal(select([referral], [{ ...resident, canonical_client_id: null, date_of_birth: "1970-01-02" }]).length, 0);
 });
 
 test("current census client detail must verify DOB, resident number, community and snapshot", () => {
@@ -182,4 +186,46 @@ test("daily reconciliation confirms only a uniquely verified overdue census arri
   assert.equal(mismatch.admissions_confirmed, 0);
   assert.equal(mismatch.no_match, 1);
   assert.equal(transitions.length, 0);
+});
+
+test("daily reconciliation accepts a fresh roster DOB when the canonical database has not caught up", async () => {
+  const { referral, resident } = fixtures();
+  const current = { ...resident, canonical_client_id: null };
+  const transitions = [];
+  const worker = loadEntry("lib/pipeline/clinical-backlog-reconciliation.ts", {
+    "@/lib/clinical/clinical-data": {
+      ClinicalDataError: class extends Error {},
+      getClinicalAuthMode: () => "client_credentials",
+      getClinicalRoster: async () => ({
+        residents: [current], snapshot_id: "snapshot-42", data_as_of: today,
+        freshness: { status: "fresh" }, next_cursor: null,
+      }),
+      getClinicalClient: async () => { throw Error("Current roster DOB does not need an older canonical profile."); },
+    },
+    "@/lib/observability/pipeline-metrics": { recordPipelineMetric: () => {} },
+    "@/lib/pipeline/referral-store": { listReferrals: async () => ({ referrals: [referral], next_cursor: null }) },
+    "@/lib/pipeline/resident-link-store": {
+      listResidentLinks: async () => ({ links: [], next_cursor: null }),
+      createResidentLink: async (input) => ({ ok: true, link: {
+        link_id: "link-42", version: 1, pipeline_client_id: input.pipeline_client_id,
+        status: "candidate", resident_key: input.resident_key,
+        resident_number: input.resident_number, community_id: input.community_id,
+      } }),
+      reviewResidentLink: async (_id, input, _actor, version) => ({ ok: true, link: {
+        link_id: "link-42", version: version + 1, pipeline_client_id: referral.clientId,
+        status: input.action === "confirm" ? "confirmed" : "rejected",
+        resident_key: resident.resident_key, resident_number: resident.resident_number,
+        community_id: resident.community_id,
+      } }),
+    },
+    "@/lib/pipeline/referral-clinical-reconciliation": { findClinicalResidentMatch: () => null },
+    "@/lib/pipeline/workflow-store": { transitionReferral: async (...args) => {
+      transitions.push(args);
+      return { ok: true };
+    } },
+  });
+  const result = await worker.reconcileClinicalBacklog(new Request("https://pipeline.invalid"));
+  assert.equal(result.admissions_confirmed, 1);
+  assert.equal(result.no_match, 0);
+  assert.equal(transitions[0][6], today);
 });
