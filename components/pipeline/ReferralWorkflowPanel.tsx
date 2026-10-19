@@ -94,6 +94,8 @@ export default function ReferralWorkflowPanel({
   const [pendingRequirements, setPendingRequirements] = useState<Record<string, RequirementStatus>>({});
   const [requirementErrors, setRequirementErrors] = useState<Record<string, string>>({});
   const mutationIds = useRef(new Map<string, string>());
+  const latestReferral = useRef(referral);
+  latestReferral.current = referral;
   const confirmedDecision = useRef<{ referral: Referral; decision: AdmissionDecision } | null>(null);
   const confirmedRecommendation = useRef<{ referral: Referral; recommendation: AssessmentRecommendation } | null>(null);
   const recommendationDirty = useRef(false);
@@ -157,18 +159,22 @@ export default function ReferralWorkflowPanel({
   const loadWorkflow = useCallback(async (signal?: AbortSignal) => {
     if (confirmedDecision.current?.referral.id !== referral.id) confirmedDecision.current = null;
     if (confirmedRecommendation.current?.referral.id !== referral.id) confirmedRecommendation.current = null;
-    const payload = await fetchPipelineJson<WorkflowResponse>(`/api/referrals/${referral.id}/workflow`, {
+    let payload = await fetchPipelineJson<WorkflowResponse>(`/api/referrals/${referral.id}/workflow`, {
       cache: "no-store",
       signal,
     });
+    const currentReferral = latestReferral.current;
+    if (currentReferral.id === payload.referral.id && (currentReferral.version ?? 0) > (payload.referral.version ?? 0)) {
+      payload = { ...payload, referral: currentReferral, decision: currentReferral.admissionDecision ?? payload.decision };
+    }
     const confirmed = confirmedDecision.current;
     if (confirmed && payload.decision?.decisionId !== confirmed.decision.decisionId) {
       if ((payload.referral.version ?? 0) <= (confirmed.referral.version ?? 0)) {
         // An older read must not reopen the form after the server confirmed the decision.
-        setLoading(false);
-        return { ...payload, referral: confirmed.referral, decision: confirmed.decision };
+        payload = { ...payload, referral: confirmed.referral, decision: confirmed.decision };
+      } else {
+        confirmedDecision.current = null;
       }
-      confirmedDecision.current = null;
     } else if (confirmed) {
       confirmedDecision.current = { ...confirmed, referral: payload.referral };
     }

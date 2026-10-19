@@ -56,6 +56,8 @@ test.describe("acceptance save recovery", () => {
       expect(readback.status(), readbackBody).toBe(200);
       expect(JSON.parse(readbackBody).decision).toMatchObject({ outcome: "accepted" });
 
+      await expect(page.getByRole("region", { name: "Placement follow-through", exact: true }).getByRole("region", { name: "Email and referral packet", exact: true })).toBeVisible();
+      await page.getByRole("navigation", { name: "Workspace stages", exact: true }).getByRole("button", { name: "Decision", exact: true }).click();
       const savedDecision = decision.locator('section[data-outcome="accepted"]');
       await expect(savedDecision.getByText("Decision recorded", { exact: true })).toBeVisible();
       await expect(decision.getByRole("button", { name: "Record decision", exact: true })).toHaveCount(0);
@@ -178,6 +180,8 @@ test.describe("acceptance save recovery", () => {
       expect(readback.status(), readbackBody).toBe(200);
       expect(JSON.parse(readbackBody).decision).toMatchObject({ outcome: "accepted" });
 
+      await expect(page.getByRole("region", { name: "Placement follow-through", exact: true }).getByText("Accepted · Not sent", { exact: true })).toBeVisible();
+      await page.getByRole("navigation", { name: "Workspace stages", exact: true }).getByRole("button", { name: "Decision", exact: true }).click();
       const savedDecision = decision.locator('section[data-outcome="accepted"]');
       await expect(savedDecision.getByText("Decision recorded", { exact: true })).toBeVisible();
       await expect(decision.getByRole("button", { name: "Record decision", exact: true })).toHaveCount(0);
