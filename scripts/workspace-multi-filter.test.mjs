@@ -19,6 +19,7 @@ const referrals = Array.from({ length: 12 }, (_, i) => ({
   ownerId: `owner-${Math.floor(i / 3) % 3}`, source: "Synthetic", priority: "standard",
   documentName: `filter-${i + 1}.pdf`, documentStatus: "Uploaded", requirements: [],
   note: "", workspaceStatus: "active", createdAt: "2026-09-17T12:00:00.000Z", updatedAt: "2026-09-17T12:00:00.000Z",
+  ...(i === 0 ? { workflowStatus: "closed", placementCancellation: { reason: "County placed elsewhere", cancelledAt: "2026-10-19T12:00:00.000Z" } } : {}),
 }));
 
 test("owner menus omit retired and unassigned entries and combine whitespace duplicates", () => {
@@ -102,6 +103,8 @@ test("unfinished workspaces carry into the next month without changing their fil
 });
 
 async function verifyFilters(store) {
+  assert.deepEqual((await store.listReferrals({ placementCancelled: true })).referrals.map((row) => row.id), [1]);
+  assert.equal((await store.listReferrals({ activeOnly: true })).referrals.some((row) => row.id === 1), false);
   const selected = { communities: ["San Pablo", "Santa Clarita"], owners: ["Alex Assessor", "Blair Assessor"] };
   const expected = [1, 2, 4, 5, 10, 11];
   for (const [method, rows, key] of [["listReferrals", "referrals", "id"], ["listReferralFiles", "files", "referralId"]]) {
@@ -152,8 +155,8 @@ test("PostgreSQL workspace and file filters match the local adapter", { skip: pr
     }
     for (const referral of referrals) {
       const [person] = await sql`insert into pipeline.people (display_name) values (${referral.name}) returning person_id`;
-      await sql`insert into pipeline.referrals (referral_id, person_id, stage, community, owner_id, owner_name, data, created_at, updated_at, created_by, created_by_name, updated_by, updated_by_name)
-        values (${referral.id}, ${person.person_id}, ${referral.stage}, ${referral.community}, ${referral.ownerId}, ${referral.owner}, ${sql.json(referral)}, ${referral.createdAt}, ${referral.updatedAt}, 'fixture', 'Fixture', 'fixture', 'Fixture')`;
+      await sql`insert into pipeline.referrals (referral_id, person_id, stage, community, workflow_status, closed_at, owner_id, owner_name, data, created_at, updated_at, created_by, created_by_name, updated_by, updated_by_name)
+        values (${referral.id}, ${person.person_id}, ${referral.stage}, ${referral.community}, ${referral.workflowStatus ?? "intake_unassigned"}, ${referral.workflowStatus === "closed" ? referral.updatedAt : null}, ${referral.ownerId}, ${referral.owner}, ${sql.json(referral)}, ${referral.createdAt}, ${referral.updatedAt}, 'fixture', 'Fixture', 'fixture', 'Fixture')`;
     }
     await verifyFilters(loadStore(sql));
     await sql`truncate table pipeline.referrals cascade`;
