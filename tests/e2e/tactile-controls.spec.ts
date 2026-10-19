@@ -21,7 +21,7 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
     await page.getByRole("button", { name: "Expand navigation", exact: true }).click();
     const button = page.getByRole("button", { name: "Open calendar", exact: true });
     await expect(button).toBeVisible();
-    await expect(button).toHaveJSProperty("clientWidth", 189);
+    await expect(button).toHaveJSProperty("clientWidth", 191);
     const resting = await button.evaluate((node) => ({ width: node.clientWidth, height: node.clientHeight }));
     await button.hover();
     await expect(button).not.toHaveCSS("box-shadow", "none");
@@ -120,8 +120,8 @@ test("a failed save does not block moving a workspace to trash", async ({ page }
   await name.press("Tab");
   const status = page.getByTestId("workspace-save-status");
   await expect(status).toContainText("Not saved to Pipeline");
-  const box = await status.boundingBox();
-  expect(box?.height).toBeLessThan(40);
+  await expect(status.getByRole("alert")).toBeVisible();
+  await expect(status.getByRole("button", { name: "Retry saving", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Move workspace to trash", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Move workspace to trash?", exact: true });
   await expect(dialog).toContainText("Changes not saved to Pipeline will be discarded");
@@ -138,13 +138,20 @@ for (const width of [1440, 834]) {
     const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: "Synthetic Standard Workspace", owner: "", tags: [] });
     await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=workflow`);
     const decision = page.getByRole("region", { name: "Decision", exact: true });
-    await decision.locator("summary").filter({ hasText: /^Admission paperwork & EHR handoff$/ }).click();
-    const requirement = page.getByRole("combobox", { name: /status$/ }).first();
+    await expect(decision.getByRole("region", { name: "Admission requirements" })).toHaveCount(0);
+    await page.getByRole("button", { name: "Workspace files", exact: true }).click();
+    const requirements = page.getByRole("region", { name: "Admission requirements", exact: true });
+    await expect(requirements).toBeVisible();
+    await requirements.locator("summary").click();
+    await requirements.getByRole("button", { name: "Change Signed medication list status" }).click();
+    const requirement = requirements.getByRole("combobox", { name: /status$/ }).first();
     await expect(requirement).toBeVisible();
     const control = await requirement.evaluate((node) => ({ height: node.getBoundingClientRect().height, fontSize: parseFloat(getComputedStyle(node).fontSize) }));
     expect(control.height).toBeGreaterThanOrEqual(44);
     expect(control.fontSize).toBeGreaterThanOrEqual(14);
-    await decision.locator("summary").filter({ hasText: /^Administrative controls$/ }).click();
+    await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: "Decision", exact: true }).click();
+    await decision.getByRole("button", { name: "Other actions" }).click();
+    await page.getByRole("dialog", { name: "Other actions" }).locator("summary").filter({ hasText: /^Administrative controls$/ }).click();
     const stage = decision.getByRole("combobox", { name: "Workflow stage", exact: true });
     expect((await stage.boundingBox())!.height).toBeGreaterThanOrEqual(44);
     // Saving instructions and workflow distinctions stay readable.

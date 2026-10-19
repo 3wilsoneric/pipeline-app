@@ -1,6 +1,9 @@
 import { defineConfig, devices } from "@playwright/test";
 import { resolve } from "node:path";
 
+// Browser checks exercise the same design that production serves.
+process.env.PIPELINE_DESIGN_V2 = "true";
+
 const port = process.env.PORT ?? "3000";
 const baseURL = `http://127.0.0.1:${port}`;
 const referralStorePath = resolve(process.env.PIPELINE_E2E_REFERRAL_STORE_PATH

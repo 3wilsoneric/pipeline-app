@@ -23,7 +23,7 @@ for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]]
         // area; assert reachability, not the retired fixed vertical offset.
         await name.scrollIntoViewIfNeeded();
         await expect(name).toBeInViewport();
-        await expect(name).toHaveCSS("font-size", "16px");
+        await expect(name).toHaveCSS("font-size", size.width < 640 ? "16px" : "14px");
         await expect(page.getByTestId("document-checklist-panel")).not.toHaveAttribute("open");
         const controls = [...await header.getByRole("button").all(), ...await page.locator(size.width < 640 ? "[data-phone-header] > div" : '[data-testid="primary-navigation-dock"]').getByRole("button").all()];
         for (const control of controls) {
@@ -75,7 +75,7 @@ for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]]
       await expect(page).toHaveURL(/referralId=\d+/);
       const savedReferralId = new URL(page.url()).searchParams.get("referralId");
       await expect(header.getByRole("button", { name: "Create referral", exact: true })).toHaveCount(0);
-      await page.getByRole("dialog", { name: "Workspace created", exact: true }).getByRole("button", { name: "Close workspace created", exact: true }).tap();
+      await page.getByRole("region", { name: "Workspace created", exact: true }).getByRole("button", { name: "Dismiss workspace next steps", exact: true }).tap();
       await header.getByLabel("Workspace view", { exact: true }).selectOption({ label: "Assessment" });
       await expect(page.locator('[data-assessment-phase="preparation"]')).toBeVisible();
       await page.screenshot({ path: info.outputPath(`preparation-${engine}-phone.png`) });
@@ -84,11 +84,11 @@ for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]]
         const preparedName = page.getByRole("textbox", { name: "Resident name", exact: true });
         await expect(preparedName).toHaveValue(clientName);
         expect((await preparedName.boundingBox())!.height).toBeGreaterThanOrEqual(44);
-        expect((await page.getByRole("button", { name: "Next section", exact: true }).boundingBox())!.height).toBeGreaterThanOrEqual(44);
+        expect((await page.locator("[data-assessment-primary-action] button").boundingBox())!.height).toBeGreaterThanOrEqual(44);
         const preparation = page.getByTestId("assessment-client-folder");
         await expect(preparation.locator(":scope > strong")).toHaveCount(0);
-        const headerBox = (await header.boundingBox())!;
-        expect(Math.abs((await preparation.boundingBox())!.y - headerBox.y - headerBox.height)).toBeLessThanOrEqual(1);
+        await preparation.scrollIntoViewIfNeeded();
+        await expect(preparation).toBeInViewport();
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
         await page.screenshot({ path: info.outputPath(`preparation-${engine}-${width}.png`), animations: "disabled" });
       }

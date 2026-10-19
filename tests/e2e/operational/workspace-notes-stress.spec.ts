@@ -24,9 +24,9 @@ test("creating a workspace then editing preparation keeps the saved referral add
     await page.goto("/?view=referrals&screen=packet");
     await page.getByRole("textbox", { name: "NAME", exact: true }).fill(name);
     await page.getByRole("button", { name: "Create referral", exact: true }).click();
-    const confirmation = page.getByRole("dialog", { name: "Workspace created", exact: true });
+    const confirmation = page.getByRole("region", { name: "Workspace created", exact: true });
     await expect(confirmation).toBeVisible();
-    await confirmation.getByRole("button", { name: "Close workspace created", exact: true }).click();
+    await confirmation.getByRole("button", { name: "Dismiss workspace next steps", exact: true }).click();
     await expect.poll(() => new URL(page.url()).searchParams.get("referralId")).toMatch(/^\d+$/);
     const id = new URL(page.url()).searchParams.get("referralId");
     await returnToAssessmentQuestions(page);

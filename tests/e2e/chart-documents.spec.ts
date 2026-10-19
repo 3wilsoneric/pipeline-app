@@ -9,7 +9,7 @@ async function createFromIntake(page: Page) {
   await page.goto(`/?view=referrals&screen=packet&draftId=${randomUUID()}`);
   await page.getByRole("textbox", { name: "NAME", exact: true }).fill(name);
   await page.getByRole("button", { name: "Create referral", exact: true }).click();
-  await page.getByRole("dialog", { name: "Workspace created", exact: true }).getByRole("button", { name: "Close workspace created" }).click();
+  await page.getByRole("region", { name: "Workspace created", exact: true }).getByRole("button", { name: "Dismiss workspace next steps" }).click();
   const id = new URL(page.url()).searchParams.get("referralId")!;
   expect(id).toBeTruthy();
   const stages = page.getByRole("navigation", { name: "Workspace stages" });
@@ -27,7 +27,8 @@ for (const width of [390, 834, 1440]) {
       const drop = documents.getByRole("button", { name: /Drop files or choose files/ });
       await expect(drop).toBeVisible();
       await expect(page.getByTestId("document-checklist-panel")).not.toHaveAttribute("open");
-      expect(await drop.evaluate((el) => el.getBoundingClientRect().bottom < window.innerHeight / 2)).toBe(true);
+      await drop.scrollIntoViewIfNeeded();
+      await expect(drop).toBeInViewport();
       expect(await documents.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
       await page.screenshot({ path: info.outputPath(`chart-documents-${width}-${phase}.png`), animations: "disabled" });
@@ -70,12 +71,12 @@ test("chart drop, updated copy, cancel and reopen preserve files and existing ev
   await chooseUpdate();
   await page.route("**/api/uploads/create-url", (route) => route.fulfill({ status: 422, json: { error: "Synthetic upload unavailable" } }));
   await confirmReferralFileLabels(page);
-  await expect(page.getByTestId("workspace-save-status")).toContainText("Synthetic upload unavailable");
+  await expect(page.getByRole("region", { name: "Saving" })).toContainText("Synthetic upload unavailable");
   await expect(page.getByRole("list", { name: "Queued referral files" })).toContainText("new-copy.txt");
   expect(await inventory()).toHaveLength(1);
   expect(await (await page.request.get(originalFile.downloadUrl)).text()).toBe(original);
   await page.unroute("**/api/uploads/create-url");
-  await page.getByRole("button", { name: "Retry saving", exact: true }).click();
+  await page.getByRole("region", { name: "Saving" }).getByRole("button", { name: "Retry", exact: true }).click();
   await expect.poll(async () => (await inventory()).length).toBe(2);
   const newFile = (await inventory()).find((file) => file.name === "new-copy.txt")!;
   expect(newFile.category).toBe("Medication list");
@@ -126,7 +127,8 @@ test("documents remain at the top when an assessment exists, without entering th
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=chart`);
   const drop = page.getByRole("button", { name: /Drop files or choose files/ });
   await expect(drop).toBeVisible();
-  expect(await drop.evaluate((el) => el.getBoundingClientRect().bottom < window.innerHeight / 2)).toBe(true);
+  await drop.scrollIntoViewIfNeeded();
+  await expect(drop).toBeInViewport();
   await expect(page.getByRole("button", { name: "Edit referral details", exact: true })).toBeVisible();
   await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: /Assessment$/ }).click();
   await expect(drop).toHaveCount(0);

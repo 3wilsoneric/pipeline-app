@@ -14,18 +14,19 @@ import {
 
 test.skip(process.env.PIPELINE_DESKTOP_E2E !== "true", "Requires isolated desktop workspace state.");
 
-async function expectAccessibleDecision(page: Page) {
+async function expectAccessibleDecision(page: Page, selector = '[aria-label="Admission decision"]') {
   await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
-  const violations = await page.evaluate(async () => {
+  const violations = await page.evaluate(async (selector) => {
     const axe = (window as unknown as { axe: { run: (selector: string, options: object) => Promise<AxeResults> } }).axe;
-    return (await axe.run('[aria-label="Admission decision"]', { runOnly: ["wcag2a", "wcag2aa", "wcag21aa"] })).violations;
-  });
+    return (await axe.run(selector, { runOnly: ["wcag2a", "wcag2aa", "wcag21aa"] })).violations;
+  }, selector);
   expect(violations).toEqual([]);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 }
 
 for (const width of [1440, 834, 390, 320]) {
   test(`decision hierarchy and unsent acceptance at ${width}px`, async ({ page }, info) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
     await page.setViewportSize({ width, height: 950 });
     const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: "Example Jordan Rivera", community: "San Pablo", owner: "", tags: [] });
     let sends = 0;
@@ -33,7 +34,7 @@ for (const width of [1440, 834, 390, 320]) {
     await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=workflow`);
     const panel = page.getByRole("region", { name: "Admission decision", exact: true });
     await expect(panel.getByRole("heading", { name: "Placement decision", exact: true })).toBeVisible();
-    await expect(panel.getByRole("complementary", { name: "Decision context" })).toContainText("Answers not started");
+    await expect(panel.getByRole("complementary", { name: "Decision context" })).toContainText("Open the assessment to review or continue it.");
     await expect(panel.getByRole("button", { name: "Record decision", exact: true })).toBeDisabled();
     await expect(panel.getByRole("button", { name: /^Change stage to/ })).not.toBeVisible();
     await expect(panel.getByRole("combobox", { name: "Workflow stage" })).not.toBeVisible();
@@ -53,18 +54,35 @@ for (const width of [1440, 834, 390, 320]) {
     expect((await (await page.request.get(`/api/referrals/${referral.id}/workflow`)).json()).decision).toBeNull();
     await panel.getByRole("button", { name: "Record decision", exact: true }).click();
     await page.getByRole("alertdialog").getByRole("button", { name: "Record acceptance", exact: true }).click();
-    await expect(panel.getByRole("heading", { name: "Accepted", exact: true })).toBeVisible();
-    await expect(panel.getByRole("group", { name: "Recorded decision", exact: true })).toBeFocused();
-    await expect(panel.getByRole("region", { name: "Prepare client handoff" })).toContainText("Sign the assessment before sending");
-    await expect(panel.getByRole("button", { name: "Review email & packet", exact: true })).toBeEnabled();
-    await expect(panel).toContainText("Add a planned admit date before sending");
-    await expectAccessibleDecision(page);
+    const placement = page.getByRole("region", { name: "Placement follow-through" });
+    await expect(placement).toBeVisible();
+    await expect(placement.getByRole("heading", { name: "Meet the Client", exact: true })).toBeVisible();
+    await expect(placement).toContainText("Accepted · Not sent");
+    await expect(placement.getByRole("button", { name: "Review & sign assessment" })).toBeVisible();
+    await expect(placement.getByRole("button", { name: "Placement did not happen" })).toHaveCount(0);
+    await expect(placement.getByRole("button", { name: /confirm admission/i })).toHaveCount(0);
+    await expect(placement.getByLabel("Planned admission date", { exact: true })).toHaveCount(0);
+    await expectAccessibleDecision(page, '[aria-label="Placement follow-through"]');
     await page.screenshot({ path: info.outputPath(`accepted-${width}.png`), animations: "disabled" });
+    if (width < 640) await page.getByLabel("Workspace view", { exact: true }).selectOption({ label: "Decision" });
+    else await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: "Decision", exact: true }).click();
+    await expect(panel.getByRole("heading", { name: "Accepted", exact: true })).toBeVisible();
+    await expect(panel.getByRole("button", { name: "Continue to Placement" })).toBeEnabled();
+    await expect(panel.getByRole("region", { name: "Admission follow-through" })).toHaveCount(0);
+    await expectAccessibleDecision(page);
     await page.reload();
     await expect(panel.getByRole("heading", { name: "Accepted", exact: true })).toBeVisible();
     await expect(panel).toContainText("Synthetic placement decision for UI testing only.");
-    await panel.getByLabel("Planned admission date", { exact: true }).fill("2026-10-01");
-    await expect(panel.getByRole("button", { name: "Review email & packet", exact: true })).toBeEnabled();
+    await panel.getByRole("button", { name: "Continue to Placement" }).click();
+    await expect(placement.getByRole("button", { name: "More actions" })).toBeVisible();
+    await placement.getByRole("button", { name: "More actions" }).click();
+    const placementActions = placement.getByRole("dialog", { name: "Placement actions" });
+    await expect(placementActions.getByRole("button", { name: "Placement did not happen" })).toBeVisible();
+    await expect(placementActions).not.toContainText(/ElderMark|manual entry|Mark pending|Record issue/i);
+    await placementActions.getByRole("button", { name: "Close placement actions" }).click();
+    await expect(placement).not.toContainText(/EHR handoff/i);
+    await expectAccessibleDecision(page, '[aria-label="Placement follow-through"]');
+    if (width === 1440) await page.screenshot({ path: info.outputPath("placement-1440.png"), animations: "disabled" });
     expect(sends).toBe(0);
   });
 }
@@ -144,7 +162,34 @@ test("read-only decision access is visibly read-only", async ({ page }) => {
   await expect(panel).toContainText("your account cannot record it");
 });
 
-test("the decision page distinguishes saved answers, interview complete, signed, decision recorded, and packet sent", async ({ page }) => {
+test("Meet the Client stays visible when Placement status cannot load", async ({ page }) => {
+  const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: "Synthetic Placement Fallback", owner: "", tags: [] });
+  await page.route(`**/api/referrals/${referral.id}/workflow`, (route) => route.fulfill({ status: 503, json: { error: "Synthetic status interruption" } }));
+  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
+  const placement = page.getByRole("region", { name: "Placement follow-through" });
+  await expect(placement.getByRole("button", { name: "Retry status" })).toBeVisible();
+  await expect(placement.getByRole("region", { name: "Email and referral packet" })).toBeVisible();
+});
+
+test("Meet the Client remains usable while Placement status is loading", async ({ page }) => {
+  const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: "Synthetic Slow Placement", owner: "", tags: [] });
+  let releaseWorkflow!: () => void;
+  const heldWorkflow = new Promise<void>((resolve) => { releaseWorkflow = resolve; });
+  await page.route(`**/api/referrals/${referral.id}/workflow`, async (route) => {
+    await heldWorkflow;
+    await route.continue();
+  });
+  try {
+    await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
+    const placement = page.getByRole("region", { name: "Placement follow-through" });
+    await expect(placement.getByText("Loading placement status…")).toBeVisible();
+    await expect(placement.getByRole("region", { name: "Email and referral packet" })).toBeVisible();
+  } finally {
+    releaseWorkflow();
+  }
+});
+
+test("the decision page keeps one assessment summary and records the decision without sending the packet", async ({ page }) => {
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: "Example Progress Milestones", owner: "", tags: [] });
   let sends = 0;
   page.on("request", (request) => { if (request.method() === "POST" && request.url().endsWith("/meet-client-email")) sends++; });
@@ -155,32 +200,24 @@ test("the decision page distinguishes saved answers, interview complete, signed,
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=workflow`);
   const panel = page.getByRole("region", { name: "Admission decision", exact: true });
   const context = panel.getByRole("complementary", { name: "Decision context" });
-  const progress = context.getByRole("list", { name: "Where this referral stands" });
-  await expect(progress).toContainText("Answers saved");
-  await expect(progress).toContainText("Interview not complete");
-  await expect(progress).toContainText("Assessment not signed");
-  await expect(progress).toContainText("Decision not recorded");
-  await expect(progress).toContainText("Meet the Client packet not sent");
+  await expect(context).toContainText("Open the assessment to review or continue it.");
+  await expect(context.getByRole("list")).toHaveCount(0);
 
   assessment = await completeOperationalAssessment(page.request, assessment);
   assessment = await markOperationalInterviewComplete(page.request, assessment);
   await page.reload();
-  await expect(progress).toContainText("Answers saved");
-  await expect(progress).toContainText("Interview complete");
-  await expect(progress).toContainText("Assessment not signed");
+  await expect(context).toContainText("Open the assessment to review or continue it.");
 
   await signOperationalAssessment(page.request, assessment);
   await page.reload();
-  await expect(progress).toContainText("Assessment signed");
-  await expect(progress).toContainText("Decision not recorded");
+  await expect(context).toContainText("Signed and ready for the decision.");
 
   await panel.getByRole("radio", { name: "Accept", exact: true }).check();
   await panel.getByRole("button", { name: "Record decision", exact: true }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Record acceptance", exact: true }).click();
-  await expect(panel.getByRole("heading", { name: "Accepted", exact: true })).toBeVisible();
-  await expect(progress).toContainText("Decision recorded: Accepted");
-  await expect(progress).toContainText("Playwright QA");
-  await expect(progress).toContainText("Meet the Client packet not sent");
+  const placement = page.getByRole("region", { name: "Placement follow-through" });
+  await expect(placement.getByRole("heading", { name: "Meet the Client", exact: true })).toBeVisible();
+  await expect(placement).toContainText("Accepted · Not sent");
   const workflow = await (await page.request.get(`/api/referrals/${referral.id}/workflow`)).json();
   expect(workflow.context.packetSentAt ?? null).toBeNull();
   expect(sends).toBe(0);
@@ -212,7 +249,8 @@ test("administrative stage controls are separate, labeled, and only change the s
   await expect(panel.getByRole("button", { name: "Record decision", exact: true })).toBeDisabled();
   await expect(panel.getByRole("combobox", { name: "Workflow stage" })).not.toBeVisible();
 
-  await panel.locator("summary").filter({ hasText: /^Administrative controls$/ }).click();
+  await panel.getByRole("button", { name: "Other actions" }).click();
+  await page.getByRole("dialog", { name: "Other actions" }).locator("summary").filter({ hasText: /^Administrative controls$/ }).click();
   await expect(panel).toContainText("They do not record the decision, sign the assessment, or send anything.");
   await panel.getByRole("combobox", { name: "Workflow stage", exact: true }).selectOption("Assessment");
   await expect(panel.getByText("Stage changed to Assessment", { exact: true })).toBeVisible();

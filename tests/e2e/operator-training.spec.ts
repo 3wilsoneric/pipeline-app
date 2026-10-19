@@ -115,19 +115,19 @@ test.describe("Pipeline Learning Center", () => {
     await expect(name).toHaveValue("Synthetic Help Draft");
   });
 
-  test("guides the current census briefing without old report controls", async ({ page }) => {
+  test("guides the admissions and census report without old report controls", async ({ page }) => {
     await mockTrainingProgress(page);
     await startGuide(page, "View reports");
     const coach = page.getByRole("complementary", { name: "View reports tutorial", exact: true });
-    await expect(coach.getByRole("heading", { name: "Check the snapshot date" })).toBeVisible();
+    await expect(coach.getByRole("heading", { name: "Open the report" })).toBeVisible();
     await expect(page.getByRole("main", { name: "Reports" })).toBeVisible();
     await expect(page.getByRole("combobox", { name: "Report", exact: true })).toHaveCount(0);
     await coach.getByRole("button", { name: "Next", exact: true }).click();
-    await expect(coach.getByRole("heading", { name: "Read the census" })).toBeVisible();
+    await expect(coach.getByRole("heading", { name: "Read the headline figures" })).toBeVisible();
     await coach.getByRole("button", { name: "Next", exact: true }).click();
     await expect(coach.getByRole("heading", { name: "Review communities" })).toBeVisible();
     await coach.getByRole("button", { name: "Next", exact: true }).click();
-    await expect(coach.getByRole("heading", { name: "Check availability" })).toBeVisible();
+    await expect(coach.getByRole("heading", { name: "Check the sources" })).toBeVisible();
   });
 
   test("keeps the referral upload guide clear at a narrow viewport", async ({ page }) => {

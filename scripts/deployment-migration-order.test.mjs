@@ -11,14 +11,12 @@ const step = workflow.split("      - name: Back up and migrate before applicatio
 assert.ok(step?.includes("if: ${{ !inputs.initial_database_bootstrap }}"));
 const script = step.split("        run: |\n")[1].split("\n").map(line => line.replace(/^          /, "")).join("\n");
 
-test("the approved redesign stays on by default and both runtime invocations receive its explicit value and rollout identity", () => {
-  assert.match(workflow, /enable_design_v2:[\s\S]*?default: true/);
-  assert.equal(workflow.match(/enableDesignV2='\$\{\{ inputs.enable_design_v2 \}\}'/g)?.length, 2);
+test("the approved redesign cannot be disabled at deploy and both runtime invocations keep rollout identity", () => {
+  assert.doesNotMatch(workflow, /enable_design_v2|enableDesignV2/);
   assert.equal(workflow.match(/rolloutId='r\$\{\{ github.run_id \}\}-\$\{\{ github.run_attempt \}\}'/g)?.length, 2);
   assert.equal(workflow.match(/postgresServerName='\$\{\{ steps.foundation.outputs.postgres_name \}\}'/g)?.length, 2);
   const runtime = readFileSync(new URL("../infra/azure/runtime.bicep", import.meta.url), "utf8");
-  assert.match(runtime, /param enableDesignV2 bool = false/);
-  assert.match(runtime, /name: 'PIPELINE_DESIGN_V2', value: enableDesignV2 \? 'true' : 'false'/);
+  assert.doesNotMatch(runtime, /enableDesignV2|PIPELINE_DESIGN_V2/);
   assert.match(runtime, /var revisionSuffix = .*rolloutId/);
 });
 
@@ -29,7 +27,7 @@ for (const scenario of ["off", "on", "configuration-changed"]) {
       const fast = readFileSync(new URL("../.github/workflows/deploy-azure-fast.yml", import.meta.url), "utf8");
       const promotion = fast.split("      - name: Promote only the web image and roll back on failed health\n")[1];
       const command = promotion.split("        run: |\n")[1].split("\n").map(line => line.replace(/^          /, "")).join("\n");
-      const environment = [{ name: "PIPELINE_DESIGN_V2", value: scenario === "off" ? "false" : "true" }];
+      const environment = [{ name: "PIPELINE_NOTE_LAB_ENABLED", value: scenario === "off" ? "false" : "true" }];
       const calls = join(directory, "calls.jsonl"), state = join(directory, "state.json");
       writeFileSync(state, JSON.stringify({ latest: "web--previous", ready: "web--previous", image: "previous-image", environment }));
       const stub = `#!/usr/bin/env node

@@ -290,7 +290,7 @@ test("saved client workspaces offer a new intake with carried chart details", as
     await expect(view).toHaveValue("1");
     await expect(view.getByRole("option", { name: "Assessment" })).toHaveCount(1);
     await expect(view.getByRole("option", { name: "Decision" })).toHaveCount(1);
-    await expect(view.getByRole("option", { name: "Finish & send" })).toHaveCount(1);
+    await expect(view.getByRole("option", { name: "Placement" })).toHaveCount(1);
     await view.selectOption("3");
     await expect(page.getByRole("region", { name: "Chart", exact: true })).toBeVisible();
     await view.selectOption("1");
@@ -298,7 +298,7 @@ test("saved client workspaces offer a new intake with carried chart details", as
     await expect(stages.getByRole("button", { name: "Intake", exact: true })).toHaveAttribute("aria-current", "page");
     await expect(stages.getByRole("button", { name: "Assessment", exact: true })).toBeVisible();
     await expect(stages.getByRole("button", { name: "Decision", exact: true })).toBeVisible();
-    await expect(stages.getByRole("button", { name: "Finish & send", exact: true })).toBeVisible();
+    await expect(stages.getByRole("button", { name: "Placement", exact: true })).toBeVisible();
     await stages.getByRole("button", { name: "Chart", exact: true }).click();
     await expect(page.getByRole("region", { name: "Chart", exact: true })).toBeVisible();
     await stages.getByRole("button", { name: "Intake", exact: true }).click();

@@ -266,7 +266,9 @@ Cuts only; no new wording. Redesign switch only. Explanations that carry a rule 
 
 - No age chips ("6d in stage", "over target") on the board, and no `enteredStageAt` work for them.
 
-## Rollout (owner, 2026-09-24)
+## Rollout (historical owner plan, 2026-09-24)
+
+On 2026-10-17, the local candidate retired the runtime design flag and the old stylesheet blocks. The approved redesign now renders even when `PIPELINE_DESIGN_V2` is unset or false. The remaining `useDesignV2()` caller branches are unreachable compatibility code; remove each when its component is next changed, and delete the compatibility function after its final caller is gone. This source cleanup does not change the rendered design. The original rollout plan follows for historical context.
 
 Nothing is deployed until the owner is sure. The redesign ships behind an off-by-default switch.
 

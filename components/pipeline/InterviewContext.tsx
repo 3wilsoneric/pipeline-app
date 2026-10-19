@@ -17,6 +17,7 @@ export default function InterviewContext({ referralId, summary }: { referralId: 
   const [files, setFiles] = useState<ReferralFile[] | null>(null);
   const [preview, setPreview] = useState<ReferralFile | null>(null);
   useEffect(() => {
+    if (!Number.isSafeInteger(referralId) || referralId < 1) return;
     const controller = new AbortController();
     void fetchPipelineJson<{ files: ReferralFile[] }>(`/api/files?referral_id=${referralId}&limit=12`, { signal: controller.signal }, { cacheTtlMs: 30_000 })
       .then((payload) => { if (!controller.signal.aborted) setFiles(payload.files); })

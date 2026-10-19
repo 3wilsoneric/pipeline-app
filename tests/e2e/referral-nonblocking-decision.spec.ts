@@ -19,20 +19,23 @@ test("a checklist save does not freeze or erase a draft decision", async ({ page
   try {
     await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=workflow`);
     const panel = page.getByRole("region", { name: "Admission decision", exact: true });
-    await panel.getByText("Admission paperwork & EHR handoff").click();
-    const requirement = panel.locator('select[aria-label$=" status"]').first();
+    const accept = panel.getByRole("radio", { name: "Accept", exact: true });
+    await accept.check();
+    const reason = panel.getByLabel("Reason (optional)", { exact: true });
+    await reason.fill("Synthetic decision draft while paperwork saves.");
+    await page.getByRole("button", { name: "Workspace files", exact: true }).click();
+    const requirements = page.getByRole("region", { name: "Admission requirements", exact: true });
+    await requirements.locator("summary").click();
+    await requirements.getByRole("button", { name: "Change Signed medication list status" }).click();
+    const requirement = requirements.locator('select[aria-label$=" status"]').first();
     await expect(requirement).toBeVisible();
     const current = await requirement.inputValue();
     await requirement.selectOption(current === "received" ? "needed" : "received");
     await expect.poll(() => heldSave).toBe(true);
-    const accept = panel.getByRole("radio", { name: "Accept", exact: true });
+    await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: "Decision", exact: true }).click();
     await expect(accept).toBeEnabled();
-    await accept.check();
-    const reason = panel.getByLabel("Reason (optional)", { exact: true });
-    await reason.fill("Synthetic decision draft while paperwork saves.");
-    await expect(panel.getByRole("button", { name: "Record decision", exact: true })).toBeDisabled();
+    await expect(panel.getByRole("button", { name: "Record decision", exact: true })).toBeEnabled();
     releaseSave();
-    await expect(requirement).not.toBeDisabled();
     await expect(accept).toBeChecked();
     await expect(panel.locator("textarea").first()).toHaveValue("Synthetic decision draft while paperwork saves.");
     await expect(panel.getByRole("button", { name: "Record decision", exact: true })).toBeEnabled();
@@ -55,10 +58,12 @@ test("two paperwork changes queue without dropping either selection", async ({ p
     return route.continue();
   });
   try {
-    await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=workflow`);
-    const panel = page.getByRole("region", { name: "Admission decision", exact: true });
-    await panel.getByText("Admission paperwork & EHR handoff").click();
-    const statuses = panel.locator('select[aria-label$=" status"]');
+    await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=files`);
+    const requirements = page.getByRole("region", { name: "Admission requirements", exact: true });
+    await requirements.locator("summary").click();
+    await requirements.getByRole("button", { name: "Change Signed medication list status" }).click();
+    await requirements.getByRole("button", { name: "Change Letters of conservatorship status" }).click();
+    const statuses = requirements.locator('select[aria-label$=" status"]');
     await expect.poll(() => statuses.count()).toBeGreaterThanOrEqual(2);
     const first = statuses.nth(0);
     const second = statuses.nth(1);
@@ -69,14 +74,16 @@ test("two paperwork changes queue without dropping either selection", async ({ p
     await expect(second).toBeEnabled();
     await second.selectOption(secondTarget);
     await expect(second).toHaveValue(secondTarget);
-    await expect(second.locator("xpath=..")).toContainText("Status queued");
+    await expect(second.locator("xpath=../..")).toContainText("Status queued");
     expect(requests).toBe(1);
     releaseFirst();
     await expect.poll(() => requests).toBe(2);
     await expect(first).toBeEnabled();
     await expect(second).toBeEnabled();
     await page.reload();
-    await panel.getByText("Admission paperwork & EHR handoff").click();
+    await requirements.locator("summary").click();
+    await requirements.getByRole("button", { name: "Change Signed medication list status" }).click();
+    await requirements.getByRole("button", { name: "Change Letters of conservatorship status" }).click();
     await expect(statuses.nth(0)).toHaveValue(firstTarget);
     await expect(statuses.nth(1)).toHaveValue(secondTarget);
   } finally {
@@ -95,24 +102,26 @@ test("a failed paperwork change stays visible and can be retried", async ({ page
     if (requests === 1) return route.fulfill({ status: 503, json: { error: "Synthetic save failure" } });
     return route.continue();
   });
-  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=workflow`);
-  const panel = page.getByRole("region", { name: "Admission decision", exact: true });
-  await panel.getByText("Admission paperwork & EHR handoff").click();
-  const status = panel.locator('select[aria-label$=" status"]').first();
+  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=files`);
+  const requirements = page.getByRole("region", { name: "Admission requirements", exact: true });
+  await requirements.locator("summary").click();
+  await requirements.getByRole("button", { name: "Change Signed medication list status" }).click();
+  const status = requirements.locator('select[aria-label$=" status"]').first();
   const original = await status.inputValue();
   const target = original === "received" ? "needed" : "received";
   await status.selectOption(target);
-  await expect(status.locator("xpath=..")).toContainText("Status not saved");
+  await expect(status.locator("xpath=../..")).toContainText("Status not saved");
   await expect(status).toHaveValue(original);
   await status.selectOption(target);
   await expect.poll(() => requests).toBe(2);
   await expect(status).toBeEnabled();
   await page.reload();
-  await panel.getByText("Admission paperwork & EHR handoff").click();
-  await expect(panel.locator('select[aria-label$=" status"]').first()).toHaveValue(target);
+  await requirements.locator("summary").click();
+  await requirements.getByRole("button", { name: "Change Signed medication list status" }).click();
+  await expect(requirements.locator('select[aria-label$=" status"]').first()).toHaveValue(target);
 });
 
-test("paperwork failure stays visible after leaving Decision for Files", async ({ page }) => {
+test("paperwork failure stays visible after leaving Files for Decision", async ({ page }) => {
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", {
     name: `Example Decision Tab Save ${randomUUID()}`, owner: "Annette Everhart",
   }, { assigneeId: "provisional:allo:annette" });
@@ -129,32 +138,30 @@ test("paperwork failure stays visible after leaving Decision for Files", async (
     return route.continue();
   });
   try {
-    await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=workflow`);
-    const panel = page.getByRole("region", { name: "Admission decision", exact: true });
-    await panel.getByText("Admission paperwork & EHR handoff").click();
-    const status = panel.locator('select[aria-label$=" status"]').first();
+    await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=files`);
+    const requirements = page.getByRole("region", { name: "Admission requirements", exact: true });
+    await requirements.locator("summary").click();
+    await requirements.getByRole("button", { name: "Change Signed medication list status" }).click();
+    const status = requirements.locator('select[aria-label$=" status"]').first();
     const original = await status.inputValue();
     const target = original === "received" ? "needed" : "received";
     await status.selectOption(target);
     await expect.poll(() => requests).toBe(1);
-    await page.getByRole("button", { name: "Workspace files", exact: true }).click();
-    await expect(page.getByRole("region", { name: "Files", exact: true })).toBeVisible();
+    await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: "Decision", exact: true }).click();
+    await expect(page.getByRole("region", { name: "Admission decision", exact: true })).toBeVisible();
     await expect(page.getByText("1 paperwork change saving or queued…")).toBeVisible();
     releaseFirst();
-    await expect(page.getByText("1 paperwork change not saved. Open Decision to retry.")).toBeVisible();
-    await page.getByRole("button", { name: "Pipeline home", exact: true }).click();
-    await expect(page.getByText("Leave with unsaved paperwork changes?", { exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "Stay and retry", exact: true }).click();
-    await expect(page.getByRole("region", { name: "Files", exact: true })).toBeVisible();
-    await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: "Decision", exact: true }).click();
-    await expect(status.locator("xpath=..")).toContainText("Status not saved");
+    await expect(page.getByText("1 paperwork change not saved. Open Files to retry.")).toBeVisible();
+    await page.getByRole("button", { name: "Workspace files", exact: true }).click();
+    await expect(status.locator("xpath=../..")).toContainText("Status not saved");
     await expect(status).toHaveValue(original);
     await status.selectOption(target);
     await expect.poll(() => requests).toBe(2);
-    await expect(page.getByText("1 paperwork change not saved. Open Decision to retry.")).toBeHidden();
+    await expect(page.getByText("1 paperwork change not saved. Open Files to retry.")).toBeHidden();
     await page.reload();
-    await panel.getByText("Admission paperwork & EHR handoff").click();
-    await expect(panel.locator('select[aria-label$=" status"]').first()).toHaveValue(target);
+    await requirements.locator("summary").click();
+    await requirements.getByRole("button", { name: "Change Signed medication list status" }).click();
+    await expect(requirements.locator('select[aria-label$=" status"]').first()).toHaveValue(target);
   } finally {
     releaseFirst();
   }

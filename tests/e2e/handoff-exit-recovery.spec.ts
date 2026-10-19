@@ -9,7 +9,7 @@ test.skip(process.env.PIPELINE_DESKTOP_E2E !== "true", "Requires the isolated ha
 // Installed-app behavior remains covered by the regular workflow suites.
 test.use({ serviceWorkers: "block" });
 
-async function chooseWorkspaceView(page: Page, label: "Files" | "Decision" | "Finish & send") {
+async function chooseWorkspaceView(page: Page, label: "Files" | "Decision" | "Placement") {
   await expect(page.getByRole("navigation", { name: "Workspace stages", exact: true })).toBeVisible();
   const phonePicker = page.getByRole("combobox", { name: "Workspace view", exact: true });
   if (await phonePicker.isVisible()) await phonePicker.selectOption({ label });
@@ -96,14 +96,12 @@ for (const exit of ["Workspace files", "Change packet files"]) test(`a failed ha
   await dialog.getByRole("combobox", { name: /^Cc/ }).fill("unsaved@example.invalid");
   await dialog.getByRole("combobox", { name: /^Cc/ }).press("Enter");
   await expect(dialog.getByRole("alert")).toContainText("Synthetic recipient save interrupted");
-  if (exit === "Workspace files") await dialog.getByRole("button", { name: "Close handoff review", exact: true }).click();
-  else await dialog.getByRole("button", { name: "Back", exact: true }).click();
   if (exit === "Workspace files") await chooseWorkspaceView(page, "Files");
   else await page.getByRole("button", { name: exit, exact: true }).click();
   await expect(page.locator("#packet-files")).toBeVisible();
   await expect(page).toHaveURL(/workspaceView=files/);
   await expect(page.locator("dialog[open]")).toHaveCount(0);
-  await chooseWorkspaceView(page, "Finish & send");
+  await chooseWorkspaceView(page, "Placement");
   await expect(page.getByRole("region", { name: "Email and referral packet", exact: true }).getByRole("alert")).toContainText("Synthetic recipient save interrupted");
   const recoveredDialog = await openRecipients(page);
   await expect(recoveredDialog.getByRole("list", { name: "Cc recipients", exact: true })).toContainText("unsaved@example.invalid");
@@ -112,7 +110,6 @@ for (const exit of ["Workspace files", "Change packet files"]) test(`a failed ha
   await expect(page.getByRole("status").filter({ hasText: "Handoff draft saved" })).toBeVisible();
   await expect.poll(async () => (await (await page.request.get(`/api/referrals/${referral.id}/handoff-recipients`)).json()).draft.cc[0].email)
     .toBe("unsaved@example.invalid");
-  await recoveredDialog.getByRole("button", { name: "Close handoff review", exact: true }).click();
   await chooseWorkspaceView(page, "Files");
   await expect(page).toHaveURL(/workspaceView=files/);
 });
@@ -127,7 +124,6 @@ test("a failed handoff save does not trap app navigation or disable further reci
   await dialog.getByRole("combobox", { name: /^Cc/ }).fill("second@example.invalid");
   await dialog.getByRole("combobox", { name: /^Cc/ }).press("Enter");
   await expect(dialog.getByRole("list", { name: "Cc recipients", exact: true })).toContainText("second@example.invalid");
-  await dialog.getByRole("button", { name: "Close handoff review", exact: true }).click();
   await page.getByRole("button", { name: "Open calendar", exact: true }).click();
   await expect(page).toHaveURL(/screen=calendar/);
   await expect(page.getByText("Some edits are only in this open tab.")).toBeVisible();
@@ -148,7 +144,6 @@ test("a failed handoff draft syncs automatically after leaving when the server r
   await dialog.getByRole("combobox", { name: /^Cc/ }).fill("auto-sync@example.invalid");
   await dialog.getByRole("combobox", { name: /^Cc/ }).press("Enter");
   await expect(dialog.getByRole("alert")).toContainText("Synthetic recipient outage");
-  await dialog.getByRole("button", { name: "Close handoff review", exact: true }).click();
   await page.getByRole("button", { name: "Open calendar", exact: true }).click();
   await expect(page.getByText("Some edits are only in this open tab.")).toBeVisible();
   await page.unroute(endpoint);
@@ -158,15 +153,16 @@ test("a failed handoff draft syncs automatically after leaving when the server r
   await expect(page.getByText("Some edits are only in this open tab.")).toHaveCount(0);
 });
 
-test("unfinished recipient text survives closing review and cannot be skipped in Preview", async ({ page }) => {
+test("unfinished recipient text survives tab navigation and cannot be skipped in Preview", async ({ page }) => {
   const { dialog } = await openHandoff(page);
   const verified = dialog.getByRole("checkbox", { name: /I verified/ });
   await verified.check();
   await dialog.getByRole("combobox", { name: /^Cc/ }).fill("additional@example.invalid");
   await expect(dialog.getByRole("button", { name: "Preview email", exact: true })).toBeDisabled();
   await expect(verified).not.toBeChecked();
-  await dialog.getByRole("button", { name: "Close handoff review", exact: true }).click();
-  await page.getByRole("button", { name: "Continue review", exact: true }).click();
+  await chooseWorkspaceView(page, "Files");
+  await chooseWorkspaceView(page, "Placement");
+  await openRecipients(page);
   await expect(dialog.getByRole("combobox", { name: /^Cc/ })).toHaveValue("additional@example.invalid");
   await dialog.getByRole("combobox", { name: /^Cc/ }).press("Enter");
   await expect(dialog.getByRole("list", { name: "Cc recipients", exact: true })).toContainText("additional@example.invalid");
@@ -205,10 +201,8 @@ for (const steps of [1, 2]) test(`browser Back by ${steps} entries preserves unr
 
 test("changing the admit date after a lost response never replays the older date", async ({ page }) => {
   const { referral, dialog } = await openHandoff(page);
-  await dialog.getByRole("button", { name: "Close handoff review", exact: true }).click();
-  await chooseWorkspaceView(page, "Decision");
-  const date = page.getByLabel("Planned admission date", { exact: true });
-  const review = page.getByRole("button", { name: "Review email & packet", exact: true });
+  const date = dialog.getByLabel("Planned admit date", { exact: true });
+  const review = dialog.getByRole("button", { name: "Preview email", exact: true });
   const mutations: string[] = [];
   await page.route(`**/api/referrals/${referral.id}`, async route => {
     if (route.request().method() !== "PATCH") return route.continue();
@@ -217,17 +211,22 @@ test("changing the admit date after a lost response never replays the older date
     expect((await route.fetch()).status()).toBe(200);
     return route.fulfill({ status: 503, json: { error: "Synthetic date reply lost" } });
   });
+  await dialog.getByRole("checkbox", { name: /I verified/ }).check();
   await date.fill("2026-10-04");
   await review.click();
-  await expect(page.getByRole("alert").filter({ hasText: "Synthetic date reply lost" })).toBeVisible();
+  await expect(dialog.getByRole("alert").filter({ hasText: "Synthetic date reply lost" })).toBeVisible();
   await date.fill("2026-10-05");
   await review.click();
   await expect.poll(() => mutations.length).toBe(2);
   expect(mutations[1]).not.toBe(mutations[0]);
   await expect(date).toHaveValue("2026-10-05");
-  await expect(page.getByRole("alert").filter({ hasText: "This referral changed in another session." })).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Reload saved date", exact: true })).toBeVisible();
+  await dialog.getByRole("button", { name: "Reload saved date", exact: true }).click();
+  await expect(date).toHaveValue("2026-10-04");
+  await date.fill("2026-10-05");
+  await dialog.getByRole("checkbox", { name: /I verified/ }).check();
   await review.click();
-  await expect(page.getByRole("button", { name: "Review handoff", exact: true })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Meet the Client email", exact: true })).toBeVisible();
   expect((await (await page.request.get(`/api/referrals/${referral.id}`)).json()).referral.plannedAdmissionDate).toBe("2026-10-05");
 });
 
@@ -261,16 +260,14 @@ test("browser Back from contact settings saves unfinished addresses and remains 
 test("an invalid unfinished address remains editable across workspace tabs", async ({ page }) => {
   const { referral, dialog } = await openHandoff(page);
   await dialog.getByRole("combobox", { name: /^Cc/ }).fill("unfinished");
-  await dialog.getByRole("button", { name: "Close handoff review", exact: true }).click();
   await chooseWorkspaceView(page, "Files");
   await expect(page).toHaveURL(/workspaceView=files/);
-  await chooseWorkspaceView(page, "Finish & send");
+  await chooseWorkspaceView(page, "Placement");
   const recoveredDialog = await openRecipients(page);
   await expect(recoveredDialog.getByRole("combobox", { name: /^Cc/ })).toHaveValue("unfinished");
   await recoveredDialog.getByRole("combobox", { name: /^Cc/ }).fill("finished@example.invalid");
   await recoveredDialog.getByRole("combobox", { name: /^Cc/ }).press("Enter");
   await expect(recoveredDialog.getByRole("status").filter({ hasText: "Handoff draft saved" })).toBeVisible();
-  await recoveredDialog.getByRole("button", { name: "Close handoff review", exact: true }).click();
   await chooseWorkspaceView(page, "Files");
   await expect(page).toHaveURL(/workspaceView=files/);
   expect((await (await page.request.get(`/api/referrals/${referral.id}/handoff-recipients`)).json()).draft.cc[0].email).toBe("finished@example.invalid");
@@ -286,12 +283,8 @@ test("Retry saving after a draft load failure restores the saved recipients", as
   await page.unroute(endpoint);
   await summary.getByRole("button", { name: "Retry saving", exact: true }).click();
   await expect(summary.getByRole("alert")).toHaveCount(0);
-  await summary.getByRole("button", { name: "Confirm summary", exact: true }).click();
-  const packet = page.getByRole("dialog", { name: "Check admission packet", exact: true });
-  await expect(packet).toBeVisible();
-  await packet.getByRole("button", { name: "Confirm packet", exact: true }).click();
-  const dialog = page.getByRole("dialog", { name: "Check recipients", exact: true });
-  await expect(dialog).toBeVisible();
-  await expect(dialog.getByRole("list", { name: "To recipients", exact: true })).toContainText("first@example.invalid");
+  const restored = page.getByRole("region", { name: "Review client handoff", exact: true });
+  await expect(restored).toBeVisible();
+  await expect(restored.getByRole("list", { name: "To recipients", exact: true })).toContainText("first@example.invalid");
   await confirmRecipients(page);
 });

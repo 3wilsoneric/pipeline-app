@@ -553,12 +553,12 @@ async function buildSupervisorExceptionSnapshot(
     }
   }
 
-  // Accepted referrals leave active work, but a failed downstream handoff still
-  // needs an owner and recovery path until it is retried or resolved.
+  // Keep previously recorded entry failures visible until they are resolved,
+  // even though the old manual entry control is no longer on Placement.
   for (const work of operational.work) {
     const referral = referralById.get(work.referral_id);
     if (referral?.ehrHandoff?.status === "failed") {
-      items.push(workException(work, "ehr_handoff_failed", "critical", "EHR handoff failed", referral.ehrHandoff.failureReason));
+      items.push(workException(work, "ehr_handoff_failed", "critical", "Previously recorded entry issue", referral.ehrHandoff.failureReason));
     }
   }
 

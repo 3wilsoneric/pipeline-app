@@ -34,11 +34,6 @@ on:
         required: true
         default: true
         type: boolean
-      enable_design_v2:
-        description: Enable the owner-approved Pipeline redesign globally
-        required: true
-        default: true
-        type: boolean
       enable_demo_center:
         description: Enable demo-only mode (disables live Meet the Client)
         required: true
@@ -292,7 +287,6 @@ jobs:
               enableClinicalReconcileJob='${{ inputs.enable_clinical_reconcile_job }}' \
               enableRetentionJob='${{ inputs.enable_retention_job }}' \
               enableNoteLab='${{ inputs.enable_note_lab }}' \
-              enableDesignV2='${{ inputs.enable_design_v2 }}' \
               enableDemoCenter='${{ inputs.enable_demo_center }}' \
               enableDesktop='${{ steps.desktop.outputs.enabled }}' \
               initialDatabaseBootstrap='${{ inputs.initial_database_bootstrap }}'
@@ -392,7 +386,6 @@ jobs:
               enableClinicalReconcileJob='${{ inputs.enable_clinical_reconcile_job }}' \
               enableRetentionJob='${{ inputs.enable_retention_job }}' \
               enableNoteLab='${{ inputs.enable_note_lab }}' \
-              enableDesignV2='${{ inputs.enable_design_v2 }}' \
               enableDemoCenter='${{ inputs.enable_demo_center }}' \
               enableDesktop='${{ steps.desktop.outputs.enabled }}' \
               initialDatabaseBootstrap='${{ inputs.initial_database_bootstrap }}' \

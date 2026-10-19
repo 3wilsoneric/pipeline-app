@@ -3,13 +3,18 @@ import { defaultPipelineHomeDashboardLayout } from "../../lib/pipeline/home-dash
 
 // Home customization is persisted on the server in desktop mode, not just in
 // this test context. Reset it so ordering and previous specs cannot change Home.
+function isReportOnlyTest(title: string) {
+  return title === "combines Pipeline admissions with current census in Reports"
+    || title.startsWith("restricts Reports navigation and direct entry")
+    || title === "hides Reports from a supervisor who is not on the approved identity list";
+}
 test.beforeEach(async ({ request }, testInfo) => {
-  if (testInfo.title === "shows only the Pipeline census briefing in Reports") return;
+  if (isReportOnlyTest(testInfo.title)) return;
   const response = await request.put("/api/me/home-layout", { data: { layout: defaultPipelineHomeDashboardLayout() } });
   expect(response.ok()).toBe(true);
 });
 test.afterEach(async ({ request }, testInfo) => {
-  if (testInfo.title === "shows only the Pipeline census briefing in Reports") return;
+  if (isReportOnlyTest(testInfo.title)) return;
   const response = await request.put("/api/me/home-layout", { data: { layout: defaultPipelineHomeDashboardLayout() } });
   expect(response.ok()).toBe(true);
 });
@@ -484,10 +489,11 @@ test.describe("role-scoped home and reports", () => {
     await expect(board.locator("[data-board-card]")).toHaveCount(12);
   });
 
-  test("shows only the Pipeline census briefing in Reports", async ({ page }) => {
+  test("combines Pipeline admissions with current census in Reports", async ({ page }) => {
     let legacyReportRequests = 0;
     let censusRequests = 0;
     let censusAvailable = true;
+    let admissionsAvailable = true;
     page.on("request", (request) => {
       const path = new URL(request.url()).pathname;
       if (path === "/api/operations/reports" || path === "/api/operations/briefing") legacyReportRequests += 1;
@@ -503,12 +509,40 @@ test.describe("role-scoped home and reports", () => {
         { community_id: "342", community_name: "Victoria's House", city: "San Francisco", state: "CA", current_census: 36, roster_count: 36, reconciliation_status: "matched", delta: 0 },
       ],
     } }) : route.fulfill({ status: 503, json: { error: "Clinical data is not connected. Configure the Alamo Platform clinical API first." } }));
+    await page.route("**/api/operations/admissions-census", (route) => admissionsAvailable ? route.fulfill({ status: 200, json: {
+      generated_at: "2026-09-28T15:00:00Z",
+      metrics: { on_board: 12, active_referrals: 11, stale: 2, unassigned: 1, awaiting_admission: 3 },
+      upcoming_admissions: { next_7_days: 2, next_30_days: 3, past_planned_date: 1, no_planned_date: 0 },
+      board_columns: [
+        { key: "received", label: "Referral received", count: 3 },
+        { key: "in_progress", label: "In progress", count: 6 },
+        { key: "decision", label: "Decision", count: 3 },
+      ],
+      history: {
+        coverage_start_month: "2026-08", month_outcomes: { month: "2026-09", received: 9, accepted: 4, declined: 1, admitted: 2 },
+        monthly: [
+          { month: "2026-08", received: 7, accepted: 3, declined: 0, admitted: 1 },
+          { month: "2026-09", received: 9, accepted: 4, declined: 1, admitted: 2 },
+        ],
+        decision_timing: { window_days: 90, median_days_to_decision: 4, decisions_counted: 7 },
+      },
+      briefing: {
+        window_end: "2026-09-28", coverage: { assessments_complete: true, move_ins_complete: true },
+        upcoming_assessments: [{ client_name: "Synthetic Assessee", scheduled_at: "2026-09-29T16:00:00Z", community: "San Pablo", owner: "Test Assessor", pipeline_path: "/?view=referrals&screen=packet&referralId=9" }],
+        planned_move_ins: [{ client_name: "Synthetic Arrival", planned_at: "2026-09-30", community: "San Pablo", readiness: "ready", pipeline_path: "/?view=referrals&screen=packet&referralId=10" }],
+      },
+    } }) : route.fulfill({ status: 503, json: { error: "Referral storage is unavailable." } }));
 
     await page.goto("/?screen=operations");
     await expect(page.getByRole("main", { name: "Reports" })).toBeVisible();
     await expect(page.getByTestId("operations-workspace")).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Census briefing" })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Census metrics" })).toContainText("108");
+    await expect(page.getByRole("heading", { name: "Admissions & census" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Census and placement overview" })).toContainText("108");
+    await expect(page.getByRole("region", { name: "Census and placement overview" })).toContainText("2");
+    await expect(page.getByRole("heading", { name: "The referral board" })).toBeVisible();
+    await expect(page.getByText("11 active referrals")).toBeVisible();
+    await expect(page.getByRole("region", { name: "Monthly admission activity" })).toContainText("Sep 2026");
+    await expect(page.getByRole("region", { name: "Assessments this week" })).toContainText("Synthetic Assessee");
     await expect(page.getByText("San Pablo", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Connect Platform" })).toHaveCount(0);
     await expect(page.getByRole("combobox", { name: "Report", exact: true })).toHaveCount(0);
@@ -518,12 +552,26 @@ test.describe("role-scoped home and reports", () => {
     expect(censusRequests).toBeGreaterThan(0);
     await page.setViewportSize({ width: 390, height: 844 });
     await expect.poll(() => page.getByRole("main", { name: "Reports" }).evaluate((element) => element.scrollWidth - element.clientWidth)).toBeLessThanOrEqual(0);
+    await page.addScriptTag({ path: "node_modules/axe-core/axe.min.js" });
+    const violations = await page.evaluate(async () => {
+      const axe = (window as unknown as { axe: typeof import("axe-core") }).axe;
+      const result = await axe.run('[data-testid="operations-workspace"]', { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"] } });
+      return result.violations.filter((violation) => ["serious", "critical"].includes(violation.impact ?? "")).map((violation) => ({ id: violation.id, targets: violation.nodes.map((node) => node.target) }));
+    });
+    expect(violations).toEqual([]);
     censusAvailable = false;
     await page.reload();
-    await expect(page.getByTestId("operations-workspace").getByRole("alert")).toContainText("Current census information is unavailable in Pipeline right now");
+    await expect(page.getByTestId("operations-workspace").getByRole("status")).toContainText("Current census is unavailable");
+    await expect(page.getByRole("region", { name: "Census and placement overview" })).toContainText("Unavailable");
+    await expect(page.getByText("11 active referrals")).toBeVisible();
     await expect(page.getByText("Connect Platform")).toHaveCount(0);
     censusAvailable = true;
-    await page.getByRole("button", { name: "Try again" }).click();
-    await expect(page.getByRole("region", { name: "Census metrics" })).toContainText("108");
+    await page.getByRole("button", { name: "Refresh report" }).click();
+    await expect(page.getByRole("region", { name: "Census and placement overview" })).toContainText("108");
+    admissionsAvailable = false;
+    await page.reload();
+    await expect(page.getByTestId("operations-workspace").getByRole("status")).toContainText("Pipeline admissions are unavailable");
+    await expect(page.getByRole("region", { name: "Census and placement overview" })).toContainText("108");
+    await expect(page.getByRole("region", { name: "Census and placement overview" })).toContainText("unavailable");
   });
 });

@@ -58,6 +58,7 @@ for (const width of [1440, 390]) test(`background presence retires and returns w
   await expect.poll(async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment.prior_placements)
     .toBe("Synthetic saved answer while presence is unavailable");
   await page.reload();
-  await expect(answer).toHaveValue("Synthetic saved answer while presence is unavailable");
+  if (width < 600) await expect(page.getByRole("textbox", { name: "Earlier care placements" })).toHaveValue("Synthetic saved answer while presence is unavailable");
+  else await expect(page.getByRole("complementary", { name: "Current information", exact: true })).toContainText("Synthetic saved answer while presence is unavailable");
   await expect(page.getByRole("heading", { name: "This page could not load." })).toHaveCount(0);
 });

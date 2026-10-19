@@ -46,7 +46,7 @@ for (const phone of [false, true]) test(`${phone ? "iPhone WebKit" : "desktop"}:
     expect(saved.name).toBe(name);
     expect(saved.dob ?? "").toBe("");
     expect(saved.packetFields ?? []).toHaveLength(0);
-    await page.getByRole("dialog", { name: "Workspace created", exact: true }).getByRole("button", { name: "Close workspace created", exact: true }).click();
+    await page.getByRole("region", { name: "Workspace created", exact: true }).getByRole("button", { name: "Dismiss workspace next steps", exact: true }).click();
     await page.reload();
     if (phone) await page.getByRole("combobox", { name: "Workspace view", exact: true }).selectOption({ label: "Files" });
     else await page.getByRole("button", { name: "Workspace files", exact: true }).click();

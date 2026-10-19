@@ -9,11 +9,11 @@ async function createFromIntake(page: Page) {
   await page.goto(`/?view=referrals&screen=packet&draftId=${randomUUID()}`);
   await page.getByRole("textbox", { name: "NAME", exact: true }).fill(name);
   await page.getByRole("button", { name: "Create referral", exact: true }).click();
-  const handoff = page.getByRole("dialog", { name: "Workspace created", exact: true });
+  const handoff = page.getByRole("region", { name: "Workspace created", exact: true });
   await expect(handoff).toContainText(name);
   const id = new URL(page.url()).searchParams.get("referralId")!;
   expect(id).toBeTruthy();
-  return { handoff, id };
+  return { handoff, id, name };
 }
 
 for (const width of [1440, 390]) {
@@ -62,14 +62,13 @@ for (const width of [1440, 390]) {
     expect(started.assessment_date).not.toBe("2028-09-21");
     expect(started.audit_events.find((event: { action: string }) => event.action === "assessment_started").changed_fields).toContain("assessment_date");
     await expect(page.locator('#assessment-assessment_date')).toHaveCount(0);
-    await page.locator('summary[aria-label="Assessment details"]').click();
     await page.getByRole("button", { name: /^Interview date/ }).click();
     const dateDialog = page.getByRole("dialog", { name: "Interview date", exact: true });
     await dateDialog.locator('#assessment-assessment_date').fill("2026-09-18");
     await dateDialog.getByRole("button", { name: "Close interview date" }).click();
     await expect.poll(async () => (await read())[0].assessment_date).toBe("2026-09-18");
     await page.reload();
-    await expect(page.getByRole("dialog", { name: "Workspace created", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "Workspace created", exact: true })).toHaveCount(0);
     expect(await read()).toHaveLength(1);
     expect((await read())[0].scheduled_start_at).toBe(scheduled.scheduled_start_at);
   });
@@ -78,18 +77,19 @@ for (const width of [1440, 390]) {
 test("prepare first and dismiss both leave usable workspace navigation", async ({ page }) => {
   const { handoff, id } = await createFromIntake(page);
   await handoff.getByRole("button", { name: "Assessment prep", exact: false }).click();
-  await expect(page.getByRole("region", { name: "Assessment progress" })).toContainText("Prepare assessment");
-  await expect(page.getByRole("button", { name: "Begin interview", exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Assessment progress" })).toHaveAttribute("data-phase", "preparation");
+  await expect(page.getByRole("button", { name: "Schedule interview", exact: true })).toBeVisible();
   await expect(page.getByRole("dialog", { name: "Schedule interview", exact: true })).toHaveCount(0);
   const records = (await (await page.request.get(`/api/referrals/${id}/assessments`)).json()).assessments;
   expect(records).toHaveLength(1);
   expect(records[0]).toMatchObject({ started_at: null, schedule_status: "unscheduled" });
   expect(records[0].scheduled_start_at).toBeUndefined();
   const second = await createFromIntake(page);
-  await second.handoff.getByRole("button", { name: "Close workspace created" }).click();
+  await second.handoff.getByRole("button", { name: "Dismiss workspace next steps" }).click();
   const tabs = page.getByRole("navigation", { name: "Workspace stages" });
   await expect(tabs.getByRole("button", { name: /Chart$/ })).toHaveAttribute("aria-current", "page");
   await tabs.getByRole("button", { name: /Assessment$/ }).click();
+  await page.getByRole("button", { name: "Prepare assessment", exact: true }).click();
   await expect(page.getByRole("button", { name: "Schedule interview", exact: true })).toBeVisible();
 });
 
@@ -114,8 +114,7 @@ test("starting preserves a historical interview date, with normal optimistic con
 
 test("Workspaces resumes the intake handoff until an option is chosen", async ({ page }) => {
   await page.goto("/");
-  const { handoff, id } = await createFromIntake(page);
-  const name = await handoff.locator("p.text-xl").innerText();
+  const { handoff, id, name } = await createFromIntake(page);
   await page.goBack();
   await page.getByRole("button", { name: "Open referrals", exact: true }).click();
   await page.getByRole("button", { name: `Open ${name} referral workspace`, exact: true }).click();
@@ -133,5 +132,5 @@ test("Workspaces resumes the intake handoff until an option is chosen", async ({
   await page.getByRole("button", { name: `Open ${name} referral workspace`, exact: true }).click();
   await expect(handoff).toHaveCount(0);
   await expect(schedule).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Prepare assessment", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("region", { name: "Assessment progress" })).toHaveAttribute("data-phase", "preparation");
 });

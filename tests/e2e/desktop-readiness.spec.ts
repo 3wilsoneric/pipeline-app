@@ -224,8 +224,8 @@ test.describe("desktop feature enabled", () => {
         documentStatus: "Missing",
       },
     });
-    await page.getByRole("dialog", { name: "Workspace created", exact: true })
-      .getByRole("button", { name: "Close workspace created" }).click();
+    await page.getByRole("region", { name: "Workspace created", exact: true })
+      .getByRole("button", { name: "Dismiss workspace next steps" }).click();
     await page.getByRole("button", { name: "Edit referral details" }).click();
     await page.getByTestId("referral-documents-input").setInputFiles({
       name: "desktop-recovery-face-sheet.pdf",
@@ -546,7 +546,7 @@ test.describe("desktop feature enabled", () => {
     await expect(page.getByText(`Yours: ${localCollisionValue}`, { exact: false })).toBeVisible();
     await expect(page.getByText(`Latest: ${remoteCollisionValue}`, { exact: false })).toBeVisible();
     await page.getByRole("button", { name: "Keep mine" }).click();
-    await expect(page.getByText("All changes saved", { exact: true })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("status", { name: "All changes saved" })).toBeVisible({ timeout: 15_000 });
     await expect.poll(async () => {
       const response = await page.request.get(`/api/assessments/${assessmentPayload.assessment.assessment_id}`);
       const payload = await response.json() as { assessment?: { current_location?: string } };

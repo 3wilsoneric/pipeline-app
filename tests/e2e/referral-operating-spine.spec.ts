@@ -66,7 +66,7 @@ test.describe("Referral-to-decision operating spine", () => {
 
     await expect.poll(() => new URL(page.url()).searchParams.get("referralId")).not.toBeNull();
     const referralId = Number(new URL(page.url()).searchParams.get("referralId"));
-    await page.getByRole("dialog", { name: "Workspace created", exact: true }).getByRole("button", { name: "Close workspace created", exact: true }).click();
+    await page.getByRole("region", { name: "Workspace created", exact: true }).getByRole("button", { name: "Dismiss workspace next steps", exact: true }).click();
     await page.getByRole("button", { name: "Edit referral details", exact: true }).click();
     const contacts = page.getByRole("region", { name: "Contact and coordination", exact: true });
     await expect(contacts).toBeVisible();

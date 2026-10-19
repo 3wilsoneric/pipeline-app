@@ -66,13 +66,13 @@ export async function POST(
         result: "conflict",
       });
       return Response.json({
-        error: "This EHR handoff changed in another session. Review the latest status before trying again.",
+        error: "This ElderMark entry status changed in another session. Review the latest status before trying again.",
         ...result,
       }, { status: 409, headers: privateHeaders() });
     }
     if (!result.ok) {
       return Response.json({
-        error: result.blockers[0]?.label ?? "The EHR handoff is blocked.",
+        error: result.blockers[0]?.label ?? "The ElderMark entry status cannot be updated.",
         ...result,
       }, { status: 422, headers: privateHeaders() });
     }

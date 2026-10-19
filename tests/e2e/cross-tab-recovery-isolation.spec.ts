@@ -171,7 +171,7 @@ test("two assessment tabs keep separate encrypted copies when both server saves 
     await returnToAssessmentQuestions(page);
     await returnToAssessmentQuestions(second);
     await openAllQuestions(second);
-    await expect(page.locator("#assessment-prior_placements")).toHaveValue("First tab history");
+    await expect(page.getByRole("complementary", { name: "Current information", exact: true })).toContainText("First tab history");
     await expect(second.locator("#assessment-prior_placements")).toHaveValue("Second tab history");
   } finally {
     await second.close();

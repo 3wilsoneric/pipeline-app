@@ -70,8 +70,8 @@
 @media (prefers-reduced-motion: reduce) { .dropzone { transition: none; } }
 
 /* Chart documents: a distinct file section, with the existing drop/upload path. */
-:global(html[data-design="v2"]) .compact { border-color: var(--color-stage-blue-border); border-radius: var(--radius-paper); background: var(--color-paper); }
-:global(html[data-design="v2"]) .compact .panel > summary { min-height: 60px; padding: 12px 18px; border-top: 0; background: var(--color-stage-blue-tile); }
-:global(html[data-design="v2"]) .compact .panel > summary strong { display: flex; align-items: center; gap: 10px; color: var(--color-ink); font-size: var(--text-section); line-height: var(--text-section--line-height); }
-:global(html[data-design="v2"]) .compact .panel > summary strong svg { color: var(--color-stage-blue); }
-:global(html[data-design="v2"]) .compact .panel > summary > span { color: var(--color-ink-2); font-size: var(--text-label); }
+.compact { border-color: var(--color-stage-blue-border); border-radius: var(--radius-paper); background: var(--color-paper); }
+.compact .panel > summary { min-height: 60px; padding: 12px 18px; border-top: 0; background: var(--color-stage-blue-tile); }
+.compact .panel > summary strong { display: flex; align-items: center; gap: 10px; color: var(--color-ink); font-size: var(--text-section); line-height: var(--text-section--line-height); }
+.compact .panel > summary strong svg { color: var(--color-stage-blue); }
+.compact .panel > summary > span { color: var(--color-ink-2); font-size: var(--text-label); }

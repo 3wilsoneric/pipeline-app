@@ -87,9 +87,6 @@ param enableRetentionJob bool = false
 @description('Expose the Assessment Language Lab to authenticated supervisors only.')
 param enableNoteLab bool = false
 
-@description('Enable the Pipeline redesign globally. Off preserves the current design.')
-param enableDesignV2 bool = false
-
 @description('Expose the authenticated Demo Center without enabling synthetic writes to the production data store.')
 param enableDemoCenter bool = false
 
@@ -219,7 +216,6 @@ var baseEnvironment = [
   { name: 'PIPELINE_DESKTOP_STATE_ENABLED', value: enableDesktop ? 'true' : 'false' }
   { name: 'NEXT_PUBLIC_PIPELINE_DESKTOP_ENABLED', value: enableDesktop ? 'true' : 'false' }
   { name: 'PIPELINE_NOTE_LAB_ENABLED', value: enableNoteLab ? 'true' : 'false' }
-  { name: 'PIPELINE_DESIGN_V2', value: enableDesignV2 ? 'true' : 'false' }
   { name: 'PIPELINE_DEMO_MODE', value: enableDemoCenter ? 'true' : 'false' }
   { name: 'PIPELINE_DEMO_DATA_ISOLATED', value: 'false' }
   { name: 'PIPELINE_ALLOW_LOCAL_DESKTOP_STATE_STORE', value: 'false' }

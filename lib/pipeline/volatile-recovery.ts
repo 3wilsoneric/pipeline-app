@@ -8,6 +8,7 @@ import type { PipelineAssessmentDraft } from "@/lib/pipeline/user-workspace-stat
 import type { RecipientFields } from "@/lib/pipeline/community-recipient-lists";
 import type { MeetClientMessage } from "@/lib/notifications/meet-client-message";
 import type { MedicationReview } from "@/lib/notifications/meet-client-medications";
+import { parseMeetClientReviewDraft, type MeetClientReviewDraft } from "@/lib/notifications/meet-client-review-draft";
 
 // Last-resort copies live only in this document. They keep ordinary navigation
 // usable during a simultaneous network/device-storage failure, not a reload.
@@ -25,7 +26,7 @@ const assessmentKey = (assessmentId: string) => `assessment:${assessmentId}`;
 const handoffKey = (referralId: number, community: string) => `handoff:${referralId}:${community}`;
 export type VolatileHandoffRecovery = {
   version: number;
-  fields: RecipientFields & { message: MeetClientMessage; medicationReview?: MedicationReview | null };
+  fields: RecipientFields & { message: MeetClientMessage; medicationReview?: MedicationReview | null; review?: MeetClientReviewDraft };
   input: { to: string; cc: string };
 };
 
@@ -35,8 +36,8 @@ export function rememberVolatileHandoffRecovery(principal: string, referralId: n
     principal, value: recovery,
     persist: async () => {
       if (recovery.input.to.trim() || recovery.input.cc.trim()) throw new Error("An unfinished address remains in the open tab.");
-      const saved = await fetchPipelineJson<{ draft: (RecipientFields & { community: string; message?: MeetClientMessage; medicationReview?: MedicationReview | null }) | null; version: number }>(endpoint, { cache: "no-store" });
-      if (saved.draft?.community === community && JSON.stringify({ to: saved.draft.to, cc: saved.draft.cc, message: saved.draft.message, medicationReview: saved.draft.medicationReview ?? null }) === JSON.stringify({ ...recovery.fields, medicationReview: recovery.fields.medicationReview ?? null })) return;
+      const saved = await fetchPipelineJson<{ draft: (RecipientFields & { community: string; message?: MeetClientMessage; medicationReview?: MedicationReview | null; review?: MeetClientReviewDraft }) | null; version: number }>(endpoint, { cache: "no-store" });
+      if (saved.draft?.community === community && JSON.stringify({ to: saved.draft.to, cc: saved.draft.cc, message: saved.draft.message, medicationReview: saved.draft.medicationReview ?? null, review: parseMeetClientReviewDraft(saved.draft.review) }) === JSON.stringify({ ...recovery.fields, medicationReview: recovery.fields.medicationReview ?? null, review: parseMeetClientReviewDraft(recovery.fields.review) })) return;
       if (saved.version !== recovery.version) throw new Error("The handoff changed in another session.");
       await fetchPipelineJson(endpoint, { method: "PUT", body: JSON.stringify({ if_match: saved.version, draft: { ...recovery.fields, community } }) });
     },

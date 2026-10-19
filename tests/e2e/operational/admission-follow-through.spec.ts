@@ -17,10 +17,8 @@ test.describe("admission follow-through", () => {
       page.on("request", (request) => {
         if (request.method() === "POST" && /meet-client-email|outlook-draft/.test(request.url())) sendRequests++;
       });
-      await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=workflow`);
-      const review = page.getByRole("region", { name: "Admission follow-through" }).getByRole("button", { name: "Review email & packet" });
-      await expect(review).toBeEnabled();
-      await review.click();
+      await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
+      await expect(page.getByRole("region", { name: "Placement follow-through" })).toBeVisible();
       await expect(page.getByRole("region", { name: "Email and referral packet" })).toBeVisible();
       const summary = await (await api.get(`/api/referrals/${referral.id}/admission-summary`)).json();
       expect(summary.email.blockers.join(" ")).toContain("planned admit date before sending Meet the Client");
@@ -44,11 +42,10 @@ test.describe("admission follow-through", () => {
       expect(assessorWorkflow.capabilities.can_confirm_admission).toBe(false);
       expect(coordinatorWorkflow.capabilities.can_confirm_admission).toBe(true);
       expect(adminWorkflow.capabilities.can_confirm_admission).toBe(true);
-      await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=workflow`);
-      const admission = page.getByRole("region", { name: "Admission follow-through" });
-      await expect(admission).toContainText("Awaiting arrival confirmation from the daily census or an admissions coordinator");
-      await expect(admission.getByRole("button", { name: "Confirm admission" })).toHaveCount(0);
-      await expect(admission.getByRole("button", { name: "Review email & packet" })).toBeEnabled();
+      await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
+      const placement = page.getByRole("region", { name: "Placement follow-through" });
+      await expect(placement.getByRole("heading", { name: "Meet the Client", exact: true })).toBeVisible();
+      await expect(placement.getByRole("button", { name: /Confirm admission/i })).toHaveCount(0);
 
       const transition = await assessor.post(`${path}/transition`, { data: {
         if_match: referral.version, if_match_section: referral.sectionVersions.workflow,
@@ -66,7 +63,7 @@ test.describe("admission follow-through", () => {
     } finally { await context.close(); await assessor.dispose(); await coordinator.dispose(); await admin.dispose(); }
   });
 
-  for (const width of [1440, 390]) test(`planned dates, confirmation and reopening persist at ${width}`, async ({ browser, baseURL }, info) => {
+  for (const width of [1440, 390]) test(`planned dates and coordinator fallback persist at ${width}`, async ({ browser, baseURL }, info) => {
     const url = requireOperationalBaseURL(baseURL);
     const api = await actorApiContext("assessmentCoordinator", url);
     const { page, context } = await actorPage(browser, "assessmentCoordinator", url);
@@ -82,50 +79,42 @@ test.describe("admission follow-through", () => {
       const forged = await api.patch(`/api/referrals/${referral.id}`, { data: { if_match: referral.version, patch: { actualAdmissionDate: calendarToday() }, client_mutation_id: randomUUID() } });
       expect(forged.status()).toBe(400);
       await page.setViewportSize({ width, height: 850 });
-      await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=workflow`);
-      const admission = page.getByRole("region", { name: "Admission follow-through" });
-      await expect(admission).toBeVisible();
+      await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
+      const placement = page.getByRole("region", { name: "Placement follow-through" });
+      await expect(placement.getByRole("heading", { name: "Meet the Client", exact: true })).toBeVisible();
       await expect(page.getByText("This referral is closed as declined.", { exact: true })).toHaveCount(0);
-      await admission.getByRole("button", { name: "Review email & packet" }).click();
       await expect(page.getByRole("region", { name: "Email and referral packet" })).toBeVisible();
       const summary = await (await api.get(`/api/referrals/${referral.id}/admission-summary`)).json();
       expect(summary.email.blockers.join(" ")).toContain("planned admit date before sending Meet the Client");
-      await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=workflow`);
-      await admission.getByLabel("Planned admission date", { exact: true }).fill("2026-10-12");
-      await admission.getByRole("button", { name: "Review email & packet" }).click();
+      await expect(placement.getByRole("region", { name: "Handoff readiness" })).toContainText("Sign the assessment");
+      const savedDate = await api.patch(`/api/referrals/${referral.id}`, { data: {
+        if_match: referral.version, if_match_sections: { intake: referral.sectionVersions.intake },
+        patch: { plannedAdmissionDate: "2026-10-12" }, client_mutation_id: randomUUID(),
+      } });
+      expect(savedDate.status(), await savedDate.text()).toBe(200);
       await expect(page.getByRole("region", { name: "Email and referral packet" })).toBeVisible();
       const planned = (await (await api.get(`/api/referrals/${referral.id}`)).json()).referral as typeof referral & { plannedAdmissionDate: string; admissionDate: string; actualAdmissionDate?: string; stage: string };
       expect(planned.plannedAdmissionDate).toBe("2026-10-12");
       expect(planned.admissionDate).toBe("");
       expect(planned.actualAdmissionDate).toBeUndefined();
       expect(planned.stage).not.toBe("Accepted / Admitted");
-      await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=workflow`);
-      await expect(admission.getByLabel("Planned admission date", { exact: true })).toHaveValue("2026-10-12");
-      const actualDate = admission.getByLabel("Actual admission date", { exact: true });
-      const markAdmitted = admission.getByRole("button", { name: "Confirm admission" });
-      await expect(actualDate).toBeVisible();
-      await expect(markAdmitted).toBeEnabled();
+      await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
+      const refreshedSummary = await (await api.get(`/api/referrals/${referral.id}/admission-summary`)).json();
+      expect(refreshedSummary.referral.plannedAdmissionDate).toBe("2026-10-12");
+      await expect(placement.getByRole("button", { name: /Confirm admission/i })).toHaveCount(0);
       expect((await readOperationalReferral(api, referral.id)).version).toBe(planned.version);
       await page.screenshot({ path: info.outputPath(`admission-${width}.png`) });
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-      await markAdmitted.click();
-      await expect(admission).toContainText("Enter the client's actual arrival date");
-      expect((await readOperationalReferral(api, referral.id)).version).toBe(planned.version);
-      await actualDate.fill(calendarToday());
-      await markAdmitted.click();
-      const confirmationRequest = page.waitForRequest((request) => request.method() === "POST"
-        && request.url().endsWith(`/api/referrals/${referral.id}/transition`)
-        && request.postDataJSON()?.target_stage === "Accepted / Admitted");
-      await page.getByRole("alertdialog").getByRole("button", { name: "Confirm admission", exact: true }).click();
-      const confirmation = (await confirmationRequest).postDataJSON() as {
+      const confirmation: {
         if_match: number;
         if_match_section: number;
         target_stage: string;
         actual_admission_date: string;
         client_mutation_id: string;
-      };
-      expect(confirmation).toMatchObject({ if_match: planned.version, target_stage: "Accepted / Admitted", actual_admission_date: calendarToday() });
-      await expect(admission).toContainText("Admission confirmed");
+      } = { if_match: planned.version, if_match_section: planned.sectionVersions.workflow, target_stage: "Accepted / Admitted", actual_admission_date: calendarToday(), client_mutation_id: randomUUID() };
+      const confirmedResponse = await api.post(`/api/referrals/${referral.id}/transition`, { data: confirmation });
+      expect(confirmedResponse.status(), await confirmedResponse.text()).toBe(200);
+      await expect(placement).toContainText("Admitted");
       const confirmed = (await (await api.get(`/api/referrals/${referral.id}`)).json()).referral;
       expect(confirmed.actualAdmissionDate).toBe(calendarToday());
       expect(confirmed.plannedAdmissionDate).toBe("2026-10-12");
@@ -136,7 +125,7 @@ test.describe("admission follow-through", () => {
       const stale = await api.post(`/api/referrals/${referral.id}/transition`, { data: { ...confirmation, target_stage: "Assessment", client_mutation_id: randomUUID() } });
       expect(stale.status()).toBe(409);
       await page.reload();
-      await expect(admission).toContainText("Admission confirmed");
+      await expect(placement).toContainText("Admitted");
       const reopen = await api.post(`/api/referrals/${referral.id}/transition`, { data: { if_match: confirmed.version, if_match_section: confirmed.sectionVersions.workflow, target_stage: "Assessment", client_mutation_id: randomUUID() } });
       expect(reopen.status()).toBe(200);
       referral = (await reopen.json()).referral;

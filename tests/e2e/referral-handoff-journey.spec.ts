@@ -38,15 +38,15 @@ for (const width of [1440, 834, 390]) {
     expect(referral.name).toContain("Example");
     expect(referral.community).toBe("San Pablo");
     expect(referral.email).toBe("example@example.invalid");
-    if (width < 640) await expect(stagePicker.locator(":scope > option")).toHaveText(["Chart", "Assessment", "Decision", "Finish & send"]);
-    else await expect(stages.getByRole("button")).toHaveText(["Chart", "Assessment", "Decision", "Finish & send"]);
+    if (width < 640) await expect(stagePicker.locator(":scope > option")).toHaveText(["Chart", "Assessment", "Decision", "Placement"]);
+    else await expect(stages.getByRole("button")).toHaveText(["Chart", "Assessment", "Decision", "Placement"]);
     await expectStage("Chart");
     await expect(page.getByRole("article", { name: "Referral chart", exact: true })).toContainText("San Pablo");
     await expect(page.getByRole("article", { name: "Referral chart", exact: true }).getByTestId("client-identity-title")).not.toHaveText(/Not documented/);
     expect((await (await page.request.get(`/api/referrals/${referralId}/assessments`)).json()).assessments).toHaveLength(0);
 
     // Referral details are an editor in this same file, not an Intake stage left behind.
-    await page.getByRole("dialog", { name: "Workspace created", exact: true }).getByRole("button", { name: "Close workspace created" }).click();
+    await page.getByRole("region", { name: "Workspace created", exact: true }).getByRole("button", { name: "Dismiss workspace next steps" }).click();
     await page.getByRole("button", { name: "Edit referral details", exact: true }).click();
     await expectStage("Chart");
     await intake.locator('[data-workspace-field="email"] input').fill("updated@example.invalid");
@@ -60,6 +60,7 @@ for (const width of [1440, 834, 390]) {
     await page.screenshot({ path: info.outputPath(`living-chart-${width}.png`) });
 
     await openStage("Assessment");
+    await page.getByRole("button", { name: "Prepare assessment", exact: true }).click();
     await expect(page.locator("[data-assessment-view]")).toBeVisible();
     const list = await (await page.request.get(`/api/referrals/${referralId}/assessments`)).json();
     expect(list.assessments).toHaveLength(1);
@@ -68,9 +69,8 @@ for (const width of [1440, 834, 390]) {
     expect(assessment.community).toBe("San Pablo");
     // One integrated journey covers scheduling, partial preparation and a side trip
     // before the existing review/sign/decision/handoff steps below.
-    await openStage("Chart");
-    const contact = page.getByRole("region", { name: "Contact information", exact: true });
-    await contact.getByRole("button", { name: "Schedule interview", exact: true }).click();
+    await openStage("Assessment");
+    await page.getByRole("button", { name: "Schedule interview", exact: true }).click();
     const schedule = page.getByRole("dialog", { name: "Schedule interview", exact: true });
     await schedule.getByLabel("Assessment date and time").fill("2026-10-01T10:00");
     await schedule.getByLabel("Assessment method").selectOption("phone");
@@ -104,13 +104,7 @@ for (const width of [1440, 834, 390]) {
     await page.getByRole("button", { name: "Begin interview", exact: true }).click();
     await page.getByRole("dialog", { name: "Begin interview", exact: true }).getByRole("button", { name: "Begin interview", exact: true }).click();
     await expect.poll(async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment.started_at).toBeTruthy();
-    if (width >= 640) {
-      await page.goto(`/?view=referrals&screen=packet&referralId=${referralId}&workspaceStage=assessment&assessmentSection=provenance_qc`);
-      await page.getByRole("button", { name: "Review assessment", exact: true }).click();
-    } else {
-      await page.getByRole("button", { name: "Choose questionnaire section", exact: true }).click();
-      await page.getByRole("dialog", { name: "Questionnaire sections", exact: true }).getByRole("button", { name: /^Review assessment/ }).click();
-    }
+    await page.goto(`/?view=referrals&screen=packet&referralId=${referralId}&workspaceStage=assessment&assessmentMode=review`);
     const review = page.getByRole("region", { name: "Assessment chart review", exact: true });
     await expect(review).toContainText("Synthetic conversation completed");
     await expectStage("Assessment");
@@ -140,15 +134,17 @@ for (const width of [1440, 834, 390]) {
     await decision.getByLabel("Reason (optional)", { exact: true }).fill("Synthetic end-to-end example, not a clinical decision.");
     await decision.getByRole("button", { name: "Record decision", exact: true }).click();
     await page.getByRole("alertdialog").getByRole("button", { name: "Record acceptance", exact: true }).click();
-    await expect(decision.getByLabel("Planned admission date", { exact: true })).toBeVisible();
+    await expectStage("Placement");
     await openStage("Chart");
-    await expect(page.getByTestId("profile-workspace")).toContainText("Synthetic end-to-end example, not a clinical decision.");
-    await page.getByRole("button", { name: "Continue to decision", exact: true }).click();
-    await decision.getByLabel("Planned admission date", { exact: true }).fill("2026-10-01");
+    await expect(page.getByRole("article", { name: "Referral chart", exact: true })).toBeVisible();
+    const recordedDecision = (await (await page.request.get(`/api/referrals/${referralId}/workflow`)).json()).decision;
+    expect(recordedDecision.reasonNote).toBe("Synthetic end-to-end example, not a clinical decision.");
+    await openStage("Placement");
+    const placement = page.getByRole("region", { name: "Placement follow-through", exact: true });
+    await placement.getByLabel("Planned admit date", { exact: true }).fill("2026-10-01");
     let mailRequests = 0;
     page.on("request", (request) => { if (request.url().endsWith("/meet-client-email")) mailRequests++; });
-    await decision.getByRole("button", { name: "Review email & packet", exact: true }).click();
-    await expectStage("Finish & send");
+    await expectStage("Placement");
     await expect(page.getByRole("region", { name: "Email and referral packet", exact: true })).toBeVisible();
     await openRecipients(page);
     await page.getByRole("combobox", { name: /^To/ }).fill("Example recipient <example@example.invalid>");
@@ -283,18 +279,24 @@ test("a failed signature or decision stays in place; retry advances only after s
   await page.unroute(decisionRoute);
   await decision.getByRole("button", { name: "Record decision", exact: true }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Record acceptance", exact: true }).click();
-  await decision.getByLabel("Planned admission date", { exact: true }).fill("2026-10-12");
+  await expect(stages.getByRole("button", { name: /Placement$/ })).toHaveAttribute("aria-current", "page");
+  const review = await openRecipients(page);
+  await review.getByLabel("Planned admit date", { exact: true }).fill("2026-10-12");
+  await review.getByRole("combobox", { name: /^To/ }).fill("Synthetic recipient <recipient@example.invalid>");
+  await review.getByRole("combobox", { name: /^To/ }).press("Enter");
+  await review.getByRole("checkbox", { name: /I verified/ }).check();
   await expect(decision.getByRole("button", { name: "Done", exact: true })).toHaveCount(0);
   const saveRoute = `**/api/referrals/${referral.id}`;
   await page.route(saveRoute, (route) => route.request().method() === "PATCH"
     ? route.fulfill({ status: 503, json: { error: "Synthetic date save unavailable" } }) : route.continue());
-  await decision.getByRole("button", { name: "Review email & packet" }).click();
-  await expect(decision.getByRole("alert")).toContainText("Synthetic date save unavailable");
-  await expect(stages.getByRole("button", { name: /Decision$/ })).toHaveAttribute("aria-current", "page");
-  await expect(decision.getByLabel("Planned admission date", { exact: true })).toHaveValue("2026-10-12");
+  await review.getByRole("button", { name: "Preview email", exact: true }).click();
+  await expect(review.getByRole("alert")).toContainText("Synthetic date save unavailable");
+  await expect(stages.getByRole("button", { name: /Placement$/ })).toHaveAttribute("aria-current", "page");
+  await expect(review.getByLabel("Planned admit date", { exact: true })).toHaveValue("2026-10-12");
   await page.unroute(saveRoute);
-  await decision.getByRole("button", { name: "Review email & packet" }).click();
-  await expect(stages.getByRole("button", { name: /Finish & send$/ })).toHaveAttribute("aria-current", "page");
+  await review.getByRole("button", { name: "Preview email", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Meet the Client email", exact: true })).toBeVisible();
+  await expect(stages.getByRole("button", { name: /Placement$/ })).toHaveAttribute("aria-current", "page");
   expect((await read()).meet_client_sent_at).toBeFalsy();
   expect(sends).toBe(0);
 });
@@ -332,8 +334,8 @@ test("iPad WebKit keeps signing and finishing in the same folder", async ({ base
     await decision.getByRole("radio", { name: "Accept", exact: true }).check();
     await decision.getByRole("button", { name: "Record decision", exact: true }).tap();
     await page.getByRole("alertdialog").getByRole("button", { name: /^Record (acceptance|denial)$/, exact: true }).click();
-    await stages.getByRole("button", { name: /Finish & send$/ }).tap();
-    await expect(stages.getByRole("button", { name: /Finish & send$/ })).toHaveAttribute("aria-current", "page");
+    await stages.getByRole("button", { name: /Placement$/ }).tap();
+    await expect(stages.getByRole("button", { name: /Placement$/ })).toHaveAttribute("aria-current", "page");
     await openRecipients(page);
     await page.getByRole("combobox", { name: /^To/ }).fill("Example recipient <example@example.invalid>");
     await page.getByRole("combobox", { name: /^To/ }).press("Enter");

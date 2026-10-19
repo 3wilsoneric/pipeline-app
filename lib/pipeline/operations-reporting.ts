@@ -136,8 +136,8 @@ const reportCatalog: OperationsReportDefinition[] = [
   },
   {
     id: "ehr_handoff",
-    label: "EHR handoff queue",
-    description: "Accepted referrals and their current handoff state.",
+    label: "ElderMark entry status",
+    description: "Accepted referrals and their manually recorded ElderMark entry status.",
     cadence: "Current",
     audience: "Operations",
     filters: ["community", "owner"],

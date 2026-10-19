@@ -86,6 +86,7 @@ test.describe("assessment outcome and admission handoff", () => {
         await page.getByRole("alertdialog").getByRole("button", { name: /^Record (acceptance|denial)$/, exact: true }).click();
         await expect.poll(async () => (await workflow(admin, referral.id)).decision?.outcome).toBe(outcome);
         await page.reload();
+        if (outcome === "accepted") await page.getByRole("navigation", { name: "Workspace stages", exact: true }).getByRole("button", { name: "Decision", exact: true }).click();
         await expect(page.getByRole("region", { name: "Admission decision", exact: true }).getByText("Decision recorded", { exact: true })).toBeVisible();
         const reopened = await readOperationalReferral(admin, referral.id);
         const edited = await admin.patch(`/api/referrals/${referral.id}`, { data: {
@@ -96,24 +97,29 @@ test.describe("assessment outcome and admission handoff", () => {
         expect((await workflow(admin, referral.id)).decision.outcome).toBe(outcome);
         await page.reload();
         if (outcome === "declined") {
-          await expect(page.getByRole("button", { name: "Review email & packet", exact: true })).toHaveCount(0);
+          await expect(page.getByRole("region", { name: "Email and referral packet", exact: true })).toHaveCount(0);
           return;
         }
+        await page.getByRole("navigation", { name: "Workspace stages", exact: true }).getByRole("button", { name: "Placement", exact: true }).click();
         const before = await (await admin.get(`/api/referrals/${referral.id}/admission-summary`)).json();
         expect(before.email.ready).toBe(false);
         expect(before.email.blockers.join(" ")).toContain("planned admit date before sending Meet the Client");
-        await page.getByLabel("Planned admission date", { exact: true }).fill("2026-10-12");
-        await page.getByRole("button", { name: "Review email & packet", exact: true }).click();
         await expect(page.getByRole("region", { name: "Email and referral packet", exact: true })).toBeVisible();
         const admitDate = await openAdmitDate(page);
+        await admitDate.getByLabel("Planned admit date", { exact: true }).fill("2026-10-12");
+        const recipient = page.getByRole("combobox", { name: /^To/ });
+        await recipient.fill("care@example.invalid");
+        await recipient.press("Enter");
+        await admitDate.getByRole("checkbox", { name: /I verified/ }).check();
+        await admitDate.getByRole("button", { name: "Preview email", exact: true }).click();
         await expect(admitDate.getByLabel("Planned admit date", { exact: true })).toHaveValue("2026-10-12");
         const after = await (await admin.get(`/api/referrals/${referral.id}/admission-summary`)).json();
         expect(after.referral.plannedAdmissionDate).toBe("2026-10-12");
         expect(after.report.meetClient.admissionDate).toBe("2026-10-12");
         expect(after.email.blockers.join(" ")).not.toContain("planned admit date before sending Meet the Client");
         expect(after.referral.stage).not.toBe("Accepted / Admitted");
-        await page.goto(`${workspace(referral.id)}&workspaceView=workflow`);
-        await expect(page.getByLabel("Planned admission date", { exact: true })).toHaveValue("2026-10-12");
+        await page.reload();
+        await expect((await openAdmitDate(page)).getByLabel("Planned admit date", { exact: true })).toHaveValue("2026-10-12");
         await page.setViewportSize({ width: 390, height: 844 });
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
         const unavailableSend = await assessor.post(`/api/referrals/${referral.id}/meet-client-email`, { data: { confirmed: true, if_match: after.referral.version, recipients: ["synthetic@example.invalid"], client_mutation_id: randomUUID() } });

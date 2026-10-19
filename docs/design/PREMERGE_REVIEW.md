@@ -1,5 +1,7 @@
 # Redesign integration review — 2026-09-27
 
+> Historical integration record. The current local candidate retired the old design switch, so the switch-off behavior described below is no longer available. See [DECISIONS.md](DECISIONS.md).
+
 Local branch: `design/redesign-switch`. Production/base: `b39c377c21d11ae9e03446171c7d4b5e21aea35f` (remote main rechecked during this pass). No push, PR, merge or deployment is authorized by this report.
 
 Current status is recorded in the follow-up below. The original review and its evidence are retained as historical results, not a claim that the current candidate has passed every hosted check.

@@ -117,7 +117,7 @@ export default function PipelineActionNav({
                 kind: "page",
                 screen: "operations",
                 title: "Reports",
-                detail: "Current census briefing",
+                detail: "Admissions and census report",
               });
               onNavigate("operations");
             }}
