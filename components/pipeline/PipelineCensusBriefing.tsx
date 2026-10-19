@@ -8,6 +8,14 @@ import styles from "./PipelineCensusBriefing.module.css";
 
 type ClientContext = { source_name: string | null; referring_county: string | null; prior_placement: string | null; owner: string };
 type WeekRow = ClientContext & { client_name: string; date: string; detail: string; pipeline_path: string };
+type MovingRow = AdmissionsCensusReport["briefing"]["moving_through"][number];
+type MovingPhase = MovingRow["phase"];
+const movingPhases: { key: MovingPhase; label: string; hint: string }[] = [
+  { key: "needs_date", label: "Needs admit date", hint: "Accepted, no date planned" },
+  { key: "awaiting_arrival", label: "Awaiting arrival", hint: "Planned, not yet admitted" },
+  { key: "intake_assessment", label: "Intake & assessment", hint: "Before a decision" },
+  { key: "decision_pending", label: "Decision pending", hint: "Assessment finished" },
+];
 
 export default function PipelineCensusBriefing() {
   const [census, setCensus] = useState<ClinicalCensusResponse | null>(null);
@@ -64,7 +72,7 @@ function CensusCommunities({ census }: { census: ClinicalCensusResponse }) {
   return <section data-guide-target="operations-briefing-communities" className={styles.section} aria-labelledby="briefing-communities-heading">
     <div className={styles.sectionHeading}><div><p className={styles.overline}>Current census · {formatDate(census.data_as_of)}</p><h2 id="briefing-communities-heading">Census by community</h2></div><p className={styles.total}><strong>{formatNumber(census.portfolio_census_total)}</strong> total residents</p></div>
     {communities.length ? <ul className={styles.communityList}>{communities.map((row) => <li key={row.community_id}>
-      <div className={styles.communityLabel}><strong>{row.community_name}</strong>{row.reconciliation_status === "mismatch" ? <span className={styles.needsReview}>Needs review</span> : null}</div>
+      <div className={styles.communityLabel}><a href={`https://www.alamoplatform.com/communities/${encodeURIComponent(row.community_id)}?focus=census`} target="_blank" rel="noopener noreferrer" aria-label={`Explore ${row.community_name} census in Alamo Platform`}>{row.community_name} <span aria-hidden="true">↗</span></a>{row.reconciliation_status === "mismatch" ? <span className={styles.needsReview}>Needs review</span> : null}</div>
       <div className={styles.communityBar} aria-hidden="true"><span style={{ width: `${row.current_census === null ? 0 : row.current_census / maximum * 100}%` }} /></div>
       <strong className={styles.communityCount}>{formatNumber(row.current_census)}</strong>
     </li>)}</ul> : <p className={styles.empty}>No community census values are available in this snapshot.</p>}
@@ -73,9 +81,20 @@ function CensusCommunities({ census }: { census: ClinicalCensusResponse }) {
 }
 
 function AdmissionsSections({ report }: { report: AdmissionsCensusReport }) {
+  const [selectedPhase, setSelectedPhase] = useState<MovingPhase | "all" | null>(null);
+  const [communityFilter, setCommunityFilter] = useState("all");
+  const [assessorFilter, setAssessorFilter] = useState("all");
   const { briefing } = report;
   const admitted = briefing.admitted_last_week.map((item) => ({ ...item, date: item.admitted_at, detail: item.community }));
   const planned = briefing.planned_move_ins.map((item) => ({ ...item, date: item.planned_at, detail: `${item.community} · ${item.readiness === "blocked" ? "Requirements open" : item.readiness === "watch" ? "Review requirements" : "Ready"}` }));
+  const moving = briefing.moving_through;
+  const initialPhase = movingPhases.find(({ key }) => moving.some((row) => row.phase === key))?.key ?? "all";
+  const phase = selectedPhase ?? initialPhase;
+  const communities = [...new Set(moving.map((row) => row.community))].sort();
+  const assessors = [...new Set(moving.map((row) => row.owner))].sort();
+  const community = communities.includes(communityFilter) ? communityFilter : "all";
+  const assessor = assessors.includes(assessorFilter) ? assessorFilter : "all";
+  const visible = moving.filter((row) => (phase === "all" || row.phase === phase) && (community === "all" || row.community === community) && (assessor === "all" || row.owner === assessor));
   return <>
     <div data-guide-target="operations-briefing-metrics" className={styles.weekGrid}>
       <WeekList title="Admitted last week" dates={`${formatDate(briefing.last_week_start)}–${formatDate(briefing.last_week_end)}`} items={admitted} complete={briefing.coverage.admitted_last_week_complete} empty="No admissions were recorded last week." />
@@ -83,16 +102,20 @@ function AdmissionsSections({ report }: { report: AdmissionsCensusReport }) {
     </div>
     <section className={styles.section} aria-labelledby="moving-heading">
       <div className={styles.sectionHeading}><div><p className={styles.overline}>Current work</p><h2 id="moving-heading">Clients moving through</h2></div><p className={styles.sectionCount}>{briefing.moving_through.length}{briefing.coverage.moving_through_complete ? "" : "+"} active</p></div>
-      {report.board_columns.map((column) => {
-        const items = briefing.moving_through.filter((item) => item.stage === column.key);
-        return items.length ? <div className={styles.stageGroup} key={column.key}>
-          <h3><span data-stage={column.key} className={styles.stageDot} />{column.label} <span>{items.length}</span></h3>
-          <ul className={styles.movingList}>{items.map((item) => <li key={item.pipeline_path}>
-            <a href={item.pipeline_path}>{item.client_name}</a><span>{item.status}</span><span>{item.community}</span><ClientContextText item={item} />
-          </li>)}</ul>
-        </div> : null;
-      })}
-      {!briefing.moving_through.length ? <p className={styles.empty}>No active clients are moving through Pipeline.</p> : null}
+      {moving.length ? <>
+        <div className={styles.movementChoices} aria-label="Choose clients to review">
+          {movingPhases.map(({ key, label, hint }) => { const count = moving.filter((row) => row.phase === key).length; return <button key={key} type="button" className={styles.movementChoice} data-selected={phase === key} aria-pressed={phase === key} onClick={() => setSelectedPhase(key)} disabled={!count}><strong>{count}</strong><span>{label}</span><small>{hint}</small></button>; })}
+        </div>
+        <div className={styles.movementDrill}>
+          <div className={styles.movementToolbar}><div><h3>{phase === "all" ? "All active clients" : movingPhases.find((item) => item.key === phase)?.label}</h3><p>{visible.length} shown · Select a client to open the workspace</p></div><button type="button" className={styles.allClients} onClick={() => setSelectedPhase("all")} aria-pressed={phase === "all"}>View all {moving.length}</button></div>
+          <div className={styles.movementFilters}><label>Community <select value={community} onChange={(event) => setCommunityFilter(event.target.value)}><option value="all">All communities</option>{communities.map((value) => <option key={value} value={value}>{value}</option>)}</select></label><label>Assessor <select value={assessor} onChange={(event) => setAssessorFilter(event.target.value)}><option value="all">All assessors</option>{assessors.map((value) => <option key={value} value={value}>{value}</option>)}</select></label></div>
+          {visible.length ? <ul className={styles.movingList}>{visible.map((item) => <li key={item.pipeline_path}>
+            <div><a href={item.pipeline_path}>{item.client_name} <span aria-hidden="true">↗</span></a><span>{item.community} · {item.owner}</span></div>
+            <div><strong>{item.status}</strong>{item.planned_at ? <span className={item.planned_at < briefing.window_end ? styles.pastDate : undefined}>Planned {formatDate(item.planned_at)}{item.planned_at < briefing.window_end ? " · Date passed" : ""}</span> : null}</div>
+            <ClientContextText item={item} />
+          </li>)}</ul> : <p className={styles.empty}>No clients match these filters.</p>}
+        </div>
+      </> : <p className={styles.empty}>No active clients are moving through Pipeline.</p>}
       {!briefing.coverage.moving_through_complete ? <p className={styles.caption}>The list is capped; more clients are on the board.</p> : null}
     </section>
   </>;
