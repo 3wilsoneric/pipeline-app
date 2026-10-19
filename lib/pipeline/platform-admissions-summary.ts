@@ -5,7 +5,7 @@
 // Platform documents the consumer side in
 // alamo-platform-app/docs/platform/admissions-zone.md.
 
-export const PLATFORM_ADMISSIONS_SUMMARY_VERSION = "3.2";
+export const PLATFORM_ADMISSIONS_SUMMARY_VERSION = "3.3";
 
 const DAY_MS = 86_400_000;
 const TREND_MONTHS = 6;
@@ -44,6 +44,7 @@ export type PlatformSummaryReferral = {
   decidedAt: string | null;
   plannedAdmissionDate: string | null;
   actualAdmissionDate: string | null;
+  placementCancelled: boolean;
   assessmentScheduledDate: string | null;
   assessmentScheduledDurationMinutes: number | null;
   assessmentComplete: boolean;
@@ -70,6 +71,7 @@ export type PlatformManagementProfile = {
   dateOfBirth: string | null;
   referralSource: string | null;
   referringCounty: string | null;
+  priorPlacement: string | null;
   payer: string | null;
   responsiblePerson: string | null;
   conservedStatus: string | null;
@@ -156,7 +158,7 @@ function median(values: number[]) {
 }
 
 function awaitingArrival(referral: PlatformSummaryReferral, today: string) {
-  if (!referral.currentWorkspace || referral.decisionOutcome !== "accepted" || referral.actualAdmissionDate) return false;
+  if (!referral.currentWorkspace || referral.placementCancelled || referral.decisionOutcome !== "accepted" || referral.actualAdmissionDate) return false;
   const planned = dayKey(referral.plannedAdmissionDate);
   return !planned || planned >= addDays(today, -PAST_PLANNED_LOOKBACK_DAYS);
 }
@@ -265,6 +267,7 @@ export function buildPlatformAdmissionsSummary(input: PlatformAdmissionsSummaryI
       source_name: boundedText(referral.managementProfile.referralSource, 160),
       source_category: null,
       referring_county: boundedText(referral.managementProfile.referringCounty, 120),
+      prior_placement: boundedText(referral.managementProfile.priorPlacement, 160),
       community: referral.community.trim() || "Unassigned",
       owner: referral.unassigned ? "Unassigned" : referral.owner,
       status: briefingStatus(referral),
@@ -300,6 +303,7 @@ export function buildPlatformAdmissionsSummary(input: PlatformAdmissionsSummaryI
         : referral.managementProfile.openRequirements > 0 ? "watch" : "ready",
       source_name: boundedText(referral.managementProfile.referralSource, 160),
       referring_county: boundedText(referral.managementProfile.referringCounty, 120),
+      prior_placement: boundedText(referral.managementProfile.priorPlacement, 160),
       pipeline_path: referral.pipelinePath,
     }))
     .sort((left, right) => left.planned_at.localeCompare(right.planned_at) || left.client_name.localeCompare(right.client_name));
@@ -312,20 +316,25 @@ export function buildPlatformAdmissionsSummary(input: PlatformAdmissionsSummaryI
       community: referral.community.trim() || "Unassigned",
       source_name: boundedText(referral.managementProfile.referralSource, 160),
       referring_county: boundedText(referral.managementProfile.referringCounty, 120),
+      prior_placement: boundedText(referral.managementProfile.priorPlacement, 160),
+      owner: referral.unassigned ? "Unassigned" : referral.owner,
       pipeline_path: referral.pipelinePath,
     }))
     .sort((left, right) => right.admitted_at.localeCompare(left.admitted_at) || left.client_name.localeCompare(right.client_name));
   const movingThrough = input.referrals
-    .filter((referral) => referral.currentWorkspace && referral.boardColumn && isActiveReferral(referral) && !referral.actualAdmissionDate)
+    .filter((referral) => referral.currentWorkspace && !referral.placementCancelled && !referral.actualAdmissionDate &&
+      (referral.decisionOutcome === "accepted" || (referral.boardColumn && isActiveReferral(referral))))
     .map((referral) => ({
       referral_id: referral.referralId,
       client_name: referral.clientName.trim() || "Name not recorded",
-      stage: referral.boardColumn!,
-      status: briefingStatus(referral),
+      stage: referral.boardColumn ?? "decision",
+      status: referral.decisionOutcome === "accepted" && !referral.plannedAdmissionDate
+        ? "Accepted · no planned admit date" : briefingStatus(referral),
       community: referral.community.trim() || "Unassigned",
       owner: referral.unassigned ? "Unassigned" : referral.owner,
       source_name: boundedText(referral.managementProfile.referralSource, 160),
       referring_county: boundedText(referral.managementProfile.referringCounty, 120),
+      prior_placement: boundedText(referral.managementProfile.priorPlacement, 160),
       pipeline_path: referral.pipelinePath,
     }))
     .sort((left, right) => left.stage.localeCompare(right.stage) || left.client_name.localeCompare(right.client_name));

@@ -3,6 +3,7 @@ import test from "node:test";
 import { loadEntry } from "./contact-import-fixtures.mjs";
 
 const { buildPlatformAdmissionsSummary } = loadEntry("lib/pipeline/platform-admissions-summary.ts");
+const { buildAdmissionsCensusReport } = loadEntry("lib/pipeline/admissions-census-report.ts");
 const now = new Date("2026-09-26T15:00:00.000Z");
 
 let nextId = 1;
@@ -17,6 +18,7 @@ const referral = (overrides) => ({
   decidedAt: null,
   plannedAdmissionDate: null,
   actualAdmissionDate: null,
+  placementCancelled: false,
   assessmentScheduledDate: null,
   assessmentScheduledDurationMinutes: null,
   assessmentComplete: false,
@@ -31,6 +33,7 @@ const referral = (overrides) => ({
     dateOfBirth: "1981-04-03",
     referralSource: "County behavioral health",
     referringCounty: "Contra Costa",
+    priorPlacement: "Acute hospital",
     payer: "Private pay",
     responsiblePerson: "Morgan Lee",
     conservedStatus: "no",
@@ -107,7 +110,7 @@ test("snapshots the live board by column and status with client identity and dri
     medications: ["Medication A", "Medication B"],
     medication_source: "signed_assessment",
   });
-  assert.equal(summary.contract_version, "3.2");
+  assert.equal(summary.contract_version, "3.3");
   assert.equal(summary.history.coverage_start_month, "2025-01");
   assert.deepEqual(summary.history.monthly.map((row) => row.month), [
     "2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09",
@@ -163,7 +166,29 @@ test("briefing separates actual admissions from planned arrivals and carries eac
   for (const row of [summary.briefing.admitted_last_week[0], summary.briefing.planned_move_ins[0], summary.briefing.moving_through[0]]) {
     assert.equal(row.source_name, "County behavioral health");
     assert.equal(row.referring_county, "Contra Costa");
+    assert.equal(row.prior_placement, "Acute hospital");
+    assert.equal(row.owner, "Andrew");
   }
+});
+
+test("accepted clients without an admit date remain visible even after leaving the board, except cancelled placements", () => {
+  const summary = summarize([
+    referral({ clientName: "Accepted without date", decisionOutcome: "accepted", boardColumn: null, boardStatus: "Admitted" }),
+    referral({ clientName: "Cancelled", decisionOutcome: "accepted", boardColumn: null, placementCancelled: true }),
+    referral({ clientName: "Arrived", decisionOutcome: "accepted", boardColumn: null, actualAdmissionDate: "2026-09-25" }),
+    referral({ clientName: "Historical", decisionOutcome: "accepted", boardColumn: null, currentWorkspace: false }),
+  ]);
+  assert.deepEqual(summary.briefing.moving_through.map((row) => [row.client_name, row.stage, row.status]), [
+    ["Accepted without date", "decision", "Accepted · no planned admit date"],
+  ]);
+  assert.equal(summary.upcoming_admissions.no_planned_date, 1);
+  const report = buildAdmissionsCensusReport(summary);
+  assert.deepEqual(JSON.parse(JSON.stringify(report.briefing.moving_through)), [{
+    client_name: "Accepted without date", stage: "decision", status: "Accepted · no planned admit date",
+    community: "San Pablo", owner: "Andrew", source_name: "County behavioral health",
+    referring_county: "Contra Costa", prior_placement: "Acute hospital",
+    pipeline_path: "/?view=referrals&screen=packet&referralId=1",
+  }]);
 });
 
 test("uses the canonical appointment timestamp and excludes appointments that already ended", () => {

@@ -22,13 +22,18 @@ referral side of it through one server-to-server endpoint:
   `metrics`, `upcoming_admissions`, and `history` (six-month counts and median
   days to decision) sit beside it. `metrics.active_referrals` excludes declined
   referrals while `board.total` and `metrics.on_board` continue to describe all
-  cards still visible on the board. Contract 3.2 also publishes `briefing`: the
+  cards still visible on the board. Contract 3.3 also publishes `briefing`: the
   Los Angeles reporting date, explicit completeness flags, the trailing 14 days
   of referrals with source and county, remaining assessments scheduled through
   Sunday, planned move-ins for the Monday-through-Sunday week, and 12 weekly
-  received/accepted totals. Event rows retain only client name, destination,
-  owner, leadership status, and the bounded Pipeline path already authorized
-  for the board. Arrays are capped and their coverage flag turns false instead
+  received/accepted totals. Admitted-last-week, planned-this-week, and
+  moving-through rows carry the recorded referral origin, county, assigned
+  assessor, and most recent placement from a signed assessment (or null when
+  absent). An accepted active workspace without a planned or actual admit date
+  remains in moving-through even if it has left the board; cancelled placements
+  and confirmed arrivals do not. Event rows retain only client name,
+  destination, owner, leadership status, and the bounded Pipeline path already
+  authorized for the board. Arrays are capped and their coverage flag turns false instead
   of silently presenting a truncated result as complete. The card and
   management profile contain PHI
   and are therefore limited to the authenticated Platform integration. Raw

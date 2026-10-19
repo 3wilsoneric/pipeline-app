@@ -6,8 +6,8 @@ import type { ClinicalCensusResponse } from "@/lib/clinical/clinical-contracts";
 import type { AdmissionsCensusReport } from "@/lib/pipeline/admissions-census-report";
 import styles from "./PipelineCensusBriefing.module.css";
 
-type Origin = { source_name: string | null; referring_county: string | null };
-type WeekRow = Origin & { client_name: string; date: string; detail: string; pipeline_path: string };
+type ClientContext = { source_name: string | null; referring_county: string | null; prior_placement: string | null; owner: string };
+type WeekRow = ClientContext & { client_name: string; date: string; detail: string; pipeline_path: string };
 
 export default function PipelineCensusBriefing() {
   const [census, setCensus] = useState<ClinicalCensusResponse | null>(null);
@@ -88,7 +88,7 @@ function AdmissionsSections({ report }: { report: AdmissionsCensusReport }) {
         return items.length ? <div className={styles.stageGroup} key={column.key}>
           <h3><span data-stage={column.key} className={styles.stageDot} />{column.label} <span>{items.length}</span></h3>
           <ul className={styles.movingList}>{items.map((item) => <li key={item.pipeline_path}>
-            <a href={item.pipeline_path}>{item.client_name}</a><span>{item.status}</span><span>{item.community} · {item.owner}</span><OriginText item={item} />
+            <a href={item.pipeline_path}>{item.client_name}</a><span>{item.status}</span><span>{item.community}</span><ClientContextText item={item} />
           </li>)}</ul>
         </div> : null;
       })}
@@ -103,14 +103,14 @@ function WeekList({ title, dates, items, complete, empty }: { title: string; dat
     <div className={styles.weekHeading}><div><p className={styles.overline}>{dates}</p><h2>{title}</h2></div><strong>{items.length}{complete ? "" : "+"}</strong></div>
     {items.length ? <ul className={styles.weekList}>{items.map((item) => <li key={item.pipeline_path}>
       <div><a href={item.pipeline_path}>{item.client_name}</a><span>{formatDate(item.date)}</span></div>
-      <p>{item.detail}</p><OriginText item={item} />
+      <p>{item.detail}</p><ClientContextText item={item} />
     </li>)}</ul> : <p className={styles.empty}>{empty}</p>}
     {!complete ? <p className={styles.caption}>The list is capped; more records exist.</p> : null}
   </section>;
 }
 
-function OriginText({ item }: { item: Origin }) {
-  return <span className={styles.origin}>From {item.source_name || "origin not recorded"}{item.referring_county ? ` · County: ${item.referring_county}` : ""}</span>;
+function ClientContextText({ item }: { item: ClientContext }) {
+  return <span className={styles.origin}>Origin: {item.source_name || "not recorded"} · County: {item.referring_county || "not recorded"} · Prior placement: {item.prior_placement || "not recorded"} · Assessor: {item.owner}</span>;
 }
 
 function formatNumber(value: number | null) { return value === null ? "Unavailable" : value.toLocaleString("en-US"); }

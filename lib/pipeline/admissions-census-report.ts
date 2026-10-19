@@ -16,12 +16,12 @@ export function buildAdmissionsCensusReport(summary: PlatformAdmissionsSummary) 
         admitted_last_week_complete: summary.briefing.coverage.admitted_last_week_complete,
         moving_through_complete: summary.briefing.coverage.moving_through_complete,
       },
-      admitted_last_week: summary.briefing.admitted_last_week.map(({ client_name, admitted_at, community, source_name, referring_county, pipeline_path }) =>
-        ({ client_name, admitted_at, community, source_name, referring_county, pipeline_path })),
-      planned_move_ins: summary.briefing.planned_move_ins.map(({ client_name, planned_at, community, readiness, source_name, referring_county, pipeline_path }) =>
-        ({ client_name, planned_at, community, readiness, source_name, referring_county, pipeline_path })),
-      moving_through: summary.briefing.moving_through.map(({ client_name, stage, status, community, owner, source_name, referring_county, pipeline_path }) =>
-        ({ client_name, stage, status, community, owner, source_name, referring_county, pipeline_path })),
+      admitted_last_week: summary.briefing.admitted_last_week.map(({ client_name, admitted_at, community, owner, source_name, referring_county, prior_placement, pipeline_path }) =>
+        ({ client_name, admitted_at, community, owner, source_name, referring_county, prior_placement, pipeline_path })),
+      planned_move_ins: summary.briefing.planned_move_ins.map(({ client_name, planned_at, community, owner, readiness, source_name, referring_county, prior_placement, pipeline_path }) =>
+        ({ client_name, planned_at, community, owner, readiness, source_name, referring_county, prior_placement, pipeline_path })),
+      moving_through: summary.briefing.moving_through.map(({ client_name, stage, status, community, owner, source_name, referring_county, prior_placement, pipeline_path }) =>
+        ({ client_name, stage, status, community, owner, source_name, referring_county, prior_placement, pipeline_path })),
     },
   };
 }
