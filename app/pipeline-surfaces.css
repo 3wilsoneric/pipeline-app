@@ -318,6 +318,7 @@
   .pipeline-surfaces [data-home-module="new-assignments"] button { font-size: 12px; }
 
   @media (max-width: 639px) {
+    .pipeline-surfaces article[aria-label="Referral intake chart"] [data-workspace-field] :is(input:not([type="checkbox"]), select, textarea) { font-size: 16px; }
     .pipeline-surfaces [data-guide-target="home-workspace"] > div { padding-top: 12px; }
     .pipeline-surfaces [data-guide-target="workspace-directory"] > div:first-child { padding: 12px 12px 28px; }
     .pipeline-surfaces [data-guide-target="workspace-directory"] > div > div:has(> [data-guide-target="workspace-search"]) { padding: 8px; margin-bottom: 12px; }

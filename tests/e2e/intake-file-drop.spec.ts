@@ -70,7 +70,7 @@ for (const [name, browserType] of [["chromium", chromium], ["webkit", webkit]] a
         const payload = await (await page.request.get(`/api/files?referral_id=${referralId}`)).json();
         return payload.files.map((file: { name: string }) => file.name).sort();
       }).toEqual(["dropped-care-note.pdf", "dropped-face-sheet.pdf", "dropped-later-note.pdf"]);
-      await page.getByRole("dialog", { name: "Workspace created", exact: true }).getByRole("button", { name: "Close workspace created" }).click();
+      await page.getByRole("region", { name: "Workspace created", exact: true }).getByRole("button", { name: "Dismiss workspace next steps" }).click();
       await page.reload();
       await page.getByRole("button", { name: "Edit referral details", exact: true }).click();
       await expect(panel).not.toHaveAttribute("open");

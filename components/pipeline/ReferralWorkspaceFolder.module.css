@@ -598,6 +598,13 @@
 
 .interviewRailDivider { display: none; }
 
+/* The compact desktop rail keeps full touch targets on tablets and touch laptops. */
+@media (min-width: 1024px) and (pointer: coarse) {
+  .verticalFlow .stageTab[data-step-state],
+  .verticalFlow .actions > .utilityTab,
+  .verticalFlow .actions > .trashTab { min-height: 44px; }
+}
+
 /* Interview layout (docs/design/DECISIONS.md, "Interview layout"). Drag the divider to reveal, resize, or tuck the rail. */
 @media (min-width: 1024px) {
   /* The interview uses the full width: no right gutter for the floating Notes button (not shown on this step). */
