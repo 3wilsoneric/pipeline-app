@@ -104,6 +104,7 @@ export async function getPlatformAdmissionsSummary() {
         decidedAt: decision?.decidedAt ?? null,
         plannedAdmissionDate: getPlannedAdmissionDate(referral) || null,
         actualAdmissionDate: referral.actualAdmissionDate ?? null,
+        placementCancelled: Boolean(referral.placementCancellation),
         assessmentScheduledDate,
         assessmentScheduledDurationMinutes: workflowContext?.assessmentScheduledDurationMinutes ?? null,
         assessmentComplete: Boolean(workflowContext?.assessmentComplete ?? referral.assessment?.completedAt),
@@ -136,8 +137,9 @@ function buildPlatformManagementProfile(
 
   return {
     dateOfBirth: signedAssessment?.date_of_birth || referral.dob || null,
-    referralSource: referral.source || signedAssessment?.referring_facility || null,
+    referralSource: referral.source || null,
     referringCounty: signedAssessment?.county || referral.county || null,
+    priorPlacement: signedAssessment?.referring_facility || signedAssessment?.prior_setting_bucket || null,
     payer: referral.payer || null,
     responsiblePerson: referral.responsiblePerson || null,
     conservedStatus: signedAssessment?.conservatorship_type || referral.conserved || null,
