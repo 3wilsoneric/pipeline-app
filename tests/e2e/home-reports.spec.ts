@@ -511,25 +511,17 @@ test.describe("role-scoped home and reports", () => {
     } }) : route.fulfill({ status: 503, json: { error: "Clinical data is not connected. Configure the Alamo Platform clinical API first." } }));
     await page.route("**/api/operations/admissions-census", (route) => admissionsAvailable ? route.fulfill({ status: 200, json: {
       generated_at: "2026-09-28T15:00:00Z",
-      metrics: { on_board: 12, active_referrals: 11, stale: 2, unassigned: 1, awaiting_admission: 3 },
-      upcoming_admissions: { next_7_days: 2, next_30_days: 3, past_planned_date: 1, no_planned_date: 0 },
       board_columns: [
         { key: "received", label: "Referral received", count: 3 },
         { key: "in_progress", label: "In progress", count: 6 },
         { key: "decision", label: "Decision", count: 3 },
       ],
-      history: {
-        coverage_start_month: "2026-08", month_outcomes: { month: "2026-09", received: 9, accepted: 4, declined: 1, admitted: 2 },
-        monthly: [
-          { month: "2026-08", received: 7, accepted: 3, declined: 0, admitted: 1 },
-          { month: "2026-09", received: 9, accepted: 4, declined: 1, admitted: 2 },
-        ],
-        decision_timing: { window_days: 90, median_days_to_decision: 4, decisions_counted: 7 },
-      },
       briefing: {
-        window_end: "2026-09-28", coverage: { assessments_complete: true, move_ins_complete: true },
-        upcoming_assessments: [{ client_name: "Synthetic Assessee", scheduled_at: "2026-09-29T16:00:00Z", community: "San Pablo", owner: "Test Assessor", pipeline_path: "/?view=referrals&screen=packet&referralId=9" }],
-        planned_move_ins: [{ client_name: "Synthetic Arrival", planned_at: "2026-09-30", community: "San Pablo", readiness: "ready", pipeline_path: "/?view=referrals&screen=packet&referralId=10" }],
+        week_start: "2026-09-28", week_end: "2026-10-04", last_week_start: "2026-09-21", last_week_end: "2026-09-27",
+        coverage: { admitted_last_week_complete: true, move_ins_complete: true, moving_through_complete: true },
+        admitted_last_week: [{ client_name: "Synthetic Admit", admitted_at: "2026-09-25", community: "San Pablo", source_name: "County hospital", referring_county: "Contra Costa", pipeline_path: "/?view=referrals&screen=packet&referralId=8" }],
+        planned_move_ins: [{ client_name: "Synthetic Arrival", planned_at: "2026-09-30", community: "San Pablo", readiness: "ready", source_name: "Referral partner", referring_county: "Solano", pipeline_path: "/?view=referrals&screen=packet&referralId=10" }],
+        moving_through: [{ client_name: "Synthetic Assessee", stage: "in_progress", status: "Assessment underway", community: "San Pablo", owner: "Test Assessor", source_name: "Community hospital", referring_county: null, pipeline_path: "/?view=referrals&screen=packet&referralId=9" }],
       },
     } }) : route.fulfill({ status: 503, json: { error: "Referral storage is unavailable." } }));
 
@@ -537,13 +529,14 @@ test.describe("role-scoped home and reports", () => {
     await expect(page.getByRole("main", { name: "Reports" })).toBeVisible();
     await expect(page.getByTestId("operations-workspace")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Admissions & census" })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Census and placement overview" })).toContainText("108");
-    await expect(page.getByRole("region", { name: "Census and placement overview" })).toContainText("2");
-    await expect(page.getByRole("heading", { name: "The referral board" })).toBeVisible();
-    await expect(page.getByText("11 active referrals")).toBeVisible();
-    await expect(page.getByRole("region", { name: "Monthly admission activity" })).toContainText("Sep 2026");
-    await expect(page.getByRole("region", { name: "Assessments this week" })).toContainText("Synthetic Assessee");
-    await expect(page.getByText("San Pablo", { exact: true })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Census by community" })).toContainText("108");
+    await expect(page.getByRole("region", { name: "Admitted last week" })).toContainText("Synthetic Admit");
+    await expect(page.getByRole("region", { name: "Admitted last week" })).toContainText("County hospital · County: Contra Costa");
+    await expect(page.getByRole("region", { name: "Planned admits this week" })).toContainText("Synthetic Arrival");
+    await expect(page.getByRole("region", { name: "Planned admits this week" })).toContainText("Referral partner · County: Solano");
+    await expect(page.getByRole("region", { name: "Clients moving through" })).toContainText("Synthetic Assessee");
+    await expect(page.getByRole("region", { name: "Clients moving through" })).toContainText("Community hospital");
+    await expect(page.getByRole("heading", { name: "What happened each month" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Connect Platform" })).toHaveCount(0);
     await expect(page.getByRole("combobox", { name: "Report", exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Exceptions", exact: true })).toHaveCount(0);
@@ -562,16 +555,16 @@ test.describe("role-scoped home and reports", () => {
     censusAvailable = false;
     await page.reload();
     await expect(page.getByTestId("operations-workspace").getByRole("status")).toContainText("Current census is unavailable");
-    await expect(page.getByRole("region", { name: "Census and placement overview" })).toContainText("Unavailable");
-    await expect(page.getByText("11 active referrals")).toBeVisible();
+    await expect(page.getByRole("region", { name: "Census by community" })).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "Clients moving through" })).toBeVisible();
     await expect(page.getByText("Connect Platform")).toHaveCount(0);
     censusAvailable = true;
     await page.getByRole("button", { name: "Refresh report" }).click();
-    await expect(page.getByRole("region", { name: "Census and placement overview" })).toContainText("108");
+    await expect(page.getByRole("region", { name: "Census by community" })).toContainText("108");
     admissionsAvailable = false;
     await page.reload();
     await expect(page.getByTestId("operations-workspace").getByRole("status")).toContainText("Pipeline admissions are unavailable");
-    await expect(page.getByRole("region", { name: "Census and placement overview" })).toContainText("108");
-    await expect(page.getByRole("region", { name: "Census and placement overview" })).toContainText("unavailable");
+    await expect(page.getByRole("region", { name: "Census by community" })).toContainText("108");
+    await expect(page.getByRole("region", { name: "Admitted last week" })).toHaveCount(0);
   });
 });

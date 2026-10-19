@@ -250,6 +250,8 @@ export function buildPlatformAdmissionsSummary(input: PlatformAdmissionsSummaryI
 
   const weekStart = mondayFor(today);
   const weekEnd = addDays(weekStart, 6);
+  const lastWeekStart = addDays(weekStart, -7);
+  const lastWeekEnd = addDays(weekStart, -1);
   const recentStart = addDays(today, -13);
   const briefingStatus = (referral: PlatformSummaryReferral) =>
     (leadershipStatus[referral.boardStatus] ?? referral.boardStatus.trim()) ||
@@ -285,7 +287,7 @@ export function buildPlatformAdmissionsSummary(input: PlatformAdmissionsSummaryI
     }))
     .sort((left, right) => left.scheduled_at.localeCompare(right.scheduled_at) || left.client_name.localeCompare(right.client_name));
   const plannedMoveIns = awaiting
-    .filter((referral) => inWindow(referral.plannedAdmissionDate, weekStart, weekEnd))
+    .filter((referral) => inWindow(referral.plannedAdmissionDate, today, weekEnd))
     .map((referral) => ({
       referral_id: referral.referralId,
       client_name: referral.clientName.trim() || "Name not recorded",
@@ -296,9 +298,37 @@ export function buildPlatformAdmissionsSummary(input: PlatformAdmissionsSummaryI
       readiness: referral.managementProfile.blockingRequirements > 0
         ? "blocked"
         : referral.managementProfile.openRequirements > 0 ? "watch" : "ready",
+      source_name: boundedText(referral.managementProfile.referralSource, 160),
+      referring_county: boundedText(referral.managementProfile.referringCounty, 120),
       pipeline_path: referral.pipelinePath,
     }))
     .sort((left, right) => left.planned_at.localeCompare(right.planned_at) || left.client_name.localeCompare(right.client_name));
+  const admittedLastWeek = input.referrals
+    .filter((referral) => inWindow(referral.actualAdmissionDate, lastWeekStart, lastWeekEnd))
+    .map((referral) => ({
+      referral_id: referral.referralId,
+      client_name: referral.clientName.trim() || "Name not recorded",
+      admitted_at: referral.actualAdmissionDate!,
+      community: referral.community.trim() || "Unassigned",
+      source_name: boundedText(referral.managementProfile.referralSource, 160),
+      referring_county: boundedText(referral.managementProfile.referringCounty, 120),
+      pipeline_path: referral.pipelinePath,
+    }))
+    .sort((left, right) => right.admitted_at.localeCompare(left.admitted_at) || left.client_name.localeCompare(right.client_name));
+  const movingThrough = input.referrals
+    .filter((referral) => referral.currentWorkspace && referral.boardColumn && isActiveReferral(referral) && !referral.actualAdmissionDate)
+    .map((referral) => ({
+      referral_id: referral.referralId,
+      client_name: referral.clientName.trim() || "Name not recorded",
+      stage: referral.boardColumn!,
+      status: briefingStatus(referral),
+      community: referral.community.trim() || "Unassigned",
+      owner: referral.unassigned ? "Unassigned" : referral.owner,
+      source_name: boundedText(referral.managementProfile.referralSource, 160),
+      referring_county: boundedText(referral.managementProfile.referringCounty, 120),
+      pipeline_path: referral.pipelinePath,
+    }))
+    .sort((left, right) => left.stage.localeCompare(right.stage) || left.client_name.localeCompare(right.client_name));
   const weeklyTrend = recentWeekStarts(today, BRIEFING_TREND_WEEKS).map((start) => ({
     week_start: start,
     received: input.referrals.filter((referral) => inWindow(referral.receivedDate, start, addDays(start, 6))).length,
@@ -325,15 +355,23 @@ export function buildPlatformAdmissionsSummary(input: PlatformAdmissionsSummaryI
     briefing: {
       timezone: "America/Los_Angeles",
       window_end: today,
+      week_start: weekStart,
+      week_end: weekEnd,
+      last_week_start: lastWeekStart,
+      last_week_end: lastWeekEnd,
       coverage: {
         recent_referrals_complete: recentReferrals.length <= MAX_BRIEFING_REFERRALS,
         assessments_complete: upcomingAssessments.length <= MAX_BRIEFING_SCHEDULE,
         move_ins_complete: plannedMoveIns.length <= MAX_BRIEFING_SCHEDULE,
+        admitted_last_week_complete: admittedLastWeek.length <= MAX_BRIEFING_REFERRALS,
+        moving_through_complete: movingThrough.length <= MAX_BRIEFING_REFERRALS,
         weekly_trend_complete: true,
       },
       recent_referrals: recentReferrals.slice(0, MAX_BRIEFING_REFERRALS),
       upcoming_assessments: upcomingAssessments.slice(0, MAX_BRIEFING_SCHEDULE),
       planned_move_ins: plannedMoveIns.slice(0, MAX_BRIEFING_SCHEDULE),
+      admitted_last_week: admittedLastWeek.slice(0, MAX_BRIEFING_REFERRALS),
+      moving_through: movingThrough.slice(0, MAX_BRIEFING_REFERRALS),
       weekly_trend: weeklyTrend,
     },
     history: {
