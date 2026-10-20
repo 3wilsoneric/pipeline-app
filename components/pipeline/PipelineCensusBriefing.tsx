@@ -9,13 +9,19 @@ import styles from "./PipelineCensusBriefing.module.css";
 type ClientContext = { source_name: string | null; referring_county: string | null; prior_placement: string | null; owner: string };
 type WeekRow = ClientContext & { client_name: string; date: string; detail: string; pipeline_path: string };
 type MovingRow = AdmissionsCensusReport["briefing"]["moving_through"][number];
-type MovingPhase = MovingRow["phase"];
+type MovingPhase = MovingRow["phase"] | "outcome_review";
 const movingPhases: { key: MovingPhase; label: string; hint: string }[] = [
+  { key: "outcome_review", label: "Check arrival", hint: "Planned date passed" },
   { key: "needs_date", label: "Needs admit date", hint: "Accepted, no date planned" },
   { key: "awaiting_arrival", label: "Awaiting arrival", hint: "Planned, not yet admitted" },
   { key: "intake_assessment", label: "Intake & assessment", hint: "Before a decision" },
   { key: "decision_pending", label: "Decision pending", hint: "Assessment finished" },
 ];
+
+function displayPhase(row: MovingRow, today: string): MovingPhase {
+  return row.phase === "awaiting_arrival" && Boolean(row.planned_at && row.planned_at < today)
+    ? "outcome_review" : row.phase;
+}
 
 export default function PipelineCensusBriefing() {
   const [census, setCensus] = useState<ClinicalCensusResponse | null>(null);
@@ -89,13 +95,13 @@ function AdmissionsSections({ report }: { report: AdmissionsCensusReport }) {
   const planned = briefing.planned_move_ins.map((item) => ({ ...item, date: item.planned_at, detail: `${item.community} · ${item.readiness === "blocked" ? "Requirements open" : item.readiness === "watch" ? "Review requirements" : "Ready"}` }));
   const didNotMoveIn = (briefing.did_not_move_in ?? []).map((item) => ({ ...item, date: item.cancelled_at, detail: `${item.community} · ${item.status}` }));
   const moving = briefing.moving_through;
-  const initialPhase = movingPhases.find(({ key }) => moving.some((row) => row.phase === key))?.key ?? "all";
+  const initialPhase = movingPhases.find(({ key }) => moving.some((row) => displayPhase(row, briefing.window_end) === key))?.key ?? "all";
   const phase = selectedPhase ?? initialPhase;
   const communities = [...new Set(moving.map((row) => row.community))].sort();
   const assessors = [...new Set(moving.map((row) => row.owner))].sort();
   const community = communities.includes(communityFilter) ? communityFilter : "all";
   const assessor = assessors.includes(assessorFilter) ? assessorFilter : "all";
-  const visible = moving.filter((row) => (phase === "all" || row.phase === phase) && (community === "all" || row.community === community) && (assessor === "all" || row.owner === assessor));
+  const visible = moving.filter((row) => (phase === "all" || displayPhase(row, briefing.window_end) === phase) && (community === "all" || row.community === community) && (assessor === "all" || row.owner === assessor));
   return <>
     <div data-guide-target="operations-briefing-metrics" className={styles.weekGrid}>
       <WeekList title="Admitted last week" dates={`${formatDate(briefing.last_week_start)}–${formatDate(briefing.last_week_end)}`} items={admitted} complete={briefing.coverage.admitted_last_week_complete} empty="No admissions were recorded last week." />
@@ -105,7 +111,7 @@ function AdmissionsSections({ report }: { report: AdmissionsCensusReport }) {
       <div className={styles.sectionHeading}><div><p className={styles.overline}>Current work</p><h2 id="moving-heading">Clients moving through</h2></div><p className={styles.sectionCount}>{briefing.moving_through.length}{briefing.coverage.moving_through_complete ? "" : "+"} active</p></div>
       {moving.length ? <>
         <div className={styles.movementChoices} aria-label="Choose clients to review">
-          {movingPhases.map(({ key, label, hint }) => { const count = moving.filter((row) => row.phase === key).length; return <button key={key} type="button" className={styles.movementChoice} data-selected={phase === key} aria-pressed={phase === key} onClick={() => setSelectedPhase(key)} disabled={!count}><strong>{count}</strong><span>{label}</span><small>{hint}</small></button>; })}
+          {movingPhases.map(({ key, label, hint }) => { const count = moving.filter((row) => displayPhase(row, briefing.window_end) === key).length; return <button key={key} type="button" className={styles.movementChoice} data-selected={phase === key} aria-pressed={phase === key} onClick={() => setSelectedPhase(key)} disabled={!count}><strong>{count}</strong><span>{label}</span><small>{hint}</small></button>; })}
         </div>
         <div className={styles.movementDrill}>
           <div className={styles.movementToolbar}><div><h3>{phase === "all" ? "All active clients" : movingPhases.find((item) => item.key === phase)?.label}</h3><p>{visible.length} shown · Select a client to open the workspace</p></div><button type="button" className={styles.allClients} onClick={() => setSelectedPhase("all")} aria-pressed={phase === "all"}>View all {moving.length}</button></div>

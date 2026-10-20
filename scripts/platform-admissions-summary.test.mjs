@@ -166,6 +166,8 @@ test("briefing separates actual admissions from planned arrivals and carries eac
   assert.deepEqual(summary.briefing.planned_move_ins.map((row) => row.client_name), ["Planned tomorrow"]);
   assert.deepEqual(summary.briefing.moving_through.map((row) => row.client_name), ["Date already passed", "Planned tomorrow"]);
   assert.deepEqual(summary.briefing.moving_through.map((row) => [row.phase, row.planned_at]), [["awaiting_arrival", "2026-09-24"], ["awaiting_arrival", "2026-09-27"]]);
+  assert.equal(summary.briefing.moving_through[0].status, "Planned date passed · arrival unconfirmed");
+  assert.equal(summary.briefing.moving_through[1].status, "Awaiting admit");
   for (const row of [summary.briefing.admitted_last_week[0], summary.briefing.planned_move_ins[0], summary.briefing.moving_through[0]]) {
     assert.equal(row.source_name, "County behavioral health");
     assert.equal(row.referring_county, "Contra Costa");
