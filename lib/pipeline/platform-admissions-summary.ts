@@ -164,6 +164,14 @@ function awaitingArrival(referral: PlatformSummaryReferral, today: string) {
   return !planned || planned >= addDays(today, -PAST_PLANNED_LOOKBACK_DAYS);
 }
 
+function arrivalNeedsReview(referral: PlatformSummaryReferral, today: string) {
+  const planned = dayKey(referral.plannedAdmissionDate);
+  // A past plan is not evidence of arrival or cancellation; only the recorded
+  // outcome or verified census reconciliation can settle the referral.
+  return referral.decisionOutcome === "accepted" && !referral.actualAdmissionDate &&
+    !referral.placementCancelled && Boolean(planned && planned < today);
+}
+
 function isActiveReferral(referral: PlatformSummaryReferral) {
   const status = leadershipStatus[referral.boardStatus] ?? referral.boardStatus.trim();
   return referral.decisionOutcome !== "declined" && status.toLowerCase() !== "declined";
@@ -257,7 +265,9 @@ export function buildPlatformAdmissionsSummary(input: PlatformAdmissionsSummaryI
   const lastWeekEnd = addDays(weekStart, -1);
   const recentStart = addDays(today, -13);
   const briefingStatus = (referral: PlatformSummaryReferral) =>
-    referral.placementCancelled ? "Did not move in" : (leadershipStatus[referral.boardStatus] ?? referral.boardStatus.trim()) ||
+    referral.placementCancelled ? "Did not move in" :
+    arrivalNeedsReview(referral, today) ? "Planned date passed · arrival unconfirmed" :
+    (leadershipStatus[referral.boardStatus] ?? referral.boardStatus.trim()) ||
     (referral.actualAdmissionDate ? "Admitted" : referral.decisionOutcome === "accepted" ? "Accepted" : referral.decisionOutcome === "declined" ? "Declined" : "Closed");
   const recentReferrals = input.referrals
     .filter((referral) => inWindow(referral.receivedDate, recentStart, today))

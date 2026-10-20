@@ -37,7 +37,7 @@
 .weekList li > div span, .weekList p, .origin { color: var(--color-ink-muted); font-size: 12px; }
 .weekList p { margin: 3px 0 1px; }
 .origin { display: block; overflow-wrap: anywhere; }
-.movementChoices { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 20px; border: 1px solid var(--color-paper-rule); }
+.movementChoices { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); margin-top: 20px; border: 1px solid var(--color-paper-rule); }
 .movementChoice { display: grid; justify-items: start; gap: 2px; min-width: 0; border: 0; border-right: 1px solid var(--color-paper-rule); border-top: 4px solid transparent; padding: 12px 14px 14px; background: var(--color-paper); color: var(--color-ink); text-align: left; cursor: pointer; }
 .movementChoice:last-child { border-right: 0; }
 .movementChoice[data-selected="true"] { border-top-color: var(--color-primary); background: var(--color-primary-soft); }

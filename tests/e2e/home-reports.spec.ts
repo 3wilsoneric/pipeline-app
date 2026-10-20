@@ -524,6 +524,7 @@ test.describe("role-scoped home and reports", () => {
         moving_through: [
           { client_name: "Synthetic Assessee", stage: "in_progress", phase: "intake_assessment", planned_at: null, status: "Assessment underway", community: "San Pablo", owner: "Test Assessor", source_name: "Community hospital", referring_county: null, pipeline_path: "/?view=referrals&screen=packet&referralId=9" },
           { client_name: "Synthetic No Date", stage: "decision", phase: "needs_date", planned_at: null, status: "Accepted · no planned admit date", community: "Victoria's House", owner: "Other Assessor", source_name: "County", referring_county: null, pipeline_path: "/?view=referrals&screen=packet&referralId=11" },
+          { client_name: "Synthetic Past Date", stage: "decision", phase: "awaiting_arrival", planned_at: "2026-09-25", status: "Planned date passed · arrival unconfirmed", community: "San Pablo", owner: "Test Assessor", source_name: "County", referring_county: null, pipeline_path: "/?view=referrals&screen=packet&referralId=12" },
         ],
       },
     } }) : route.fulfill({ status: 503, json: { error: "Referral storage is unavailable." } }));
@@ -538,6 +539,9 @@ test.describe("role-scoped home and reports", () => {
     await expect(page.getByRole("region", { name: "Planned admits this week" })).toContainText("Synthetic Arrival");
     await expect(page.getByRole("region", { name: "Planned admits this week" })).toContainText("Origin: Referral partner · County: Solano");
     const movingSection = page.getByRole("region", { name: "Clients moving through" });
+    await expect(movingSection).toContainText("Synthetic Past Date");
+    await expect(movingSection).toContainText("arrival unconfirmed");
+    await movingSection.getByRole("button", { name: /Needs admit date/ }).click();
     await expect(movingSection).toContainText("Synthetic No Date");
     await expect(movingSection).not.toContainText("Synthetic Assessee");
     await movingSection.getByRole("button", { name: /Intake & assessment/ }).click();
