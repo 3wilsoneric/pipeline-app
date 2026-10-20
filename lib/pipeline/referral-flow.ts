@@ -6,6 +6,7 @@ import { getAssessmentToolCoverage } from "../assessment/assessment-tool-schema"
 import type { PipelineWorkspaceLocation } from "./work-continuity";
 import { isDocumentRequirementType } from "./document-requirements";
 import { getWorkspaceAdmissionOutcome } from "./workspace-presentation";
+import { getPlannedAdmissionDate } from "./admission-lifecycle";
 
 export const activeReferralFlowStates = [
   { key: "ready_to_schedule", label: "Intake & scheduling", emptyLabel: "No intake or scheduling work" },
@@ -66,6 +67,9 @@ function decisionBoardState(referral: Referral, context: WorkflowContext, state:
 }
 
 function acceptedBoardState(referral: Referral, context: WorkflowContext, state: WorkspaceStateProjection): ReferralBoardState {
+  if (getPlannedAdmissionDate(referral) && context.packetSentAt) {
+    return boardCard(null, "Awaiting admit", "Open workspace", "workflow");
+  }
   if (state.assessment === "ready_to_sign") return { ...boardCard("decision", "Accept", "Review and sign the assessment", "assessment"), location: { view: "assessment", assessmentMode: "review" } };
   if (state.assessment !== "signed") return boardCard("decision", "Accept", "Complete the assessment", "assessment");
   const outstanding = (context.requirements ?? referral.requirements ?? [])

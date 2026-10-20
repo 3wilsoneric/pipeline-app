@@ -47,6 +47,23 @@ test("accepted board cards show the highest-priority open admission items", () =
   });
 });
 
+test("accepted referrals leave Decision only after a planned date and sent handoff", () => {
+  const referral = {
+    stage: "Assessment", workflowStatus: "approved_for_placement",
+  } as Referral;
+  const state = {
+    lifecycle: "active", outcome: "accepted", assessment: "signed", assessment_is_reassessment: false,
+  } as WorkspaceStateProjection;
+  const sentAt = "2026-10-19T12:00:00.000Z";
+
+  expect(getReferralBoardState({ ...referral, plannedAdmissionDate: "2026-10-20" }, {}, state).stage).toBe("decision");
+  expect(getReferralBoardState(referral, { packetSentAt: sentAt }, state).stage).toBe("decision");
+  expect(getReferralBoardState({ ...referral, plannedAdmissionDate: "2026-10-20" }, { packetSentAt: sentAt }, state)).toMatchObject({
+    stage: null, detail: "Awaiting admit", location: { view: "workflow" },
+  });
+  expect(getReferralBoardState({ ...referral, admissionDate: "2026-10-20" }, { packetSentAt: sentAt }, state).stage).toBeNull();
+});
+
 test("board folders show document work without an overall completion percentage", async ({ page }, testInfo) => {
   await homeFixture(page);
   await page.goto("/");
