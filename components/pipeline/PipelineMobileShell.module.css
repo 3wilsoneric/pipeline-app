@@ -24,11 +24,10 @@
 .home { display: flex; align-items: center; justify-content: center; gap: 12px; width: 100%; min-height: 44px; border-radius: 6px; color: #31574a; }
 .home { font-size: 20px; font-weight: 750; letter-spacing: -.04em; }
 .home svg { flex-shrink: 0; }
-.brandDivider { flex: 0 0 1px; height: 32px; background: #c4cdc7; }
-.brandAlamo { display: block; flex: 1; min-width: 0; aspect-ratio: 4.5; overflow: hidden; }
-/* Frame the supplied screenshot's logo, excluding its outer whitespace. */
-.brandAlamoImage { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center; transform: scale(1.1); }
-.navigation[data-sidebar-expanded="false"] .brandDivider { display: none; }
+.brandMark { display: grid; flex: 0 0 44px; width: 44px; height: 44px; place-items: center; border: 1px solid var(--color-sheet-border); border-radius: var(--radius-paper); background: var(--color-paper); }
+.brandMark img { display: block; width: 38px; height: 38px; object-fit: contain; mix-blend-mode: multiply; }
+.brandName { min-width: 0; color: var(--color-link); font-size: 20px; font-weight: 750; letter-spacing: -.04em; }
+.navigation[data-sidebar-expanded="true"] .brandMark { border-color: transparent; background: transparent; }
 .expandButton { position: absolute; z-index: 1; top: 50%; right: -22px; transform: translateY(-50%); display: grid; place-items: center; width: 44px; height: 56px; color: #31574a; cursor: pointer; }
 .expandButton::before { content: ""; position: absolute; inset: 6px 10px; border: 1px solid #b9cdc2; border-radius: 9px; background: #f8fbf9; box-shadow: 0 2px 5px #1f372615; }
 .expandButton svg { position: relative; }
@@ -148,7 +147,6 @@
 /* Current sidebar: warm paper rail, rounded icon buttons, one soft active tint. */
 .shell .sidebar { gap: 8px; padding: 16px 12px; border-right: 1px solid var(--color-sheet-border); background: var(--color-sheet); box-shadow: none; }
 .home { color: var(--color-link); }
-.brandDivider { background: var(--color-sheet-border); }
 .navigation[data-sidebar-expanded="true"] .navigationPanel { box-shadow: var(--shadow-popover); }
 .shell .sidebar [data-testid="primary-navigation"] :global(.pipeline-command.pipeline-command) { height: 48px; min-height: 48px; border: 0; border-radius: var(--radius-paper); background: transparent; box-shadow: none; color: var(--color-ink-muted); transition: background-color var(--duration-fade) ease, color var(--duration-fade) ease; }
 .shell .sidebar [data-testid="primary-navigation"] :global(.pipeline-command.pipeline-command):hover { background: var(--color-segment); color: var(--color-ink); box-shadow: none; }
@@ -163,10 +161,7 @@
 .expandButton::before { inset: 6px 10px; border-color: var(--color-sheet-border); border-radius: var(--radius-input); background: var(--color-paper); box-shadow: var(--shadow-card); }
 .expandButton:hover::before { border-color: var(--color-control-border); background: var(--color-segment); }
 .shell .utilities > button > span:not([aria-hidden]), .shell .utilities > div > button > span:not([aria-hidden]) { font-size: var(--text-value); font-weight: 500; }
-/* Sidebar pass (docs/design/DECISIONS.md, "Sidebar"): the Alamo logo sits on the rail without its white box;
-   the account switch reads like the other utilities; the phone menu uses the same neutral items and green
-   active tint as the desktop rail instead of one color per destination. */
-.brandAlamoImage { mix-blend-mode: multiply; }
+/* The account switch reads like the other utilities; the phone menu shares the rail's neutral items. */
 .shell .utilities > div > button { border: 0; background: transparent; box-shadow: none; }
 .shell .utilities > div > button:hover { background-color: var(--color-segment); color: var(--color-ink); }
 .phoneMenu { border-color: var(--color-sheet-border); background: var(--color-sheet); color: var(--color-ink); box-shadow: var(--shadow-popover); }

@@ -10,7 +10,6 @@ import { ArrowLeft, ArrowRight, CircleHelp, FlaskConical, ListTodo, LogOut, More
 
 import { ActiveAssessorSessionPill, AssessorSessionMenuAction } from "@/components/pipeline/AssessorSessionControl";
 import PipelineActionNav, { type PipelineNavTarget } from "@/components/pipeline/PipelineActionNav";
-import PipelineLogoMark from "@/components/pipeline/PipelineLogoMark";
 import { fetchCurrentPipelineUser, type PipelineCurrentUser } from "@/lib/auth/authenticated-fetch";
 import { pipelinePageHeaders } from "@/lib/auth/browser-session";
 import { usePipelineShell } from "@/components/pipeline/pipeline-shell-context";
@@ -154,11 +153,10 @@ export default function PipelineHeader({ onDestinationChange, phone = false }: {
           data-platform-page-active="pipeline"
           className={`${sidebarStyles.home} min-w-11`}
         >
-          <PipelineLogoMark size={32} />
-          <span className={sidebarStyles.brandDivider} data-brand-divider aria-hidden="true" />
-          <span className={sidebarStyles.brandAlamo}>
-            <Image src={toPipelinePath("/brand/alamo-health-management.png")} alt="Alamo Health Management" width={774} height={206} loading="eager" unoptimized draggable={false} className={sidebarStyles.brandAlamoImage} />
+          <span className={sidebarStyles.brandMark} aria-hidden="true">
+            <Image src={toPipelinePath("/brand/alamo-head-tree-mark.png")} alt="" width={130} height={130} loading="eager" unoptimized draggable={false} />
           </span>
+          <span className={sidebarStyles.brandName}>Pipeline</span>
         </button>
       </div>
       <div id="pipeline-primary-navigation" data-testid="primary-navigation-dock" className={sidebarStyles.destinations}>
