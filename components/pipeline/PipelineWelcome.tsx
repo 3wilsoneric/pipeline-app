@@ -1,13 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type ComponentProps, type ReactNode } from "react";
-import { ArrowRight, CalendarClock, CalendarPlus, Maximize2 } from "lucide-react";
+import { ArrowRight, CalendarClock, CalendarPlus, ChevronLeft, Maximize2 } from "lucide-react";
 
 import CurrentWorkOverlay from "@/components/pipeline/CurrentWorkOverlay";
 import ReferralWorkflowTracker from "@/components/pipeline/ReferralWorkflowTracker";
 import ContinueWorkPanel from "@/components/pipeline/ContinueWorkPanel";
 import HomeModuleDashboard from "@/components/pipeline/HomeModuleDashboard";
 import HomeDialog from "@/components/pipeline/HomeDialog";
+import MobileAssessorHome from "@/components/pipeline/MobileAssessorHome";
 import ApplicationActivityCard from "@/components/pipeline/ApplicationActivityCard";
 import PipelineSearchPanel from "@/components/pipeline/PipelineSearchPanel";
 import { SinceLastVisitAssignments } from "@/components/pipeline/WorkspaceActivityFeed";
@@ -66,6 +67,19 @@ export default function PipelineWelcome({
   const acknowledgmentRevision = useRef(0);
   const { searchOpen, setSearchOpen } = usePipelineShell();
   const [searchVisible, setSearchVisible] = useState(true);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const [mobileFullHome, setMobileFullHome] = useState(false);
+
+  useEffect(() => {
+    const desktop = window.matchMedia("(min-width: 1024px)");
+    let wasDesktop = desktop.matches;
+    const preserveCurrentView = () => {
+      if (wasDesktop && !desktop.matches) setMobileFullHome(true);
+      wasDesktop = desktop.matches;
+    };
+    desktop.addEventListener("change", preserveCurrentView);
+    return () => desktop.removeEventListener("change", preserveCurrentView);
+  }, []);
 
   // Prepare one likely next workspace, not every referral/chart. Intent reads
   // still use the unchanged short TTL and protected shared cache. New briefing
@@ -177,7 +191,9 @@ export default function PipelineWelcome({
       <main data-guide-target="home-workspace" data-performance-ready={pipelineSurfaceReady("home", !briefing, error)} className="h-full overflow-y-auto bg-[#f4f6f5] text-[#202320] outline-none">
         <div className="mx-auto w-full max-w-[1380px] px-4 pb-10 pt-4 sm:px-6 sm:pt-5 lg:px-8">
           <HomeSearchAccess visible={searchVisible} searchProps={searchProps} onClose={() => setSearchOpen(false)} />
-          {canViewApplicationActivity ? <ApplicationActivityCard /> : null}
+          {briefing && !editHome && !mobileFullHome ? <MobileAssessorHome briefing={briefing} onOpenPacket={onOpenPacket} onBrowseHome={() => setMobileFullHome(true)} onResumeDraft={onResumeDraft} onAcknowledgeAssignments={acknowledgeAssignments} onSearch={() => setMobileSearchOpen(true)} /> : null}
+          {mobileFullHome && !editHome ? <button type="button" onClick={() => setMobileFullHome(false)} className="mb-3 flex min-h-11 items-center gap-2 text-[13px] font-semibold text-link lg:hidden"><ChevronLeft size={16} aria-hidden="true" /> My assessments</button> : null}
+          {canViewApplicationActivity ? <div className={editHome || mobileFullHome ? "" : "hidden lg:block"}><ApplicationActivityCard /></div> : null}
 
           {error ? (
             <div role="alert" className="mt-4 flex items-center justify-between gap-4 border-l-2 border-[#a9473d] bg-[#fff6f4] px-4 py-3 text-[12px] text-[#723d35]">
@@ -187,7 +203,7 @@ export default function PipelineWelcome({
           ) : null}
 
           {viewerId ? (
-            <div className="mt-2 space-y-4">
+            <div className={`mt-2 space-y-4 ${editHome || mobileFullHome ? "" : "hidden lg:block"}`}>
               <HomeLiveCountNotice sections={briefing?.unavailable_sections} />
               <HomeModuleDashboard
                 key={viewerId}
@@ -214,6 +230,7 @@ export default function PipelineWelcome({
           {!briefing && !error ? <HomeSkeleton /> : null}
         </div>
       </main>
+      {mobileSearchOpen ? <HomeDialog label="Search Pipeline" title="Search" onClose={() => setMobileSearchOpen(false)}><div className="p-4"><PipelineSearchPanel {...searchProps} autoFocus /></div></HomeDialog> : null}
       {briefing && currentWorkOpen ? (
         <CurrentWorkOverlay briefing={briefing} onClose={onCloseCurrentWork} onOpenPacket={onOpenPacket} />
       ) : null}
