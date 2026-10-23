@@ -39,11 +39,20 @@ test("planned date is separate, supports legacy previews, and can be cleared del
   assert.equal(dates.getPlannedAdmissionDate({ admissionDate: "2026-10-12", plannedAdmissionDate: "" }), "");
 });
 
-test("planned arrival and sending never prove actual admission", () => {
+test("a due admit date is assumed but never recorded as a verified arrival", () => {
   const referral = { workspaceOrigin: "pipeline", stage: "Community Review", admissionDecision: { outcome: "accepted" }, plannedAdmissionDate: "2026-01-01" };
-  assert.equal(presentation.getWorkspaceAdmissionOutcome(referral).status, "accepted");
+  assert.equal(dates.assumedAdmissionDate(referral, new Date("2025-12-31T20:00:00Z")), null);
+  assert.equal(dates.assumedAdmissionDate(referral, new Date("2026-01-01T20:00:00Z")), "2026-01-01");
+  assert.equal(presentation.getWorkspaceAdmissionOutcome(referral).evidence, "assumed");
+  assert.equal(presentation.getWorkspaceAdmissionOutcome(referral).label, "Admitted · census check pending");
+  assert.equal(referral.actualAdmissionDate, undefined);
+  assert.equal(dates.assumedAdmissionDate({ ...referral, placementCancellation: { reason: "Did not arrive" } }, new Date("2026-01-02T20:00:00Z")), null);
+  assert.equal(dates.assumedAdmissionDate({ ...referral, admissionDecision: { outcome: "declined" } }, new Date("2026-01-02T20:00:00Z")), null);
+  assert.equal(dates.assumedAdmissionDate({ ...referral, actualAdmissionDate: "2026-01-02" }, new Date("2026-01-02T20:00:00Z")), null);
+  assert.equal(dates.assumedAdmissionDate({ ...referral, plannedAdmissionDate: "01/01/2026" }, new Date("2026-01-02T20:00:00Z")), null, "only canonical saved dates enter the assumed-admission filter");
   assert.equal(dates.isAwaitingAdmission(referral.stage, "accepted", "2026-01-01T10:00:00Z"), true);
-  assert.notEqual(flow.getReferralBoardState(referral, { assessmentSigned: true, packetSentAt: "2026-01-01T10:00:00Z" }).stage, null);
+  assert.equal(flow.getReferralBoardState(referral, { assessmentSigned: true, packetSentAt: "2026-01-01T10:00:00Z" }).stage, null);
+  assert.equal(flow.getReferralBoardState(referral, { assessmentSigned: true }).stage, "decision", "unsent handoff stays actionable");
   assert.equal(dates.isAwaitingAdmission("Declined", "declined", "2026-01-01T10:00:00Z"), false);
   assert.equal(presentation.getWorkspaceAdmissionOutcome({ ...referral, actualAdmissionDate: "2026-01-02", stage: "Accepted / Admitted" }).status, "admitted");
   const admitted = { ...referral, stage: "Accepted / Admitted", workflowStatus: "admitted" };

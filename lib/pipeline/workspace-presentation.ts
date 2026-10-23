@@ -3,11 +3,12 @@ import { extractImportedClientMetadata } from "./client-identity-presentation.mj
 import { resolveReferralWorkflowStatus, workflowStatusLabels } from "./workflow-status";
 import { normalizeWorkspaceMonth } from "./workspace-month.mjs";
 import { historicalAdmissionSource } from "./historical-admission";
+import { assumedAdmissionDate } from "./admission-lifecycle";
 
 export type WorkspaceAdmissionOutcome = {
   status: "admitted" | "accepted" | "denied" | "cancelled" | "pending" | "unknown";
-  label: "Admitted" | "Accepted" | "Denied" | "Did not move in" | "In progress" | "Outcome not recorded";
-  evidence: "recorded" | "census_match" | "open" | "historical";
+  label: "Admitted" | "Admitted · census check pending" | "Accepted" | "Denied" | "Did not move in" | "In progress" | "Outcome not recorded";
+  evidence: "recorded" | "census_match" | "assumed" | "open" | "historical";
   explanation: string;
 };
 
@@ -111,6 +112,15 @@ export function getWorkspaceAdmissionOutcome(referral: Referral): WorkspaceAdmis
   const admission = recordedAdmissionOutcome(referral);
   if (admission) return admission;
 
+  if (assumedAdmissionDate(referral)) {
+    return {
+      status: "admitted",
+      label: "Admitted · census check pending",
+      evidence: "assumed",
+      explanation: "The planned admit date has arrived. Pipeline assumes admission until the Alamo census confirms the actual arrival or staff records that the move-in did not happen.",
+    };
+  }
+
   if (
     referral.stage === "Accepted / Admitted"
     && referral.admissionDecision?.outcome === "accepted"
@@ -185,6 +195,8 @@ export function getWorkspaceWorkflowLabel(referral: Referral) {
     return `Historical · ${getWorkspaceAdmissionOutcome(referral).label}`;
   }
   if (referral.placementCancellation) return getWorkspaceAdmissionOutcome(referral).label;
+  const admission = getWorkspaceAdmissionOutcome(referral);
+  if (admission.evidence === "assumed") return admission.label;
   const workflowStatus = referral.workflowStatus ?? resolveReferralWorkflowStatus(referral);
   if (isImportedWorkspace(referral)) {
     const outcome = getWorkspaceAdmissionOutcome(referral);

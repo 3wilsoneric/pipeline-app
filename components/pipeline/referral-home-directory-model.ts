@@ -122,7 +122,10 @@ export function buildReferralParams(filter: ReferralFilter, searchTerm: string, 
   if (filter.county) params.set("county", filter.county);
   if (filter.month) params.set("month", filter.month);
   if (filter.priority) params.set("priority", filter.priority);
-  if (filter.kind === "admitted") params.set("stage", "Accepted / Admitted");
+  if (filter.kind === "admitted") {
+    params.set("stage", "Accepted / Admitted");
+    params.set("include_assumed", "true");
+  }
   if (filter.kind !== "files") params.set("workspace", "all");
   return params;
 }

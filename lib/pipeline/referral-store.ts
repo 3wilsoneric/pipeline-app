@@ -16,6 +16,7 @@ import {
 import { decodeKeysetCursor, encodeKeysetCursor, isAfterDescendingCursor } from "@/lib/pipeline/keyset-cursor";
 import { normalizeClientName } from "@/lib/pipeline/client-identity-presentation.mjs";
 import { normalizeCalendarDate } from "@/lib/pipeline/calendar-date";
+import { assumedAdmissionDate } from "@/lib/pipeline/admission-lifecycle";
 import { historicalAdmissionSource, isHistoricalAdmissionPatch } from "@/lib/pipeline/historical-admission";
 import { toPipelinePath } from "@/lib/pipeline/base-path";
 import { referralAuditValues } from "@/lib/pipeline/referral-activity-presentation";
@@ -116,6 +117,8 @@ export type ReferralListOptions = {
   sort?: ReferralSort;
   nameInitial?: string;
   stage?: ReferralStage;
+  /** Include due, unverified admit plans alongside recorded admissions. */
+  includeAssumedAdmissions?: boolean;
   community?: string;
   communities?: string[];
   county?: string;
@@ -1369,6 +1372,7 @@ async function listPostgresReferrals(options: ReferralListOptions = {}): Promise
   const sql = getPipelineSql();
   const queryTokens = normalizedSearchTokens(options.query ?? "");
   const stage = options.stage ?? null;
+  const includeAssumedAdmissions = options.includeAssumedAdmissions === true && stage === "Accepted / Admitted";
   const communities = selectedListFilterValues(options.community, options.communities);
   const county = options.county?.trim() || null;
   const owners = selectedListFilterValues(options.owner, options.owners).map(normalizeOwnerName);
@@ -1411,7 +1415,27 @@ async function listPostgresReferrals(options: ReferralListOptions = {}): Promise
           select 1 from unnest(${queryTokens}::text[]) as search_term(value)
           where r.search_text not ilike ('%' || search_term.value || '%')
         ))
-        and (${stage}::text is null or r.stage = ${stage})
+        and (${stage}::text is null or r.stage = ${stage} or (
+          ${includeAssumedAdmissions} and r.workspace_origin = 'pipeline' and r.workspace_status = 'active'
+          and r.stage <> 'Declined' and r.data->'admissionDecision'->>'outcome' = 'accepted'
+          and coalesce(r.data->>'actualAdmissionDate', '') = ''
+          and (r.data->'placementCancellation' is null or r.data->'placementCancellation' = 'null'::jsonb)
+          and case
+            when coalesce(r.data->>'plannedAdmissionDate', r.data->>'admissionDate', '') ~ '^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$'
+              and left(coalesce(r.data->>'plannedAdmissionDate', r.data->>'admissionDate', ''), 4) <> '0000'
+            then substring(coalesce(r.data->>'plannedAdmissionDate', r.data->>'admissionDate', ''), 9, 2)::integer <= case
+              when substring(coalesce(r.data->>'plannedAdmissionDate', r.data->>'admissionDate', ''), 6, 2) = '02'
+                then case when left(coalesce(r.data->>'plannedAdmissionDate', r.data->>'admissionDate', ''), 4)::integer % 4 = 0
+                  and (left(coalesce(r.data->>'plannedAdmissionDate', r.data->>'admissionDate', ''), 4)::integer % 100 <> 0
+                    or left(coalesce(r.data->>'plannedAdmissionDate', r.data->>'admissionDate', ''), 4)::integer % 400 = 0)
+                  then 29 else 28 end
+              when substring(coalesce(r.data->>'plannedAdmissionDate', r.data->>'admissionDate', ''), 6, 2) in ('04', '06', '09', '11') then 30
+              else 31
+            end
+              and coalesce(r.data->>'plannedAdmissionDate', r.data->>'admissionDate', '') <= to_char(now() at time zone 'America/Los_Angeles', 'YYYY-MM-DD')
+            else false
+          end
+        ))
         and (${options.nameInitial ?? null}::text is null or left(lower(trim(p.display_name)), 1) = lower(${options.nameInitial ?? null}))
         and (${communities.length === 0} or r.community = any(${communities}::text[]))
         and (${county}::text is null or r.county = ${county})
@@ -3198,7 +3222,8 @@ function matchesReferralPlacement(referral: Referral, options: ReferralListOptio
 
 function matchesReferralIdentity(referral: Referral, options: ReferralListOptions) {
   if (!matchesWorkspaceStatus(referral, options.workspaceStatus)) return false;
-  if (options.stage && referral.stage !== options.stage) return false;
+  if (options.stage && referral.stage !== options.stage
+    && !(options.includeAssumedAdmissions && options.stage === "Accepted / Admitted" && assumedAdmissionDate(referral))) return false;
   if (options.nameInitial && referral.name.trim().charAt(0).toUpperCase() !== options.nameInitial) return false;
   return true;
 }

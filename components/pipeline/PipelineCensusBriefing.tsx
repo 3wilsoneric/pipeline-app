@@ -11,7 +11,7 @@ type WeekRow = ClientContext & { client_name: string; date: string; detail: stri
 type MovingRow = AdmissionsCensusReport["briefing"]["moving_through"][number];
 type MovingPhase = MovingRow["phase"] | "outcome_review";
 const movingPhases: { key: MovingPhase; label: string; hint: string }[] = [
-  { key: "outcome_review", label: "Check arrival", hint: "Planned date passed" },
+  { key: "outcome_review", label: "Verify admission", hint: "Admit date passed · check the census" },
   { key: "needs_date", label: "Needs admit date", hint: "Accepted, no date planned" },
   { key: "awaiting_arrival", label: "Awaiting arrival", hint: "Planned, not yet admitted" },
   { key: "intake_assessment", label: "Intake & assessment", hint: "Before a decision" },
@@ -65,7 +65,7 @@ export default function PipelineCensusBriefing() {
       </> : null}
 
       <footer data-guide-target="operations-briefing-source" className={styles.source}>
-        Pipeline referral records{admissions ? ` updated ${formatTimestamp(admissions.generated_at)}` : ""} · Alamo Platform clinical snapshot{census ? ` dated ${formatDate(census.data_as_of)}` : ""}. Planned admissions are not confirmed arrivals.
+        Pipeline referral records{admissions ? ` updated ${formatTimestamp(admissions.generated_at)}` : ""} · Alamo Platform clinical snapshot{census ? ` dated ${formatDate(census.data_as_of)}` : ""}. An assumed admission is not counted in the verified census until the arrival is confirmed.
       </footer>
     </article>
   </main>;

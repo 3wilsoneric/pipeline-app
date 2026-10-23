@@ -55,6 +55,9 @@ const thisMonth = currentWorkspaceMonth();
 const priorDate = new Date(`${thisMonth}-01T00:00:00.000Z`);
 priorDate.setUTCMonth(priorDate.getUTCMonth() - 1);
 const priorMonth = priorDate.toISOString().slice(0, 7);
+const pacificParts = new Intl.DateTimeFormat("en-US", { timeZone: "America/Los_Angeles", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
+const pacificDay = (type) => pacificParts.find((part) => part.type === type)?.value;
+const today = `${pacificDay("year")}-${pacificDay("month")}-${pacificDay("day")}`;
 const carryoverRecords = [
   { id: 101, name: "Carryover Open", ownerId: "owner-0" },
   { id: 102, name: "Carryover Declined", stage: "Declined", admissionDecision: { outcome: "declined" } },
@@ -72,6 +75,35 @@ const carryoverRecords = [
   updatedAt: `${priorMonth}-01T12:00:00.000Z`, ...item,
   ...(item.id === 108 ? { createdAt: `${thisMonth}-01T12:00:00.000Z`, updatedAt: `${thisMonth}-01T12:00:00.000Z` } : {}),
 }));
+
+const admissionFilterRecords = [
+  { id: 201, name: "Confirmed", stage: "Accepted / Admitted", actualAdmissionDate: today },
+  { id: 202, name: "Assumed", plannedAdmissionDate: today },
+  { id: 203, name: "Future", plannedAdmissionDate: "2099-01-01" },
+  { id: 204, name: "Cancelled", plannedAdmissionDate: today, placementCancellation: { reason: "Placed elsewhere" } },
+  { id: 205, name: "Declined", plannedAdmissionDate: today, admissionDecision: { outcome: "declined" } },
+  { id: 206, name: "Invalid date", plannedAdmissionDate: "2026-02-31" },
+].map((item) => ({
+  stage: "Community Review", community: "San Pablo", owner: "Fixture Assessor", ownerId: "owner-1",
+  source: "Synthetic", priority: "standard", documentName: "fixture.pdf", documentStatus: "Uploaded",
+  requirements: [], note: "", workspaceStatus: "active", workspaceOrigin: "pipeline",
+  admissionDecision: { outcome: "accepted" }, date: today, workspaceMonth: today.slice(0, 7),
+  createdAt: `${today}T12:00:00.000Z`, updatedAt: `${today}T12:00:00.000Z`, ...item,
+}));
+
+async function verifyAdmittedFilter(store) {
+  const recorded = await store.listReferrals({ stage: "Accepted / Admitted", workspaceStatus: "all" });
+  assert.deepEqual(recorded.referrals.map((row) => row.id), [201]);
+  const visible = await store.listReferrals({ stage: "Accepted / Admitted", includeAssumedAdmissions: true, workspaceStatus: "all" });
+  assert.deepEqual(visible.referrals.map((row) => row.id).sort((a, b) => a - b), [201, 202]);
+  assert.equal(visible.total, 2);
+}
+
+test("admitted workspace filter includes due assumptions without future, cancelled, or declined plans", async () => {
+  await verifyAdmittedFilter(loadStore(undefined, admissionFilterRecords));
+  assert.equal(query.parseReferralListQuery(new URLSearchParams("stage=Accepted+%2F+Admitted&include_assumed=true")).value.includeAssumedAdmissions, true);
+  assert.equal(query.parseReferralListQuery(new URLSearchParams("include_assumed=true")).ok, false);
+});
 
 async function verifyCarryover(store) {
   const directory = { month: thisMonth, includeCarryover: true, workspaceStatus: "all" };
@@ -166,6 +198,13 @@ test("PostgreSQL workspace and file filters match the local adapter", { skip: pr
         values (${referral.id}, ${person.person_id}, ${referral.stage}, ${referral.community}, ${referral.workspaceStatus}, ${referral.ownerId}, ${referral.owner}, ${referral.name.toLowerCase()}, ${sql.json(referral)}, ${referral.createdAt}, ${referral.updatedAt}, 'fixture', 'Fixture', 'fixture', 'Fixture')`;
     }
     await verifyCarryover(loadStore(sql, carryoverRecords));
+    await sql`truncate table pipeline.referrals cascade`;
+    for (const referral of admissionFilterRecords) {
+      const [person] = await sql`insert into pipeline.people (display_name) values (${referral.name}) returning person_id`;
+      await sql`insert into pipeline.referrals (referral_id, person_id, stage, community, workspace_status, workspace_origin, owner_id, owner_name, search_text, data, created_at, updated_at, created_by, created_by_name, updated_by, updated_by_name)
+        values (${referral.id}, ${person.person_id}, ${referral.stage}, ${referral.community}, ${referral.workspaceStatus}, ${referral.workspaceOrigin}, ${referral.ownerId}, ${referral.owner}, ${referral.name.toLowerCase()}, ${sql.json(referral)}, ${referral.createdAt}, ${referral.updatedAt}, 'fixture', 'Fixture', 'fixture', 'Fixture')`;
+    }
+    await verifyAdmittedFilter(loadStore(sql, admissionFilterRecords));
   } finally {
     if (sql) await sql.end({ timeout: 5 });
     if (started) execFileSync(binary("pg_ctl"), ["-D", data, "-w", "stop", "-m", "fast"], { stdio: "pipe" });
