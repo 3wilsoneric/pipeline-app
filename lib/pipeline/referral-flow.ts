@@ -6,6 +6,7 @@ import { getAssessmentToolCoverage } from "../assessment/assessment-tool-schema"
 import type { PipelineWorkspaceLocation } from "./work-continuity";
 import { isDocumentRequirementType } from "./document-requirements";
 import { getWorkspaceAdmissionOutcome } from "./workspace-presentation";
+import { assumedAdmissionDate } from "./admission-lifecycle";
 
 export const activeReferralFlowStates = [
   { key: "ready_to_schedule", label: "Intake & scheduling", emptyLabel: "No intake or scheduling work" },
@@ -76,6 +77,11 @@ function acceptedBoardState(referral: Referral, context: WorkflowContext, state:
   if (outstanding.length > 0) {
     const nextItems = outstanding.slice(0, 3).map((requirement) => requirement.label.trim()).filter(Boolean).join(", ");
     return boardCard("decision", "Accept", nextItems || "Review admission requirements", isDocumentRequirementType(outstanding[0].type) ? "files" : "workflow");
+  }
+  if (assumedAdmissionDate(referral)) {
+    return context.packetSentAt
+      ? boardCard(null, "Admitted · census check pending", "Review admission", "workflow")
+      : boardCard("decision", "Admitted · handoff needed", "Send Meet the Client", "email");
   }
   return boardCard("decision", "Awaiting admit", "Record admission", "workflow");
 }

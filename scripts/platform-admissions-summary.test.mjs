@@ -176,6 +176,24 @@ test("briefing separates actual admissions from planned arrivals and carries eac
   }
 });
 
+test("assumed admission is visible for verification without inflating confirmed admissions or census counts", () => {
+  const summary = summarize([
+    referral({ clientName: "Assumed arrival", decisionOutcome: "accepted", plannedAdmissionDate: "2026-09-24", assumedAdmissionDate: "2026-09-24", boardColumn: "decision", boardStatus: "Awaiting admit" }),
+    referral({ clientName: "Confirmed arrival", decisionOutcome: "accepted", plannedAdmissionDate: "2026-09-18", actualAdmissionDate: "2026-09-18", boardColumn: null, boardStatus: "Admitted" }),
+    referral({ clientName: "Future arrival", decisionOutcome: "accepted", plannedAdmissionDate: "2026-09-27", boardColumn: "decision", boardStatus: "Awaiting admit" }),
+  ]);
+  assert.equal(summary.metrics.awaiting_admission, 1);
+  assert.equal(summary.upcoming_admissions.past_planned_date, 0);
+  assert.equal(summary.board.cards.find((row) => row.client_name === "Assumed arrival")?.status, "Admitted · census check pending");
+  assert.deepEqual(summary.briefing.admitted_last_week.map((row) => row.client_name), ["Confirmed arrival"]);
+  assert.deepEqual(summary.briefing.moving_through.map((row) => [row.client_name, row.status]), [
+    ["Assumed arrival", "Admitted · census check pending"],
+    ["Future arrival", "Awaiting admit"],
+  ]);
+  assert.equal(summary.briefing.moving_through.find((row) => row.client_name === "Assumed arrival")?.phase, "outcome_review");
+  assert.equal(summary.history.month_outcomes.admitted, 1);
+});
+
 test("accepted clients without an admit date remain visible even after leaving the board, except cancelled placements", () => {
   const summary = summarize([
     referral({ clientName: "Accepted without date", decisionOutcome: "accepted", boardColumn: null, boardStatus: "Admitted" }),

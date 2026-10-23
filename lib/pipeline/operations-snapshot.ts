@@ -1,6 +1,6 @@
 import "server-only";
 import { supervisorQueuePage } from "./supervisor-queue-page";
-import { getPlannedAdmissionDate, isAwaitingAdmission } from "./admission-lifecycle";
+import { assumedAdmissionDate, getPlannedAdmissionDate, isAwaitingAdmission } from "./admission-lifecycle";
 
 import type { PipelineUser } from "@/lib/auth/pipeline-auth";
 import { getClinicalDataReadiness } from "@/lib/clinical/clinical-data";
@@ -104,6 +104,7 @@ export async function getPlatformAdmissionsSummary() {
         decidedAt: decision?.decidedAt ?? null,
         plannedAdmissionDate: getPlannedAdmissionDate(referral) || null,
         actualAdmissionDate: referral.actualAdmissionDate ?? null,
+        assumedAdmissionDate: assumedAdmissionDate(referral, operational.now),
         placementCancelled: Boolean(referral.placementCancellation),
         placementCancelledAt: referral.placementCancellation?.cancelledAt ?? null,
         assessmentScheduledDate,

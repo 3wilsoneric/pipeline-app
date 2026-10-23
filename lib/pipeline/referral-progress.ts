@@ -1,4 +1,4 @@
-import { isAwaitingAdmission } from "./admission-lifecycle";
+import { assumedAdmissionDate, isAwaitingAdmission } from "./admission-lifecycle";
 import type { AdmissionRequirement, Referral } from "./referral-types";
 import { isUnassignedOwner } from "./referral-ownership";
 import type { WorkflowContext } from "./workflow-records";
@@ -86,7 +86,9 @@ export function getReferralProgress(referral: Referral, context: WorkflowContext
       && (current.blocker || current.key.startsWith("requirement:")))
     .map((current) => current.label))];
   const awaitingAdmission = isAwaitingAdmission(referral.stage, state.outcome, context.packetSentAt);
-  const nextAction = awaitingAdmission ? "Await arrival confirmation from admissions" : getNextAction(
+  const nextAction = awaitingAdmission ? assumedAdmissionDate(referral)
+    ? "Await census verification of the assumed admission"
+    : "Await arrival confirmation from admissions" : getNextAction(
     referral,
     canonicalAssessment,
     state,

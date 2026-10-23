@@ -44,6 +44,8 @@ export type PlatformSummaryReferral = {
   decidedAt: string | null;
   plannedAdmissionDate: string | null;
   actualAdmissionDate: string | null;
+  /** Due plan, still awaiting a governed census or staff-confirmed actual date. */
+  assumedAdmissionDate?: string | null;
   placementCancelled: boolean;
   placementCancelledAt: string | null;
   assessmentScheduledDate: string | null;
@@ -159,16 +161,17 @@ function median(values: number[]) {
 }
 
 function awaitingArrival(referral: PlatformSummaryReferral, today: string) {
-  if (!referral.currentWorkspace || referral.placementCancelled || referral.decisionOutcome !== "accepted" || referral.actualAdmissionDate) return false;
+  if (!referral.currentWorkspace || referral.placementCancelled || referral.decisionOutcome !== "accepted"
+    || referral.actualAdmissionDate || referral.assumedAdmissionDate) return false;
   const planned = dayKey(referral.plannedAdmissionDate);
   return !planned || planned >= addDays(today, -PAST_PLANNED_LOOKBACK_DAYS);
 }
 
 function arrivalNeedsReview(referral: PlatformSummaryReferral, today: string) {
   const planned = dayKey(referral.plannedAdmissionDate);
-  // A past plan is not evidence of arrival or cancellation; only the recorded
-  // outcome or verified census reconciliation can settle the referral.
-  return referral.decisionOutcome === "accepted" && !referral.actualAdmissionDate &&
+  // Legacy unnormalized plans still need review; a canonical due plan is shown
+  // separately as assumed until a recorded outcome or census match settles it.
+  return referral.decisionOutcome === "accepted" && !referral.actualAdmissionDate && !referral.assumedAdmissionDate &&
     !referral.placementCancelled && Boolean(planned && planned < today);
 }
 
@@ -216,7 +219,7 @@ export function buildPlatformAdmissionsSummary(input: PlatformAdmissionsSummaryI
         referral_id: referral.referralId,
         client_name: referral.clientName.trim() || "Name not recorded",
         column: referral.boardColumn as PlatformBoardColumn,
-        status: leadershipStatus[referral.boardStatus] ?? referral.boardStatus,
+        status: referral.assumedAdmissionDate ? "Admitted · census check pending" : leadershipStatus[referral.boardStatus] ?? referral.boardStatus,
         next_action: referral.nextAction,
         community: referral.community.trim() || "Unassigned",
         owner: referral.unassigned ? "Unassigned" : referral.owner,
@@ -266,6 +269,7 @@ export function buildPlatformAdmissionsSummary(input: PlatformAdmissionsSummaryI
   const recentStart = addDays(today, -13);
   const briefingStatus = (referral: PlatformSummaryReferral) =>
     referral.placementCancelled ? "Did not move in" :
+    referral.assumedAdmissionDate ? "Admitted · census check pending" :
     arrivalNeedsReview(referral, today) ? "Planned date passed · arrival unconfirmed" :
     (leadershipStatus[referral.boardStatus] ?? referral.boardStatus.trim()) ||
     (referral.actualAdmissionDate ? "Admitted" : referral.decisionOutcome === "accepted" ? "Accepted" : referral.decisionOutcome === "declined" ? "Declined" : "Closed");
@@ -355,7 +359,7 @@ export function buildPlatformAdmissionsSummary(input: PlatformAdmissionsSummaryI
       client_name: referral.clientName.trim() || "Name not recorded",
       stage: referral.boardColumn ?? "decision",
       phase: referral.decisionOutcome === "accepted"
-        ? referral.plannedAdmissionDate ? "awaiting_arrival" : "needs_date"
+        ? referral.assumedAdmissionDate ? "outcome_review" : referral.plannedAdmissionDate ? "awaiting_arrival" : "needs_date"
         : referral.boardColumn === "decision" ? "decision_pending" : "intake_assessment",
       planned_at: dayKey(referral.plannedAdmissionDate),
       status: referral.decisionOutcome === "accepted" && !referral.plannedAdmissionDate

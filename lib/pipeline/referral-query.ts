@@ -18,6 +18,7 @@ type ReferralQueryValues = {
   query: string;
   cursor?: string;
   stage?: string;
+  includeAssumed?: string;
   nameInitial?: string;
   communities: string[];
   county?: string;
@@ -51,6 +52,7 @@ export function parseReferralListQuery(searchParams: URLSearchParams): QueryResu
       limit: values.limit,
       cursor: values.cursor,
       stage: values.stage as ReferralStage | undefined,
+      includeAssumedAdmissions: values.includeAssumed === "true",
       nameInitial: values.nameInitial,
       community: values.communities.length === 1 ? values.communities[0] : undefined,
       communities: values.communities.length > 1 ? values.communities : undefined,
@@ -76,6 +78,7 @@ function readReferralQueryValues(searchParams: URLSearchParams): ReferralQueryVa
     query: searchParams.get("q")?.trim() ?? "",
     cursor: trimmedParameter(searchParams, "cursor") || undefined,
     stage: trimmedParameter(searchParams, "stage") || undefined,
+    includeAssumed: trimmedParameter(searchParams, "include_assumed") || undefined,
     nameInitial: trimmedParameter(searchParams, "initial") || undefined,
     communities: readQuerySelections(searchParams, "community"),
     county: trimmedParameter(searchParams, "county") || undefined,
@@ -107,6 +110,7 @@ function validateReferralQueryValues(values: ReferralQueryValues): string | unde
       message: "limit must be a whole number between 1 and 200.",
     },
     { invalid: Boolean(values.stage && !boardStages.includes(values.stage as ReferralStage)), message: "stage is invalid." },
+    { invalid: Boolean(values.includeAssumed && (values.includeAssumed !== "true" || values.stage !== "Accepted / Admitted")), message: "include_assumed requires the admitted stage." },
     {
       invalid: invalidQuerySelections(values.communities, 128) || values.communities.some((community) => !pipelineCommunities.includes(community as (typeof pipelineCommunities)[number])),
       message: "community is invalid.",
