@@ -4,12 +4,12 @@ import { canEditWorkspace } from "@/lib/pipeline/referral-ownership";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, ArrowRight, CircleHelp, FlaskConical, ListTodo, LogOut, MoreHorizontal, Settings, Trash2, UserRound, X } from "lucide-react";
 
 import { ActiveAssessorSessionPill, AssessorSessionMenuAction } from "@/components/pipeline/AssessorSessionControl";
 import PipelineActionNav, { type PipelineNavTarget } from "@/components/pipeline/PipelineActionNav";
+import PipelineLogoMark from "@/components/pipeline/PipelineLogoMark";
 import { fetchCurrentPipelineUser, type PipelineCurrentUser } from "@/lib/auth/authenticated-fetch";
 import { pipelinePageHeaders } from "@/lib/auth/browser-session";
 import { usePipelineShell } from "@/components/pipeline/pipeline-shell-context";
@@ -154,7 +154,7 @@ export default function PipelineHeader({ onDestinationChange, phone = false }: {
           className={`${sidebarStyles.home} min-w-11`}
         >
           <span className={sidebarStyles.brandMark} aria-hidden="true">
-            <Image src={toPipelinePath("/brand/alamo-head-tree-mark.png")} alt="" width={130} height={130} loading="eager" unoptimized draggable={false} />
+            <PipelineLogoMark size={36} />
           </span>
           <span className={sidebarStyles.brandName}>Pipeline</span>
         </button>
