@@ -157,7 +157,8 @@ export default function PipelineHeader({ onDestinationChange, phone = false }: {
             <Image src={toPipelinePath("/brand/alamo-head-tree-mark.png")} alt="" width={130} height={130} loading="eager" unoptimized draggable={false} />
           </span>
           <span className={sidebarStyles.brandName}>
-            <Image src={toPipelinePath("/brand/pipeline-wordmark.svg")} alt="" width={111} height={22} loading="eager" unoptimized draggable={false} />
+            <Image src={toPipelinePath("/brand/pipeline-mark.svg")} alt="" width={491} height={672} loading="eager" unoptimized draggable={false} className={sidebarStyles.brandInitial} />
+            <span className={sidebarStyles.brandNameText}>ipeline</span>
           </span>
         </button>
       </div>
