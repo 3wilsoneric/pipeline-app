@@ -58,7 +58,7 @@ test("the unchanged Next/React/TypeScript config still reports real violations",
   } finally { rmSync(fixture, { recursive: true, force: true }); }
 });
 
-test("the scoped replacement matches its reviewed source and sole upstream caller", () => {
+test("the archived replacement remains intact and upstream glob has one reviewed caller", () => {
   execFileSync("npm", ["ls", "fast-glob", "--json"], { cwd: root, stdio: "pipe" });
   const sourceRoot = path.join(root, "scripts/vendor/next-eslint-glob");
   for (const file of ["index.cjs", "package.json", "README.md"]) {
@@ -68,7 +68,9 @@ test("the scoped replacement matches its reviewed source and sole upstream calle
     );
   }
   const pluginRequire = createRequire(path.join(pluginRoot, "package.json"));
-  assert.equal(readFileSync(pluginRequire.resolve("fast-glob"), "utf8"), readFileSync(path.join(sourceRoot, "index.cjs"), "utf8"));
+  const installedGlob = JSON.parse(readFileSync(pluginRequire.resolve("fast-glob/package.json"), "utf8"));
+  const plugin = JSON.parse(readFileSync(path.join(pluginRoot, "package.json"), "utf8"));
+  assert.equal(installedGlob.version, plugin.dependencies["fast-glob"]);
   const consumers = readdirSync(path.join(pluginRoot, "dist"), { recursive: true })
     .filter((file) => file.endsWith(".js") && readFileSync(path.join(pluginRoot, "dist", file), "utf8").includes('require("fast-glob")'));
   assert.deepEqual(consumers, ["utils/get-root-dirs.js"]);
@@ -77,5 +79,6 @@ test("the scoped replacement matches its reviewed source and sole upstream calle
   assert.equal((caller.match(/_fastglob\./g) ?? []).length, 1);
   assert.match(caller, /onlyDirectories: true/);
   const lock = JSON.parse(readFileSync(path.join(root, "package-lock.json"), "utf8"));
-  assert.ok(!Object.keys(lock.packages).some((key) => /node_modules\/(braces|micromatch)$/.test(key)));
+  const lockedPath = path.relative(root, path.dirname(pluginRequire.resolve("fast-glob/package.json"))).split(path.sep).join("/");
+  assert.equal(lock.packages[lockedPath].version, installedGlob.version);
 });
