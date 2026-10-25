@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { ArrowLeft, ArrowRight, ChevronDown, ClipboardCheck } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ArrowLeft, ArrowRight, ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck } from "lucide-react";
 
 import HomeDialog from "@/components/pipeline/HomeDialog";
 import CompletionMemoReviewForm from "@/components/pipeline/CompletionMemoReviewForm";
@@ -10,6 +10,7 @@ import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import type { HomeBriefingSnapshot } from "@/lib/pipeline/home-briefing-types";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import type { PipelineWorkspaceLocation } from "@/lib/pipeline/work-continuity";
+import { completionMemoAssessmentField } from "@/lib/pipeline/completion-memo-fields";
 import type { CompletionMemoClient, CompletionMemoTask, WeeklyCompletionMemo } from "@/lib/pipeline/weekly-completion-memo";
 import styles from "./WeeklyCompletionMemo.module.css";
 
@@ -20,6 +21,11 @@ const taskGroups: { key: CompletionMemoTask["group"]; label: string }[] = [
   { key: "review", label: "Answers to check" },
   { key: "follow_through", label: "Placement follow-through" },
 ];
+
+function shortTaskLabel(task: CompletionMemoTask) {
+  const label = task.label.replace(/^(Answer |Record |Review missing |Find or add )/, "");
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
 
 export default function WeeklyCompletionMemoCard({ memo, viewerId, onOpenReview }: {
   memo: WeeklyCompletionMemo;
@@ -81,6 +87,8 @@ export function WeeklyCompletionMemoPage({ onBack, onOpenPacket }: {
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [ownerFilter, setOwnerFilter] = useState("");
   const [dirty, setDirty] = useState(false);
+  const [saveNotice, setSaveNotice] = useState("");
+  const reviewRef = useRef<HTMLElement>(null);
   const { beforeNavigationRef } = usePipelineShell();
   const loadMemo = useCallback(async () => {
     try {
@@ -90,8 +98,10 @@ export function WeeklyCompletionMemoPage({ onBack, onOpenPacket }: {
         window.localStorage.setItem(`${seenPrefix}:${encodeURIComponent(briefing.viewer.id)}:${briefing.workflow.completion_memo.week_key}`, "1");
       } catch { /* The review page remains usable without local storage. */ }
       setError("");
+      return briefing.workflow.completion_memo;
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "The follow-up review could not be loaded.");
+      return null;
     }
   }, []);
   useEffect(() => {
@@ -116,6 +126,13 @@ export function WeeklyCompletionMemoPage({ onBack, onOpenPacket }: {
   const visibleClients = memo?.clients.filter((client) => !ownerFilter || client.owner === ownerFilter) ?? [];
   const selected = visibleClients.find((client) => client.referral_id === selectedId);
   const task = selected?.tasks.find((item) => item.id === selectedTaskId) ?? selected?.tasks[0];
+  const taskIndex = selected && task ? selected.tasks.findIndex((item) => item.id === task.id) : -1;
+  const inlineEditable = Boolean(task && (task.group === "chart" || completionMemoAssessmentField(task.id)));
+  const showDetail = Boolean(task && (!inlineEditable || task.group === "review" || task.id === "profile:gender"
+    || task.id === "assessment:prior_setting_bucket" || task.id === "assessment:referring_facility"));
+  useEffect(() => {
+    if (saveNotice && task) reviewRef.current?.focus();
+  }, [saveNotice, task]);
   const weekLabel = memo ? new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric", timeZone: "UTC" })
     .format(new Date(`${memo.week_key}T12:00:00.000Z`)) : "";
 
@@ -123,6 +140,37 @@ export function WeeklyCompletionMemoPage({ onBack, onOpenPacket }: {
     if (dirty && !window.confirm("Discard the unsaved answer and switch items?")) return false;
     setDirty(false);
     return true;
+  }
+  function scrollToReview() {
+    if (window.matchMedia("(max-width: 700px)").matches) {
+      window.requestAnimationFrame(() => reviewRef.current?.scrollIntoView({
+        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+        block: "start",
+      }));
+    }
+  }
+  function selectTask(taskId: string) {
+    if (!discardDraft()) return;
+    setSelectedTaskId(taskId);
+    setSaveNotice("");
+    scrollToReview();
+  }
+  async function savedTask(client: CompletionMemoClient, saved: CompletionMemoTask) {
+    const refreshed = await loadMemo();
+    if (!refreshed) return;
+    const remaining = refreshed.clients.find((item) => item.referral_id === client.referral_id);
+    if (!remaining) {
+      setSelectedId(null);
+      setSelectedTaskId(null);
+      setSaveNotice("Saved. This client has no open items.");
+      return;
+    }
+    if (remaining.tasks.some((item) => item.id === saved.id)) return;
+    const index = client.tasks.findIndex((item) => item.id === saved.id);
+    const queue = [...client.tasks.slice(index + 1), ...client.tasks.slice(0, index)];
+    const next = queue.find((item) => remaining.tasks.some((open) => open.id === item.id));
+    setSelectedTaskId(next?.id ?? remaining.tasks[0]?.id ?? null);
+    setSaveNotice("Saved. Next item ready.");
   }
   function openTask(client: CompletionMemoClient, location: PipelineWorkspaceLocation) {
     if (!discardDraft()) return;
@@ -137,27 +185,21 @@ export function WeeklyCompletionMemoPage({ onBack, onOpenPacket }: {
           <p className={styles.eyebrow}>Week of {weekLabel}</p>
           <h1>{memo?.scope === "team" ? "Team follow-up" : "My follow-up"}</h1>
         </div>
-        {memo ? <div className={styles.heroAside} aria-label={`${memo.clients.length} clients with ${memo.task_count} open items`}>
-          <strong>{memo.clients.length}</strong><span>{memo.clients.length === 1 ? "client" : "clients"}</span>
-          <strong>{memo.task_count}</strong><span>open items</span>
-        </div> : null}
+        {memo?.scope === "team" ? <label className={styles.ownerFilter}>Assessor
+          <select aria-label="Filter completion memo by assessor" value={ownerFilter} onChange={(event) => { if (discardDraft()) { setOwnerFilter(event.target.value); setSelectedId(null); setSelectedTaskId(null); } }}>
+            <option value="">All assessors</option>
+            {owners.map((owner) => <option key={owner} value={owner}>{owner}</option>)}
+          </select>
+        </label> : null}
       </header>
       {error ? <div role="alert" className="mt-5 rounded-input border border-red-300 bg-red-50 p-4 text-meta text-red-800">{error} <button type="button" onClick={() => void loadMemo()} className="font-bold underline">Retry</button></div> : null}
       {!memo && !error ? <p role="status" className="mt-6 text-meta text-ink-muted">Loading follow-up items…</p> : null}
       {memo && memo.clients.length === 0 ? <p className="mt-6 rounded-sheet border border-sheet-border bg-paper p-6 text-value">No open items for accepted or admitted clients.</p> : null}
       {memo && memo.clients.length > 0 ? <div className={styles.layout}>
         <nav aria-label="Clients in completion memo" className={styles.clients}>
-          <div className={styles.clientsHeader}>
-            <h2>Clients</h2>
-            {memo.scope === "team" ? <label>Assessor
-              <select aria-label="Filter completion memo by assessor" value={ownerFilter} onChange={(event) => { if (discardDraft()) { setOwnerFilter(event.target.value); setSelectedId(null); setSelectedTaskId(null); } }}>
-                <option value="">All assessors</option>
-                {owners.map((owner) => <option key={owner} value={owner}>{owner}</option>)}
-              </select>
-            </label> : null}
-          </div>
+          <h2 className={styles.visuallyHidden}>Clients</h2>
           <div className={styles.clientList}>{visibleClients.map((client) => <div key={client.referral_id} className={styles.clientEntry}><button type="button"
-            onClick={() => { if (discardDraft()) { setSelectedId(selectedId === client.referral_id ? null : client.referral_id); setSelectedTaskId(null); } }}
+            onClick={() => { if (discardDraft()) { const opening = selectedId !== client.referral_id; setSelectedId(opening ? client.referral_id : null); setSelectedTaskId(null); setSaveNotice(""); if (opening) scrollToReview(); } }}
             aria-expanded={selected?.referral_id === client.referral_id}
             aria-controls={selected?.referral_id === client.referral_id ? "completion-client-detail" : undefined}
             data-status={client.status}
@@ -170,25 +212,32 @@ export function WeeklyCompletionMemoPage({ onBack, onOpenPacket }: {
           {selected?.referral_id === client.referral_id && task ? <div id="completion-client-detail" className={styles.workArea}>
           <div className={styles.workColumns}>
             <section aria-label={`${selected.client_name} issues`} className={styles.issues}>
-              <div className={styles.issuesHeader}><h3>To review</h3><span>{selected.tasks.length}</span></div>
               {taskGroups.map(({ key, label }) => {
                 const tasks = selected.tasks.filter((item) => item.group === key);
                 return tasks.length ? <div key={key} className={styles.group} data-group={key}>
                   <h4><span>{label}</span><span>{tasks.length}</span></h4>
-                  {tasks.map((item) => <button type="button" key={item.id} onClick={() => { if (task.id !== item.id && discardDraft()) setSelectedTaskId(item.id); }}
+                  {tasks.map((item) => <button type="button" key={item.id} onClick={() => { if (task.id !== item.id) selectTask(item.id); }}
+                    aria-label={item.label}
                     aria-current={task.id === item.id ? "true" : undefined}
                     className={styles.issue}>
-                    <span>{item.label}</span><ArrowRight size={15} aria-hidden="true" />
+                    <span>{shortTaskLabel(item)}</span><ArrowRight size={15} aria-hidden="true" />
                   </button>)}
                 </div> : null;
               })}
             </section>
-            <section aria-label={`${task.label} review`} className={styles.review}>
-              <p className={styles.eyebrow}>{taskGroups.find((group) => group.key === task.group)?.label}</p>
-              <h3>{task.label}</h3>
-              <p className={styles.detail}>{task.detail}</p>
+            <section ref={reviewRef} tabIndex={-1} aria-label={`${task.label} review`} className={styles.review}>
+              <div className={styles.reviewToolbar}>
+                <span>{taskGroups.find((group) => group.key === task.group)?.label} · {taskIndex + 1} / {selected.tasks.length}</span>
+                <div>
+                  <button type="button" aria-label="Previous item" disabled={taskIndex <= 0} onClick={() => selectTask(selected.tasks[taskIndex - 1].id)}><ChevronLeft size={19} aria-hidden="true" /></button>
+                  <button type="button" aria-label="Next item" disabled={taskIndex >= selected.tasks.length - 1} onClick={() => selectTask(selected.tasks[taskIndex + 1].id)}><ChevronRight size={19} aria-hidden="true" /></button>
+                </div>
+              </div>
+              {saveNotice ? <p role="status" className={styles.saveNotice}>{saveNotice}</p> : null}
+              {!inlineEditable ? <h3>{task.label}</h3> : null}
+              {showDetail ? <p className={styles.detail}>{task.detail}</p> : null}
               <div className={styles.form}>
-                <CompletionMemoReviewForm key={`${selected.referral_id}:${task.id}`} client={selected} task={task} onSaved={loadMemo} onOpenTask={() => openTask(selected, task.location)} onDirtyChange={setDirty} />
+                <CompletionMemoReviewForm key={`${selected.referral_id}:${task.id}`} client={selected} task={task} onSaved={() => savedTask(selected, task)} onOpenTask={() => openTask(selected, task.location)} onDirtyChange={setDirty} />
               </div>
             </section>
           </div>

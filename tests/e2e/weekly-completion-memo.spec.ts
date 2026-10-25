@@ -216,10 +216,38 @@ test("a chart gap saves through the versioned referral route", async ({ page }) 
   await page.goto("/");
   const review = await openReview(page);
   await review.getByRole("region", { name: "Synthetic Memo Client issues" }).getByRole("button", { name: /Record date of birth/ }).click();
-  await review.getByLabel("date of birth", { exact: true }).fill("1970-01-02");
+  await review.getByLabel("Date of birth", { exact: true }).fill("1970-01-02");
   await review.getByRole("button", { name: "Save answer" }).click();
   await expect(review.getByText("Chart value saved with its change history.")).toBeVisible();
   expect(saved).toBe(true);
+});
+
+test("saving a resolved gap opens the next issue in the client's queue", async ({ page }) => {
+  await page.clock.setFixedTime(new Date(generatedAt));
+  const currentHome = structuredClone(home);
+  await page.route("**/api/operations/home", (route) => route.fulfill({ json: currentHome }));
+  await page.route("**/api/referrals/23", async (route) => {
+    if (route.request().method() === "PATCH") {
+      currentHome.workflow.completion_memo.clients[0].tasks =
+        currentHome.workflow.completion_memo.clients[0].tasks.filter((item) => item.id !== "profile:dob");
+      currentHome.workflow.completion_memo.task_count = 2;
+      await route.fulfill({ json: { referral: { id: 23, version: 7, dob: "1970-01-02", name: "Synthetic Memo Client", community: "Turlock" } } });
+    } else {
+      await route.fulfill({ json: { referral: { id: 23, version: 6, dob: "", name: "Synthetic Memo Client", community: "Turlock" } } });
+    }
+  });
+  await page.route("**/api/assessments/asm_memo_23", (route) => route.fulfill({ json: { assessment: {
+    assessment_id: "asm_memo_23", version: 4, current_symptoms: null, unable_to_assess_reasons: {}, meet_client_sent_at: null,
+  } } }));
+  await page.goto("/");
+  const review = await openReview(page);
+  await review.getByRole("region", { name: "Synthetic Memo Client issues" }).getByRole("button", { name: /Record date of birth/ }).click();
+  await review.getByLabel("Date of birth", { exact: true }).fill("1970-01-02");
+  await review.getByRole("button", { name: "Save answer" }).click();
+  await expect(review.getByRole("region", { name: "Answer current symptoms review" })).toBeVisible();
+  await expect(review.getByRole("region", { name: "Answer current symptoms review" })).toBeFocused();
+  await expect(review.getByRole("status").getByText("Saved. Next item ready.")).toBeVisible();
+  await expect(review.getByRole("region", { name: "Synthetic Memo Client issues" }).getByRole("button", { name: /Record date of birth/ })).toHaveCount(0);
 });
 
 test("a concurrent assessment edit keeps the assessor's draft for explicit review", async ({ page }) => {

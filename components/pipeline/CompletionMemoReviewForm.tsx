@@ -162,11 +162,7 @@ export default function CompletionMemoReviewForm({ client, task, onSaved, onOpen
     </div> : null}
     {saved ? <p role="status" className="rounded-input border border-stage-green-border bg-primary-soft p-3 text-meta text-link">{saved}</p> : null}
     {assessment && definition && question ? <>
-      <p className="text-meta leading-5 text-ink-muted">{finalized
-        ? "Meet the Client was sent. Add the answer and its source to this assessment; the email already sent will not be sent again."
-        : assessment.signed_at
-          ? "Meet the Client has not been sent. This saves the answer to the signed assessment with an audit record."
-          : "This saves directly to the working assessment with an audit record."}</p>
+      {finalized ? <p className="text-meta leading-5 text-ink-muted">This adds to the assessment. The sent Meet the Client stays unchanged.</p> : null}
       {finalized && assessmentField && assessmentFieldOwner(assessmentField) === "system_provenance"
         ? <p className="rounded-input border border-amber-300 bg-amber-50 p-3 text-meta text-ink">This field comes from the assessment record. Open the full record to review it.</p>
         : <AssessmentField
@@ -179,7 +175,7 @@ export default function CompletionMemoReviewForm({ client, task, onSaved, onOpen
         <textarea value={sourceNote} onChange={(event) => { setSourceNote(event.target.value); setSaved(""); onDirtyChange(true); }} maxLength={2000} rows={3} className="mt-2 w-full rounded-input border border-sheet-border bg-paper px-3 py-2 text-value font-normal" />
       </label> : null}
     </> : null}
-    {referral && chartField ? <label className="block text-label font-semibold text-ink">{task.label.replace(/^Record /, "")}
+    {referral && chartField ? <label className="block text-label font-semibold text-ink">{task.label.replace(/^Record /, "").replace(/^./, (letter) => letter.toUpperCase())}
       {chartField === "community" ? <select value={chartValue} onChange={(event) => { setChartValue(event.target.value); setSaved(""); onDirtyChange(true); }} className="mt-2 block w-full rounded-input border border-sheet-border bg-paper px-3 py-2 text-value font-normal">
         <option value="">Choose community</option>
         {pipelineCommunities.filter((community) => community !== "Unassigned").map((community) => <option key={community} value={community}>{community}</option>)}
