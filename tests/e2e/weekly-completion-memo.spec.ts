@@ -14,7 +14,7 @@ const memo = {
     owner: viewer.name,
     status: "accepted",
     tasks: [
-      { id: "requirement:med", label: "Verify medication list", detail: "Checklist status: needed. Check the record before requesting another file.", action: "Open files", location: { view: "files" } },
+      { id: "requirement:med", label: "Find or add medication list", detail: "No file is linked to this item. Check Files for an existing copy before uploading another one.", action: "Open files", location: { view: "files" } },
       { id: "profile:dob", label: "Record date of birth", detail: "This field is blank in the referral chart.", action: "Open chart", location: { view: "intake", intakeField: "dob" } },
     ],
   }],
@@ -47,7 +47,7 @@ test("Monday memo opens once per week, stays reachable, and takes staff to the e
   const dialog = page.getByRole("dialog", { name: "Completion memo" });
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole("heading", { name: "Synthetic Memo Client" })).toBeVisible();
-  await expect(dialog.getByText("Verify medication list")).toBeVisible();
+  await expect(dialog.getByText("Find or add medication list")).toBeVisible();
   await dialog.getByRole("button", { name: "Close completion memo" }).click();
   await expect(dialog).toHaveCount(0);
 

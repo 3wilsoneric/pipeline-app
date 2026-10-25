@@ -93,14 +93,26 @@ export function buildWeeklyCompletionMemo({
       if (requirement.type === "profile_field" && tasks.some((task) => task.label.toLowerCase().includes(requirement.label.toLowerCase()))) continue;
       const document = isDocumentRequirementType(requirement.type);
       const evidenceAttached = Boolean(requirement.evidenceDocumentId || requirement.evidenceDocumentName);
+      const requested = document && !evidenceAttached && requirement.status === "requested";
+      const unavailable = document && !evidenceAttached && requirement.status === "unavailable";
+      const needsFile = document && !evidenceAttached && !requested && !unavailable;
       tasks.push({
         id: `requirement:${requirement.id}`,
-        label: `Verify ${requirement.label}`,
+        label: requested ? `Follow up on ${requirement.label.toLowerCase()} request`
+          : unavailable ? `Resolve unavailable ${requirement.label.toLowerCase()}`
+          : needsFile ? `Find or add ${requirement.label.toLowerCase()}`
+          : `Update ${requirement.label.toLowerCase()} checklist status`,
         detail: requirement.evidenceDocumentName
-          ? `Evidence is attached (${requirement.evidenceDocumentName}), but its checklist status is ${requirement.status}.`
-          : `Checklist status: ${requirement.status}. Check the record before requesting another file.`,
-        action: document && !evidenceAttached ? "Open files" : "Review checklist",
-        location: { view: document && !evidenceAttached ? "files" : "workflow" },
+          ? `${requirement.evidenceDocumentName} is linked, but the checklist still says ${requirement.status}. Review it and update the status.`
+          : requested
+            ? `The checklist says requested${requirement.requestedFrom ? ` from ${requirement.requestedFrom}` : ""}. Follow up in follow-through; add the file when it arrives.`
+            : unavailable
+              ? `The checklist says unavailable${requirement.unavailableReason ? `: ${requirement.unavailableReason}` : ""}. Record the appropriate resolution in follow-through.`
+          : needsFile
+            ? `No file is linked to this item. Check Files for an existing copy before uploading another one. If unavailable, record that in follow-through.`
+            : `Checklist status: ${requirement.status}. Open follow-through to record the current status.`,
+        action: needsFile ? "Open files" : "Open follow-through",
+        location: { view: needsFile ? "files" : "workflow" },
       });
     }
     if (!context.packetSentAt) tasks.push({

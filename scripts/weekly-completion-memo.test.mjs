@@ -59,8 +59,19 @@ test("memo shows canonical review paths without claiming a checklist item is a m
   const tasks = memo.clients[0].tasks;
   assert.deepEqual(Array.from(tasks, (task) => task.id), ["assessment", "profile:dob", "profile:referent", "profile:county", "requirement:med-10", "handoff"]);
   assert.equal(tasks.find((task) => task.id === "profile:dob").location.intakeField, "dob");
-  assert.match(tasks.find((task) => task.id === "requirement:med-10").detail, /Check the record before requesting another file/);
+  assert.equal(tasks.find((task) => task.id === "requirement:med-10").label, "Find or add medication list");
+  assert.match(tasks.find((task) => task.id === "requirement:med-10").detail, /Check Files for an existing copy/);
   assert.match(tasks.find((task) => task.id === "handoff").detail, /before sending anything/);
+});
+
+test("accepted clients do not receive pre-assessment provider form work", () => {
+  const file = referral(11, { requirements: [{ ...needed("provider-11"), type: "provider_form", label: "Provider form", requiredFor: "pre_assessment" }] });
+  const memo = buildWeeklyCompletionMemo({
+    work: [work(file)], referrals: [file],
+    contexts: new Map([[file.id, { assessmentSigned: true, packetSentAt: "2026-10-18T12:00:00Z", decision: accepted }]]),
+    viewer: assessor, now: monday,
+  });
+  assert.equal(memo.clients.length, 0);
 });
 
 test("past planned dates are assigned to the coordinator view only", () => {
