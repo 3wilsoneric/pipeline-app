@@ -18,6 +18,7 @@ import { extractionOwnedFields } from "@/components/pipeline/assessment-workspac
 import { type getAssessmentPracticeReview } from "@/lib/training/assessment-practice";
 
 type AssessmentFieldProps = {
+  idPrefix?: string;
   definition: AssessmentToolFieldDefinition;
   question: AssessmentInterviewQuestion;
   value: AssessmentToolData[AssessmentToolFieldKey];
@@ -36,7 +37,7 @@ type AssessmentFieldProps = {
 
 export function AssessmentField(props: AssessmentFieldProps) {
   const { definition, question, value, required, pending, disabled } = props;
-  const id = `assessment-${definition.key}`;
+  const id = `${props.idPrefix ?? "assessment"}-${definition.key}`;
   const readOnly = disabled || extractionOwnedFields.has(definition.key);
 
   return (

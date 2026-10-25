@@ -399,9 +399,10 @@ function getActiveNavTarget(searchParams: URLSearchParams, pathname: string): Pi
 
 function headerPageLabel(pathname: string, activeSearchParams: URLSearchParams, activeNav: PipelineNavTarget) {
   if (pathname === "/communications") return "Communications";
+  if (activeSearchParams.get("screen") === "completion") return "Follow-up review";
   return pathname === "/settings" ? "Settings" : activeSearchParams.get("screen") === "packet" ? "Workspace" : activeNav === "calendar" ? "Calendar" : activeNav === "profiles" ? "Clients" : activeNav === "operations" ? "Reports" : "Workspaces";
 }
 
 function headerHasBack(pathname: string, activeSearchParams: URLSearchParams) {
-  return activeSearchParams.has("referralId") || activeSearchParams.has("residentKey") || activeSearchParams.has("profileKey") || activeSearchParams.get("screen") === "packet" || pathname !== "/";
+  return activeSearchParams.has("referralId") || activeSearchParams.has("residentKey") || activeSearchParams.has("profileKey") || ["packet", "completion"].includes(activeSearchParams.get("screen") ?? "") || pathname !== "/";
 }

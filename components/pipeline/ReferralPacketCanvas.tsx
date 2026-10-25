@@ -2933,6 +2933,7 @@ export default function ReferralPacketCanvas({
                   questionsOnScreen={!chartSlot || displayedPage === 2}
                   chartDocuments={renderChartDocuments()}
                   onOpenChart={() => openPage(3)}
+                  onOpenFiles={() => openPage("files")}
                   onReviewAssessment={() => openPage(2, undefined, "review")}
                   onOpenAssessment={() => openPage(2, undefined, null)}
                   beforeWorkspaceNavigationRef={assessmentNavigationRef}

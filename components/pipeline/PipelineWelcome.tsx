@@ -9,6 +9,7 @@ import ContinueWorkPanel from "@/components/pipeline/ContinueWorkPanel";
 import HomeModuleDashboard from "@/components/pipeline/HomeModuleDashboard";
 import HomeDialog from "@/components/pipeline/HomeDialog";
 import ApplicationActivityCard from "@/components/pipeline/ApplicationActivityCard";
+import WeeklyCompletionMemoCard from "@/components/pipeline/WeeklyCompletionMemo";
 import PipelineSearchPanel from "@/components/pipeline/PipelineSearchPanel";
 import { SinceLastVisitAssignments } from "@/components/pipeline/WorkspaceActivityFeed";
 import { usePipelineShell } from "@/components/pipeline/pipeline-shell-context";
@@ -42,8 +43,9 @@ export default function PipelineWelcome({
   canViewApplicationActivity = false,
   initialBriefing,
   viewerId,
+  onOpenCompletionMemo,
 }: {
-  onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">, location?: PipelineWorkspaceLocation, action?: AssessmentEntryAction) => void;
+  onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">, location?: PipelineWorkspaceLocation, action?: AssessmentEntryAction, exact?: boolean) => void;
   onOpenProfile: (residentKey: string) => void;
   onOpenSearchDestination: (screen: PipelineSiteScreen) => void;
   onViewAllSearchResults: (query: string) => void;
@@ -57,6 +59,7 @@ export default function PipelineWelcome({
   canViewApplicationActivity?: boolean;
   initialBriefing?: HomeBriefingSnapshot | null;
   viewerId?: string;
+  onOpenCompletionMemo: () => void;
 }) {
   const [briefing, setBriefing] = useState<HomeBriefingSnapshot | null>(initialBriefing ?? null);
   const [error, setError] = useState("");
@@ -178,6 +181,7 @@ export default function PipelineWelcome({
         <div className="mx-auto w-full max-w-[1380px] px-4 pb-10 pt-4 sm:px-6 sm:pt-5 lg:px-8">
           <HomeSearchAccess visible={searchVisible} searchProps={searchProps} onClose={() => setSearchOpen(false)} />
           {canViewApplicationActivity ? <ApplicationActivityCard /> : null}
+          {briefing?.workflow.completion_memo?.task_count && viewerId ? <WeeklyCompletionMemoCard memo={briefing.workflow.completion_memo} viewerId={viewerId} onOpenReview={onOpenCompletionMemo} /> : null}
 
           {error ? (
             <div role="alert" className="mt-4 flex items-center justify-between gap-4 border-l-2 border-[#a9473d] bg-[#fff6f4] px-4 py-3 text-[12px] text-[#723d35]">

@@ -327,7 +327,6 @@ export async function getReferralWorkflowContexts(referrals: Referral[]) {
   const recommendationsByReferral = indexRowsByReferral(recommendationRows);
   const reviewsByReferral = indexRowsByReferral(reviewRows);
   const assessmentsByReferral = indexRowsByReferral(assessmentRows);
-
   for (const referral of referrals) {
     const workItems = (workItemsByReferral.get(referral.id) ?? []).map(mapWorkItem);
     const decisionRow = decisionsByReferral.get(referral.id);

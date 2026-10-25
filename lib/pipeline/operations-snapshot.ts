@@ -65,6 +65,7 @@ import {
   type PlatformManagementProfile,
 } from "@/lib/pipeline/platform-admissions-summary";
 import { applyPipelineWorkspaceLocation } from "@/lib/pipeline/work-continuity";
+import { buildWeeklyCompletionMemo } from "@/lib/pipeline/weekly-completion-memo";
 import type {
   SupervisorExceptionItem,
   SupervisorExceptionSnapshot,
@@ -370,6 +371,13 @@ export async function getHomeWorkflowSummary(user: PipelineUser): Promise<HomeWo
       items: dataCompletion.slice(0, 6),
     },
     current_work: buildMyQueueSnapshot(operational, user),
+    completion_memo: buildWeeklyCompletionMemo({
+      work: allWork.work,
+      referrals: allWork.referrals,
+      contexts: allWork.workflowContexts,
+      viewer: user,
+      now: operational.now,
+    }),
   };
 }
 

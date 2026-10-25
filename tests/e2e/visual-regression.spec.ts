@@ -20,6 +20,7 @@ const homeFixture: HomeBriefingSnapshot = {
     ready_to_schedule: { total: 0, items: [] },
     data_completion: { total: 0, items: [] },
     current_work: { generated_at: generatedAt, owner: viewer, total: 0, items: [] },
+    completion_memo: { week_key: "2026-09-14", is_monday: false, scope: "personal", clients: [], task_count: 0 },
   },
   upcoming: [], unscheduled: [], unscheduled_total: 0,
   continuity: {

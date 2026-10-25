@@ -115,7 +115,7 @@ function validatePatchVersion(
 }
 
 function validatePatchEnvelope(patch: Record<string, unknown>): AssessmentValidationResult<true> {
-  const allowed = new Set(["data", "resident_key", "status", "accept_pending", "review_extraction", "workbook_restore", "prior_answers", "referral_answers"]);
+  const allowed = new Set(["data", "post_send_review", "resident_key", "status", "accept_pending", "review_extraction", "workbook_restore", "prior_answers", "referral_answers"]);
   for (const key of Object.keys(patch)) {
     if (!allowed.has(key)) return invalid(`Unknown assessment patch field: ${key}.`);
   }
@@ -143,6 +143,23 @@ function validatePatchFields(patch: Record<string, unknown>): AssessmentValidati
     if (!isRecord(patch.data)) return invalid("patch.data must be an object.");
     const dataResult = validatePartialData(patch.data);
     if (!dataResult.ok) return dataResult;
+  }
+  if (patch.post_send_review !== undefined) {
+    const review = patch.post_send_review;
+    if (!isRecord(review) || Object.keys(review).some((key) => key !== "field" && key !== "source")
+      || !knownFieldKeys.has(review.field as AssessmentToolFieldKey)
+      || assessmentFieldOwner(review.field as AssessmentToolFieldKey) === "system_provenance"
+      || !isBoundedString(review.source, 2000, true) || !review.source.trim()
+      || Object.keys(patch).some((key) => key !== "data" && key !== "post_send_review")
+      || !isRecord(patch.data)
+      || Object.keys(patch.data).some((key) => key !== review.field && key !== "unable_to_assess_reasons")
+      || (!Object.hasOwn(patch.data, review.field as string) && !Object.hasOwn(patch.data, "unable_to_assess_reasons"))) {
+      return invalid("Post-send review must add one assessment answer with its source.");
+    }
+    const reasons = patch.data.unable_to_assess_reasons;
+    if (reasons !== undefined && (!isRecord(reasons) || Object.keys(reasons).some((key) => key !== review.field))) {
+      return invalid("Post-send review may explain only its selected answer.");
+    }
   }
   if (patch.resident_key !== undefined && patch.resident_key !== null) {
     if (!isBoundedString(patch.resident_key, 256)) return invalid("resident_key is invalid.");

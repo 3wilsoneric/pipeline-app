@@ -70,6 +70,7 @@ function emptyWorkflowSummary(user: PipelineUser): HomeWorkflowSummary {
       total: 0,
       items: [],
     },
+    completion_memo: { week_key: "", is_monday: false, scope: "personal", clients: [], task_count: 0 },
   };
 }
 

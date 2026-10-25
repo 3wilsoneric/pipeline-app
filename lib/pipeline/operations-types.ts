@@ -4,6 +4,7 @@ import type { ReferralWorkflowStatus, RequirementStatus, RequirementType } from 
 import type { AssessmentCompletionReport } from "@/lib/assessment/assessment-records";
 import type { ActiveReferralFlowState, ReferralBoardState } from "@/lib/pipeline/referral-flow";
 import type { PipelineWorkspaceLocation } from "@/lib/pipeline/work-continuity";
+import type { WeeklyCompletionMemo } from "@/lib/pipeline/weekly-completion-memo";
 import type {
   WorkspaceAssessmentState,
   WorkspaceAssignmentState,
@@ -179,6 +180,7 @@ export type HomeWorkflowSummary = {
     items: ReferralWorklistItem[];
   };
   current_work: MyQueueSnapshot;
+  completion_memo: WeeklyCompletionMemo;
 };
 
 export type SupervisorExceptionKind =
