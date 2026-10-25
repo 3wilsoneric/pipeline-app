@@ -10,6 +10,7 @@ import PipelineCalendar from "@/components/pipeline/PipelineCalendar";
 import PipelineTrash from "@/components/pipeline/PipelineTrash";
 import ReferralHome from "@/components/pipeline/ReferralHome";
 import PipelineWelcome from "@/components/pipeline/PipelineWelcome";
+import { WeeklyCompletionMemoPage } from "@/components/pipeline/WeeklyCompletionMemo";
 import { canAccessApplicationActivity } from "@/lib/pipeline/application-activity-access";
 import CurrentWorkOverlay from "@/components/pipeline/CurrentWorkOverlay";
 import { usePipelineAuth } from "@/components/auth/PipelineAuthProvider";
@@ -62,7 +63,7 @@ async function loadDeferredWorkSurfaces() {
 
 type DeferredWorkSurfaces = Awaited<ReturnType<typeof loadDeferredWorkSurfaces>>;
 
-type PipelineScreen = "home" | "referrals" | "packet" | "calendar" | "profiles" | "profile" | "operations" | "trash";
+type PipelineScreen = "home" | "completion" | "referrals" | "packet" | "calendar" | "profiles" | "profile" | "operations" | "trash";
 type ReferralSelection = { id: number; name?: string; gender?: string; community?: Referral["community"] };
 
 // Preserve immediate navigation: first lazy mounting delayed Calendar/Reports
@@ -123,7 +124,7 @@ function workspaceDestinationParams(search: string, screen: PipelineScreen, refe
   params.delete("view");
   params.delete("screen");
   if (screen === "referrals" || screen === "packet") params.set("view", "referrals");
-  if (["packet", "profile", "profiles", "operations", "calendar", "trash"].includes(screen)) params.set("screen", screen);
+  if (["packet", "profile", "profiles", "operations", "calendar", "trash", "completion"].includes(screen)) params.set("screen", screen);
   if (screen === "profile" && clientId) params.set("clientId", clientId);
   if (screen === "packet") {
     if (referral?.id) {
@@ -352,6 +353,7 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
         initialBriefing={entryBriefing}
         canAccessReports={reportAccess === true}
         canViewApplicationActivity={activityAccess}
+        onOpenCompletionMemo={() => { void navigate("completion"); }}
         onOpenPacket={(referral, location, action, exact) => navigate("packet", referral, undefined, location, !exact, action)}
         onOpenProfile={(clientId) => navigate("profile", undefined, clientId)}
         onOpenSearchDestination={(destination: PipelineSiteScreen) => navigate(destination)}
@@ -447,6 +449,9 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
       onOpenWorkspace: (referral) => navigate("packet", referral),
     };
     page = deferredWorkSurfaces ? <deferredWorkSurfaces.ClientProfileView {...profileProps} /> : <DeferredScreenLoading />;
+  } else if (screen === "completion") {
+    page = <WeeklyCompletionMemoPage onBack={() => { void navigate("home"); }}
+      onOpenPacket={(referral, location) => { void navigate("packet", referral, undefined, location, false); }} />;
   } else if (screen === "operations") {
     page = reportAccess === true ? <PipelineCensusBriefing /> : null;
   } else if (screen === "calendar") {
@@ -554,6 +559,7 @@ function getTrainingAssessmentSection(params: URLSearchParams): AssessmentToolSe
 
 function getScreenFromParams(params: URLSearchParams): PipelineScreen {
   if (params.get("screen") === "packet") return "packet";
+  if (params.get("screen") === "completion") return "completion";
   if (params.get("screen") === "operations") return "operations";
   if (params.get("screen") === "calendar") return "calendar";
   if (params.get("screen") === "trash") return "trash";

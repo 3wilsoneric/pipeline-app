@@ -43,23 +43,33 @@ const home = {
   unavailable_sections: [],
 };
 
+async function openReview(page: import("@playwright/test").Page) {
+  await page.getByRole("dialog", { name: "Completion memo" }).getByRole("button", { name: "Review items" }).click();
+  const review = page.getByRole("main", { name: "Completion memo review" });
+  await expect(review).toBeVisible();
+  await expect(page).toHaveURL(/screen=completion/);
+  return review;
+}
+
 test("Monday memo opens once per week, stays reachable, and takes staff to the exact fix", async ({ page }) => {
   await page.clock.setFixedTime(new Date(generatedAt));
   await page.route("**/api/operations/home", (route) => route.fulfill({ json: home }));
   await page.goto("/");
   const dialog = page.getByRole("dialog", { name: "Completion memo" });
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByRole("heading", { name: "Synthetic Memo Client" })).toBeVisible();
-  await expect(dialog.getByRole("heading", { name: "Find or add medication list" })).toBeVisible();
-  await expect(dialog.getByLabel("Choose item to review")).toBeVisible();
-  await dialog.getByRole("button", { name: "Close completion memo" }).click();
+  await expect(dialog.getByRole("heading", { name: "Your Monday follow-up" })).toBeVisible();
+  await dialog.getByRole("button", { name: "Later" }).click();
   await expect(dialog).toHaveCount(0);
 
   await page.reload();
   await expect(page.getByRole("button", { name: /Open completion memo/ })).toBeVisible();
   await expect(dialog).toHaveCount(0);
   await page.getByRole("button", { name: /Open completion memo/ }).click();
-  await dialog.getByRole("button", { name: "Open files" }).click();
+  const review = page.getByRole("main", { name: "Completion memo review" });
+  await expect(review.getByRole("region", { name: "Synthetic Memo Client issues" }).getByRole("button", { name: /Find or add medication list/ })).toBeVisible();
+  await expect(review.getByRole("region", { name: "Synthetic Memo Client issues" }).getByRole("button", { name: /Record date of birth/ })).toBeVisible();
+  await expect(review.getByRole("region", { name: "Synthetic Memo Client issues" }).getByRole("button", { name: /Answer current symptoms/ })).toBeVisible();
+  await review.getByRole("button", { name: "Open files" }).click();
   await expect(page).toHaveURL(/referralId=23.*workspaceView=files/);
 });
 
@@ -69,11 +79,34 @@ test("the memo keeps its task actions reachable on a phone", async ({ page }) =>
   await page.route("**/api/operations/home", (route) => route.fulfill({ json: home }));
   await page.route("**/api/referrals/23", (route) => route.fulfill({ json: { referral: { id: 23, version: 1, dob: "", name: "Synthetic Memo Client", community: "Turlock" } } }));
   await page.goto("/");
-  const dialog = page.getByRole("dialog", { name: "Completion memo" });
-  await expect(dialog.getByRole("heading", { name: "Synthetic Memo Client" })).toBeVisible();
-  await dialog.getByLabel("Choose item to review").selectOption("profile:dob");
-  await dialog.getByRole("button", { name: "Open full record" }).click();
+  const review = await openReview(page);
+  await expect(review.getByRole("heading", { name: "Synthetic Memo Client" })).toBeVisible();
+  await review.getByRole("region", { name: "Synthetic Memo Client issues" }).getByRole("button", { name: /Record date of birth/ }).click();
+  await review.getByRole("button", { name: "Open full record" }).click();
   await expect(page).toHaveURL(/referralId=23.*workspaceField=dob/);
+});
+
+test("the review page lists every issue on a direct visit and keeps an unsaved answer when switching is cancelled", async ({ page }) => {
+  await page.clock.setFixedTime(new Date(generatedAt));
+  await page.route("**/api/operations/home", (route) => route.fulfill({ json: home }));
+  await page.route("**/api/assessments/asm_memo_23", (route) => route.fulfill({ json: { assessment: {
+    assessment_id: "asm_memo_23", version: 4, current_symptoms: null, unable_to_assess_reasons: {}, meet_client_sent_at: null,
+  } } }));
+  await page.goto("/?screen=completion");
+  const review = page.getByRole("main", { name: "Completion memo review" });
+  const issues = review.getByRole("region", { name: "Synthetic Memo Client issues" });
+  await expect(issues.getByRole("button", { name: /Record date of birth/ })).toBeVisible();
+  await expect(issues.getByRole("button", { name: /Answer current symptoms/ })).toBeVisible();
+  await expect(issues.getByRole("button", { name: /Find or add medication list/ })).toBeVisible();
+  await issues.getByRole("button", { name: /Answer current symptoms/ }).click();
+  const answer = review.getByRole("textbox", { name: "Current symptoms" });
+  await answer.fill("Working answer that is not saved yet.");
+  page.once("dialog", async (dialog) => {
+    expect(dialog.message()).toContain("Discard the unsaved answer");
+    await dialog.dismiss();
+  });
+  await issues.getByRole("button", { name: /Record date of birth/ }).click();
+  await expect(answer).toHaveValue("Working answer that is not saved yet.");
 });
 
 test("an assessment gap opens its exact interview question", async ({ page }) => {
@@ -81,9 +114,9 @@ test("an assessment gap opens its exact interview question", async ({ page }) =>
   await page.route("**/api/operations/home", (route) => route.fulfill({ json: home }));
   await page.route("**/api/assessments/asm_memo_23", (route) => route.fulfill({ json: { assessment: { assessment_id: "asm_memo_23", version: 1, current_symptoms: null, unable_to_assess_reasons: {}, meet_client_sent_at: null } } }));
   await page.goto("/");
-  const dialog = page.getByRole("dialog", { name: "Completion memo" });
-  await dialog.getByLabel("Choose item to review").selectOption("assessment:field:current_symptoms");
-  await dialog.getByRole("button", { name: "Open full record" }).click();
+  const review = await openReview(page);
+  await review.getByRole("region", { name: "Synthetic Memo Client issues" }).getByRole("button", { name: /Answer current symptoms/ }).click();
+  await review.getByRole("button", { name: "Open full record" }).click();
   await expect(page).toHaveURL(/referralId=23.*assessmentQuestion=current_symptoms/);
 });
 
@@ -101,11 +134,11 @@ test("an assessor can save one missing answer without opening the full assessmen
     }
   });
   await page.goto("/");
-  const dialog = page.getByRole("dialog", { name: "Completion memo" });
-  await dialog.getByLabel("Choose item to review").selectOption("assessment:field:current_symptoms");
-  await dialog.getByRole("textbox", { name: "Current symptoms" }).fill("Reported anxiety during interview.");
-  await dialog.getByRole("button", { name: "Save answer" }).click();
-  await expect(dialog.getByText("Answer saved to the assessment with its change history.")).toBeVisible();
+  const review = await openReview(page);
+  await review.getByRole("region", { name: "Synthetic Memo Client issues" }).getByRole("button", { name: /Answer current symptoms/ }).click();
+  await review.getByRole("textbox", { name: "Current symptoms" }).fill("Reported anxiety during interview.");
+  await review.getByRole("button", { name: "Save answer" }).click();
+  await expect(review.getByText("Answer saved to the assessment with its change history.")).toBeVisible();
 });
 
 test("a sent assessment gains the structured answer without another Meet the Client send", async ({ page }) => {
@@ -125,12 +158,12 @@ test("a sent assessment gains the structured answer without another Meet the Cli
     }
   });
   await page.goto("/");
-  const dialog = page.getByRole("dialog", { name: "Completion memo" });
-  await dialog.getByLabel("Choose item to review").selectOption("assessment:field:current_symptoms");
-  await dialog.getByRole("textbox", { name: "Current symptoms" }).fill("Reported anxiety during interview.");
-  await dialog.getByRole("textbox", { name: /Where did this added answer come from/ }).fill("Interview notes");
-  await dialog.getByRole("button", { name: "Add to assessment" }).click();
-  await expect(dialog.getByText(/Answer added to the assessment/)).toBeVisible();
+  const review = await openReview(page);
+  await review.getByRole("region", { name: "Synthetic Memo Client issues" }).getByRole("button", { name: /Answer current symptoms/ }).click();
+  await review.getByRole("textbox", { name: "Current symptoms" }).fill("Reported anxiety during interview.");
+  await review.getByRole("textbox", { name: /Where did this added answer come from/ }).fill("Interview notes");
+  await review.getByRole("button", { name: "Add to assessment" }).click();
+  await expect(review.getByText(/Answer added to the assessment/)).toBeVisible();
   expect(saved).toBe(true);
 });
 
@@ -147,11 +180,11 @@ test("a coordinator can filter the combined queue by assessor", async ({ page })
   teamHome.workflow.completion_memo.task_count += 3;
   await page.route("**/api/operations/home", (route) => route.fulfill({ json: teamHome }));
   await page.goto("/");
-  const dialog = page.getByRole("dialog", { name: "Completion memo" });
-  await expect(dialog.getByRole("button", { name: /Second Synthetic Client/ })).toBeVisible();
-  await dialog.getByLabel("Filter completion memo by assessor").selectOption("Another Assessor");
-  await expect(dialog.getByRole("button", { name: /Second Synthetic Client/ })).toBeVisible();
-  await expect(dialog.getByRole("button", { name: /Synthetic Memo Client/ })).toHaveCount(0);
+  const review = await openReview(page);
+  await expect(review.getByRole("navigation", { name: "Clients in completion memo" }).getByRole("button", { name: /Second Synthetic Client/ })).toBeVisible();
+  await review.getByLabel("Filter completion memo by assessor").selectOption("Another Assessor");
+  await expect(review.getByRole("navigation", { name: "Clients in completion memo" }).getByRole("button", { name: /Second Synthetic Client/ })).toBeVisible();
+  await expect(review.getByRole("navigation", { name: "Clients in completion memo" }).getByRole("button", { name: /Synthetic Memo Client/ })).toHaveCount(0);
 });
 
 test("a chart gap saves through the versioned referral route", async ({ page }) => {
@@ -170,11 +203,11 @@ test("a chart gap saves through the versioned referral route", async ({ page }) 
     }
   });
   await page.goto("/");
-  const dialog = page.getByRole("dialog", { name: "Completion memo" });
-  await dialog.getByLabel("Choose item to review").selectOption("profile:dob");
-  await dialog.getByLabel("date of birth").fill("1970-01-02");
-  await dialog.getByRole("button", { name: "Save answer" }).click();
-  await expect(dialog.getByText("Chart value saved with its change history.")).toBeVisible();
+  const review = await openReview(page);
+  await review.getByRole("region", { name: "Synthetic Memo Client issues" }).getByRole("button", { name: /Record date of birth/ }).click();
+  await review.getByLabel("date of birth", { exact: true }).fill("1970-01-02");
+  await review.getByRole("button", { name: "Save answer" }).click();
+  await expect(review.getByText("Chart value saved with its change history.")).toBeVisible();
   expect(saved).toBe(true);
 });
 
@@ -198,16 +231,16 @@ test("a concurrent assessment edit keeps the assessor's draft for explicit revie
     }
   });
   await page.goto("/");
-  const dialog = page.getByRole("dialog", { name: "Completion memo" });
-  await dialog.getByLabel("Choose item to review").selectOption("assessment:field:current_symptoms");
-  const answer = dialog.getByRole("textbox", { name: "Current symptoms" });
+  const review = await openReview(page);
+  await review.getByRole("region", { name: "Synthetic Memo Client issues" }).getByRole("button", { name: /Answer current symptoms/ }).click();
+  const answer = review.getByRole("textbox", { name: "Current symptoms" });
   await answer.fill("My interview answer.");
-  await dialog.getByRole("button", { name: "Save answer" }).click();
-  await expect(dialog.getByText("Latest saved value: New answer from another assessor.")).toBeVisible();
+  await review.getByRole("button", { name: "Save answer" }).click();
+  await expect(review.getByText("Latest saved value: New answer from another assessor.")).toBeVisible();
   await expect(answer).toHaveValue("My interview answer.");
-  await expect(dialog.getByRole("button", { name: "Save answer" })).toBeDisabled();
-  await dialog.getByRole("button", { name: "I reviewed the latest value; let me save my entry" }).click();
-  await dialog.getByRole("button", { name: "Save answer" }).click();
-  await expect(dialog.getByText("Answer saved to the assessment with its change history.")).toBeVisible();
+  await expect(review.getByRole("button", { name: "Save answer" })).toBeDisabled();
+  await review.getByRole("button", { name: "I reviewed the latest value; let me save my entry" }).click();
+  await review.getByRole("button", { name: "Save answer" }).click();
+  await expect(review.getByText("Answer saved to the assessment with its change history.")).toBeVisible();
   expect(attempts).toBe(2);
 });

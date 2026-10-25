@@ -20,11 +20,12 @@ const chartFields = {
 } as const satisfies Record<string, keyof Referral>;
 const unresolvedAnswers = new Set(["tbd", "pending", "see packet", "see referral packet", "same as above", "?"]);
 
-export default function CompletionMemoReviewForm({ client, task, onSaved, onOpenTask }: {
+export default function CompletionMemoReviewForm({ client, task, onSaved, onOpenTask, onDirtyChange }: {
   client: CompletionMemoClient;
   task: CompletionMemoTask;
   onSaved: () => Promise<void>;
   onOpenTask: () => void;
+  onDirtyChange: (dirty: boolean) => void;
 }) {
   const assessmentField = completionMemoAssessmentField(task.id);
   const chartKey = task.id.startsWith("profile:") ? task.id.slice("profile:".length) as keyof typeof chartFields : null;
@@ -134,6 +135,7 @@ export default function CompletionMemoReviewForm({ client, task, onSaved, onOpen
         setReferral(result.referral);
         setSaved("Chart value saved with its change history.");
       } else return;
+      onDirtyChange(false);
       await onSaved();
     } catch (cause) {
       if (cause instanceof PipelineApiError && cause.status === 409 && cause.payload && typeof cause.payload === "object") {
@@ -170,18 +172,18 @@ export default function CompletionMemoReviewForm({ client, task, onSaved, onOpen
         : <AssessmentField
         definition={definition} question={question} value={answer}
         unableReason={unableReason} required pending={false} disabled={busy}
-        reviewDisabled onChange={(value) => { setAnswer(value); setSaved(""); }} onUnableReasonChange={(value) => { setUnableReason(value); setSaved(""); }}
+        reviewDisabled onChange={(value) => { setAnswer(value); setSaved(""); onDirtyChange(true); }} onUnableReasonChange={(value) => { setUnableReason(value); setSaved(""); onDirtyChange(true); }}
         onReview={() => undefined}
       />}
       {finalized && assessmentField && assessmentFieldOwner(assessmentField) !== "system_provenance" ? <label className="block text-label font-semibold text-ink">Where did this added answer come from?
-        <textarea value={sourceNote} onChange={(event) => { setSourceNote(event.target.value); setSaved(""); }} maxLength={2000} rows={3} className="mt-2 w-full rounded-input border border-sheet-border bg-paper px-3 py-2 text-value font-normal" />
+        <textarea value={sourceNote} onChange={(event) => { setSourceNote(event.target.value); setSaved(""); onDirtyChange(true); }} maxLength={2000} rows={3} className="mt-2 w-full rounded-input border border-sheet-border bg-paper px-3 py-2 text-value font-normal" />
       </label> : null}
     </> : null}
     {referral && chartField ? <label className="block text-label font-semibold text-ink">{task.label.replace(/^Record /, "")}
-      {chartField === "community" ? <select value={chartValue} onChange={(event) => { setChartValue(event.target.value); setSaved(""); }} className="mt-2 block w-full rounded-input border border-sheet-border bg-paper px-3 py-2 text-value font-normal">
+      {chartField === "community" ? <select value={chartValue} onChange={(event) => { setChartValue(event.target.value); setSaved(""); onDirtyChange(true); }} className="mt-2 block w-full rounded-input border border-sheet-border bg-paper px-3 py-2 text-value font-normal">
         <option value="">Choose community</option>
         {pipelineCommunities.filter((community) => community !== "Unassigned").map((community) => <option key={community} value={community}>{community}</option>)}
-      </select> : <input type={chartField === "dob" || chartField === "date" ? "date" : "text"} value={chartValue} onChange={(event) => { setChartValue(event.target.value); setSaved(""); }} maxLength={256} className="mt-2 block w-full rounded-input border border-sheet-border bg-paper px-3 py-2 text-value font-normal" />}
+      </select> : <input type={chartField === "dob" || chartField === "date" ? "date" : "text"} value={chartValue} onChange={(event) => { setChartValue(event.target.value); setSaved(""); onDirtyChange(true); }} maxLength={256} className="mt-2 block w-full rounded-input border border-sheet-border bg-paper px-3 py-2 text-value font-normal" />}
     </label> : null}
     {(assessment || referral) ? <div className="flex flex-wrap items-center gap-3">
       <button type="button" disabled={busy || !(assessment ? canSaveAssessment : canSaveChart)} onClick={() => void save()} className="min-h-10 rounded-input bg-primary px-4 py-2 text-label font-bold text-white disabled:opacity-50">{busy ? "Saving…" : finalized ? "Add to assessment" : "Save answer"}</button>
