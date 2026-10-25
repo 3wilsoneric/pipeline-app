@@ -287,6 +287,7 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
     location?: PipelineWorkspaceLocation,
     resume = true,
     assessmentAction?: AssessmentEntryAction,
+    fromCompletionMemo = false,
   ) => {
     if (nextScreen === "operations" && reportAccess !== true) return;
     const requestId = ++navigationRequestRef.current;
@@ -306,6 +307,7 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
     setEntryBriefing(null);
     setSearchOpen(false);
     const params = workspaceDestinationParams(activeSearchParams.toString(), nextScreen, referral, clientId, workspaceLocation);
+    if (fromCompletionMemo && referral?.id) params.set("completionReview", String(referral.id));
     if (shouldResume) params.set("workspaceEntry", "resume");
     pushPipelineHistory(params.size ? `/?${params.toString()}` : "/");
     recordNavigatedWorkspace(nextScreen, referral, workspaceLocation);
@@ -451,7 +453,7 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
     page = deferredWorkSurfaces ? <deferredWorkSurfaces.ClientProfileView {...profileProps} /> : <DeferredScreenLoading />;
   } else if (screen === "completion") {
     page = <WeeklyCompletionMemoPage onBack={() => { void navigate("home"); }}
-      onOpenPacket={(referral, location) => { void navigate("packet", referral, undefined, location, false); }} />;
+      onOpenPacket={(referral, location) => { void navigate("packet", referral, undefined, location, false, undefined, true); }} />;
   } else if (screen === "operations") {
     page = reportAccess === true ? <PipelineCensusBriefing /> : null;
   } else if (screen === "calendar") {
@@ -522,6 +524,7 @@ function clearDestinationParams(params: URLSearchParams) {
     "workspaceField",
     "workspaceEntry",
     "workspaceDialog",
+    "completionReview",
     "referralId",
     "draftId",
     "clientId",

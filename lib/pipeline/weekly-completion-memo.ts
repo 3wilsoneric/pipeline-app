@@ -191,22 +191,22 @@ function assessmentTasks(data: AssessmentToolData, signed: boolean, referral: Re
       ? rule.key.slice("unable:".length) as AssessmentToolFieldKey
       : rule.fields[0];
     tasks.push({
-      id: `assessment:${rule.key}`, group: "assessment", label: `${signed ? "Review missing" : field === "assessor" ? "Assign" : "Answer"} ${rule.label.toLowerCase()}`,
+      id: `assessment:${rule.key}`, group: "assessment", label: `${field === "assessor" ? "Assign" : signed ? "Add" : "Answer"} ${rule.label.toLowerCase()}`,
       detail: rule.key.startsWith("unable:")
-        ? `The answer is ‘Unable to assess,’ but the required explanation is blank.${signed ? " Add the explanation to the assessment in this review." : ""}`
-        : `This required assessment answer is blank.${signed ? " Add the answer to the assessment in this review." : ""}`,
+        ? "The answer is ‘Unable to assess,’ but the required explanation is blank."
+        : "This required assessment answer is blank.",
       action: signed || field === "assessor" ? "Review assessment" : "Open question", location: assessmentLocation(field, signed),
     });
   }
   if (!hasMemoValue(data.prior_setting_bucket ?? undefined)) tasks.push({
-    id: "assessment:prior_setting_bucket", group: "assessment", label: `${signed ? "Review missing" : "Record the"} most recent setting type`,
-    detail: `The assessment does not identify the setting the client came from for this referral.${signed ? " Add it to the assessment in this review." : ""}`,
+    id: "assessment:prior_setting_bucket", group: "assessment", label: "Record the most recent setting type",
+    detail: "The assessment does not identify the setting the client came from for this referral.",
     action: signed ? "Review assessment" : "Open question", location: assessmentLocation("prior_setting_bucket", signed),
   });
   if (data.prior_setting_bucket && !["independent_family_home", "unhoused", "other"].includes(data.prior_setting_bucket)
     && !hasMemoValue(data.referring_facility ?? undefined)) tasks.push({
-    id: "assessment:referring_facility", group: "assessment", label: `${signed ? "Review missing" : "Record the"} most recent facility or program`,
-    detail: `A facility-based setting is selected, but its name is not recorded in the assessment.${signed ? " Add it to the assessment in this review." : ""}`,
+    id: "assessment:referring_facility", group: "assessment", label: "Record the most recent facility or program",
+    detail: "A facility-based setting is selected, but its name is not recorded in the assessment.",
     action: signed ? "Review assessment" : "Open question", location: assessmentLocation("referring_facility", signed),
   });
   if (comparableDate(referral.dob) && comparableDate(data.date_of_birth)

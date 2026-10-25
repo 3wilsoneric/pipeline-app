@@ -30,11 +30,21 @@ import {
 } from "@/components/pipeline/assessment-working-view";
 import styles from "@/components/pipeline/AssessmentWorkingSection.module.css";
 import { useDesignV2 } from "@/components/design/DesignSwitch";
+import type { CompletionMemoTask } from "@/lib/pipeline/weekly-completion-memo";
 
 type WorkingData = { data: AssessmentToolData; pending: readonly AssessmentToolFieldKey[] };
 type QuestionTarget = { field: AssessmentToolFieldKey };
 
 const allQuestionsChoice = "all-questions";
+const unresolvedMemoAnswers = new Set(["tbd", "see packet", "see referral packet", "same as above", "pending", "?"]);
+
+export function openCompletionTasks(tasks: readonly CompletionMemoTask[] | undefined, data: AssessmentToolData, pending: readonly AssessmentToolFieldKey[], field: AssessmentToolFieldKey) {
+  return (tasks ?? []).filter((task) => {
+    if (task.id.startsWith("review:")) return typeof data[field] === "string" && unresolvedMemoAnswers.has(data[field].trim().toLowerCase());
+    if (task.id.startsWith("assessment:unable:")) return data[field] === "unable_to_assess" && !getAssessmentUnableReason(data, field);
+    return !hasAssessmentInterviewValue(data[field]) || pending.includes(field);
+  });
+}
 
 export function AssessmentWorkingNavigation({ data, pending, activeSection, guideTargets, onSectionChange, preparing = false, recordedAnswers, lead, onAllQuestions }: WorkingData & {
   recordedAnswers?: React.ReactNode;
@@ -94,6 +104,8 @@ export function AssessmentWorkMode({ preparing, compactPreparation, disabled, ca
 }
 
 export type WorkingSectionProps = WorkingData & {
+  completionMemoTasks?: ReadonlyMap<AssessmentToolFieldKey, CompletionMemoTask[]>;
+  onCompletionTask?: (task: CompletionMemoTask) => void;
   workspaceActive?: boolean;
   preparing?: boolean;
   referenceQuestions?: readonly AssessmentInterviewQuestion[];
@@ -154,7 +166,7 @@ export default function AssessmentWorkingSection(props: WorkingSectionProps) {
   }
 
   // Keep edited fields in place for this section visit; never move a pointer's next target.
-  const remaining = questions.filter((question) => props.preparing || assessmentQuestionStatus(question, data, pending) !== "captured" || visited.includes(question.field) || localTarget?.field === question.field || !entryFields.includes(question.field));
+  const remaining = questions.filter((question) => props.preparing || assessmentQuestionStatus(question, data, pending) !== "captured" || openCompletionTasks(props.completionMemoTasks?.get(question.field), data, pending, question.field).length > 0 || visited.includes(question.field) || localTarget?.field === question.field || !entryFields.includes(question.field));
   const groups = groupWorkingQuestions(remaining);
   const referenceData = editing ? { ...data, [editing.field]: editing.value, unable_to_assess_reasons: { ...data.unable_to_assess_reasons, [editing.field]: editing.reason } } : data;
   const focusField = (field: AssessmentToolFieldKey) => {
@@ -231,8 +243,9 @@ export default function AssessmentWorkingSection(props: WorkingSectionProps) {
   </div>;
 }
 
-export function WorkingAssessmentField({ question, data, assessment, required, pending, disabled, reviewDisabled, onChange, onReview, onUnableReasonChange, onFieldFocus, onFieldBlur, onAnswerBlur, priorAnswers, intakeAnswers, onUsePriorAnswer }: WorkingSectionProps & { question: AssessmentInterviewQuestion; onAnswerBlur?: (field: AssessmentToolFieldKey) => void }) {
+export function WorkingAssessmentField({ question, data, assessment, required, pending, disabled, reviewDisabled, onChange, onReview, onUnableReasonChange, onFieldFocus, onFieldBlur, onAnswerBlur, priorAnswers, intakeAnswers, onUsePriorAnswer, completionMemoTasks, onCompletionTask }: WorkingSectionProps & { question: AssessmentInterviewQuestion; onAnswerBlur?: (field: AssessmentToolFieldKey) => void }) {
   const definition = assessmentToolFieldDefinitions.find((definition) => definition.key === question.field)!;
+  const followUps = openCompletionTasks(completionMemoTasks?.get(question.field), data, pending, question.field);
   const priorValue = priorAnswers?.answers[question.field];
   const intakeValue = intakeAnswers?.[question.field];
   // Intake first: it is this referral's own information; the last assessment is older.
@@ -249,6 +262,15 @@ export function WorkingAssessmentField({ question, data, assessment, required, p
     onAnswerBlur?.(question.field);
     if (!event.currentTarget.contains(event.relatedTarget)) onFieldBlur(question.field);
   }} className={question.span === "full" ? "sm:col-span-2" : "min-w-0"}>
+    {followUps.length ? <details className={styles.completionHint}>
+      <summary aria-label={`${followUps.length} follow-up ${followUps.length === 1 ? "item" : "items"} for ${definition.label}`}>Needs attention{followUps.length > 1 ? ` · ${followUps.length}` : ""}</summary>
+      <div className={styles.completionHintBody}>
+        {followUps.map((task) => <div key={task.id}>
+          <strong>{task.label}</strong><p>{task.detail}</p>
+          {assessment.meet_client_sent_at && onCompletionTask ? <button type="button" onClick={() => onCompletionTask(task)}>Add answer</button> : null}
+        </div>)}
+      </div>
+    </details> : null}
     <AssessmentField definition={definition} question={question} value={data[question.field]} unableReason={getAssessmentUnableReason(data, question.field)} required={required.has(question.field)} pending={pending.includes(question.field)} pendingProvenance={latestPendingProvenance(assessment, question.field)} disabled={disabled} reviewDisabled={reviewDisabled} onChange={(value) => onChange(question.field, value)} onReview={(action) => onReview(question.field, action)} onUnableReasonChange={(reason) => onUnableReasonChange(question.field, reason)} priorSuggestion={priorSuggestion} />
   </div>;
 }

@@ -107,14 +107,18 @@ import {
   type AssessmentRemoteChange,
 } from "@/components/pipeline/assessment-workspace-state";
 import { PracticeAssessmentReview } from "@/components/pipeline/AssessmentInterviewFields";
-import AssessmentWorkingSection, { AssessmentWorkingNavigation, AssessmentWorkMode, WorkingAssessmentField } from "@/components/pipeline/AssessmentWorkingSection";
+import AssessmentWorkingSection, { AssessmentWorkingNavigation, AssessmentWorkMode, WorkingAssessmentField, openCompletionTasks } from "@/components/pipeline/AssessmentWorkingSection";
 import HomeDialog from "@/components/pipeline/HomeDialog";
+import CompletionMemoReviewForm from "@/components/pipeline/CompletionMemoReviewForm";
 import AssessmentInterviewHeader, { AssessmentFileDetails } from "@/components/pipeline/AssessmentInterviewHeader";
 import { assessmentGapSections, assessmentQuestionStatus, isInterviewFocusField } from "@/components/pipeline/assessment-working-view";
 import { AssessmentSchedulingDialogs } from "@/components/pipeline/AssessmentSchedulingDialogs";
 import { isoToOperationalInput, operationalInputToIso } from "@/components/pipeline/pipeline-calendar-model";
 import { assessmentScheduleDraft, type AssessmentScheduleDraft } from "@/lib/assessment/assessment-schedule-draft";
 import type { PipelineWorkspaceLocation } from "@/lib/pipeline/work-continuity";
+import type { HomeBriefingSnapshot } from "@/lib/pipeline/home-briefing-types";
+import type { CompletionMemoClient, CompletionMemoTask } from "@/lib/pipeline/weekly-completion-memo";
+import { completionMemoAssessmentField } from "@/lib/pipeline/completion-memo-fields";
 import { loadPipelineAssessmentResumeLocation } from "@/lib/pipeline/work-continuity-client";
 import { AssessmentFileSurface, AssessmentFileNavigation } from "@/components/pipeline/AssessmentPreparation";
 import AssessmentPhoneInterview from "@/components/pipeline/AssessmentPhoneInterview";
@@ -379,6 +383,10 @@ export default function AssessmentWorkspace({
   const { confirm, confirmationDialog } = useConfirmationDialog();
   const secondaryActionsRef = useRef<HTMLDetailsElement>(null);
   const [assessments, setAssessments] = useState<PipelineAssessmentRecord[]>([]);
+  const [completionClient, setCompletionClient] = useState<CompletionMemoClient | null>(null);
+  const [completionTask, setCompletionTask] = useState<CompletionMemoTask | null>(null);
+  const [completionDraftDirty, setCompletionDraftDirty] = useState(false);
+  const [completionError, setCompletionError] = useState("");
   const [selectedId, setSelectedId] = useState("");
   const [draft, setDraft] = useState<AssessmentToolData>(createEmptyAssessmentToolData);
   const [activeSection, setActiveSection] = useState<AssessmentToolSection>(initialSection ?? trainingAssessmentSection ?? "identity");
@@ -489,6 +497,27 @@ export default function AssessmentWorkspace({
   useEffect(() => registerAssessmentEditor(), []);
 
   const selected = assessments.find((assessment) => assessment.assessment_id === selectedId) ?? null;
+  const completionTasksByField = useMemo(() => {
+    const byField = new Map<AssessmentToolFieldKey, CompletionMemoTask[]>();
+    for (const task of completionClient?.tasks ?? []) {
+      const field = completionMemoAssessmentField(task.id);
+      if (field) byField.set(field, [...(byField.get(field) ?? []), task]);
+    }
+    return byField;
+  }, [completionClient]);
+  useEffect(() => {
+    if (!referralId || trainingAssessmentMode || new URLSearchParams(window.location.search).get("completionReview") !== String(referralId)) {
+      setCompletionClient(null);
+      setCompletionTask(null);
+      setCompletionError("");
+      return;
+    }
+    const controller = new AbortController();
+    void fetchPipelineJson<HomeBriefingSnapshot>("/api/operations/home", { cache: "no-store", signal: controller.signal })
+      .then((briefing) => { if (!controller.signal.aborted) { setCompletionClient(briefing.workflow.completion_memo.clients.find((item) => item.referral_id === referralId) ?? null); setCompletionError(""); } })
+      .catch(() => { if (!controller.signal.aborted) setCompletionError("Follow-up items could not be loaded. Reload this assessment to try again."); });
+    return () => controller.abort();
+  }, [referralId, trainingAssessmentMode]);
 
   // Redesign: a returning client's last signed assessment, offered question by question.
   // Chosen answers remember their source until saved; the server re-checks them before crediting it.
@@ -541,6 +570,11 @@ export default function AssessmentWorkspace({
   const coverage = useMemo(() => getAssessmentInterviewCoverage(draft), [draft]);
   const completion = useMemo(() => getAssessmentCompletionSummary(draft), [draft]);
   const pendingFields = useMemo(() => getPendingFields(selected), [selected]);
+  const openCompletionItems = completionClient?.tasks.filter((task) => {
+    const field = completionMemoAssessmentField(task.id);
+    return !field || openCompletionTasks([task], draft, pendingFields, field).length > 0;
+  }) ?? [];
+  const otherCompletionItems = openCompletionItems.filter((task) => !completionMemoAssessmentField(task.id));
   const sectionDefinition = assessmentInterviewSections.find((section) => section.key === activeSection) ?? assessmentInterviewSections[0];
   const requiredInterviewFields = useMemo(
     () => new Set(getRequiredAssessmentInterviewQuestions(draft).map((question) => question.field)),
@@ -716,6 +750,27 @@ export default function AssessmentWorkspace({
     setDirtySections(dirtySectionsRef.current);
     setRemoteChange(null);
   }, []);
+  const refreshCompletionAnswer = async () => {
+    if (!selectedId || !referralId) return;
+    const [record, briefing] = await Promise.allSettled([
+      fetchPipelineJson<{ assessment: PipelineAssessmentRecord }>(`/api/assessments/${encodeURIComponent(selectedId)}`, { cache: "no-store" }),
+      fetchPipelineJson<HomeBriefingSnapshot>("/api/operations/home", { cache: "no-store" }),
+    ]);
+    if (record.status === "fulfilled") upsertAssessment(record.value.assessment);
+    if (briefing.status === "fulfilled") setCompletionClient(briefing.value.workflow.completion_memo.clients.find((item) => item.referral_id === referralId) ?? null);
+    setCompletionError(record.status === "rejected" || briefing.status === "rejected" ? "Answer saved. Refresh this assessment to update the follow-up markers." : "");
+  };
+  const closeCompletionTask = () => {
+    if (completionDraftDirty && !window.confirm("Discard this unsaved answer?")) return;
+    setCompletionTask(null);
+    setCompletionDraftDirty(false);
+  };
+  useEffect(() => {
+    if (!completionDraftDirty) return;
+    const leave = (event: BeforeUnloadEvent) => { event.preventDefault(); };
+    window.addEventListener("beforeunload", leave);
+    return () => window.removeEventListener("beforeunload", leave);
+  }, [completionDraftDirty]);
 
   const loadRecoveryDraft = useCallback(async (assessment: PipelineAssessmentRecord) => {
     const positionRevision = sectionRevisionRef.current;
@@ -1694,6 +1749,7 @@ export default function AssessmentWorkspace({
   };
 
   usePersonaSwitchSave(async () => {
+    if (completionDraftDirty) throw new Error("Finish or discard the open follow-up answer before switching accounts.");
     if (recommendationPendingRef.current) throw new Error(recommendationPendingMessage);
     if (isBusy || closingRef.current) throw new Error("Wait for the assessment to finish saving before switching.");
     const current = selectedRef.current;
@@ -1704,6 +1760,7 @@ export default function AssessmentWorkspace({
   });
 
   const saveAndCloseAssessment = async (onClosed?: () => void | Promise<void>) => {
+    if (completionDraftDirty) throw new Error("Finish or discard the open follow-up answer before leaving this assessment.");
     if (recommendationPendingRef.current) {
       setError(recommendationPendingMessage);
       throw new Error(recommendationPendingMessage);
@@ -1733,6 +1790,7 @@ export default function AssessmentWorkspace({
     if (phoneQuestionRef.current && (phoneInterview || questionSectionRef.current === activeSection)) setWorkingTarget({ field: phoneQuestionRef.current });
   };
   const saveForHeaderNavigation = useEffectEvent(async () => {
+    if (completionDraftDirty) throw new Error("Finish or discard the open follow-up answer before leaving this assessment.");
     if (!embeddedFolder) return saveAndCloseAssessment();
     try {
       if (recommendationPendingRef.current) throw new Error(recommendationPendingMessage);
@@ -2318,7 +2376,7 @@ export default function AssessmentWorkspace({
     selected.signed_at ? (
         <div data-signature-history className="shrink-0 border-b border-[#d9dfdb] px-4 py-3 text-[11px] text-[#595959]">
           Signed by <strong>{selected.signed_by?.name ?? selected.assessor ?? "Assigned assessor"}</strong> on {new Date(selected.signed_at).toLocaleString()}.
-          {!isAssessmentFinalized(selected) ? " You can still edit until Meet the Client is sent." : " Meet the Client sent. Add missing answers from Home follow-up review; use Add note for other information."}
+          {!isAssessmentFinalized(selected) ? " You can still edit until Meet the Client is sent." : " Meet the Client sent. Add missing answers from a highlighted follow-up question; use Add note for other information."}
           {(selected.addenda ?? []).length > 0 ? (
             <div className="mt-3 divide-y divide-[#e5e5e5] border-y border-[#e5e5e5]">
               {(selected.addenda ?? []).map((addendum) => <div key={addendum.addendum_id} className="py-3"><div className="font-black text-[#111111]">{addendum.reason_code}</div><div className="mt-1 whitespace-pre-wrap leading-5">{addendum.note}</div><div className="mt-1 text-[9px] text-[#737373]">{addendum.authored_by_name} · {new Date(addendum.created_at).toLocaleString()}</div></div>)}
@@ -2562,7 +2620,12 @@ export default function AssessmentWorkspace({
         onSaveSchedule={() => void saveSchedule()}
         onCloseBegin={() => setShowBeginDialog(false)}
         onBeginAssessment={() => void beginAssessment()}
-      />{renderInterviewDate()}</>}
+      />{renderInterviewDate()}
+        {completionTask && completionClient ? <HomeDialog label="Add assessment answer" title={completionTask.label} description={completionTask.detail} onClose={closeCompletionTask}>
+          <div className="p-5"><CompletionMemoReviewForm key={completionTask.id} client={completionClient} task={completionTask}
+            onSaved={refreshCompletionAnswer} onOpenTask={closeCompletionTask} onDirtyChange={setCompletionDraftDirty} /></div>
+        </HomeDialog> : null}
+      </>}
     >
 
       {showAddendum && canAddAddendum ? (
@@ -2592,6 +2655,15 @@ export default function AssessmentWorkspace({
           ) : null}
 
           {renderRemoteChanges()}
+
+          {!reviewingChart && completionError ? <p role="alert" className="mx-5 my-3 text-[13px] text-red-700">{completionError}</p> : null}
+          {!reviewingChart && completionClient && openCompletionItems.length > 0 ? <details className={workingStyles.completionSummary}>
+            <summary>Follow-up · {openCompletionItems.length} {openCompletionItems.length === 1 ? "item" : "items"}</summary>
+            <div>
+              <p>Assessment questions needing attention are marked beside the answer.</p>
+              {otherCompletionItems.length ? <ul>{otherCompletionItems.map((task) => <li key={task.id}><strong>{task.label}</strong><span>{task.detail}</span></li>)}</ul> : null}
+            </div>
+          </details> : null}
 
           {reviewingChart ? renderChartReview() : withNotebook(<div data-assessment-question-content className={!phoneInterview ? workingStyles.readingContent : "w-full px-3 py-3 sm:px-4"}>
             {renderPhoneQuestionHeading()}
@@ -2638,6 +2710,8 @@ export default function AssessmentWorkspace({
               split={splitInterview && referral ? <InterviewSplit topics={stackedGroups} data={draft} currentTopic={spySection} notes={renderNotebook()} /> : undefined}
               interviewContext={designV2 && referral ? <InterviewContext key={referral.id} referralId={referral.id} summary={referral.note} /> : undefined}
               onUnableReasonChange={(field, reason) => updateField("unable_to_assess_reasons", setAssessmentUnableReason(draftRef.current.unable_to_assess_reasons, field, reason))}
+              completionMemoTasks={completionTasksByField}
+              onCompletionTask={canEditClinical || canAddAddendum ? setCompletionTask : undefined}
               onReferenceEdit={(field) => {
                 if (field === "assessment_date") { setShowInterviewDate(true); return; }
                 if (!preparing && !isInterviewFocusField(field)) changeWorkingMode(true);

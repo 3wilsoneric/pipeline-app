@@ -4,7 +4,7 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { BookOpen, ChevronDown, ChevronLeft, ChevronRight, Pencil, X } from "lucide-react";
 import { assessmentInterviewFieldLabel, getAssessmentUnableReason, hasAssessmentInterviewValue } from "@/lib/assessment/assessment-interview-schema";
 import { assessmentToolFieldDefinitions, type AssessmentToolFieldKey, type AssessmentToolSection } from "@/lib/assessment/assessment-tool-schema";
-import { AssessmentAnswerSource, AssessmentReferenceValue, WorkingAssessmentField, type WorkingSectionProps } from "@/components/pipeline/AssessmentWorkingSection";
+import { AssessmentAnswerSource, AssessmentReferenceValue, WorkingAssessmentField, openCompletionTasks, type WorkingSectionProps } from "@/components/pipeline/AssessmentWorkingSection";
 import { assessmentQuestionStatus, assessmentWorkingSections, capturedAssessmentAnswer, assessmentWorkingCounts, assessmentWorkingCountLabel } from "@/components/pipeline/assessment-working-view";
 import styles from "./AssessmentPhoneInterview.module.css";
 import readingStyles from "./AssessmentWorkingSection.module.css";
@@ -43,7 +43,7 @@ export default function AssessmentPhoneInterview(props: Props) {
     setReceived({ section: section.key, target });
     setField(initial());
   }
-  const steps = questions.filter((question) => assessmentQuestionStatus(question, data, pending) !== "captured" || visitGaps.includes(question.field) || question.field === field || target?.field === question.field || !entryFields.includes(question.field));
+  const steps = questions.filter((question) => assessmentQuestionStatus(question, data, pending) !== "captured" || openCompletionTasks(props.completionMemoTasks?.get(question.field), data, pending, question.field).length > 0 || visitGaps.includes(question.field) || question.field === field || target?.field === question.field || !entryFields.includes(question.field));
   const index = Math.max(0, steps.findIndex((question) => question.field === field));
   const question = steps[index];
   const questionField = question?.field;
