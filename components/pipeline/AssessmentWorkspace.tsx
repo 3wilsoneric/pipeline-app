@@ -496,7 +496,7 @@ export default function AssessmentWorkspace({
   const workbookSourcesRef = useRef<AssessmentDraftWorkbookSources>({});
   const focusedAssessmentIdRef = useRef("");
   const preparationRequestedRef = useRef(false);
-  const focusedFieldRef = useRef<{ field: AssessmentToolFieldKey; value: string; reason: string; completionGap: boolean } | null>(null);
+  const focusedFieldRef = useRef<{ field: AssessmentToolFieldKey; value: string; originalValue: AssessmentToolData[AssessmentToolFieldKey]; reason: string; completionGap: boolean } | null>(null);
   const idleSaveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   // Interview notebook beside the questions; hidden or shown per person on this device.
   const [notebookOpen, setNotebookOpen] = useState(() => {
@@ -2265,7 +2265,7 @@ export default function AssessmentWorkspace({
     }
     if (focusedFieldRef.current?.field === field) return;
     focusedFieldRef.current = {
-      field, value: JSON.stringify(draftRef.current[field]), reason: getAssessmentUnableReason(draftRef.current, field),
+      field, value: JSON.stringify(draftRef.current[field]), originalValue: structuredClone(draftRef.current[field]), reason: getAssessmentUnableReason(draftRef.current, field),
       completionGap: openCompletionTasks(completionTasksByField.get(field), draftRef.current, getPendingFields(selectedRef.current), field).length > 0,
     };
   };
@@ -2275,14 +2275,19 @@ export default function AssessmentWorkspace({
     focusedFieldRef.current = null;
     if (!focus || focus.field !== field) return;
     const data = draftRef.current;
-    const shouldAdvance = focus.completionGap
+    const valueChanged = focus.value !== JSON.stringify(data[field]);
+    const reasonChanged = focus.reason !== getAssessmentUnableReason(data, field);
+    const originalData = { ...data, [field]: focus.originalValue,
+      unable_to_assess_reasons: { ...data.unable_to_assess_reasons, [field]: focus.reason } };
+    const shouldAdvance = (valueChanged || reasonChanged)
+      && (focus.completionGap || openCompletionTasks(completionTasksByField.get(field), originalData, getPendingFields(selectedRef.current), field).length > 0)
       && openCompletionTasks(completionTasksByField.get(field), data, getPendingFields(selectedRef.current), field).length === 0;
     const assessmentId = selectedRef.current?.assessment_id;
-    if (focus.value !== JSON.stringify(data[field])) {
+    if (valueChanged) {
       const section = assessmentToolFieldDefinitions.find((definition) => definition.key === field)!.section;
       void queueSectionSave(section, { [field]: structuredClone(data[field]) }).catch(() => undefined);
     }
-    if (focus.reason !== getAssessmentUnableReason(data, field)) {
+    if (reasonChanged) {
       // Reasons belong to the canonical QC section, not the question's section.
       void queueSectionSave("provenance_qc", { unable_to_assess_reasons: { ...data.unable_to_assess_reasons } }).catch(() => undefined);
     }

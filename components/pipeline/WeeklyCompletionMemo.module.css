@@ -1,16 +1,16 @@
-.page { height: 100%; overflow-y: auto; background: #e9ece9; color: var(--color-ink); }
+.page { height: 100%; overflow-y: auto; background: var(--color-page); color: var(--color-ink); }
 .frame { width: min(1360px, 100%); margin: 0 auto; padding: 28px clamp(16px, 3vw, 48px) 56px; }
 .back { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; color: var(--color-link); font-size: var(--text-label); font-weight: 600; }
 .back:hover { text-decoration: underline; text-underline-offset: 3px; }
 .back:focus-visible, .client:focus-visible, .issue:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 3px; }
-.hero { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin: 22px 0 24px; padding-bottom: 18px; border-bottom: 1px solid #cbd4cf; }
+.hero { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin: 22px 0 24px; padding-bottom: 18px; border-bottom: 1px solid var(--color-folder-edge); }
 .eyebrow { margin: 0; color: var(--color-ink-muted); font-size: var(--text-meta); font-weight: 600; letter-spacing: .015em; }
 .hero h1 { margin: 6px 0 0; font-size: clamp(28px, 3vw, 40px); line-height: 1.12; font-weight: 650; letter-spacing: -.025em; }
 .ownerFilter { display: flex; align-items: center; gap: 10px; color: var(--color-ink-muted); font-size: var(--text-meta); font-weight: 600; }
 .ownerFilter select { min-height: 38px; padding: 6px 10px; border: 1px solid var(--color-control-border); border-radius: var(--radius-input); background: var(--color-paper); color: var(--color-ink); font-size: var(--text-label); }
 .visuallyHidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
-.clients { min-width: 0; overflow: hidden; border: 1px solid #d2d7d1; border-radius: var(--radius-folder); background: var(--color-paper); box-shadow: var(--shadow-folder); }
-.clientEntry + .clientEntry { border-top: 1px solid #dce0db; }
+.clients { min-width: 0; overflow: hidden; border: 1px solid var(--color-folder-edge); border-radius: var(--radius-folder); background: var(--color-paper); box-shadow: var(--shadow-folder); }
+.clientEntry + .clientEntry { border-top: 1px solid var(--color-sheet-border); }
 .client { display: grid; grid-template-columns: minmax(0, 1fr) minmax(125px, .5fr) auto 24px; align-items: center; gap: 22px; width: 100%; min-height: 82px; padding: 15px 26px; border: 0; background: transparent; color: var(--color-ink); text-align: left; cursor: pointer; }
 .client:hover { background: var(--color-primary-soft); }
 .clientIdentity { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
