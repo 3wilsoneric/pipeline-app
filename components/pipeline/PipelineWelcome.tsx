@@ -44,7 +44,7 @@ export default function PipelineWelcome({
   initialBriefing,
   viewerId,
 }: {
-  onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">, location?: PipelineWorkspaceLocation, action?: AssessmentEntryAction) => void;
+  onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">, location?: PipelineWorkspaceLocation, action?: AssessmentEntryAction, exact?: boolean) => void;
   onOpenProfile: (residentKey: string) => void;
   onOpenSearchDestination: (screen: PipelineSiteScreen) => void;
   onViewAllSearchResults: (query: string) => void;

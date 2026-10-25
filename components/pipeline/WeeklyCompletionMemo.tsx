@@ -13,7 +13,7 @@ const seenPrefix = "pipeline:completion-memo:seen:v1";
 export default function WeeklyCompletionMemoCard({ memo, viewerId, onOpenPacket }: {
   memo: WeeklyCompletionMemo;
   viewerId: string;
-  onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">, location?: PipelineWorkspaceLocation) => void;
+  onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">, location: PipelineWorkspaceLocation, action: undefined, exact: true) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -37,7 +37,7 @@ export default function WeeklyCompletionMemoCard({ memo, viewerId, onOpenPacket 
   }
   function openTask(client: NonNullable<typeof selected>, location: PipelineWorkspaceLocation) {
     close();
-    onOpenPacket({ id: client.referral_id, name: client.client_name, community: client.community }, location);
+    onOpenPacket({ id: client.referral_id, name: client.client_name, community: client.community }, location, undefined, true);
   }
 
   return <>
