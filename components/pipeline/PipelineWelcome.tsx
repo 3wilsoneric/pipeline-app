@@ -179,7 +179,7 @@ export default function PipelineWelcome({
         <div className="mx-auto w-full max-w-[1380px] px-4 pb-10 pt-4 sm:px-6 sm:pt-5 lg:px-8">
           <HomeSearchAccess visible={searchVisible} searchProps={searchProps} onClose={() => setSearchOpen(false)} />
           {canViewApplicationActivity ? <ApplicationActivityCard /> : null}
-          {briefing?.workflow.completion_memo?.task_count && viewerId ? <WeeklyCompletionMemoCard memo={briefing.workflow.completion_memo} viewerId={viewerId} onOpenPacket={onOpenPacket} /> : null}
+          {briefing?.workflow.completion_memo?.task_count && viewerId ? <WeeklyCompletionMemoCard memo={briefing.workflow.completion_memo} viewerId={viewerId} onOpenPacket={onOpenPacket} onSaved={loadBriefing} /> : null}
 
           {error ? (
             <div role="alert" className="mt-4 flex items-center justify-between gap-4 border-l-2 border-[#a9473d] bg-[#fff6f4] px-4 py-3 text-[12px] text-[#723d35]">

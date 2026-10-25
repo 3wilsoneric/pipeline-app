@@ -3,6 +3,7 @@ import { getAssessmentCompletionSummary } from "@/lib/assessment/assessment-comp
 import { assessmentInterviewFieldLabel, assessmentInterviewQuestions, isAssessmentQuestionVisible } from "@/lib/assessment/assessment-interview-schema";
 import { assessmentSectionForField } from "@/lib/assessment/assessment-sections";
 import type { AssessmentToolData, AssessmentToolFieldKey } from "@/lib/assessment/assessment-tool-schema";
+import { completionMemoAssessmentField } from "./completion-memo-fields";
 import { isAssignedToUser } from "./referral-ownership";
 import { getWorkspaceState, isRequirementGateActive, isRequirementStatusResolved } from "./workspace-state";
 import type { OperationsWorkItem } from "./operations-types";
@@ -21,6 +22,7 @@ export type CompletionMemoTask = {
 
 export type CompletionMemoClient = {
   referral_id: number;
+  assessment_id?: string | null;
   client_name: string;
   community: Referral["community"];
   owner: string;
@@ -90,7 +92,8 @@ export function buildWeeklyCompletionMemo({
         action: "Open chart", location: { view: "intake", intakeField: field },
       });
     }
-    if (context.assessmentData) tasks.push(...assessmentTasks(context.assessmentData, state.assessment === "signed", referral));
+    if (context.assessmentData) tasks.push(...assessmentTasks(context.assessmentData, state.assessment === "signed", referral)
+      .filter((task) => !context.assessmentMemoCorrectionFields?.includes(completionMemoAssessmentField(task.id) ?? "")));
     else if (context.assessmentId && state.assessment === "signed") tasks.push({
       id: "assessment:unavailable", group: "assessment", label: "Review the unavailable assessment answers",
       detail: "A signed assessment is referenced, but its answers were not available to this memo. Open the record before treating it as complete.",
@@ -148,6 +151,7 @@ export function buildWeeklyCompletionMemo({
     });
     return tasks.length ? [{
       referral_id: referral.id, client_name: referral.name, community: referral.community,
+      assessment_id: context.assessmentId,
       owner: context.assessmentAssessorId && context.assessmentData?.assessor || referral.owner,
       status, assessment_signed: state.assessment === "signed", tasks,
     }] : [];

@@ -3,6 +3,7 @@ import test from "node:test";
 import { loadTypeScriptModule } from "./ts-module-loader.mjs";
 
 const { buildWeeklyCompletionMemo } = loadTypeScriptModule(process.cwd(), "lib/pipeline/weekly-completion-memo.ts");
+const { completionMemoAddendumReason, completionMemoCorrectionField } = loadTypeScriptModule(process.cwd(), "lib/pipeline/completion-memo-fields.ts");
 const { createEmptyAssessmentToolData } = loadTypeScriptModule(process.cwd(), "lib/assessment/assessment-tool-schema.ts");
 const assessor = { id: "assessor-1", name: "Assigned Assessor", roles: ["reviewer"] };
 const coordinator = { id: "coordinator-1", name: "Admissions Coordinator", roles: ["assessment_coordinator"] };
@@ -130,4 +131,24 @@ test("past planned dates are assigned to the coordinator view only", () => {
   assert.equal(buildWeeklyCompletionMemo({ ...inputs, viewer: assessor }).clients.length, 0);
   const team = buildWeeklyCompletionMemo({ ...inputs, viewer: coordinator });
   assert.deepEqual(Array.from(team.clients[0].tasks, (task) => task.id), ["outcome"]);
+});
+
+test("a field-specific addendum closes only its matching finalized assessment gap", () => {
+  const file = referral(21, { requirements: [] });
+  const assessment = { ...createEmptyAssessmentToolData(), current_symptoms: null, diagnosis_categories: [] };
+  const inputs = {
+    work: [work(file)], referrals: [file], viewer: assessor, now: monday,
+    contexts: new Map([[file.id, {
+      assessmentId: "asm-21", assessmentData: assessment, assessmentSigned: true,
+      packetSentAt: "2026-10-18T12:00:00Z", decision: accepted,
+      assessmentMemoCorrectionFields: ["current_symptoms"],
+    }]]),
+  };
+  const memo = buildWeeklyCompletionMemo(inputs);
+  const ids = memo.clients[0].tasks.map((task) => task.id);
+  assert.equal(ids.includes("assessment:field:current_symptoms"), false);
+  assert.equal(ids.includes("assessment:field:diagnosis_categories"), true);
+  assert.equal(memo.clients[0].assessment_id, "asm-21");
+  assert.equal(completionMemoCorrectionField(completionMemoAddendumReason("current_symptoms")), "current_symptoms");
+  assert.equal(completionMemoCorrectionField("completion_review:not_a_field"), null);
 });
