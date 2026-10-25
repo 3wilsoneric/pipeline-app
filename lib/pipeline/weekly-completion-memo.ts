@@ -172,8 +172,8 @@ function hasMemoValue(value: string | undefined, allowUnknown = false) {
   return (allowUnknown && normalized === "unknown") || !memoPlaceholders.has(normalized);
 }
 
-function assessmentLocation(field: AssessmentToolFieldKey): PipelineWorkspaceLocation {
-  if (field === "assessor") return { view: "assessment", assessmentMode: "review" };
+function assessmentLocation(field: AssessmentToolFieldKey, signed = false): PipelineWorkspaceLocation {
+  if (signed || field === "assessor") return { view: "assessment", assessmentMode: "review" };
   return { view: "assessment", assessmentMode: "interview", assessmentSection: assessmentSectionForField(field), assessmentQuestion: field };
 }
 
@@ -189,29 +189,29 @@ function assessmentTasks(data: AssessmentToolData, signed: boolean, referral: Re
       ? rule.key.slice("unable:".length) as AssessmentToolFieldKey
       : rule.fields[0];
     tasks.push({
-      id: `assessment:${rule.key}`, group: "assessment", label: `Answer ${rule.label.toLowerCase()}`,
+      id: `assessment:${rule.key}`, group: "assessment", label: `${signed ? "Review missing" : field === "assessor" ? "Assign" : "Answer"} ${rule.label.toLowerCase()}`,
       detail: rule.key.startsWith("unable:")
-        ? "The answer is ‘Unable to assess,’ but the required explanation is blank."
+        ? `The answer is ‘Unable to assess,’ but the required explanation is blank.${signed ? " Use a correction note if the signed record needs clarification." : ""}`
         : `This required assessment answer is blank.${signed ? " The signed record needs review and a documented correction." : ""}`,
-      action: "Open question", location: assessmentLocation(field),
+      action: signed || field === "assessor" ? "Review assessment" : "Open question", location: assessmentLocation(field, signed),
     });
   }
   if (!hasMemoValue(data.prior_setting_bucket ?? undefined)) tasks.push({
-    id: "assessment:prior_setting_bucket", group: "assessment", label: "Record the most recent setting type",
-    detail: "The assessment does not identify the setting the client came from for this referral.",
-    action: "Open question", location: assessmentLocation("prior_setting_bucket"),
+    id: "assessment:prior_setting_bucket", group: "assessment", label: `${signed ? "Review missing" : "Record the"} most recent setting type`,
+    detail: `The assessment does not identify the setting the client came from for this referral.${signed ? " Document any correction to the signed record." : ""}`,
+    action: signed ? "Review assessment" : "Open question", location: assessmentLocation("prior_setting_bucket", signed),
   });
   if (data.prior_setting_bucket && !["independent_family_home", "unhoused", "other"].includes(data.prior_setting_bucket)
     && !hasMemoValue(data.referring_facility ?? undefined)) tasks.push({
-    id: "assessment:referring_facility", group: "assessment", label: "Record the most recent facility or program",
-    detail: "A facility-based setting is selected, but its name is not recorded in the assessment.",
-    action: "Open question", location: assessmentLocation("referring_facility"),
+    id: "assessment:referring_facility", group: "assessment", label: `${signed ? "Review missing" : "Record the"} most recent facility or program`,
+    detail: `A facility-based setting is selected, but its name is not recorded in the assessment.${signed ? " Document any correction to the signed record." : ""}`,
+    action: signed ? "Review assessment" : "Open question", location: assessmentLocation("referring_facility", signed),
   });
   if (comparableDate(referral.dob) && comparableDate(data.date_of_birth)
     && comparableDate(referral.dob) !== comparableDate(data.date_of_birth)) tasks.push({
     id: "review:dob", group: "review", label: "Resolve the date-of-birth mismatch",
     detail: "The referral chart and assessment have different birth dates. Check the source record before correcting either one.",
-    action: "Open question", location: assessmentLocation("date_of_birth"),
+    action: signed ? "Review assessment" : "Open question", location: assessmentLocation("date_of_birth", signed),
   });
   for (const question of assessmentInterviewQuestions) {
     if (!isAssessmentQuestionVisible(question, data) || !["text", "textarea", "timeline"].includes(question.control)) continue;
@@ -219,8 +219,8 @@ function assessmentTasks(data: AssessmentToolData, signed: boolean, referral: Re
     if (typeof answer !== "string" || !weakAnswerPlaceholders.has(answer.trim().toLowerCase())) continue;
     tasks.push({
       id: `review:${question.field}`, group: "review", label: `Review ${assessmentInterviewFieldLabel(question.field).toLowerCase()}`,
-      detail: `The answer reads “${answer.trim()},” which points elsewhere or leaves the question unresolved. Add the specific answer or explain what is unknown.`,
-      action: "Open question", location: assessmentLocation(question.field),
+      detail: `The answer reads “${answer.trim()},” which points elsewhere or leaves the question unresolved. ${signed ? "Review the source and document any correction to the signed record." : "Add the specific answer or explain what is unknown."}`,
+      action: signed ? "Review assessment" : "Open question", location: assessmentLocation(question.field, signed),
     });
   }
   return tasks;

@@ -107,6 +107,8 @@ test("memo does not invent a facility for a home setting or flag a matching birt
   assert.equal(ids.includes("review:dob"), false);
   assert.equal(ids.includes("review:current_symptoms"), false);
   assert.equal(ids.includes("assessment:signature"), false);
+  assert.equal(memo.clients[0].tasks.find((task) => task.id === "assessment:field:resident_name").location.assessmentMode, "review",
+    "signed assessment gaps open the read-only review and correction path");
 });
 
 test("accepted clients do not receive pre-assessment provider form work", () => {
