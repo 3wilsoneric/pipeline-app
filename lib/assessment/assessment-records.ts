@@ -29,6 +29,7 @@ export type AssessmentAuditAction =
   | "assessment_interview_completed"
   | "assessment_started"
   | "assessment_signed"
+  | "assessment_supplemented"
   | "assessment_revision_created"
   | "assessment_addendum_added";
 
@@ -88,7 +89,7 @@ export type PipelineAssessmentRecord = AssessmentToolRecord & {
   schedule_status?: AssessmentScheduleStatus;
   started_at?: string | null;
   signed_at?: string | null;
-  /** Successful Meet the Client delivery, not signing alone, finalizes answers. */
+  /** Successful Meet the Client delivery freezes ordinary edits; sourced additions retain the sent version. */
   meet_client_sent_at?: string | null;
   meet_client_sent_version?: number | null;
   signed_by?: AssessmentActor | null;
@@ -127,6 +128,8 @@ export type AssessmentWorkbookRestoreSource = { export_id: string; exported_at: 
 
 export type AssessmentPatchInput = {
   data?: Partial<AssessmentToolData>;
+  /** A sourced, field-specific addition after Meet the Client was sent. It never sends another email. */
+  post_send_review?: { field: AssessmentToolFieldKey; source: string };
   workbook_restore?: AssessmentWorkbookRestoreSource;
   /** Server-resolved only. Browser requests supply an active workspace member ID. */
   assigned_assessor?: AssessmentActor | null;

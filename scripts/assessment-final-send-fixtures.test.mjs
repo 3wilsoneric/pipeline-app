@@ -6,8 +6,23 @@ import test from "node:test";
 import postgres from "postgres";
 import { loadTypeScriptModule } from "./ts-module-loader.mjs";
 
+test("post-send answer additions require one assessment field and a source", () => {
+  const { validateAssessmentPatchRequest } = loadTypeScriptModule(process.cwd(), "lib/assessment/assessment-validation.ts");
+  const request = (patch) => validateAssessmentPatchRequest({ if_match: 7, patch });
+  assert.equal(request({ data: { current_symptoms: "Reported anxiety." },
+    post_send_review: { field: "current_symptoms", source: "Assessor interview" } }).ok, true);
+  assert.equal(request({ data: { referrer_name: "County case manager" },
+    post_send_review: { field: "referrer_name", source: "Referral record" } }).ok, true);
+  for (const patch of [
+    { data: { current_symptoms: "Reported anxiety." }, post_send_review: { field: "current_symptoms", source: " " } },
+    { data: { current_symptoms: "Reported anxiety.", cognition_orientation: "Oriented." }, post_send_review: { field: "current_symptoms", source: "Interview" } },
+    { data: { assessor: "Different assessor" }, post_send_review: { field: "assessor", source: "Interview" } },
+    { data: { current_symptoms: "Reported anxiety." }, status: "draft", post_send_review: { field: "current_symptoms", source: "Interview" } },
+  ]) assert.equal(request(patch).ok, false);
+});
+
 for (const mode of ["local_file", "postgres"]) {
-  test(`${mode}: edits and imports stay audited until successful packet send; notes only afterward`, {
+  test(`${mode}: sent assessments accept sourced additions while preserving the sent version`, {
     skip: mode === "postgres" && !process.env.PIPELINE_TEST_DATABASE_URL,
   }, async () => {
     const directory = await mkdtemp(join(tmpdir(), "pipeline-final-send-"));
@@ -186,8 +201,64 @@ for (const mode of ["local_file", "postgres"]) {
       assert.equal(replayed.assessment.addenda.length, 1);
       assert.equal(replayed.assessment.audit_events.filter((event) => event.action === "assessment_addendum_added").length, 1);
       assert.equal((await store.addAssessmentAddendum(id, "Stale", "test", actor, current.version)).conflict, true);
+      phase = "add a sourced answer to the signed assessment without another send";
+      const supplementPatch = {
+        data: { cognition_orientation: "Alert and oriented to person and place." },
+        post_send_review: { field: "cognition_orientation", source: "Assessor interview notes" },
+      };
+      const supplementOptions = { expectedVersion: noted.assessment.version, mutationId: "post-send-supplement" };
+      if (sql) {
+        phase = "roll back the assessment addition if its audit fails";
+        await sql.unsafe(`create function pipeline.fail_supplement_audit() returns trigger language plpgsql as $$ begin
+          if new.entity_type = 'assessment' and new.action = 'assessment_supplemented' then raise exception 'Synthetic supplement audit failure'; end if;
+          return new; end $$;
+          create trigger fail_supplement_audit before insert on pipeline.audit_events for each row execute function pipeline.fail_supplement_audit();`);
+        await assert.rejects(store.patchAssessment(id, supplementPatch, actor,
+          { expectedVersion: noted.assessment.version }), /Synthetic supplement audit failure/);
+        await sql.unsafe("drop trigger fail_supplement_audit on pipeline.audit_events; drop function pipeline.fail_supplement_audit();");
+        const rolledBack = await store.getAssessment(id);
+        assert.equal(rolledBack.version, noted.assessment.version);
+        assert.equal(rolledBack.cognition_orientation, null);
+        assert.equal(rolledBack.addenda.length, noted.assessment.addenda.length);
+      }
+      phase = "add a sourced answer to the signed assessment without another send";
+      const supplemented = await store.patchAssessment(id, supplementPatch, actor, supplementOptions);
+      assert.equal(supplemented.ok, true);
+      assert.equal(supplemented.assessment.cognition_orientation, "Alert and oriented to person and place.");
+      assert.equal(supplemented.assessment.signed_at, signedAt);
+      assert.equal(supplemented.assessment.meet_client_sent_at, "2026-09-17T21:00:00.000Z");
+      assert.equal(supplemented.assessment.meet_client_sent_version, repeatVersion);
+      assert(supplemented.assessment.audit_events.some((event) =>
+        event.action === "assessment_supplemented" && event.changed_fields.includes("cognition_orientation")));
+      assert.match(supplemented.assessment.addenda.at(-1).note, /Assessor interview notes/);
+      assert.equal(providerCalls, 2);
+      const supplementedReplay = await store.patchAssessment(id, supplementPatch, actor, supplementOptions);
+      assert.equal(supplementedReplay.assessment.version, supplemented.assessment.version);
+      assert.equal(supplementedReplay.assessment.addenda.length, supplemented.assessment.addenda.length);
+      await assert.rejects(store.patchAssessment(id, { data: { primary_diagnosis: "Unsourced change" } }, actor,
+        { expectedVersion: supplemented.assessment.version }), /Use Add note/);
+      await assert.rejects(store.patchAssessment(id, {
+        data: { cognition_orientation: "Replace a recorded answer" },
+        post_send_review: { field: "cognition_orientation", source: "Fixture" },
+      }, actor, { expectedVersion: supplemented.assessment.version }), /already recorded/);
+      const unable = await store.patchAssessment(id, {
+        data: { diabetic: "unable_to_assess", unable_to_assess_reasons: { diabetic: "Interview could not establish this." } },
+        post_send_review: { field: "diabetic", source: "Assessor interview" },
+      }, actor, { expectedVersion: supplemented.assessment.version });
+      assert.equal(unable.ok, true);
+      assert.equal(unable.assessment.diabetic, "unable_to_assess");
+      assert.equal(unable.assessment.unable_to_assess_reasons.diabetic, "Interview could not establish this.");
+      const referralSource = await store.patchAssessment(id, {
+        data: { referrer_name: "County case manager" },
+        post_send_review: { field: "referrer_name", source: "Referral record" },
+      }, actor, { expectedVersion: unable.assessment.version });
+      assert.equal(referralSource.ok, true);
+      assert.equal(referralSource.assessment.referrer_name, "County case manager");
+      assert.equal(referralSource.assessment.meet_client_sent_version, repeatVersion);
+      current = referralSource.assessment;
+      assert.equal(providerCalls, 2);
       await assert.rejects(store.importAssessmentExtraction({
-        referralId: referral.id, assessmentId: id, expectedVersion: noted.assessment.version, actor,
+        referralId: referral.id, assessmentId: id, expectedVersion: current.version, actor,
         fields: [], context: {}, defaults: {},
       }), /Use Add note/);
       phase = "new revision after send";

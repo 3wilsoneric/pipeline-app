@@ -14,7 +14,6 @@ import {
   listAssessments,
 } from "@/lib/assessment/assessment-store";
 import { pickAssessmentToolData, type AssessmentToolData } from "@/lib/assessment/assessment-tool-schema";
-import { completionMemoCorrectionField } from "@/lib/pipeline/completion-memo-fields";
 import type { AssessmentWorkflowStatus, PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
 import { getPipelineSql } from "@/lib/database/pipeline-database";
 import {
@@ -142,7 +141,7 @@ type LockedReviewReferralRow = {
 
 type ReviewChangeFailure = Exclude<WorkflowRecordMutation<AssessmentReview>, { ok: true }>;
 
-export async function getReferralWorkflowSnapshot(referralId: number, options: { includeMemoCorrections?: boolean } = {}): Promise<ReferralWorkflowSnapshot | null> {
+export async function getReferralWorkflowSnapshot(referralId: number): Promise<ReferralWorkflowSnapshot | null> {
   const referral = await getReferral(referralId);
   if (!referral) return null;
 
@@ -174,7 +173,6 @@ export async function getReferralWorkflowSnapshot(referralId: number, options: {
         assessmentDate: latestAssessment?.assessment_date ?? referral.assessment?.scheduledDate ?? null,
         assessmentStatus: latestAssessment?.status ?? null,
         assessmentData: latestAssessment ? pickAssessmentToolData(latestAssessment) : null,
-        assessmentMemoCorrectionFields: options.includeMemoCorrections ? memoCorrectionFields(latestAssessment?.addenda) : undefined,
         requirements: workItems,
         decision,
         recommendation,
@@ -239,11 +237,6 @@ export async function getReferralWorkflowSnapshot(referralId: number, options: {
   const review = reviews[0] ?? referral.assessmentReview ?? null;
 
   const latestAssessment = assessmentRows[0] ?? null;
-  const latestMemoAddenda = options.includeMemoCorrections && latestAssessment ? await sql<{ reason_code: string }[]>`
-    select reason_code from pipeline.assessment_addenda
-    where assessment_id = ${latestAssessment.assessment_id}
-      and reason_code like 'completion_review:%'
-  ` : [];
   return {
     referral,
     work_items: workItems,
@@ -264,7 +257,6 @@ export async function getReferralWorkflowSnapshot(referralId: number, options: {
       assessmentDate: latestAssessment?.assessment_date ? toIso(latestAssessment.assessment_date).slice(0, 10) : referral.assessment?.scheduledDate ?? null,
       assessmentStatus: latestAssessment?.status ?? null,
       assessmentData: latestAssessment ? pickAssessmentToolData(latestAssessment.data) : null,
-      assessmentMemoCorrectionFields: options.includeMemoCorrections ? memoCorrectionFields(latestMemoAddenda) : undefined,
       requirements: workItems,
       decision,
       recommendation,
@@ -273,12 +265,12 @@ export async function getReferralWorkflowSnapshot(referralId: number, options: {
   };
 }
 
-export async function getReferralWorkflowContexts(referrals: Referral[], options: { includeMemoCorrections?: boolean } = {}) {
+export async function getReferralWorkflowContexts(referrals: Referral[]) {
   const contexts = new Map<number, WorkflowContext>();
   if (referrals.length === 0) return contexts;
 
   if (getReferralStoreReadiness().mode !== "postgres") {
-    const snapshots = await Promise.all(referrals.map((referral) => getReferralWorkflowSnapshot(referral.id, options)));
+    const snapshots = await Promise.all(referrals.map((referral) => getReferralWorkflowSnapshot(referral.id)));
     for (const snapshot of snapshots) {
       if (snapshot) contexts.set(snapshot.referral.id, snapshot.context);
     }
@@ -335,19 +327,6 @@ export async function getReferralWorkflowContexts(referrals: Referral[], options
   const recommendationsByReferral = indexRowsByReferral(recommendationRows);
   const reviewsByReferral = indexRowsByReferral(reviewRows);
   const assessmentsByReferral = indexRowsByReferral(assessmentRows);
-  const latestAssessmentIds = assessmentRows.map((row) => row.assessment_id);
-  const memoAddenda = options.includeMemoCorrections && latestAssessmentIds.length ? await sql<{ assessment_id: string; reason_code: string }[]>`
-    select assessment_id, reason_code from pipeline.assessment_addenda
-    where assessment_id = any(${latestAssessmentIds}::text[])
-      and reason_code like 'completion_review:%'
-  ` : [];
-  const memoAddendaByAssessment = new Map<string, { reason_code: string }[]>();
-  for (const addendum of memoAddenda) {
-    const existing = memoAddendaByAssessment.get(addendum.assessment_id) ?? [];
-    existing.push(addendum);
-    memoAddendaByAssessment.set(addendum.assessment_id, existing);
-  }
-
   for (const referral of referrals) {
     const workItems = (workItemsByReferral.get(referral.id) ?? []).map(mapWorkItem);
     const decisionRow = decisionsByReferral.get(referral.id);
@@ -367,9 +346,6 @@ export async function getReferralWorkflowContexts(referrals: Referral[], options
       assessmentDate: assessmentRow?.assessment_date ? toIso(assessmentRow.assessment_date).slice(0, 10) : referral.assessment?.scheduledDate ?? null,
       assessmentStatus: assessmentRow?.status ?? null,
       assessmentData: assessmentRow ? pickAssessmentToolData(assessmentRow.data) : null,
-      assessmentMemoCorrectionFields: options.includeMemoCorrections
-        ? memoCorrectionFields(assessmentRow ? memoAddendaByAssessment.get(assessmentRow.assessment_id) : undefined)
-        : undefined,
       requirements: workItems.length > 0 ? workItems : referral.requirements ?? [],
       decision: decisionRow ? mapDecision(decisionRow) : referral.admissionDecision ?? legacyDecision(referral),
       recommendation: recommendationRow
@@ -379,10 +355,6 @@ export async function getReferralWorkflowContexts(referrals: Referral[], options
     });
   }
   return contexts;
-}
-
-function memoCorrectionFields(addenda: readonly { reason_code: string }[] | undefined) {
-  return [...new Set((addenda ?? []).map((addendum) => completionMemoCorrectionField(addendum.reason_code)).filter((field): field is NonNullable<typeof field> => field !== null))];
 }
 
 function groupRowsByReferral<T extends { referral_id: number | string }>(rows: T[]) {

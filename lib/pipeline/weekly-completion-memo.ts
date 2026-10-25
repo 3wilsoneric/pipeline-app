@@ -3,7 +3,6 @@ import { getAssessmentCompletionSummary } from "@/lib/assessment/assessment-comp
 import { assessmentInterviewFieldLabel, assessmentInterviewQuestions, isAssessmentQuestionVisible } from "@/lib/assessment/assessment-interview-schema";
 import { assessmentSectionForField } from "@/lib/assessment/assessment-sections";
 import type { AssessmentToolData, AssessmentToolFieldKey } from "@/lib/assessment/assessment-tool-schema";
-import { completionMemoAssessmentField } from "./completion-memo-fields";
 import { isAssignedToUser } from "./referral-ownership";
 import { getWorkspaceState, isRequirementGateActive, isRequirementStatusResolved } from "./workspace-state";
 import type { OperationsWorkItem } from "./operations-types";
@@ -92,8 +91,7 @@ export function buildWeeklyCompletionMemo({
         action: "Open chart", location: { view: "intake", intakeField: field },
       });
     }
-    if (context.assessmentData) tasks.push(...assessmentTasks(context.assessmentData, state.assessment === "signed", referral)
-      .filter((task) => !context.assessmentMemoCorrectionFields?.includes(completionMemoAssessmentField(task.id) ?? "")));
+    if (context.assessmentData) tasks.push(...assessmentTasks(context.assessmentData, state.assessment === "signed", referral));
     else if (context.assessmentId && state.assessment === "signed") tasks.push({
       id: "assessment:unavailable", group: "assessment", label: "Review the unavailable assessment answers",
       detail: "A signed assessment is referenced, but its answers were not available to this memo. Open the record before treating it as complete.",
@@ -195,20 +193,20 @@ function assessmentTasks(data: AssessmentToolData, signed: boolean, referral: Re
     tasks.push({
       id: `assessment:${rule.key}`, group: "assessment", label: `${signed ? "Review missing" : field === "assessor" ? "Assign" : "Answer"} ${rule.label.toLowerCase()}`,
       detail: rule.key.startsWith("unable:")
-        ? `The answer is ‘Unable to assess,’ but the required explanation is blank.${signed ? " Use a correction note if the signed record needs clarification." : ""}`
-        : `This required assessment answer is blank.${signed ? " The signed record needs review and a documented correction." : ""}`,
+        ? `The answer is ‘Unable to assess,’ but the required explanation is blank.${signed ? " Add the explanation to the assessment in this review." : ""}`
+        : `This required assessment answer is blank.${signed ? " Add the answer to the assessment in this review." : ""}`,
       action: signed || field === "assessor" ? "Review assessment" : "Open question", location: assessmentLocation(field, signed),
     });
   }
   if (!hasMemoValue(data.prior_setting_bucket ?? undefined)) tasks.push({
     id: "assessment:prior_setting_bucket", group: "assessment", label: `${signed ? "Review missing" : "Record the"} most recent setting type`,
-    detail: `The assessment does not identify the setting the client came from for this referral.${signed ? " Document any correction to the signed record." : ""}`,
+    detail: `The assessment does not identify the setting the client came from for this referral.${signed ? " Add it to the assessment in this review." : ""}`,
     action: signed ? "Review assessment" : "Open question", location: assessmentLocation("prior_setting_bucket", signed),
   });
   if (data.prior_setting_bucket && !["independent_family_home", "unhoused", "other"].includes(data.prior_setting_bucket)
     && !hasMemoValue(data.referring_facility ?? undefined)) tasks.push({
     id: "assessment:referring_facility", group: "assessment", label: `${signed ? "Review missing" : "Record the"} most recent facility or program`,
-    detail: `A facility-based setting is selected, but its name is not recorded in the assessment.${signed ? " Document any correction to the signed record." : ""}`,
+    detail: `A facility-based setting is selected, but its name is not recorded in the assessment.${signed ? " Add it to the assessment in this review." : ""}`,
     action: signed ? "Review assessment" : "Open question", location: assessmentLocation("referring_facility", signed),
   });
   if (comparableDate(referral.dob) && comparableDate(data.date_of_birth)
@@ -223,7 +221,7 @@ function assessmentTasks(data: AssessmentToolData, signed: boolean, referral: Re
     if (typeof answer !== "string" || !weakAnswerPlaceholders.has(answer.trim().toLowerCase())) continue;
     tasks.push({
       id: `review:${question.field}`, group: "review", label: `Review ${assessmentInterviewFieldLabel(question.field).toLowerCase()}`,
-      detail: `The answer reads “${answer.trim()},” which points elsewhere or leaves the question unresolved. ${signed ? "Review the source and document any correction to the signed record." : "Add the specific answer or explain what is unknown."}`,
+      detail: `The answer reads “${answer.trim()},” which points elsewhere or leaves the question unresolved. ${signed ? "Review the source and add the specific answer to the assessment." : "Add the specific answer or explain what is unknown."}`,
       action: signed ? "Review assessment" : "Open question", location: assessmentLocation(question.field, signed),
     });
   }

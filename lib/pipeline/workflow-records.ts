@@ -27,8 +27,6 @@ export type WorkflowContext = {
   assessmentDate?: string | null;
   assessmentStatus?: AssessmentWorkflowStatus | null;
   assessmentData?: AssessmentToolData | null;
-  /** Field-specific completion notes on the latest finalized assessment. */
-  assessmentMemoCorrectionFields?: string[];
   decision?: AdmissionDecision | null;
   recommendation?: AssessmentRecommendation | null;
   review?: AssessmentReview | null;

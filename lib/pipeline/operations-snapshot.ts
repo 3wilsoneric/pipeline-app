@@ -317,7 +317,7 @@ export async function getMyQueueSnapshot(user: PipelineUser): Promise<MyQueueSna
 }
 
 export async function getHomeWorkflowSummary(user: PipelineUser): Promise<HomeWorkflowSummary> {
-  const allWork = await loadOperationalWork(user, { includeMemoCorrections: true });
+  const allWork = await loadOperationalWork(user);
   const operational = homeWorkForViewer(allWork, user);
   const mine = new Set(operational.work.map((item) => item.referral_id));
   const requirementsByReferral = groupRequirementsByReferral(allWork.openRequirements);
@@ -618,7 +618,7 @@ async function buildSupervisorExceptionSnapshot(
   };
 }
 
-async function loadOperationalWork(user?: PipelineUser, options: { includeMemoCorrections?: boolean } = {}) {
+async function loadOperationalWork(user?: PipelineUser) {
   const referralReadiness = getReferralStoreReadiness();
   let referrals: Referral[] = [];
   let source: OperationsSnapshot["source"] = "unavailable";
@@ -629,7 +629,7 @@ async function loadOperationalWork(user?: PipelineUser, options: { includeMemoCo
   }
 
   const now = new Date();
-  const workflowContexts = await getReferralWorkflowContexts(referrals, options);
+  const workflowContexts = await getReferralWorkflowContexts(referrals);
   const progressByReferral = new Map(referrals.map((referral) => [
     referral.id,
     getReferralProgress(referral, workflowContexts.get(referral.id)),

@@ -9,6 +9,8 @@ import type { TransactionSql } from "postgres";
 
 import { getPipelineDatabaseReadiness, getPipelineSql } from "@/lib/database/pipeline-database";
 import { normalizeClientName } from "@/lib/pipeline/client-identity-presentation.mjs";
+import { completionMemoAddendumReason } from "@/lib/pipeline/completion-memo-fields";
+import { assessmentFieldOwner } from "./assessment-field-ownership";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import {
   resolveDurableStoreMode,
@@ -1339,6 +1341,16 @@ async function patchPostgresAssessment(
       return latest ? { ok: false, conflict: true, assessment: latest } : null;
     }
     await insertAssessmentProvenance(tx, assessmentId, candidate.field_provenance, current.field_provenance);
+    if (prepared.supplement) {
+      await tx`
+        insert into pipeline.assessment_addenda (
+          addendum_id, assessment_id, note, reason_code, authored_by, authored_by_name, created_at
+        ) values (
+          ${prepared.supplement.addendum_id}::uuid, ${assessmentId}, ${prepared.supplement.note},
+          ${prepared.supplement.reason_code}, ${actor.id}, ${actor.name}, ${prepared.supplement.created_at}::timestamptz
+        )
+      `;
+    }
     await writeAssessmentAudit(tx, candidate, prepared.action, actor, prepared.changedFields);
     await syncPostgresReferralWorkflow(tx, candidate, actor, prepared.action);
     if (options.mutationId) {
@@ -1425,7 +1437,7 @@ function prepareAssessmentPatch(
 ) {
   assertAssessmentWorkbookRestoreAllowed(current, patch);
   if (isAssessmentFinalized(current) && (
-    patch.data !== undefined
+    (patch.data !== undefined && !patch.post_send_review)
     || patch.review_extraction !== undefined
     || patch.status !== undefined
     || patch.assigned_assessor !== undefined
@@ -1436,11 +1448,27 @@ function prepareAssessmentPatch(
   )) {
     throw new Error("This assessment was sent. Use Add note for later information.");
   }
+  if (patch.post_send_review && !isAssessmentFinalized(current)) {
+    throw new Error("Post-send review is available only after Meet the Client was sent.");
+  }
+  if (patch.post_send_review && (
+    Object.keys(patch).some((key) => key !== "data" && key !== "post_send_review")
+    || !patch.data
+    || Object.keys(patch.data).some((key) => key !== patch.post_send_review?.field && key !== "unable_to_assess_reasons")
+  )) {
+    throw new Error("Post-send review may add only one assessment answer.");
+  }
   if (patch.mark_started && current.status === "complete") {
     throw new Error("A completed assessment cannot be started again.");
   }
   const currentData = pickAssessmentToolData(current);
   const requestedData = { ...(patch.data ?? {}) };
+  if (patch.post_send_review && requestedData.unable_to_assess_reasons) {
+    requestedData.unable_to_assess_reasons = {
+      ...current.unable_to_assess_reasons,
+      ...requestedData.unable_to_assess_reasons,
+    };
+  }
   const now = new Date().toISOString();
   initializeInterviewDate(current, requestedData, patch.mark_started, now);
   if (requestedData.resident_name !== undefined && requestedData.resident_name !== current.resident_name) {
@@ -1454,6 +1482,9 @@ function prepareAssessmentPatch(
     }
   }
   const nextData = pickAssessmentToolData({ ...currentData, ...requestedData });
+  const supplement = patch.post_send_review
+    ? preparePostSendSupplement(current, currentData, nextData, patch.post_send_review, patch.data ?? {}, actor, now)
+    : null;
   if (patch.assigned_assessor !== undefined) {
     nextData.assessor = patch.assigned_assessor?.name ?? null;
   }
@@ -1530,12 +1561,64 @@ function prepareAssessmentPatch(
     updated_by: actor,
     field_provenance: fieldProvenance,
     audit_events: current.audit_events,
+    addenda: supplement ? [...(current.addenda ?? []), supplement] : current.addenda,
   };
   return {
     candidate,
     completesAssessment: nextStatus === "complete" && current.status !== "complete",
     changedFields: Array.from(new Set([...changedFields, ...reviewedFields])),
     action: assessmentWorkbookPatchAuditAction(current, patch, nextStatus, reviewedFields.length),
+    supplement,
+  };
+}
+
+const unresolvedReviewAnswers = new Set(["tbd", "pending", "see packet", "see referral packet", "same as above", "?", "n/a", "not reported"]);
+
+function preparePostSendSupplement(
+  current: PipelineAssessmentRecord,
+  before: AssessmentToolData,
+  after: AssessmentToolData,
+  review: NonNullable<AssessmentPatchInput["post_send_review"]>,
+  data: Partial<AssessmentToolData>,
+  actor: AssessmentActor,
+  now: string,
+): AssessmentAddendum {
+  const field = review.field;
+  const definition = assessmentToolFieldDefinitions.find((item) => item.key === field);
+  if (!definition || assessmentFieldOwner(field) === "system_provenance"
+    || !review.source.trim() || review.source.length > 2000
+    || Object.keys(data).some((key) => key !== field && key !== "unable_to_assess_reasons")
+    || !Object.hasOwn(data, field) && !Object.hasOwn(data, "unable_to_assess_reasons")
+    || data.unable_to_assess_reasons && Object.keys(data.unable_to_assess_reasons).some((key) => key !== field)) {
+    throw new Error("Post-send review must add one assessment answer with its source.");
+  }
+  const prior = before[field];
+  const priorReason = before.unable_to_assess_reasons?.[field]?.trim() ?? "";
+  const gap = !hasValue(prior)
+    || typeof prior === "string" && unresolvedReviewAnswers.has(prior.trim().toLowerCase())
+    || prior === "unable_to_assess" && !priorReason;
+  if (!gap) throw new Error("This answer is already recorded. Review the full assessment before changing it.");
+  const next = after[field];
+  const nextReason = after.unable_to_assess_reasons?.[field]?.trim() ?? "";
+  const changed = !sameValue(prior, next) || priorReason !== nextReason;
+  if (!changed || !hasValue(next)
+    || typeof next === "string" && unresolvedReviewAnswers.has(next.trim().toLowerCase())
+    || next === "unable_to_assess" && !nextReason) {
+    throw new Error("Enter a new answer or a reason for Unable to assess.");
+  }
+  const priorText = JSON.stringify(prior ?? null);
+  const nextText = JSON.stringify(next);
+  const note = [
+    `Assessment answer added after Meet the Client was sent: ${definition.label}`,
+    `Prior answer: ${priorText}${priorReason ? ` (reason: ${priorReason})` : ""}`,
+    `Added answer: ${nextText}${nextReason ? ` (reason: ${nextReason})` : ""}`,
+    `Source: ${review.source.trim()}`,
+  ].join("\n");
+  if (note.length > 20000) throw new Error("The assessment addition is too long to record with its history.");
+  return {
+    addendum_id: randomUUID(), assessment_id: current.assessment_id, version: 1,
+    note, reason_code: completionMemoAddendumReason(field),
+    authored_by: actor.id, authored_by_name: actor.name, created_at: now,
   };
 }
 
@@ -1692,6 +1775,7 @@ function assessmentPatchAuditAction(
   nextStatus: PipelineAssessmentRecord["status"],
   acceptedFieldCount: number,
 ): AssessmentAuditAction {
+  if (patch.post_send_review) return "assessment_supplemented";
   if (patch.signer) return "assessment_signed";
   if (patch.mark_started) return "assessment_started";
   if (patch.schedule) return assessmentScheduleAuditAction(patch.schedule);
@@ -2337,6 +2421,7 @@ function isAssessmentAuditAction(value: string): value is AssessmentAuditAction 
     "assessment_interview_completed",
     "assessment_started",
     "assessment_signed",
+    "assessment_supplemented",
     "assessment_revision_created",
     "assessment_addendum_added",
   ].includes(value);

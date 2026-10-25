@@ -15,8 +15,3 @@ export function completionMemoAssessmentField(taskId: string): AssessmentToolFie
 export function completionMemoAddendumReason(field: AssessmentToolFieldKey) {
   return `${memoAddendumPrefix}${field}`;
 }
-
-export function completionMemoCorrectionField(reasonCode: string): AssessmentToolFieldKey | null {
-  const key = reasonCode.startsWith(memoAddendumPrefix) ? reasonCode.slice(memoAddendumPrefix.length) : "";
-  return assessmentFieldKeys.has(key) ? key as AssessmentToolFieldKey : null;
-}

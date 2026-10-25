@@ -108,28 +108,30 @@ test("an assessor can save one missing answer without opening the full assessmen
   await expect(dialog.getByText("Answer saved to the assessment with its change history.")).toBeVisible();
 });
 
-test("a sent assessment receives an attributed correction without replacing its original answer", async ({ page }) => {
+test("a sent assessment gains the structured answer without another Meet the Client send", async ({ page }) => {
   await page.clock.setFixedTime(new Date(generatedAt));
   await page.route("**/api/operations/home", (route) => route.fulfill({ json: home }));
-  await page.route("**/api/assessments/asm_memo_23", (route) => route.fulfill({ json: { assessment: { assessment_id: "asm_memo_23", version: 9, current_symptoms: null, unable_to_assess_reasons: {}, signed_at: generatedAt, meet_client_sent_at: generatedAt } } }));
-  let posted = false;
-  await page.route("**/api/assessments/asm_memo_23/addenda", async (route) => {
-    const body = route.request().postDataJSON();
-    expect(body.if_match).toBe(9);
-    expect(body.reason_code).toBe("completion_review:current_symptoms");
-    expect(body.note).toContain("Answer: Reported anxiety during interview.");
-    expect(body.note).toContain("Source or reason: Interview notes");
-    posted = true;
-    await route.fulfill({ status: 201, json: { assessment: { assessment_id: "asm_memo_23", version: 10, current_symptoms: null, unable_to_assess_reasons: {}, signed_at: generatedAt, meet_client_sent_at: generatedAt } } });
+  let saved = false;
+  await page.route("**/api/assessments/asm_memo_23", async (route) => {
+    if (route.request().method() === "PATCH") {
+      const body = route.request().postDataJSON();
+      expect(body.if_match).toBe(9);
+      expect(body.patch.data.current_symptoms).toBe("Reported anxiety during interview.");
+      expect(body.patch.post_send_review).toEqual({ field: "current_symptoms", source: "Interview notes" });
+      saved = true;
+      await route.fulfill({ json: { assessment: { assessment_id: "asm_memo_23", version: 10, current_symptoms: body.patch.data.current_symptoms, unable_to_assess_reasons: {}, signed_at: generatedAt, meet_client_sent_at: generatedAt } } });
+    } else {
+      await route.fulfill({ json: { assessment: { assessment_id: "asm_memo_23", version: 9, current_symptoms: null, unable_to_assess_reasons: {}, signed_at: generatedAt, meet_client_sent_at: generatedAt } } });
+    }
   });
   await page.goto("/");
   const dialog = page.getByRole("dialog", { name: "Completion memo" });
   await dialog.getByLabel("Choose item to review").selectOption("assessment:field:current_symptoms");
   await dialog.getByRole("textbox", { name: "Current symptoms" }).fill("Reported anxiety during interview.");
-  await dialog.getByRole("textbox", { name: /Where did this answer come from/ }).fill("Interview notes");
-  await dialog.getByRole("button", { name: "Add correction" }).click();
-  await expect(dialog.getByText(/Correction added to the signed assessment/)).toBeVisible();
-  expect(posted).toBe(true);
+  await dialog.getByRole("textbox", { name: /Where did this added answer come from/ }).fill("Interview notes");
+  await dialog.getByRole("button", { name: "Add to assessment" }).click();
+  await expect(dialog.getByText(/Answer added to the assessment/)).toBeVisible();
+  expect(saved).toBe(true);
 });
 
 test("a coordinator can filter the combined queue by assessor", async ({ page }) => {
