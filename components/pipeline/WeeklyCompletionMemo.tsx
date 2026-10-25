@@ -21,19 +21,6 @@ const taskGroups: { key: CompletionMemoTask["group"]; label: string }[] = [
   { key: "follow_through", label: "Placement follow-through" },
 ];
 
-function taskInstruction(task: CompletionMemoTask, client: CompletionMemoClient) {
-  if (task.id === "assessment:signature") return "Open the full assessment, review the answers, then sign it there.";
-  if (task.group === "chart") return "Check the referral source, enter the confirmed value below, and save it to the client chart.";
-  if (task.group === "review") return "Compare the recorded answer with its source. Correct the specific value here when you know it; leave it open if you do not.";
-  if (task.group === "assessment") return client.assessment_signed
-    ? "Add the missing answer to the signed assessment with its source. The previously sent Meet the Client will stay as sent."
-    : "Enter the answer here. It saves to the working assessment and remains available for the final review.";
-  if (task.id === "handoff") return "Open the handoff to check recipients, message, and files. Review the existing send history before sending anything.";
-  return task.location.view === "files"
-    ? "Check the existing files first. Attach or identify the right document in the client record; do not upload a duplicate."
-    : "Open follow-through to update the existing checklist or handoff. This review page does not send an email.";
-}
-
 export default function WeeklyCompletionMemoCard({ memo, viewerId, onOpenReview }: {
   memo: WeeklyCompletionMemo;
   viewerId: string;
@@ -147,13 +134,12 @@ export function WeeklyCompletionMemoPage({ onBack, onOpenPacket }: {
       <button type="button" onClick={() => { if (discardDraft()) onBack(); }} className={styles.back}><ArrowLeft size={16} aria-hidden="true" />Pipeline Home</button>
       <header className={styles.hero}>
         <div>
-          <p className={styles.eyebrow}>Weekly completion memo · Week of {weekLabel}</p>
+          <p className={styles.eyebrow}>Week of {weekLabel}</p>
           <h1>{memo?.scope === "team" ? "Team follow-up" : "My follow-up"}</h1>
-          <p>Review unfinished chart, assessment, and placement work for accepted or admitted clients.</p>
         </div>
         {memo ? <div className={styles.heroAside} aria-label={`${memo.clients.length} clients with ${memo.task_count} open items`}>
-          <strong>{memo.clients.length}</strong><span>{memo.clients.length === 1 ? "client" : "clients"} to review</span>
-          <small>{memo.task_count} open items</small>
+          <strong>{memo.clients.length}</strong><span>{memo.clients.length === 1 ? "client" : "clients"}</span>
+          <strong>{memo.task_count}</strong><span>open items</span>
         </div> : null}
       </header>
       {error ? <div role="alert" className="mt-5 rounded-input border border-red-300 bg-red-50 p-4 text-meta text-red-800">{error} <button type="button" onClick={() => void loadMemo()} className="font-bold underline">Retry</button></div> : null}
@@ -163,7 +149,6 @@ export function WeeklyCompletionMemoPage({ onBack, onOpenPacket }: {
         <nav aria-label="Clients in completion memo" className={styles.clients}>
           <div className={styles.clientsHeader}>
             <h2>Clients</h2>
-            <p>Choose a record to review</p>
             {memo.scope === "team" ? <label>Assessor
               <select aria-label="Filter completion memo by assessor" value={ownerFilter} onChange={(event) => { if (discardDraft()) { setOwnerFilter(event.target.value); setSelectedId(null); setSelectedTaskId(null); } }}>
                 <option value="">All assessors</option>
@@ -177,14 +162,15 @@ export function WeeklyCompletionMemoPage({ onBack, onOpenPacket }: {
             aria-controls={selected?.referral_id === client.referral_id ? "completion-client-detail" : undefined}
             data-status={client.status}
             className={styles.client}>
-            <span className={styles.clientTop}><strong>{client.client_name}</strong><span className={styles.clientCount}>{client.tasks.length}<small> items</small></span></span>
-            <span className={styles.clientMeta}>{client.community}{memo.scope === "team" ? ` · ${client.owner}` : ""} · {client.assessment_signed ? "Assessment signed" : "Signature needed"}</span>
-            <span className={styles.clientStatus}>{client.status === "admitted" ? "Admitted" : "Accepted"}<span>{selected?.referral_id === client.referral_id ? "Close" : "Review"}<ChevronDown size={17} aria-hidden="true" /></span></span>
+            <span className={styles.clientIdentity}><strong>{client.client_name}</strong><span>{client.community}{memo.scope === "team" ? ` · ${client.owner}` : ""}</span></span>
+            <span className={styles.clientStatus}>{client.status === "admitted" ? "Admitted" : "Accepted"}{!client.assessment_signed ? " · Signature needed" : ""}</span>
+            <span className={styles.clientCount}>{client.tasks.length}<small> {client.tasks.length === 1 ? "item" : "items"}</small></span>
+            <ChevronDown size={19} className={styles.clientChevron} aria-hidden="true" />
           </button>
           {selected?.referral_id === client.referral_id && task ? <div id="completion-client-detail" className={styles.workArea}>
           <div className={styles.workColumns}>
             <section aria-label={`${selected.client_name} issues`} className={styles.issues}>
-              <div className={styles.issuesHeader}><h3>What needs attention</h3><span>{selected.tasks.length} items</span></div>
+              <div className={styles.issuesHeader}><h3>To review</h3><span>{selected.tasks.length}</span></div>
               {taskGroups.map(({ key, label }) => {
                 const tasks = selected.tasks.filter((item) => item.group === key);
                 return tasks.length ? <div key={key} className={styles.group} data-group={key}>
@@ -198,10 +184,9 @@ export function WeeklyCompletionMemoPage({ onBack, onOpenPacket }: {
               })}
             </section>
             <section aria-label={`${task.label} review`} className={styles.review}>
-              <p className={styles.eyebrow}>Selected item · {taskGroups.find((group) => group.key === task.group)?.label}</p>
+              <p className={styles.eyebrow}>{taskGroups.find((group) => group.key === task.group)?.label}</p>
               <h3>{task.label}</h3>
-              <div className={styles.detail}><strong>What needs attention</strong><p>{task.detail}</p></div>
-              <div className={styles.instruction} data-group={task.group}><strong>What to do</strong><p>{taskInstruction(task, selected)}</p></div>
+              <p className={styles.detail}>{task.detail}</p>
               <div className={styles.form}>
                 <CompletionMemoReviewForm key={`${selected.referral_id}:${task.id}`} client={selected} task={task} onSaved={loadMemo} onOpenTask={() => openTask(selected, task.location)} onDirtyChange={setDirty} />
               </div>
