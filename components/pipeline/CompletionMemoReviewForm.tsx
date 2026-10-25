@@ -166,7 +166,7 @@ export default function CompletionMemoReviewForm({ client, task, onSaved, onOpen
       {finalized && assessmentField && assessmentFieldOwner(assessmentField) === "system_provenance"
         ? <p className="rounded-input border border-amber-300 bg-amber-50 p-3 text-meta text-ink">This field comes from the assessment record. Open the full record to review it.</p>
         : <AssessmentField
-        definition={definition} question={question} value={answer}
+        idPrefix="completion-review" definition={definition} question={question} value={answer}
         unableReason={unableReason} required pending={false} disabled={busy}
         reviewDisabled onChange={(value) => { setAnswer(value); setSaved(""); onDirtyChange(true); }} onUnableReasonChange={(value) => { setUnableReason(value); setSaved(""); onDirtyChange(true); }}
         onReview={() => undefined}

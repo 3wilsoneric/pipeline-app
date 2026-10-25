@@ -17,6 +17,7 @@ import {
   type AssessmentToolSection,
 } from "@/lib/assessment/assessment-tool-schema";
 import { isAssessmentFinalized, type PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
+import { assessmentFieldOwner } from "@/lib/assessment/assessment-field-ownership";
 import { AssessmentField } from "@/components/pipeline/AssessmentInterviewFields";
 import { latestPendingProvenance } from "@/components/pipeline/assessment-workspace-state";
 import {
@@ -267,7 +268,7 @@ export function WorkingAssessmentField({ question, data, assessment, required, p
       <div className={styles.completionHintBody}>
         {followUps.map((task) => <div key={task.id}>
           <strong>{task.label}</strong><p>{task.detail}</p>
-          {assessment.meet_client_sent_at && onCompletionTask ? <button type="button" onClick={() => onCompletionTask(task)}>Add answer</button> : null}
+          {assessment.meet_client_sent_at && onCompletionTask && assessmentFieldOwner(question.field) !== "system_provenance" ? <button type="button" onClick={() => onCompletionTask(task)}>Add answer</button> : null}
         </div>)}
       </div>
     </details> : null}

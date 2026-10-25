@@ -45,6 +45,7 @@ import {
 } from "@/lib/assessment/assessment-tool-schema";
 import { usePipelineShell } from "@/components/pipeline/pipeline-shell-context";
 import {
+  assessmentInterviewQuestions,
   assessmentInterviewFieldLabel,
   assessmentInterviewSections,
   getAssessmentInterviewCoverage,
@@ -53,7 +54,8 @@ import {
   getRequiredAssessmentInterviewQuestions,
   setAssessmentUnableReason,
 } from "@/lib/assessment/assessment-interview-schema";
-import { normalizeAssessmentSectionVersions } from "@/lib/assessment/assessment-sections";
+import { assessmentSectionForField, normalizeAssessmentSectionVersions } from "@/lib/assessment/assessment-sections";
+import { assessmentFieldOwner } from "@/lib/assessment/assessment-field-ownership";
 import type { EditingPresence } from "@/lib/pipeline/editing-presence";
 import { startEditingPresenceSession } from "./editing-presence-session";
 import type { AssessmentDraftWorkbookSources, PipelineAssessmentDraft } from "@/lib/pipeline/user-workspace-state-types";
@@ -165,6 +167,7 @@ type AssessmentWorkspaceProps = {
   questionsOnScreen?: boolean;
   onEditReferralField?: (field: ReferralChartEditField) => void;
   onOpenChart?: () => void;
+  onOpenFiles?: () => void;
   onReviewAssessment?: () => void;
   onOpenAssessment?: () => void;
   beforeWorkspaceNavigationRef?: RefObject<((destination?: "email") => Promise<void>) | null>;
@@ -254,6 +257,19 @@ function resolveAssessmentAutoFocus(
 
 // undefined while loading; null when there is no saved position or the entry was explicit.
 type SavedAssessmentPosition = PipelineWorkspaceLocation | null | undefined;
+
+function nextCompletionQuestion(client: CompletionMemoClient | null, data: AssessmentToolData, pending: readonly AssessmentToolFieldKey[], after: AssessmentToolFieldKey, finalized: boolean): CompletionMemoTask | null {
+  const tasks = client?.tasks ?? [];
+  const current = tasks.findIndex((task) => completionMemoAssessmentField(task.id) === after);
+  for (let offset = 1; offset <= tasks.length; offset += 1) {
+    const task = tasks[(current + offset) % tasks.length];
+    const field = completionMemoAssessmentField(task.id);
+    if (field && (!finalized || assessmentFieldOwner(field) !== "system_provenance")
+      && assessmentInterviewQuestions.some((question) => question.field === field)
+      && openCompletionTasks([task], data, pending, field).length > 0) return task;
+  }
+  return null;
+}
 
 function hasExplicitAssessmentEntry(props: Pick<AssessmentWorkspaceProps, "initialSection" | "trainingAssessmentSection" | "initialQuestion" | "initialLocation" | "trainingAssessmentMode" | "referralId">) {
   return Boolean(props.initialSection || props.trainingAssessmentSection || props.initialQuestion || props.initialLocation?.assessmentQuestion || props.trainingAssessmentMode || !props.referralId);
@@ -363,6 +379,7 @@ export default function AssessmentWorkspace({
   questionsOnScreen = true,
   onEditReferralField,
   onOpenChart,
+  onOpenFiles,
   onReviewAssessment,
   onOpenAssessment,
   beforeWorkspaceNavigationRef,
@@ -387,6 +404,9 @@ export default function AssessmentWorkspace({
   const [completionTask, setCompletionTask] = useState<CompletionMemoTask | null>(null);
   const [completionDraftDirty, setCompletionDraftDirty] = useState(false);
   const [completionError, setCompletionError] = useState("");
+  const [completionNotice, setCompletionNotice] = useState("");
+  const completionAdvanceRef = useRef(0);
+  const completionSummaryRef = useRef<HTMLDetailsElement>(null);
   const [selectedId, setSelectedId] = useState("");
   const [draft, setDraft] = useState<AssessmentToolData>(createEmptyAssessmentToolData);
   const [activeSection, setActiveSection] = useState<AssessmentToolSection>(initialSection ?? trainingAssessmentSection ?? "identity");
@@ -476,7 +496,7 @@ export default function AssessmentWorkspace({
   const workbookSourcesRef = useRef<AssessmentDraftWorkbookSources>({});
   const focusedAssessmentIdRef = useRef("");
   const preparationRequestedRef = useRef(false);
-  const focusedFieldRef = useRef<{ field: AssessmentToolFieldKey; value: string; reason: string } | null>(null);
+  const focusedFieldRef = useRef<{ field: AssessmentToolFieldKey; value: string; reason: string; completionGap: boolean } | null>(null);
   const idleSaveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   // Interview notebook beside the questions; hidden or shown per person on this device.
   const [notebookOpen, setNotebookOpen] = useState(() => {
@@ -510,6 +530,7 @@ export default function AssessmentWorkspace({
       setCompletionClient(null);
       setCompletionTask(null);
       setCompletionError("");
+      setCompletionNotice("");
       return;
     }
     const controller = new AbortController();
@@ -574,7 +595,10 @@ export default function AssessmentWorkspace({
     const field = completionMemoAssessmentField(task.id);
     return !field || openCompletionTasks([task], draft, pendingFields, field).length > 0;
   }) ?? [];
-  const otherCompletionItems = openCompletionItems.filter((task) => !completionMemoAssessmentField(task.id));
+  const otherCompletionItems = openCompletionItems.filter((task) => {
+    const field = completionMemoAssessmentField(task.id);
+    return !field || (isAssessmentFinalized(selected) && assessmentFieldOwner(field) === "system_provenance");
+  });
   const sectionDefinition = assessmentInterviewSections.find((section) => section.key === activeSection) ?? assessmentInterviewSections[0];
   const requiredInterviewFields = useMemo(
     () => new Set(getRequiredAssessmentInterviewQuestions(draft).map((question) => question.field)),
@@ -750,15 +774,65 @@ export default function AssessmentWorkspace({
     setDirtySections(dirtySectionsRef.current);
     setRemoteChange(null);
   }, []);
+  const advanceSavedCompletionAnswer = async (field: AssessmentToolFieldKey, saved: PipelineAssessmentRecord, openNextAnswer: boolean) => {
+    let client: CompletionMemoClient | null;
+    try {
+      const briefing = await fetchPipelineJson<HomeBriefingSnapshot>("/api/operations/home", { cache: "no-store" });
+      client = briefing.workflow.completion_memo.clients.find((item) => item.referral_id === referralId) ?? null;
+    } catch {
+      setCompletionError("Answer saved, but follow-up items could not refresh. Reload this assessment before continuing.");
+      return;
+    }
+    const savedData = pickAssessmentToolData(saved);
+    const pending = getPendingFields(saved);
+    const stillOpen = (completionClient?.tasks ?? []).some((task) => completionMemoAssessmentField(task.id) === field
+      && openCompletionTasks([task], savedData, pending, field).length > 0);
+    setCompletionClient(client);
+    setCompletionError("");
+    if (stillOpen) return;
+    const next = nextCompletionQuestion(client, savedData, pending, field, isAssessmentFinalized(saved));
+    if (next) {
+      const activeField = document.activeElement instanceof HTMLElement
+        ? document.activeElement.closest("[data-working-field]")?.getAttribute("data-working-field") : null;
+      if (!openNextAnswer && activeField && activeField !== field) return;
+      const nextField = completionMemoAssessmentField(next.id)!;
+      setCompletionNotice("");
+      const nextSection = assessmentSectionForField(nextField);
+      if (nextSection) setActiveSection(nextSection);
+      setWorkingTarget({ field: nextField });
+      setNotebookView("prepare");
+      if (openNextAnswer && isAssessmentFinalized(saved) && canAddAddendum) setCompletionTask(next);
+      else setCompletionTask(null);
+      if (!openNextAnswer && !phoneLayout) requestAnimationFrame(() => requestAnimationFrame(() => {
+        if (selectedRef.current?.assessment_id !== saved.assessment_id) return;
+        const currentFocus = document.activeElement instanceof HTMLElement
+          ? document.activeElement.closest("[data-working-field]")?.getAttribute("data-working-field") : null;
+        if (currentFocus && currentFocus !== field && currentFocus !== nextField) return;
+        document.querySelector<HTMLElement>(`[data-working-field="${nextField}"] :is(input:not(:disabled), textarea:not(:disabled), select:not(:disabled), button:not(:disabled))`)?.focus({ preventScroll: true });
+      }));
+      return;
+    }
+    setCompletionTask(null);
+    const remaining = client?.tasks.filter((task) => {
+      const taskField = completionMemoAssessmentField(task.id);
+      return !taskField || openCompletionTasks([task], savedData, pending, taskField).length > 0;
+    }).length ?? 0;
+    setCompletionNotice(remaining ? `Assessment answers complete · ${remaining} other ${remaining === 1 ? "item" : "items"} to review` : "All follow-up items complete");
+    requestAnimationFrame(() => {
+      completionSummaryRef.current?.scrollIntoView({ block: "nearest" });
+      if (completionSummaryRef.current) completionSummaryRef.current.open = true;
+    });
+  };
   const refreshCompletionAnswer = async () => {
-    if (!selectedId || !referralId) return;
-    const [record, briefing] = await Promise.allSettled([
-      fetchPipelineJson<{ assessment: PipelineAssessmentRecord }>(`/api/assessments/${encodeURIComponent(selectedId)}`, { cache: "no-store" }),
-      fetchPipelineJson<HomeBriefingSnapshot>("/api/operations/home", { cache: "no-store" }),
-    ]);
-    if (record.status === "fulfilled") upsertAssessment(record.value.assessment);
-    if (briefing.status === "fulfilled") setCompletionClient(briefing.value.workflow.completion_memo.clients.find((item) => item.referral_id === referralId) ?? null);
-    setCompletionError(record.status === "rejected" || briefing.status === "rejected" ? "Answer saved. Refresh this assessment to update the follow-up markers." : "");
+    if (!selectedId || !referralId || !completionTask) return;
+    try {
+      const record = await fetchPipelineJson<{ assessment: PipelineAssessmentRecord }>(`/api/assessments/${encodeURIComponent(selectedId)}`, { cache: "no-store" });
+      upsertAssessment(record.assessment);
+      const field = completionMemoAssessmentField(completionTask.id);
+      if (field) await advanceSavedCompletionAnswer(field, record.assessment, true);
+    } catch {
+      setCompletionError("Answer saved. Reload this assessment to update the follow-up markers.");
+    }
   };
   const closeCompletionTask = () => {
     if (completionDraftDirty && !window.confirm("Discard this unsaved answer?")) return;
@@ -1785,6 +1859,17 @@ export default function AssessmentWorkspace({
   };
 
   const closeAssessment = (onClosed?: () => void | Promise<void>) => saveAndCloseAssessment(onClosed).catch(() => undefined);
+  const openOtherCompletionItem = (task: CompletionMemoTask) => {
+    const location = task.location;
+    const destination = location.view === "intake" && location.intakeField && onEditReferralField
+      ? () => onEditReferralField(location.intakeField as ReferralChartEditField)
+      : location.view === "files" ? onOpenFiles
+      : location.view === "email" ? onOpenFinish
+      : location.view === "workflow" ? onContinueToWorkflow
+      : location.view === "assessment" ? onReviewAssessment
+      : onOpenChart;
+    if (destination) void closeAssessment(destination);
+  };
   // Returning from Chart, Files or Activity reopens the question being worked, not the section top.
   const retainWorkingQuestion = () => {
     if (phoneQuestionRef.current && (phoneInterview || questionSectionRef.current === activeSection)) setWorkingTarget({ field: phoneQuestionRef.current });
@@ -2179,7 +2264,10 @@ export default function AssessmentWorkspace({
       questionSectionRef.current = activeSection;
     }
     if (focusedFieldRef.current?.field === field) return;
-    focusedFieldRef.current = { field, value: JSON.stringify(draftRef.current[field]), reason: getAssessmentUnableReason(draftRef.current, field) };
+    focusedFieldRef.current = {
+      field, value: JSON.stringify(draftRef.current[field]), reason: getAssessmentUnableReason(draftRef.current, field),
+      completionGap: openCompletionTasks(completionTasksByField.get(field), draftRef.current, getPendingFields(selectedRef.current), field).length > 0,
+    };
   };
 
   const commitAnswer = (field: AssessmentToolFieldKey) => {
@@ -2187,6 +2275,9 @@ export default function AssessmentWorkspace({
     focusedFieldRef.current = null;
     if (!focus || focus.field !== field) return;
     const data = draftRef.current;
+    const shouldAdvance = focus.completionGap
+      && openCompletionTasks(completionTasksByField.get(field), data, getPendingFields(selectedRef.current), field).length === 0;
+    const assessmentId = selectedRef.current?.assessment_id;
     if (focus.value !== JSON.stringify(data[field])) {
       const section = assessmentToolFieldDefinitions.find((definition) => definition.key === field)!.section;
       void queueSectionSave(section, { [field]: structuredClone(data[field]) }).catch(() => undefined);
@@ -2194,6 +2285,19 @@ export default function AssessmentWorkspace({
     if (focus.reason !== getAssessmentUnableReason(data, field)) {
       // Reasons belong to the canonical QC section, not the question's section.
       void queueSectionSave("provenance_qc", { unable_to_assess_reasons: { ...data.unable_to_assess_reasons } }).catch(() => undefined);
+    }
+    if (shouldAdvance && assessmentId) {
+      const advance = ++completionAdvanceRef.current;
+      void saveQueueRef.current.then(async () => {
+        const saved = selectedRef.current;
+        if (advance !== completionAdvanceRef.current || saved?.assessment_id !== assessmentId
+          || new URLSearchParams(window.location.search).get("completionReview") !== String(referralId)) return;
+        const activeField = document.activeElement instanceof HTMLElement
+          ? document.activeElement.closest("[data-working-field]")?.getAttribute("data-working-field") : null;
+        if (activeField && activeField !== field) return;
+        if (openCompletionTasks(completionTasksByField.get(field), pickAssessmentToolData(saved), getPendingFields(saved), field).length > 0) return;
+        await advanceSavedCompletionAnswer(field, saved, false);
+      }).catch(() => undefined);
     }
   };
 
@@ -2657,11 +2761,12 @@ export default function AssessmentWorkspace({
           {renderRemoteChanges()}
 
           {!reviewingChart && completionError ? <p role="alert" className="mx-5 my-3 text-[13px] text-red-700">{completionError}</p> : null}
-          {!reviewingChart && completionClient && openCompletionItems.length > 0 ? <details className={workingStyles.completionSummary}>
+          {!reviewingChart && completionNotice ? <p role="status" className="mx-6 mt-3 text-[13px] font-semibold text-[#176b57]">{completionNotice}</p> : null}
+          {!reviewingChart && completionClient && openCompletionItems.length > 0 ? <details ref={completionSummaryRef} className={workingStyles.completionSummary}>
             <summary>Follow-up · {openCompletionItems.length} {openCompletionItems.length === 1 ? "item" : "items"}</summary>
             <div>
-              <p>Assessment questions needing attention are marked beside the answer.</p>
-              {otherCompletionItems.length ? <ul>{otherCompletionItems.map((task) => <li key={task.id}><strong>{task.label}</strong><span>{task.detail}</span></li>)}</ul> : null}
+              {openCompletionItems.length > otherCompletionItems.length ? <p>Assessment questions needing attention are marked beside the answer.</p> : null}
+              {otherCompletionItems.length ? <ul>{otherCompletionItems.map((task) => <li key={task.id}><strong>{task.label}</strong><span>{task.detail}</span><button type="button" onClick={() => openOtherCompletionItem(task)}>{task.action} →</button></li>)}</ul> : null}
             </div>
           </details> : null}
 
