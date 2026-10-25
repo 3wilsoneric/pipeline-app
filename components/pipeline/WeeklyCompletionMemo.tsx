@@ -6,9 +6,15 @@ import { ArrowRight, ClipboardCheck } from "lucide-react";
 import HomeDialog from "@/components/pipeline/HomeDialog";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import type { PipelineWorkspaceLocation } from "@/lib/pipeline/work-continuity";
-import type { WeeklyCompletionMemo } from "@/lib/pipeline/weekly-completion-memo";
+import type { CompletionMemoTask, WeeklyCompletionMemo } from "@/lib/pipeline/weekly-completion-memo";
 
 const seenPrefix = "pipeline:completion-memo:seen:v1";
+const taskGroups: { key: CompletionMemoTask["group"]; label: string }[] = [
+  { key: "chart", label: "Chart data" },
+  { key: "assessment", label: "Assessment and signature" },
+  { key: "review", label: "Answers to review" },
+  { key: "follow_through", label: "Placement follow-through" },
+];
 
 export default function WeeklyCompletionMemoCard({ memo, viewerId, onOpenPacket }: {
   memo: WeeklyCompletionMemo;
@@ -58,7 +64,7 @@ export default function WeeklyCompletionMemoCard({ memo, viewerId, onOpenPacket 
     {open ? <HomeDialog
       label="Completion memo"
       title="Completion memo"
-      description={`Open items for ${memo.scope === "team" ? "the team’s" : "your"} accepted and admitted clients. This list updates from the live record; checklist entries should be verified before requesting another file.`}
+      description={`Specific gaps for ${memo.scope === "team" ? "the team’s" : "your"} accepted and admitted clients. Missing fields, unanswered questions, and answers needing review appear separately. The list updates from the saved record.`}
       size="browser"
       onClose={close}
     >
@@ -73,7 +79,7 @@ export default function WeeklyCompletionMemoCard({ memo, viewerId, onOpenPacket 
           >
             <span className="min-w-0 flex-1">
               <span className="block truncate text-label font-bold text-ink">{client.client_name}</span>
-              <span className="block truncate text-[11px] text-ink-muted">{client.community} · {memo.scope === "team" ? `${client.owner} · ` : ""}{client.status === "admitted" ? "Admitted" : "Accepted"}</span>
+              <span className="block truncate text-[11px] text-ink-muted">{client.community} · {memo.scope === "team" ? `${client.owner} · ` : ""}{client.status === "admitted" ? "Admitted" : "Accepted"} · {client.assessment_signed ? "Assessment signed" : "Signature needed"}</span>
             </span>
             <span className="shrink-0 rounded-pill bg-paper px-2 py-0.5 text-[11px] font-bold text-link">{client.tasks.length}</span>
           </button>)}
@@ -82,17 +88,29 @@ export default function WeeklyCompletionMemoCard({ memo, viewerId, onOpenPacket 
           <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-link">{selected.status === "admitted" ? "Admitted" : "Accepted"} · {selected.community}</p>
           <h3 className="mt-1 text-title font-bold text-ink">{selected.client_name}</h3>
           {memo.scope === "team" ? <p className="mt-1 text-meta text-ink-muted">Assigned to {selected.owner}</p> : null}
-          <ol className="mt-5 divide-y divide-paper-rule border-y border-paper-rule">
-            {selected.tasks.map((task) => <li key={task.id} className="grid gap-3 py-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
-              <div>
-                <p className="text-value font-semibold text-ink">{task.label}</p>
-                <p className="mt-1 max-w-xl text-meta leading-5 text-ink-muted">{task.detail}</p>
-              </div>
-              <button type="button" onClick={() => openTask(selected, task.location)} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-input border border-stage-green-border bg-paper px-3 text-meta font-bold text-link hover:bg-primary-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus">
-                {task.action}<ArrowRight size={14} aria-hidden="true" />
-              </button>
-            </li>)}
-          </ol>
+          <p className="mt-1 text-meta text-ink-muted">Assessment {selected.assessment_signed ? "signed" : "not signed"}</p>
+          <div className="mt-5 space-y-6">
+            {taskGroups.map(({ key, label }) => {
+              const tasks = selected.tasks.filter((task) => task.group === key);
+              if (!tasks.length) return null;
+              return <section key={key} aria-label={label}>
+                <h4 className="flex items-baseline justify-between border-b border-paper-rule pb-2 text-label font-bold text-ink">
+                  {label}<span className="text-meta font-medium text-ink-muted">{tasks.length}</span>
+                </h4>
+                <ol className="divide-y divide-paper-rule">
+                  {tasks.map((task) => <li key={task.id} className="grid gap-3 py-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+                    <div>
+                      <p className="text-value font-semibold text-ink">{task.label}</p>
+                      <p className="mt-1 max-w-xl text-meta leading-5 text-ink-muted">{task.detail}</p>
+                    </div>
+                    <button type="button" onClick={() => openTask(selected, task.location)} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-input border border-stage-green-border bg-paper px-3 text-meta font-bold text-link hover:bg-primary-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus">
+                      {task.action}<ArrowRight size={14} aria-hidden="true" />
+                    </button>
+                  </li>)}
+                </ol>
+              </section>;
+            })}
+          </div>
         </section> : null}
       </div>}
     </HomeDialog> : null}

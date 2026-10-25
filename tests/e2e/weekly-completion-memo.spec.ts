@@ -6,16 +6,18 @@ const memo = {
   week_key: "2026-10-26",
   is_monday: true,
   scope: "personal",
-  task_count: 2,
+  task_count: 3,
   clients: [{
     referral_id: 23,
     client_name: "Synthetic Memo Client",
     community: "Turlock",
     owner: viewer.name,
     status: "accepted",
+    assessment_signed: false,
     tasks: [
-      { id: "requirement:med", label: "Find or add medication list", detail: "No file is linked to this item. Check Files for an existing copy before uploading another one.", action: "Open files", location: { view: "files" } },
-      { id: "profile:dob", label: "Record date of birth", detail: "This field is blank in the referral chart.", action: "Open chart", location: { view: "intake", intakeField: "dob" } },
+      { id: "requirement:med", group: "follow_through", label: "Find or add medication list", detail: "No file is linked to this item. Check Files for an existing copy before uploading another one.", action: "Open files", location: { view: "files" } },
+      { id: "profile:dob", group: "chart", label: "Record date of birth", detail: "This field is blank in the referral chart.", action: "Open chart", location: { view: "intake", intakeField: "dob" } },
+      { id: "assessment:field:current_symptoms", group: "assessment", label: "Answer current symptoms", detail: "This required assessment answer is blank.", action: "Open question", location: { view: "assessment", assessmentMode: "interview", assessmentSection: "diagnosis_clinical", assessmentQuestion: "current_symptoms" } },
     ],
   }],
 };
@@ -48,6 +50,8 @@ test("Monday memo opens once per week, stays reachable, and takes staff to the e
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole("heading", { name: "Synthetic Memo Client" })).toBeVisible();
   await expect(dialog.getByText("Find or add medication list")).toBeVisible();
+  await expect(dialog.getByRole("heading", { name: "Chart data" })).toBeVisible();
+  await expect(dialog.getByRole("heading", { name: "Assessment and signature" })).toBeVisible();
   await dialog.getByRole("button", { name: "Close completion memo" }).click();
   await expect(dialog).toHaveCount(0);
 
@@ -68,4 +72,13 @@ test("the memo keeps its task actions reachable on a phone", async ({ page }) =>
   await expect(dialog.getByRole("heading", { name: "Synthetic Memo Client" })).toBeVisible();
   await dialog.getByRole("button", { name: "Open chart" }).click();
   await expect(page).toHaveURL(/referralId=23.*workspaceField=dob/);
+});
+
+test("an assessment gap opens its exact interview question", async ({ page }) => {
+  await page.clock.setFixedTime(new Date(generatedAt));
+  await page.route("**/api/operations/home", (route) => route.fulfill({ json: home }));
+  await page.goto("/");
+  const dialog = page.getByRole("dialog", { name: "Completion memo" });
+  await dialog.getByRole("region", { name: "Assessment and signature" }).getByRole("button", { name: "Open question" }).click();
+  await expect(page).toHaveURL(/referralId=23.*assessmentQuestion=current_symptoms/);
 });

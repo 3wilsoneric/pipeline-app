@@ -3,6 +3,7 @@ import test from "node:test";
 import { loadTypeScriptModule } from "./ts-module-loader.mjs";
 
 const { buildWeeklyCompletionMemo } = loadTypeScriptModule(process.cwd(), "lib/pipeline/weekly-completion-memo.ts");
+const { createEmptyAssessmentToolData } = loadTypeScriptModule(process.cwd(), "lib/assessment/assessment-tool-schema.ts");
 const assessor = { id: "assessor-1", name: "Assigned Assessor", roles: ["reviewer"] };
 const coordinator = { id: "coordinator-1", name: "Admissions Coordinator", roles: ["assessment_coordinator"] };
 const accepted = { outcome: "accepted", decidedAt: "2026-10-18T12:00:00Z" };
@@ -13,6 +14,7 @@ const needed = (id, status = "needed") => ({
 const referral = (id, extra = {}) => ({
   id, name: `Synthetic Client ${id}`, community: "Turlock", owner: assessor.name, ownerId: assessor.id,
   date: "2026-10-15", dob: "1970-01-01", source: "Synthetic facility", county: "Synthetic County",
+  gender: "Unknown",
   stage: "Community Review", workflowStatus: "approved_for_placement", workspaceStatus: "active",
   documentStatus: "Uploaded", requirements: [needed(`med-${id}`)], admissionDecision: accepted,
   ...extra,
@@ -57,11 +59,54 @@ test("memo shows canonical review paths without claiming a checklist item is a m
     work: [work(file, { assessment_state: "ready_to_sign" })], referrals: [file], contexts: new Map(), viewer: assessor, now: monday,
   });
   const tasks = memo.clients[0].tasks;
-  assert.deepEqual(Array.from(tasks, (task) => task.id), ["assessment", "profile:dob", "profile:referent", "profile:county", "requirement:med-10", "handoff"]);
+  assert.deepEqual(Array.from(tasks, (task) => task.id), ["profile:dob", "profile:referent", "profile:county", "assessment:signature", "requirement:med-10", "handoff"]);
   assert.equal(tasks.find((task) => task.id === "profile:dob").location.intakeField, "dob");
   assert.equal(tasks.find((task) => task.id === "requirement:med-10").label, "Find or add medication list");
   assert.match(tasks.find((task) => task.id === "requirement:med-10").detail, /Check Files for an existing copy/);
   assert.match(tasks.find((task) => task.id === "handoff").detail, /before sending anything/);
+});
+
+test("memo names demographic, origin, assessment answer, and answer-quality gaps with exact entry points", () => {
+  const file = referral(12, { name: "Pending Packet Review", gender: "", source: "Unknown", county: "", date: "" });
+  const assessment = {
+    ...createEmptyAssessmentToolData(),
+    date_of_birth: "1971-01-01", current_symptoms: "See packet", prior_setting_bucket: "skilled_nursing_facility",
+    diabetic: "unable_to_assess", unable_to_assess_reasons: {},
+  };
+  const memo = buildWeeklyCompletionMemo({
+    work: [work(file)], referrals: [file],
+    contexts: new Map([[file.id, { assessmentData: assessment, assessmentSigned: false, decision: accepted }]]),
+    viewer: assessor, now: monday,
+  });
+  const tasks = memo.clients[0].tasks;
+  const byId = (id) => tasks.find((task) => task.id === id);
+  for (const field of ["name", "gender", "referent", "county", "referralReceived"]) {
+    assert.equal(byId(`profile:${field}`).location.intakeField, field);
+  }
+  assert.equal(byId("assessment:field:resident_name").location.assessmentQuestion, "resident_name");
+  assert.equal(byId("assessment:unable:diabetic").location.assessmentQuestion, "diabetic");
+  assert.equal(byId("assessment:referring_facility").location.assessmentQuestion, "referring_facility");
+  assert.equal(byId("review:dob").group, "review");
+  assert.match(byId("review:current_symptoms").detail, /See packet/);
+  assert.equal(byId("assessment:signature").group, "assessment");
+});
+
+test("memo does not invent a facility for a home setting or flag a matching birth date", () => {
+  const file = referral(13, { requirements: [], dob: "1970-01-01" });
+  const assessment = {
+    ...createEmptyAssessmentToolData(), date_of_birth: "1970-01-01", prior_setting_bucket: "independent_family_home",
+    referring_facility: null, current_symptoms: "No symptoms reported at the interview.",
+  };
+  const memo = buildWeeklyCompletionMemo({
+    work: [work(file)], referrals: [file],
+    contexts: new Map([[file.id, { assessmentData: assessment, assessmentSigned: true, packetSentAt: "2026-10-18T12:00:00Z", decision: accepted }]]),
+    viewer: assessor, now: monday,
+  });
+  const ids = memo.clients[0].tasks.map((task) => task.id);
+  assert.equal(ids.includes("assessment:referring_facility"), false);
+  assert.equal(ids.includes("review:dob"), false);
+  assert.equal(ids.includes("review:current_symptoms"), false);
+  assert.equal(ids.includes("assessment:signature"), false);
 });
 
 test("accepted clients do not receive pre-assessment provider form work", () => {
