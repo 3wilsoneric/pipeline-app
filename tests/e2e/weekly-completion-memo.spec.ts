@@ -48,6 +48,8 @@ async function openReview(page: import("@playwright/test").Page) {
   const review = page.getByRole("main", { name: "Completion memo review" });
   await expect(review).toBeVisible();
   await expect(page).toHaveURL(/screen=completion/);
+  await expect(review.getByRole("region", { name: "Synthetic Memo Client issues" })).toHaveCount(0);
+  await review.getByRole("navigation", { name: "Clients in completion memo" }).getByRole("button", { name: /Synthetic Memo Client/ }).click();
   return review;
 }
 
@@ -66,9 +68,16 @@ test("Monday memo opens once per week, stays reachable, and takes staff to the e
   await expect(dialog).toHaveCount(0);
   await page.getByRole("button", { name: /Open completion memo/ }).click();
   const review = page.getByRole("main", { name: "Completion memo review" });
+  await expect(review.getByRole("region", { name: "Synthetic Memo Client issues" })).toHaveCount(0);
+  await review.getByRole("navigation", { name: "Clients in completion memo" }).getByRole("button", { name: /Synthetic Memo Client/ }).click();
   await expect(review.getByRole("region", { name: "Synthetic Memo Client issues" }).getByRole("button", { name: /Find or add medication list/ })).toBeVisible();
   await expect(review.getByRole("region", { name: "Synthetic Memo Client issues" }).getByRole("button", { name: /Record date of birth/ })).toBeVisible();
   await expect(review.getByRole("region", { name: "Synthetic Memo Client issues" }).getByRole("button", { name: /Answer current symptoms/ })).toBeVisible();
+  const client = review.getByRole("navigation", { name: "Clients in completion memo" }).getByRole("button", { name: /Synthetic Memo Client/ });
+  await expect(client).toHaveAttribute("aria-expanded", "true");
+  await client.click();
+  await expect(review.getByRole("region", { name: "Synthetic Memo Client issues" })).toHaveCount(0);
+  await client.click();
   await review.getByRole("button", { name: "Open files" }).click();
   await expect(page).toHaveURL(/referralId=23.*workspaceView=files/);
 });
@@ -80,7 +89,7 @@ test("the memo keeps its task actions reachable on a phone", async ({ page }) =>
   await page.route("**/api/referrals/23", (route) => route.fulfill({ json: { referral: { id: 23, version: 1, dob: "", name: "Synthetic Memo Client", community: "Turlock" } } }));
   await page.goto("/");
   const review = await openReview(page);
-  await expect(review.getByRole("heading", { name: "Synthetic Memo Client" })).toBeVisible();
+  await expect(review.getByRole("navigation", { name: "Clients in completion memo" }).getByRole("button", { name: /Synthetic Memo Client/ })).toHaveAttribute("aria-expanded", "true");
   await review.getByRole("region", { name: "Synthetic Memo Client issues" }).getByRole("button", { name: /Record date of birth/ }).click();
   await review.getByRole("button", { name: "Open full record" }).click();
   await expect(page).toHaveURL(/referralId=23.*workspaceField=dob/);
@@ -94,6 +103,8 @@ test("the review page lists every issue on a direct visit and keeps an unsaved a
   } } }));
   await page.goto("/?screen=completion");
   const review = page.getByRole("main", { name: "Completion memo review" });
+  await expect(review.getByRole("region", { name: "Synthetic Memo Client issues" })).toHaveCount(0);
+  await review.getByRole("navigation", { name: "Clients in completion memo" }).getByRole("button", { name: /Synthetic Memo Client/ }).click();
   const issues = review.getByRole("region", { name: "Synthetic Memo Client issues" });
   await expect(issues.getByRole("button", { name: /Record date of birth/ })).toBeVisible();
   await expect(issues.getByRole("button", { name: /Answer current symptoms/ })).toBeVisible();
