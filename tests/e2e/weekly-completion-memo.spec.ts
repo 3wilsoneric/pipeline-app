@@ -86,11 +86,14 @@ test("the Monday prompt is dismissible while the client list remains reachable",
   await page.clock.setFixedTime(new Date(generatedAt));
   const { referral } = await setupMemo(page);
   await page.goto("/");
-  const dialog = page.getByRole("dialog", { name: "Completion memo" });
-  await expect(dialog).toBeVisible();
-  await dialog.getByRole("button", { name: "Later" }).click();
+  const notice = page.getByRole("status", { name: "Completion memo" });
+  await expect(notice).toBeVisible();
+  await page.getByRole("tab", { name: "Board", exact: true }).click();
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await notice.getByRole("button", { name: "Later" }).click();
   await page.reload();
-  await expect(dialog).toHaveCount(0);
+  await expect(notice).toHaveCount(0);
   await page.getByRole("button", { name: /Open completion memo/ }).click();
   await expect(page.getByRole("navigation", { name: "Clients in completion memo" }).getByRole("button", { name: new RegExp(referral.name!) })).toBeVisible();
 });
