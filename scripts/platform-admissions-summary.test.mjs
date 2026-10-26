@@ -166,7 +166,7 @@ test("briefing separates actual admissions from planned arrivals and carries eac
   assert.deepEqual(summary.briefing.planned_move_ins.map((row) => row.client_name), ["Planned tomorrow"]);
   assert.deepEqual(summary.briefing.moving_through.map((row) => row.client_name), ["Date already passed", "Planned tomorrow"]);
   assert.deepEqual(summary.briefing.moving_through.map((row) => [row.phase, row.planned_at]), [["awaiting_arrival", "2026-09-24"], ["awaiting_arrival", "2026-09-27"]]);
-  assert.equal(summary.briefing.moving_through[0].status, "Planned date passed · arrival unconfirmed");
+  assert.equal(summary.briefing.moving_through[0].status, "Planned date passed · admission unconfirmed here");
   assert.equal(summary.briefing.moving_through[1].status, "Awaiting admit");
   for (const row of [summary.briefing.admitted_last_week[0], summary.briefing.planned_move_ins[0], summary.briefing.moving_through[0]]) {
     assert.equal(row.source_name, "County behavioral health");
@@ -184,10 +184,10 @@ test("assumed admission is visible for verification without inflating confirmed 
   ]);
   assert.equal(summary.metrics.awaiting_admission, 1);
   assert.equal(summary.upcoming_admissions.past_planned_date, 0);
-  assert.equal(summary.board.cards.find((row) => row.client_name === "Assumed arrival")?.status, "Admitted · census check pending");
+  assert.equal(summary.board.cards.find((row) => row.client_name === "Assumed arrival")?.status, "Admission unconfirmed in this workspace");
   assert.deepEqual(summary.briefing.admitted_last_week.map((row) => row.client_name), ["Confirmed arrival"]);
   assert.deepEqual(summary.briefing.moving_through.map((row) => [row.client_name, row.status]), [
-    ["Assumed arrival", "Admitted · census check pending"],
+    ["Assumed arrival", "Admission unconfirmed in this workspace"],
     ["Future arrival", "Awaiting admit"],
   ]);
   assert.equal(summary.briefing.moving_through.find((row) => row.client_name === "Assumed arrival")?.phase, "outcome_review");

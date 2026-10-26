@@ -159,7 +159,7 @@ test.describe("Referral home and packet canvas", () => {
     await expect(page.getByText("Referral workspaces", { exact: true }).last()).toBeVisible();
     await expect(page.getByLabel("Select referral packet")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Current work", exact: true })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "All workspaces", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Current", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Create new referral" })).toBeVisible();
     await expect(
       page.getByRole("region", { name: "Referral worklist" }).or(
@@ -201,7 +201,7 @@ test.describe("Referral home and packet canvas", () => {
     await workspaceSearch.fill("San Pablo");
     const searchRequest = await searchedDirectory;
     expect(new URL(searchRequest.url()).searchParams.get("workspace")).toBe("all");
-    await expect(page.getByRole("button", { name: "All workspaces", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Current", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Clear workspace search" }).click();
     await expect(workspaceSearch).toHaveValue("");
 

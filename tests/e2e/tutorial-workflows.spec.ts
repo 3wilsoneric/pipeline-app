@@ -203,7 +203,7 @@ for (const outcome of ["Deny", "Under review"]) test(outcome + " does not fabric
   await page.getByRole("radio", { name: outcome, exact: true }).check();
   await page.getByRole("button", { name: outcome === "Deny" ? "Record decision" : "Save under review", exact: true }).click();
   await expect(page.getByTestId("guided-coach-panel")).toContainText(outcome === "Deny" ? "Denied. No admission packet is needed." : "Saved under review.");
-  await page.getByRole("navigation", { name: "Tutorial navigation" }).getByRole("button", { name: "Next: Back on the board", exact: true }).click();
+  await page.getByRole("navigation", { name: "Tutorial navigation" }).getByRole("button", { name: "Next: Review the board", exact: true }).click();
   await expect(page.locator("#tutorial-step")).toHaveValue("8");
   await chooseStep(page, 7);
   await expect(page.getByText("No admission is needed for this outcome.")).toBeVisible();
@@ -400,7 +400,7 @@ test("reports guide remains read-only with two navigation buttons", async ({ pag
   const coach = page.getByTestId("guided-coach-panel");
   await expect(coach).toBeVisible();
   await expect(page).toHaveURL(/screen=operations/);
-  const steps = ["Check the snapshot date", "Read the census", "Review communities", "Check availability"];
+  const steps = ["Open the report", "Read the headline figures", "Review communities", "Check the sources"];
   for (const [step, title] of steps.entries()) {
     await expect(coach.getByRole("heading", { name: title, exact: true })).toBeVisible();
     await expect(coach.locator("footer button")).toHaveCount(2);

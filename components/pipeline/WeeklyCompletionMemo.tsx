@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { ArrowLeft, ArrowRight, ClipboardCheck } from "lucide-react";
 
-import HomeDialog from "@/components/pipeline/HomeDialog";
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import type { HomeBriefingSnapshot } from "@/lib/pipeline/home-briefing-types";
 import type { Referral } from "@/lib/pipeline/referral-types";
@@ -54,14 +53,14 @@ export default function WeeklyCompletionMemoCard({ memo, viewerId, onOpenReview 
       </span>
       <ArrowRight size={17} className="shrink-0 text-primary" aria-hidden="true" />
     </button>
-    {notificationOpen ? <HomeDialog label="Completion memo" title="Your Monday follow-up"
-      description={`${memo.clients.length} accepted or admitted clients have ${memo.task_count} items to review. Open a client’s assessment to see what needs attention beside the relevant questions.`}
-      onClose={dismiss}>
-      <div className="flex justify-end gap-3 p-5">
+    {notificationOpen ? <div role="status" aria-label="Completion memo" className="mt-2 rounded-sheet border border-stage-green-border bg-paper px-4 py-3 text-ink shadow-sm">
+      <p className="text-label font-bold">Your Monday follow-up</p>
+      <p className="mt-1 text-meta text-ink-muted">{memo.clients.length} accepted or admitted clients have {memo.task_count} items to review. Open a client’s assessment to see what needs attention beside the relevant questions.</p>
+      <div className="mt-3 flex justify-end gap-3">
         <button type="button" onClick={dismiss} className="rounded-input border border-sheet-border px-4 py-2 text-label font-semibold text-ink">Later</button>
         <button type="button" onClick={review} className="rounded-input bg-primary px-4 py-2 text-label font-bold text-white">Review items</button>
       </div>
-    </HomeDialog> : null}
+    </div> : null}
   </>;
 }
 

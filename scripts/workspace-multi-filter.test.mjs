@@ -11,6 +11,7 @@ import { currentWorkspaceMonth } from "../lib/pipeline/workspace-month.mjs";
 const root = resolve(import.meta.dirname, "..");
 const clean = (value) => JSON.parse(JSON.stringify(value));
 const query = loadTypeScriptModule(root, "lib/pipeline/referral-query.ts");
+const directoryModel = loadTypeScriptModule(root, "components/pipeline/referral-home-directory-model.ts");
 const ownerIdentity = loadTypeScriptModule(root, "lib/pipeline/referral-owner-identity.ts");
 const referrals = Array.from({ length: 12 }, (_, i) => ({
   id: i + 1, name: `Filter Fixture ${i + 1}`, stage: "New", date: "2026-09-17",
@@ -41,6 +42,23 @@ test("repeated query parameters validate every value and cannot supply assignmen
   assert.equal(query.parseReferralListQuery(new URLSearchParams("community=San+Pablo&owner=Alex")).value.community, "San Pablo");
   assert.equal(query.parseReferralListQuery(new URLSearchParams("month=2026-10&carryover=true")).value.includeCarryover, true);
   assert.equal(query.parseReferralListQuery(new URLSearchParams("carryover=maybe")).ok, false);
+  assert.equal(query.parseReferralListQuery(new URLSearchParams("closed=true")).value.closedOnly, true);
+  assert.equal(query.parseReferralListQuery(new URLSearchParams("active=true&closed=true")).ok, false);
+  assert.equal(query.parseReferralListQuery(new URLSearchParams("closed=invalid")).ok, false);
+});
+
+test("current work clears closed outcomes while completed and admitted stay retrievable", () => {
+  const current = directoryModel.buildReferralParams({ kind: "all" }, "");
+  assert.equal(current.get("active"), "true");
+  assert.equal(current.get("workspace"), "all");
+  const completed = directoryModel.buildReferralParams({ kind: "completed" }, "");
+  assert.equal(completed.get("closed"), "true");
+  assert.equal(completed.get("workspace"), "all");
+  const admitted = directoryModel.buildReferralParams({ kind: "admitted" }, "");
+  assert.equal(admitted.get("stage"), "Accepted / Admitted");
+  assert.equal(admitted.has("include_assumed"), false);
+  assert.equal(admitted.get("workspace"), "active");
+  assert.equal(directoryModel.buildReferralParams({ kind: "all" }, "Mae Richardson").has("active"), false, "search can recover a completed file");
 });
 
 function loadStore(sql, records = referrals) {
@@ -137,6 +155,7 @@ test("unfinished workspaces carry into the next month without changing their fil
 async function verifyFilters(store) {
   assert.deepEqual((await store.listReferrals({ placementCancelled: true })).referrals.map((row) => row.id), [1]);
   assert.equal((await store.listReferrals({ activeOnly: true })).referrals.some((row) => row.id === 1), false);
+  assert.deepEqual((await store.listReferrals({ closedOnly: true })).referrals.map((row) => row.id), [1]);
   const selected = { communities: ["San Pablo", "Santa Clarita"], owners: ["Alex Assessor", "Blair Assessor"] };
   const expected = [1, 2, 4, 5, 10, 11];
   for (const [method, rows, key] of [["listReferrals", "referrals", "id"], ["listReferralFiles", "files", "referralId"]]) {

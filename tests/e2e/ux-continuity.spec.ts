@@ -91,7 +91,7 @@ test("the folder-to-chart animation still completes with the retained directory 
   });
 });
 
-test("assessment navigation retains the section through Files and Activity, and moves keyboard focus with Next", async ({ page }, testInfo) => {
+test("assessment navigation retains the section through Files and Activity, then moves to the chosen group", async ({ page }, testInfo) => {
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: `Synthetic continuity ${randomUUID()}`, owner: "Annette Everhart" }, { assigneeId: "provisional:allo:annette" });
   const assessment = await createOperationalAssessment(page.request, referral.id);
   const snapshot = async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
@@ -105,15 +105,15 @@ test("assessment navigation retains the section through Files and Activity, and 
     await page.getByRole("button", { name: "Assessment", exact: true }).click();
     await expect(section).toHaveValue("prior_history");
   }
-  await page.getByRole("button", { name: "Next section", exact: true }).click();
-  await expect(section).not.toHaveValue("prior_history");
-  // Preparation now focuses the new section heading; interview focuses its
-  // first answer. Keyboard navigation must stay in the newly selected section.
-  await expect(page.locator('[data-assessment-question-editor] h3')).toBeFocused();
+  await section.focus();
+  await section.selectOption("medication");
+  await expect(section).toHaveValue("medication");
+  await expect(section).toBeFocused();
+  await expect(page.locator('[data-assessment-group-heading="medication"]')).toBeInViewport();
   await page.keyboard.press("Tab");
-  await expect(page.locator("[data-assessment-question-editor] :focus")).toHaveCount(1);
+  await expect(page.getByRole("button", { name: /^Recorded answers:/ })).toBeFocused();
   await expect(page.locator('[data-guide-target="assessment-save-status"]')).toHaveCSS("font-size", "13px");
-  await page.screenshot({ path: testInfo.outputPath("assessment-next-section.png") });
+  await page.screenshot({ path: testInfo.outputPath("assessment-chosen-group.png") });
   // Explicit links remain authoritative, even when a prior section was retained.
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=identity`);
   await expect(section).toHaveValue("identity");
