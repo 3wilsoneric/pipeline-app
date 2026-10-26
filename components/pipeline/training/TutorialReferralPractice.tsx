@@ -187,7 +187,7 @@ function TutorialStepContent({ step, generation, state, files, onFiles, onChange
   const { beforeNavigationRef } = usePipelineShell();
   if (step === 0 || step === 8) {
     const item = tutorialBoardItem(state);
-    return <section className={styles.content} data-guide-target="tutorial-board"><h2>{step === 8 ? "Your updated board" : "My referrals"}</h2><ReferralLifecycleBoard key={step} items={[item]} initialStage={item.board.stage ?? "received"} showOwner={false} onOpenPacket={() => navigate(state.assessment.signed_at ? 5 : 3)} /></section>;
+    return <section className={styles.content} data-guide-target="tutorial-board"><h2>{step === 8 ? "Your updated board" : "My referrals"}</h2><ReferralLifecycleBoard key={step} items={[item]} initialStage={item.board.stage ?? (step === 8 ? "decision" : "received")} showOwner={false} onOpenPacket={() => navigate(state.assessment.signed_at ? 5 : 3)} /></section>;
   }
   if (step === 1) return <TutorialIntake referral={state.referral} files={files} onFiles={onFiles} onChange={onReferralChange} onCreate={() => navigate(2)} />;
   if ([2, 3, 4].includes(step)) return <AssessmentWorkspace key={`${generation}-${step}`}

@@ -19,7 +19,7 @@ export const tutorialReferralSteps = [
   { title: "Decision", instruction: "Record Accept, Deny, or Under review. An accepted referral can preview the handoff before an admission date is known.", target: "tutorial-decision" },
   { title: "Email & packet", instruction: "Review Meet the Client, the chart and files. Check the recipients, then try Simulate send. No email leaves this tutorial.", target: "tutorial-packet" },
   { title: "Client handoff", instruction: "The packet has not been sent. Use Review email & packet to finish the sample handoff.", target: "tutorial-admission" },
-  { title: "Back on the board", instruction: "Open the card to return to this sample. Return to work closes the tutorial without changing your real referrals.", target: "home-board-card" },
+  { title: "Review the board", instruction: "Check where the sample appears. Return to work closes the tutorial without changing your real referrals.", target: "tutorial-board" },
 ] as const;
 
 const entrySteps: Readonly<Record<string, number>> = {
@@ -52,7 +52,7 @@ const outcomeInstructions: Partial<Record<number, Partial<Record<"pending" | "re
   7: { review: noPacketInstruction, declined: noPacketInstruction, sent: "The sample packet is marked sent; the client is still awaiting admission. Continue to the board to see that status." },
   8: {
     review: "The sample remains under review in Decision. Reopen it when more information arrives. Return to work leaves this tutorial.",
-    declined: "The denied sample stays in Decision. Its assessment and files remain available. Return to work leaves this tutorial.",
+    declined: "The denied sample leaves the active board. Its decision, assessment, and files remain available in Workspaces. Return to work leaves this tutorial.",
     sent: "Find the sample in Decision, awaiting admission. Sending a packet does not mark someone admitted. Return to work leaves this tutorial.",
   },
 };
@@ -103,6 +103,10 @@ const stepHelp = [
 ] as const;
 
 export function tutorialStepHelp(state: TutorialReferral, step: number) {
+  if (step === 8 && state.referral.admissionDecision?.outcome === "declined") return [
+    { problem: "Where did the denied referral go?", action: "A denial clears it from the active board. Open Completed in Workspaces to review its decision and chart." },
+    { problem: "Want your real work back?", action: "Select Return to work or Close tutorial. This fictional sample never changes a real referral." },
+  ];
   if (step === 5 && state.sentAt) return [
     { problem: "Why can't I change the decision?", action: "The sample packet is marked sent, so the earlier decision is locked. Open the board to see its current status." },
     { problem: "Is the client admitted?", action: "No. Sending Meet the Client does not record an actual arrival or admission." },
