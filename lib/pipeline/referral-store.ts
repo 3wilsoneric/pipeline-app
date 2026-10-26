@@ -131,6 +131,7 @@ export type ReferralListOptions = {
   includeCarryover?: boolean;
   workflowStatus?: ReferralWorkflowStatus;
   activeOnly?: boolean;
+  closedOnly?: boolean;
   /** Internal reporting filter for recorded placement cancellations. */
   placementCancelled?: boolean;
   /** Internal operational filter for assessments deliberately created after an outcome. */
@@ -1385,6 +1386,7 @@ async function listPostgresReferrals(options: ReferralListOptions = {}): Promise
   const throughMonth = currentWorkspaceMonth();
   const workflowStatus = options.workflowStatus ?? null;
   const activeOnly = options.activeOnly === true;
+  const closedOnly = options.closedOnly === true;
   const placementCancelled = options.placementCancelled === true;
   const postOutcomeAssessment = options.postOutcomeAssessment === true;
   const workspaceStatus = options.workspaceStatus ?? "active";
@@ -1472,6 +1474,7 @@ async function listPostgresReferrals(options: ReferralListOptions = {}): Promise
         )
         and (${workflowStatus}::text is null or r.workflow_status = ${workflowStatus})
         and (${activeOnly} = false or r.closed_at is null)
+        and (${closedOnly} = false or r.closed_at is not null)
         and (${placementCancelled} = false or jsonb_typeof(r.data->'placementCancellation') = 'object')
         and (
           ${postOutcomeAssessment} = false
@@ -3240,6 +3243,7 @@ function matchesReferralLabels(referral: Referral, options: ReferralListOptions)
 function matchesReferralWork(referral: Referral, options: ReferralListOptions) {
   if (options.workflowStatus && referral.workflowStatus !== options.workflowStatus) return false;
   if (options.activeOnly && (isClosedStage(referral.stage) || referral.workflowStatus === "closed")) return false;
+  if (options.closedOnly && !isClosedStage(referral.stage) && referral.workflowStatus !== "closed") return false;
   if (options.placementCancelled && !referral.placementCancellation) return false;
   if (options.postOutcomeAssessment && !hasPostOutcomeAssessment(referral)) return false;
   if (options.queue && !matchesReferralQueue(referral, options.queue)) return false;

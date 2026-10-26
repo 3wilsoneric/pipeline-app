@@ -6,7 +6,7 @@ import { isRecordedWorkspaceCommunity } from "@/lib/pipeline/workspace-presentat
 export type WorkspaceScope = NonNullable<ReferralListOptions["scope"]>;
 
 export type ReferralFilter = {
-  kind: "all" | "admitted" | "files";
+  kind: "all" | "completed" | "admitted" | "files";
   communities?: string[];
   owners?: string[];
   month?: string;
@@ -57,7 +57,7 @@ export function referralScopeLabel(filter: ReferralFilter) {
   const community = communities.length === 1 ? presentCommunity(communities[0]) : communities.length ? `${communities.length} communities` : "";
   if (filter.month) return [formatMonthKey(filter.month), community].filter(Boolean).join(" · ");
   if (community) return `All months · ${community}`;
-  return filter.kind === "admitted" ? "Admitted workspaces" : "Browse by month and community";
+  return filter.kind === "admitted" ? "Admitted workspaces" : filter.kind === "completed" ? "Completed workspaces" : "Browse by month and community";
 }
 
 export function referralFilterCount(filter: ReferralFilter) {
@@ -78,6 +78,9 @@ export function getEmptyReferralState(filter: ReferralFilter, searchTerm: string
   }
   if (filter.kind === "admitted") {
     return { title: "No admitted workspaces yet", detail: "A file appears here as soon as admission is recorded." };
+  }
+  if (filter.kind === "completed") {
+    return { title: "No completed workspaces yet", detail: "Denied, cancelled, and confirmed admitted files remain available here." };
   }
   return {
     title: "No workspaces yet",
@@ -124,9 +127,10 @@ export function buildReferralParams(filter: ReferralFilter, searchTerm: string, 
   if (filter.priority) params.set("priority", filter.priority);
   if (filter.kind === "admitted") {
     params.set("stage", "Accepted / Admitted");
-    params.set("include_assumed", "true");
   }
-  if (filter.kind !== "files") params.set("workspace", "all");
+  if (filter.kind === "all" && !query) params.set("active", "true");
+  if (filter.kind === "completed") params.set("closed", "true");
+  if (filter.kind !== "files") params.set("workspace", filter.kind === "admitted" ? "active" : "all");
   return params;
 }
 

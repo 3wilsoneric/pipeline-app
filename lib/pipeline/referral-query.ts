@@ -28,6 +28,7 @@ type ReferralQueryValues = {
   month?: string;
   carryover?: string;
   active?: string;
+  closed?: string;
   workspace: string;
   queue?: string;
   sort: string;
@@ -64,6 +65,7 @@ export function parseReferralListQuery(searchParams: URLSearchParams): QueryResu
       month: values.month,
       includeCarryover: values.carryover === "true",
       activeOnly: values.active === "true",
+      closedOnly: values.closed === "true",
       workspaceStatus: values.workspace as ReferralListOptions["workspaceStatus"],
       queue: values.queue as ReferralQueueView | undefined,
       sort: values.sort as ReferralListOptions["sort"],
@@ -88,6 +90,7 @@ function readReferralQueryValues(searchParams: URLSearchParams): ReferralQueryVa
     month: trimmedParameter(searchParams, "month") || undefined,
     carryover: searchParams.get("carryover")?.trim(),
     active: searchParams.get("active")?.trim(),
+    closed: searchParams.get("closed")?.trim(),
     workspace: trimmedParameter(searchParams, "workspace") || "active",
     queue: trimmedParameter(searchParams, "queue") || undefined,
     sort: trimmedParameter(searchParams, "sort") || "updated_desc",
@@ -131,6 +134,11 @@ function validateReferralQueryValues(values: ReferralQueryValues): string | unde
       invalid: values.active !== undefined && values.active !== "" && values.active !== "true" && values.active !== "false",
       message: "active must be true or false.",
     },
+    {
+      invalid: values.closed !== undefined && values.closed !== "" && values.closed !== "true" && values.closed !== "false",
+      message: "closed must be true or false.",
+    },
+    { invalid: values.active === "true" && values.closed === "true", message: "active and closed cannot both be true." },
     { invalid: !workspaceStatuses.includes(values.workspace as (typeof workspaceStatuses)[number]), message: "workspace is invalid." },
     { invalid: Boolean(values.queue && !queues.includes(values.queue as ReferralQueueView)), message: "queue is invalid." },
   ];

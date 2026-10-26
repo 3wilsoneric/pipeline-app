@@ -219,7 +219,7 @@ export function buildPlatformAdmissionsSummary(input: PlatformAdmissionsSummaryI
         referral_id: referral.referralId,
         client_name: referral.clientName.trim() || "Name not recorded",
         column: referral.boardColumn as PlatformBoardColumn,
-        status: referral.assumedAdmissionDate ? "Admitted · census check pending" : leadershipStatus[referral.boardStatus] ?? referral.boardStatus,
+        status: referral.assumedAdmissionDate ? "Admission unconfirmed in this workspace" : leadershipStatus[referral.boardStatus] ?? referral.boardStatus,
         next_action: referral.nextAction,
         community: referral.community.trim() || "Unassigned",
         owner: referral.unassigned ? "Unassigned" : referral.owner,
@@ -269,8 +269,8 @@ export function buildPlatformAdmissionsSummary(input: PlatformAdmissionsSummaryI
   const recentStart = addDays(today, -13);
   const briefingStatus = (referral: PlatformSummaryReferral) =>
     referral.placementCancelled ? "Did not move in" :
-    referral.assumedAdmissionDate ? "Admitted · census check pending" :
-    arrivalNeedsReview(referral, today) ? "Planned date passed · arrival unconfirmed" :
+    referral.assumedAdmissionDate ? "Admission unconfirmed in this workspace" :
+    arrivalNeedsReview(referral, today) ? "Planned date passed · admission unconfirmed here" :
     (leadershipStatus[referral.boardStatus] ?? referral.boardStatus.trim()) ||
     (referral.actualAdmissionDate ? "Admitted" : referral.decisionOutcome === "accepted" ? "Accepted" : referral.decisionOutcome === "declined" ? "Declined" : "Closed");
   const recentReferrals = input.referrals

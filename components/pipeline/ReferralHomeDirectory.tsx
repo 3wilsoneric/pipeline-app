@@ -255,9 +255,10 @@ function FileFilterSelects(props: ReferralHomeDirectoryProps) {
 function WorkspaceDirectoryNavigation(props: ReferralHomeDirectoryProps) {
   return (
     <aside aria-label="Workspace navigation" className="min-w-0 bg-white pt-0 xl:sticky xl:top-0 xl:self-start">
-      <nav aria-label="Workspace views" className="grid grid-cols-3 gap-2 pb-2 xl:block xl:space-y-1 xl:pb-0">
-        <WorkspaceNavItem icon={FolderOpen} label="All workspaces" compactLabel="All" active={props.filter.kind === "all"} onClick={() => props.onFilterChange({ kind: "all" })} />
-        <WorkspaceNavItem icon={FolderCheck} label="Admitted" active={props.filter.kind === "admitted"} onClick={() => props.onFilterChange({ kind: "admitted" })} />
+      <nav aria-label="Workspace views" className="grid grid-cols-4 gap-2 pb-2 xl:block xl:space-y-1 xl:pb-0">
+        <WorkspaceNavItem icon={FolderOpen} label="Current" compactLabel="Now" active={props.filter.kind === "all"} onClick={() => props.onFilterChange({ kind: "all" })} />
+        <WorkspaceNavItem icon={FolderCheck} label="Completed" compactLabel="Done" active={props.filter.kind === "completed"} onClick={() => props.onFilterChange({ kind: "completed" })} />
+        <WorkspaceNavItem icon={FolderCheck} label="Admitted" compactLabel="Admit" active={props.filter.kind === "admitted"} onClick={() => props.onFilterChange({ kind: "admitted" })} />
         <WorkspaceNavItem icon={Files} label="All files" compactLabel="Files" active={props.filter.kind === "files"} onClick={props.onShowFiles} />
       </nav>
       <button type="button" aria-label="Browse workspaces by month and community" onClick={() => props.onBrowseOpenChange(true)} className="mt-1 flex h-11 w-full items-center gap-3 border border-[#d9dfdc] bg-[#f8faf9] px-3 text-left text-[#303638] outline-none hover:border-[#9fcfc2] hover:bg-[#f2f8f6] focus-visible:ring-2 focus-visible:ring-[#0f8b73] xl:hidden">
@@ -394,7 +395,7 @@ function WorkspaceArchiveMonth({ month, communities, filter, selectedMonth, sele
   onFilterChange: (filter: ReferralFilter, dismiss?: boolean) => void;
 }) {
   const monthSelected = selectedMonth === month.value;
-  const nextKind = filter.kind === "admitted" ? "admitted" : "all";
+  const nextKind = filter.kind === "admitted" ? "admitted" : filter.kind === "completed" ? "completed" : "all";
   return (
     <div className="mb-1">
       <button type="button" aria-expanded={expanded} aria-current={monthSelected ? "page" : undefined} data-earlier-workspace={isEarlierWorkspaceMonth(month.value)} onClick={() => { onExpandedMonthChange(expanded ? "" : month.value); onFilterChange({ ...filter, kind: nextKind, month: month.value }); }} className={`${styles.month} flex h-10 w-full items-center gap-2 border px-2.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73] ${monthSelected ? "border-[#9fcfc2] bg-[#effaf5] text-[#0c705f]" : "border-transparent text-[#444a47] hover:border-[#e0e5e2] hover:bg-[#f8faf9]"}`}>

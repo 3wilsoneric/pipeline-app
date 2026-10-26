@@ -50,7 +50,9 @@ test("scheduled, started, completed and signed assessments move with their evide
   assert.equal(board(referral, { assessmentComplete: true }).location.assessmentMode, "review");
   assert.equal(board(referral, signed).stage, "decision");
   assert.equal(board(referral, signed).detail, "Under review");
-  assert.equal(board(referral, { ...signed, decision: { outcome: "declined" } }).detail, "Denied");
+  const denied = board(referral, { ...signed, decision: { outcome: "declined" } });
+  assert.equal(denied.detail, "Denied");
+  assert.equal(denied.stage, null, "a recorded denial must leave the current-work board");
 });
 
 test("acceptance needs signing and admission requirements, not later profile reconciliation", () => {
