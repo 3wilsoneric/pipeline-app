@@ -90,7 +90,7 @@
   .header { padding-block: 6px; }
   .guide { padding-block: 8px; gap: 4px 12px; }
   .instruction p { font-size: 12px; }
-  .session .page [data-assessment-scheduling] > header { padding: 10px 16px; }
+  .session .page [data-assessment-scheduling] > header { padding: 6px 16px; }
   .session .page [data-assessment-scheduling] > header h2 { font-size: 18px; line-height: 24px; }
   .session .page [data-assessment-scheduling] > header > div > div { margin-top: 4px; gap: 0 12px; font-size: 12px; line-height: 18px; }
   .session .page [data-assessment-scheduling] > div > fieldset { padding: 12px 16px; }

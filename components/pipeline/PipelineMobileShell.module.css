@@ -152,6 +152,7 @@
 .navigation[data-sidebar-expanded="true"] .navigationPanel { box-shadow: var(--shadow-popover); }
 .shell .sidebar [data-testid="primary-navigation"] :global(.pipeline-command.pipeline-command) { height: 48px; min-height: 48px; border: 0; border-radius: var(--radius-paper); background: transparent; box-shadow: none; color: var(--color-ink-muted); transition: background-color var(--duration-fade) ease, color var(--duration-fade) ease; }
 .shell .sidebar [data-testid="primary-navigation"] :global(.pipeline-command.pipeline-command):hover { background: var(--color-segment); color: var(--color-ink); box-shadow: none; }
+.shell .sidebar [data-testid="primary-navigation"] :global(.pipeline-command.pipeline-command):active { background-image: linear-gradient(rgb(0 0 0 / 9%), rgb(0 0 0 / 9%)); }
 .shell .sidebar [data-testid="primary-navigation"] :global(.pipeline-command.pipeline-command)[data-active="true"] { background: var(--color-primary-soft); color: var(--color-link); }
 .shell .sidebar [data-testid="primary-navigation"] > :global(.pipeline-command.pipeline-command) { color: var(--color-link); }
 .shell .sidebar [data-testid="primary-navigation"] :global(.pipeline-command.pipeline-command) span { color: inherit; font-size: var(--text-value); font-weight: 500; }
