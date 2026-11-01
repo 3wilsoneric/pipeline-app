@@ -24,6 +24,7 @@ The Clients sidebar entry is removed as requested. Existing direct URLs, profile
 - Initial isolated journey run: 103/108 passed. Three narrow-screen checklist position failures exposed the layout shift; two stale Placement selectors were corrected to Handoff without changing assertions.
 - Follow-up isolated production-build run: 77/77 passed, covering those failures, interview recommendations, signature/decision recovery, handoff editing/reopening, inbox history, file choices, keyboard controls, and desktop/phone/iPad layouts.
 - Reviewed desktop and phone screenshots; Mac and Linux visual snapshots were updated only for the approved home, sidebar, and intake changes and passed a separate comparison run.
+- The full CI browser run exposed a remaining accessibility test using the removed draft Files destination. It now exercises the inline checklist and verifies Files after creation; all six desktop/phone accessibility checks passed locally with the existing assertions and thresholds.
 - Required GitHub PR, security, browser, operational, and performance gates remain release requirements. No branch-protection bypass or assertion/threshold relaxation is authorized by this audit.
 
 Rollback uses a known production image and preserved runtime configuration, not a database restore. Friday's image rollback remains documented in [CARELOG_RELEASE_ROLLBACK.md](CARELOG_RELEASE_ROLLBACK.md).
