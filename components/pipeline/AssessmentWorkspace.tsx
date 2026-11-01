@@ -653,15 +653,14 @@ export default function AssessmentWorkspace({
   const stackedQuestions = useMemo(() => stackedGroups.flatMap((group) => group.questions), [stackedGroups]);
   const stackedHeadings = useMemo(() => new Map(stackedGroups.flatMap((group) => group.questions.map((question) => [question.field, { key: group.key, label: group.label }] as const))), [stackedGroups]);
   // While the page scrolls to a topic someone picked, the picker holds that topic rather than flicking through
-  // the ones passed on the way; the hold ends when the scroll settles or the person scrolls themselves.
+  // the ones passed on the way; the brief hold ends when the person scrolls themselves.
+  // A queued scrollend can belong to the previous focus/scroll, so it must not cancel a new pick.
   const pickedTopic = useRef<{ key: AssessmentToolSection; until: number } | null>(null);
   useEffect(() => {
     const release = () => { pickedTopic.current = null; };
-    window.addEventListener("scrollend", release, true);
     window.addEventListener("wheel", release, { capture: true, passive: true });
     window.addEventListener("touchstart", release, { capture: true, passive: true });
     return () => {
-      window.removeEventListener("scrollend", release, true);
       window.removeEventListener("wheel", release, true);
       window.removeEventListener("touchstart", release, true);
     };
