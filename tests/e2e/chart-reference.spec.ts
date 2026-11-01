@@ -2,6 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import type { AxeResults } from "axe-core";
 import { createOperationalReferral, startOperationalAssessment } from "./support/operational-api";
+import { waitForAssessmentReady } from "./support/assessment-navigation";
 
 async function setup(page: Page, mode: "prepare" | "interview" = "prepare") {
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: `Synthetic Reference ${randomUUID().slice(0, 8)}`, owner: "", community: "San Pablo" });
@@ -122,6 +123,7 @@ test("an explicitly tucked interview rail stays tucked and its Chart reference r
   const url = new URL(page.url());
   url.searchParams.set("assessmentMode", "interview");
   await page.goto(url.toString());
+  await waitForAssessmentReady(page);
   const rail = page.getByRole("navigation", { name: "Workspace stages", exact: true });
   await expect(rail).toBeHidden();
   await page.keyboard.press("Alt+c");

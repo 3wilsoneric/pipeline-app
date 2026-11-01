@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { createOperationalReferral } from "./support/operational-api";
+import { waitForAssessmentReady } from "./support/assessment-navigation";
 
 async function review(page: Page) {
   if (page.viewportSize()!.width < 640) {
@@ -29,6 +30,7 @@ for (const width of [1440, 834, 390, 320]) {
     await page.route("**/api/assessments/*/start", (route) => { startRequests++; return route.fulfill({ status: 503, json: { error: "No start call should be needed" } }); });
     const url = `/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=identity`;
     await page.goto(url);
+    await waitForAssessmentReady(page);
     const progress = page.getByRole("region", { name: "Assessment progress", exact: true });
     const schedule = progress.getByRole("button", { name: "Schedule interview", exact: true });
     await expect(schedule).toBeInViewport();

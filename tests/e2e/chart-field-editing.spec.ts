@@ -2,7 +2,7 @@ import { closeTestBrowser } from "./support/browser-lifecycle";
 import { chromium, expect, test, webkit } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { createOperationalReferral, createOperationalAssessment, startOperationalAssessment } from "./support/operational-api";
-import { openAssessmentChart } from "./support/assessment-navigation";
+import { openAssessmentChart, waitForAssessmentReady } from "./support/assessment-navigation";
 import { unifiedProfileFixture } from "./support/pipeline-clinical-fixtures";
 
 test("late supporting records preserve chart focus and leave intake editing usable", async ({ page }) => {
@@ -116,6 +116,7 @@ for (const width of [1440, 390]) {
       name: `Example Clear ${randomUUID()}`, dob: "1981-07-09", phone: "555-0101", email: "before@example.invalid", owner: "Annette Everhart",
     }, { assigneeId: "provisional:allo:annette" });
     await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=chart`);
+    await waitForAssessmentReady(page);
     const chart = page.getByRole("article", { name: "Referral chart", exact: true });
     const fields = [["Date of birth", "dob"], ["Phone", "phone"], ["Email", "email"]] as const;
     for (const [label, key] of fields) {

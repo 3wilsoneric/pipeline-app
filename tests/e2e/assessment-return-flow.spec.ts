@@ -45,6 +45,8 @@ async function scheduledWorkspace(page: Page) {
   const created = await createOperationalAssessment(page.request, referral.id);
   const assessment = await scheduleOperationalAssessment(page.request, created);
   const read = async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
+  const { user } = await (await page.request.get("/api/auth/me")).json();
+  await page.clock.setFixedTime(new Date((await read()).scheduled_start_at));
   // Keep Home deterministic without mocking the assessment, booking, start, or saves.
   await page.route("**/api/me/home-layout", (route) => route.fulfill({ json: { layout: { schema: 3, module_ids: ["current-work", "upcoming-assessments", "new-assignments"], locked: true } } }));
   await page.route("**/api/operations/home", async (route) => {
@@ -53,6 +55,15 @@ async function scheduledWorkspace(page: Page) {
     const current = await read();
     payload.unavailable_sections = [];
     payload.upcoming = [{ id: `assessment:${current.assessment_id}`, referralId: referral.id, assessmentId: current.assessment_id, clientName: name, community: "San Pablo", owner: assessor.display_name, date: isoToOperationalInput(current.scheduled_start_at).slice(0, 10), startsAt: current.scheduled_start_at, startedAt: current.started_at, method: "zoom", kind: "assessment", status: current.status, title: "Assessment scheduled" }];
+    await route.fulfill({ response, json: payload });
+  });
+  // Home now reads its personal week from Calendar. Keep only that projection
+  // deterministic; opening, booking, starting and saving use the real workspace.
+  await page.route("**/api/calendar/events?**", async (route) => {
+    const response = await route.fetch();
+    const payload = await response.json();
+    const current = await read();
+    payload.events = [{ id: `assessment:${current.assessment_id}`, referralId: referral.id, assessmentId: current.assessment_id, clientName: name, community: "San Pablo", ownerId: user.id, owner: user.name, date: isoToOperationalInput(current.scheduled_start_at).slice(0, 10), startsAt: current.scheduled_start_at, startedAt: current.started_at, method: "zoom", kind: "assessment", status: current.status }];
     await route.fulfill({ response, json: payload });
   });
   const home = async () => {
@@ -85,7 +96,7 @@ for (const width of [1440, 390]) test(`leave, begin deliberately, and resume the
   await expect(schedule.getByLabel("Assessment date and time")).toHaveValue(isoToOperationalInput((await read()).scheduled_start_at));
   await schedule.getByRole("button", { name: "Back to assessment", exact: true }).click();
   const entry = await home();
-  await expect(entry).toContainText("Prepare assessment");
+  await expect(entry).toHaveAttribute("title", "Prepare assessment");
   await page.screenshot({ path: info.outputPath(`upcoming-${width}.png`) });
   await entry.click();
   const begin = page.getByRole("dialog", { name: "Begin interview", exact: true });
@@ -151,7 +162,7 @@ for (const width of [1440, 390]) test(`leave, begin deliberately, and resume the
     return state.recentWorkspaces.find((item: { referralId: number }) => item.referralId === referral.id)?.location.assessmentQuestion;
   }).toBe("cognition_orientation");
   const resume = await home();
-  await expect(resume).toContainText("Continue assessment");
+  await expect(resume).toHaveAttribute("title", "Continue assessment");
   await resume.click();
   await expect(page).toHaveURL(/assessmentSection=diagnosis_clinical/);
   if (width < 640) await expect(page.getByRole("region", { name: "Guided assessment", exact: true })).toBeVisible();
@@ -170,7 +181,7 @@ for (const width of [1440, 390]) test(`leave, begin deliberately, and resume the
 test("a stale preparation card resumes an interview already started elsewhere", async ({ page }) => {
   const { assessment, read, home } = await scheduledWorkspace(page);
   const entry = await home();
-  await expect(entry).toContainText("Prepare assessment");
+  await expect(entry).toHaveAttribute("title", "Prepare assessment");
   await startOperationalAssessment(page.request, assessment);
   const started = await read();
   await entry.click();
