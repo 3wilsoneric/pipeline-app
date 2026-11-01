@@ -35,20 +35,19 @@ function syntheticPdf() {
 }
 
 for (const [name, browserType] of [["chromium", chromium], ["webkit", webkit]] as const) {
-  test(`${name}: dropping on collapsed Documents queues every file and saves the batch once`, async ({ baseURL }, info) => {
+  test(`${name}: intake drop area queues every file and saves the batch once`, async ({ baseURL }, info) => {
     const browser = await browserType.launch();
     try {
       const page = await browser.newPage({ baseURL });
       await page.goto(`/?view=referrals&screen=packet&draftId=${randomUUID()}`);
       await page.getByRole("textbox", { name: "NAME", exact: true }).fill(`Drop Example ${randomUUID()}`);
-      const toggle = page.getByTestId("document-checklist-toggle");
-      const panel = page.getByTestId("document-checklist-panel");
+      const toggle = page.locator('[data-guide-target="initial-packet-upload"]');
       const documents = page.getByRole("region", { name: "Document checklist", exact: true });
-      await expect(panel).not.toHaveAttribute("open");
+      await expect(toggle).toBeVisible();
       expect(await dragFiles(toggle, ["dropped-face-sheet.pdf", "dropped-care-note.pdf"], "enter")).toEqual([true, true]);
-      await expect(panel).toHaveAttribute("open", "");
+      await expect(toggle).toBeVisible();
       await expect(documents).toHaveAttribute("data-file-drag-active", "true");
-      await expect(toggle).toContainText("Release to add files");
+      await expect(toggle).toContainText("Release to label your files");
       await page.screenshot({ path: info.outputPath("intake-drag-over.png"), animations: "disabled" });
       expect(await dragFiles(toggle, ["dropped-face-sheet.pdf", "dropped-care-note.pdf"])).toEqual([true]);
       await expect(documents).not.toHaveAttribute("data-file-drag-active");
@@ -73,7 +72,7 @@ for (const [name, browserType] of [["chromium", chromium], ["webkit", webkit]] a
       await page.getByRole("region", { name: "Workspace created", exact: true }).getByRole("button", { name: "Dismiss workspace next steps" }).click();
       await page.reload();
       await page.getByRole("button", { name: "Edit referral details", exact: true }).click();
-      await expect(panel).not.toHaveAttribute("open");
+      await expect(toggle).toBeVisible();
       await dragFiles(toggle, ["saved-workspace-note.pdf"], "enter");
       await dragFiles(toggle, ["saved-workspace-note.pdf"]);
       await confirmReferralFileLabels(page, { "saved-workspace-note.pdf": "tb_test" });
@@ -96,13 +95,17 @@ for (const [name, browserType] of [["chromium", chromium], ["webkit", webkit]] a
       const page = await browser.newPage({ baseURL, viewport: { width: 390, height: 844 } });
       await page.goto(`/?view=referrals&screen=packet&draftId=${randomUUID()}`);
       await expect(page.locator('[data-performance-ready="packet"]')).toBeVisible();
-      const toggle = page.getByTestId("document-checklist-toggle");
-      const panel = page.getByTestId("document-checklist-panel");
+      const toggle = page.locator('[data-guide-target="initial-packet-upload"]');
       await dragFiles(toggle, ["empty.txt"]);
       const documents = page.getByRole("region", { name: "Document checklist", exact: true });
       await expect(documents.getByRole("alert")).toContainText("choose a nonempty file");
-      await expect(documents.getByRole("alert")).toHaveCSS("color", "rgb(89, 100, 94)");
-      await expect(documents.getByRole("alert")).toHaveCSS("background-color", "rgb(247, 250, 249)");
+      // Validate readable feedback across theme changes, rather than the retired palette.
+      await page.addScriptTag({ path: "node_modules/axe-core/axe.min.js" });
+      const alertViolations = await documents.getByRole("alert").evaluate(async (element) => {
+        const axe = (window as unknown as { axe: typeof import("axe-core") }).axe;
+        return (await axe.run(element, { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21aa"] } })).violations;
+      });
+      expect(alertViolations).toEqual([]);
       await expect(page.getByRole("dialog", { name: "Label your files" })).toHaveCount(0);
       const mutations: string[] = [];
       page.on("request", (request) => { if (request.method() === "POST" && /uploads/.test(request.url())) mutations.push(request.url()); });
@@ -131,38 +134,37 @@ for (const [name, browserType] of [["chromium", chromium], ["webkit", webkit]] a
       await expect(page.getByRole("list", { name: "Queued referral files" })).toContainText("Provider form");
       await page.getByRole("button", { name: "Remove queued unknown.pdf" }).click();
       await expect(page.getByRole("list", { name: "Queued referral files" })).toHaveCount(0);
-      await toggle.click();
       const prevented = await toggle.evaluate((element) => {
         const dataTransfer = new DataTransfer();
         dataTransfer.setData("text/plain", "Not a file");
         return !element.dispatchEvent(new DragEvent("dragenter", { bubbles: true, cancelable: true, dataTransfer }));
       });
       expect(prevented).toBe(false);
-      await expect(panel).not.toHaveAttribute("open");
+      await expect(documents).not.toHaveAttribute("data-file-drag-active");
     } finally { await closeTestBrowser(browser); }
   });
 }
 
 test("read-only intake does not accept dropped files", async ({ page }) => {
-  const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { owner: "Annette Everhart" }, { assigneeId: "provisional:allo:annette" });
+  const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { owner: "" });
   let releaseReferral = () => {};
   const loading = new Promise<void>((resolve) => { releaseReferral = resolve; });
   await page.route(`**/api/referrals/${referral.id}`, async (route) => { await loading; await route.continue(); });
   await page.route("**/api/auth/me", (route) => route.fulfill({ json: { user: { id: "synthetic-no-edit", name: "Synthetic reader", roles: [] } } }));
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=intake&workspaceField=name`);
-  const panel = page.getByTestId("document-checklist-panel");
-  await expect(panel).not.toHaveAttribute("open");
+  const panel = page.getByRole("region", { name: "Document checklist", exact: true });
+  await expect(panel).not.toHaveAttribute("data-file-drag-active");
   const uploads: string[] = [];
   page.on("request", (request) => { if (request.method() === "POST" && /upload|documents/.test(request.url())) uploads.push(request.url()); });
-  await dragFiles(page.getByTestId("document-checklist-toggle"), ["forbidden.pdf"], "enter");
-  await dragFiles(page.getByTestId("document-checklist-toggle"), ["forbidden.pdf"]);
-  await expect(panel).not.toHaveAttribute("open");
+  await dragFiles(panel, ["forbidden.pdf"], "enter");
+  await dragFiles(panel, ["forbidden.pdf"]);
+  await expect(panel).not.toHaveAttribute("data-file-drag-active");
   releaseReferral();
   await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toHaveValue(referral.name!);
   await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toBeDisabled();
-  await dragFiles(page.getByTestId("document-checklist-toggle"), ["forbidden.pdf"], "enter");
-  await dragFiles(page.getByTestId("document-checklist-toggle"), ["forbidden.pdf"]);
-  await expect(panel).not.toHaveAttribute("open");
+  await dragFiles(panel, ["forbidden.pdf"], "enter");
+  await dragFiles(panel, ["forbidden.pdf"]);
+  await expect(panel).not.toHaveAttribute("data-file-drag-active");
   expect(uploads).toEqual([]);
   const saved = (await (await page.request.get(`/api/referrals/${referral.id}`)).json()).referral;
   expect(saved.documentName).not.toBe("forbidden.pdf");

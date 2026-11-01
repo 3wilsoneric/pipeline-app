@@ -21,7 +21,6 @@ import {
 import type { LucideIcon } from "lucide-react";
 
 import PipelineArcadeLoader from "@/components/pipeline/PipelineArcadeLoader";
-import ReferralDraftResumeList from "@/components/pipeline/ReferralDraftResumeList";
 import ReferralWorklist from "@/components/pipeline/ReferralWorklist";
 import WorkspaceMultiFilter from "@/components/pipeline/WorkspaceMultiFilter";
 import type { ClientFileImportReviewItem } from "@/lib/pipeline/client-file-import-contracts";
@@ -71,7 +70,6 @@ type ReferralHomeDirectoryProps = {
   onSearchTermChange: (value: string) => void;
   onOpenPacket: (referral?: Pick<Referral, "id" | "name" | "community">) => void;
   onOpenProfile: (canonicalClientId: string) => void;
-  onResumeDraft: (draftKey: `new-${string}`) => void;
   scope: WorkspaceScope;
   filter: ReferralFilter;
   onFilterChange: (filter: ReferralFilter) => void;
@@ -130,10 +128,9 @@ type ReferralHomeDirectoryProps = {
 
 export function ReferralHomeDirectory(props: ReferralHomeDirectoryProps) {
   return (
-    <main data-guide-target="workspace-directory" data-performance-ready={!props.workspaceLoading && !props.loadError ? "referrals" : undefined} aria-label="Referral workspaces" className="h-full overflow-y-auto bg-white text-[#111111]">
+    <main data-guide-target="workspace-directory" data-performance-ready={!props.workspaceLoading && !props.loadError ? "referrals" : undefined} aria-label="Referral workspaces" className={`${styles.directory} h-full overflow-y-auto`}>
       <div className="w-full px-4 pb-8 pt-0 sm:px-5 md:px-6 lg:px-8 xl:px-10">
         <h1 className="sr-only">Referral workspaces</h1>
-        <ReferralDraftResumeList onResume={props.onResumeDraft} className="mb-3 mt-3" />
         <WorkspaceDirectoryBody {...props} />
       </div>
       {props.previewDialog}
@@ -188,7 +185,7 @@ function WorkspaceSearch(props: ReferralHomeDirectoryProps) {
     <div data-guide-target="workspace-search" className="flex h-11 min-w-0 items-center gap-3 border-b border-[#bdbdbd] px-2 focus-within:border-[#0f8b73] xl:h-10">
       <Search size={16} className="shrink-0 text-[#0f8b73]" />
       <label htmlFor="workspace-directory-search" className="sr-only">{filesActive ? "Search all uploaded files" : workspaceSearchLabel}</label>
-      <input id="workspace-directory-search" type="search" aria-label={filesActive ? "Search all uploaded files" : workspaceSearchLabel} value={props.searchTerm} onChange={(event) => props.onSearchTermChange(event.target.value)} placeholder={filesActive ? "Search files by name, client, community, owner, or type" : `${workspaceSearchLabel} by client, community, county, owner, or source`} className="min-w-0 flex-1 bg-transparent text-[13px] text-[#111111] outline-none placeholder:text-[#8a8a8a]" />
+      <input id="workspace-directory-search" type="search" aria-label={filesActive ? "Search all uploaded files" : workspaceSearchLabel} value={props.searchTerm} onChange={(event) => props.onSearchTermChange(event.target.value)} placeholder={filesActive ? "Search files" : workspaceSearchLabel} className="min-w-0 flex-1 bg-transparent text-[13px] text-[#111111] outline-none placeholder:text-[#8a8a8a]" />
       {props.searchTerm ? (
         <button type="button" aria-label="Clear workspace search" onClick={() => props.onSearchTermChange("")} className="flex h-8 w-8 shrink-0 items-center justify-center text-[#737373] hover:text-[#111111] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73]"><X size={15} /></button>
       ) : null}
@@ -210,7 +207,7 @@ function ReferralFilterToolbar(props: ReferralHomeDirectoryProps) {
         <ChevronDown size={15} className={`text-[#737373] transition-transform ${props.filtersOpen ? "rotate-180" : ""}`} aria-hidden="true" />
       </button>
       {props.filtersOpen ? <div id="referral-filter-controls" className="grid grid-cols-1 gap-2 px-2 pb-3 sm:hidden"><ReferralFilterControls {...props} /></div> : null}
-      <div className="hidden gap-2 px-2 py-2 sm:grid sm:grid-cols-3"><ReferralFilterControls {...props} /></div>
+      <div className={`${styles.filters} hidden gap-2 px-2 py-2 sm:flex sm:flex-wrap`}><ReferralFilterControls {...props} /></div>
     </div>
   );
 }
@@ -379,7 +376,7 @@ function WorkspaceArchiveNavigation({ months, communities, filter, expandedMonth
   const selectedCommunities = referralFilterCommunities(filter);
   return (
     <nav aria-label="Browse workspaces by date and community">
-      <div>{months.length === 0 ? <div className="px-3 py-4 text-[11px] leading-5 text-[#737373]">Dated workspaces will appear here.</div> : months.map((month) => <WorkspaceArchiveMonth key={month.value} month={month} communities={communities} filter={filter} selectedMonth={selectedMonth} selectedCommunities={selectedCommunities} expanded={expandedMonth === month.value} onExpandedMonthChange={onExpandedMonthChange} onFilterChange={onFilterChange} />)}</div>
+      <div>{months.length === 0 ? <div className="px-3 py-4 text-meta text-ink-muted">Dated workspaces will appear here.</div> : months.map((month) => <WorkspaceArchiveMonth key={month.value} month={month} communities={communities} filter={filter} selectedMonth={selectedMonth} selectedCommunities={selectedCommunities} expanded={expandedMonth === month.value} onExpandedMonthChange={onExpandedMonthChange} onFilterChange={onFilterChange} />)}</div>
     </nav>
   );
 }

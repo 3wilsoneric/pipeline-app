@@ -5,13 +5,18 @@ import { createOperationalAssessment, createOperationalReferral } from "./suppor
 const generatedAt = "2026-10-26T16:00:00.000Z";
 
 async function setupMemo(page: Page, scope: "personal" | "team" = "personal") {
+  const membersResponse = await page.request.get("/api/members?scope=assessors");
+  expect(membersResponse.ok()).toBe(true);
+  const { members } = await membersResponse.json();
+  const assessor = members.find((member: { active: boolean }) => member.active);
+  expect(assessor).toBeTruthy();
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", {
-    name: `Memo test ${randomUUID().slice(0, 8)}`, owner: "Annette Everhart", community: "Turlock",
-  });
+    name: `Memo test ${randomUUID().slice(0, 8)}`, owner: assessor.display_name, community: "Turlock",
+  }, { assigneeId: assessor.principal_id });
   const assessment = await createOperationalAssessment(page.request, referral.id);
   const client = {
     referral_id: referral.id, assessment_id: assessment.assessment_id, client_name: referral.name,
-    community: "Turlock", owner: "Annette Everhart", status: "accepted", assessment_signed: false,
+    community: "Turlock", owner: assessor.display_name, status: "accepted", assessment_signed: false,
     tasks: [
       { id: "assessment:field:current_symptoms", group: "assessment", label: "Answer current symptoms", detail: "This required assessment answer is blank.", action: "Open question", location: { view: "assessment", assessmentMode: "interview", assessmentSection: "diagnosis_clinical", assessmentQuestion: "current_symptoms" } },
       { id: "assessment:field:cognition_orientation", group: "assessment", label: "Answer cognition / orientation", detail: "This required assessment answer is blank.", action: "Open question", location: { view: "assessment", assessmentMode: "interview", assessmentSection: "diagnosis_clinical", assessmentQuestion: "cognition_orientation" } },

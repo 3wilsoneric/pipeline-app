@@ -26,8 +26,8 @@
   .beginDialog footer { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 24px; }
   .beginDialog button { min-height: 48px; padding: 10px 12px; border: 1px solid var(--color-control-border); border-radius: 5px; font-size: 14px; font-weight: 600; line-height: 1.5; cursor: pointer; }
   .beginDialog button:hover:not(:disabled) { background: #f0f4f2; }
-  .beginDialog button:last-child { border-color: var(--color-action); background: var(--color-action); color: #fff; }
-  .beginDialog button:last-child:hover:not(:disabled) { background: color-mix(in srgb, var(--color-action) 85%, black); }
+  .beginDialog button:last-child { border: 2px solid var(--color-night); background: var(--color-action); color: var(--color-on-action); }
+  .beginDialog button:last-child:hover:not(:disabled) { background: var(--color-action-hover); }
   .beginDialog button:disabled { opacity: .5; cursor: wait; }
   .beginDialog button:focus-visible { outline: 2px solid var(--color-link); outline-offset: 3px; }
   .scheduleOverlay {
@@ -164,8 +164,6 @@
     .surface [data-working-field] label[for] + span, .embedded [data-working-field] label[for] + span { font-size: 10px; color: #59665e; }
     .surface [data-working-field] :is(input:not([type="checkbox"]), select, textarea),
     .embedded [data-working-field] :is(input:not([type="checkbox"]), select, textarea) { min-height: 48px; font-size: 16px; scroll-margin-block: 8px; }
-    .surface [data-working-field] [role="group"], .embedded [data-working-field] [role="group"] { height: auto; min-height: 48px; }
-    .surface [data-working-field] [role="group"] :is(button, label), .embedded [data-working-field] [role="group"] :is(button, label) { min-height: 48px; font-size: 14px; }
     .surface [data-working-field] button, .embedded [data-working-field] button { min-height: 44px; min-width: 44px; }
     .surface [data-working-field] p, .embedded [data-working-field] p { font-size: 13px; line-height: 1.5; }
     .surface [data-working-field] summary[data-guide-target="assessment-answer-help"],

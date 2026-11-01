@@ -21,9 +21,7 @@ test.describe("Responsive and accessible application shell", () => {
     await expect(page.getByRole("navigation", { name: "Platform pages" })).toHaveCount(0);
     const phone = (page.viewportSize()?.width ?? 0) < 640;
     if (phone) await page.getByRole("button", { name: /^Open page menu/ }).click();
-    else await page.getByRole("button", { name: "Expand navigation", exact: true }).click();
-    const platformBrand = page.getByRole("img", { name: "Alamo Health Management" });
-    if (!phone) await expect(platformBrand).toBeVisible();
+    if (!phone) await expect(page.getByRole("button", { name: "Pipeline home" }).getByText("Home", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Pipeline home" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Open reports" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Create new referral" })).toBeVisible();

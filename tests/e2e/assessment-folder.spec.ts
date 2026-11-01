@@ -77,10 +77,8 @@ for (const width of [1440, 834, 390]) {
       await menu.press("Escape");
       await expect(menu).not.toBeVisible();
     } else {
-      await page.getByRole("button", { name: "Expand navigation", exact: true }).click();
-      await expect(page.getByRole("button", { name: "Collapse navigation", exact: true })).toHaveAttribute("aria-expanded", "true");
-      await page.getByRole("button", { name: "Collapse navigation", exact: true }).press("Escape");
-      await expect(page.getByRole("button", { name: "Expand navigation", exact: true })).toHaveAttribute("aria-expanded", "false");
+      await expect(navigation.locator("[data-navigation-toggle]")).toHaveCount(0);
+      await expect(page.getByRole("button", { name: "Open referrals", exact: true }).getByText("Workspaces", { exact: true })).toBeVisible();
     }
     await workspaceReturn(page).click();
     await expect(page.getByTestId("packet-workspace")).toHaveCount(0);

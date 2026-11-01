@@ -38,7 +38,7 @@ export default function UploadedDocumentList({ files, readOnly = false, updating
           {file.thumbnailUrl ? <Image src={file.thumbnailUrl} alt="" fill sizes="48px" unoptimized className="object-contain" /> : <FileText size={25} />}
         </button>
         <div className="min-w-0 flex-1">
-          <button type="button" onClick={() => setPreview(file)} title={file.name} className="block max-w-full truncate text-left text-[14px] font-bold text-[#173c2b] underline-offset-2 hover:underline">{file.name}</button>
+          <button type="button" onClick={() => setPreview(file)} title={file.name} className="block min-h-11 max-w-full break-words text-left text-value font-semibold text-ink underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-focus">{file.name}</button>
           <span className="mt-1 block text-[13px] text-[#52655d]">{file.category}</span>
           {/^[0-9a-f-]{36}$/i.test(file.id)
             ? <span className="mt-1 flex items-center gap-1 text-[13px] font-semibold text-[#128049]"><CheckCircle2 size={14} aria-hidden="true" />Uploaded</span>

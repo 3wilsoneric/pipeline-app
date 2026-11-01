@@ -18,6 +18,8 @@ export type HomeResumeItem = {
 };
 
 export type HomeContinuitySnapshot = {
+  pinned_referral_ids?: number[];
+  recent_referral_ids?: number[];
   resume_items: HomeResumeItem[];
   new_assignments: WorkspaceActivityItem[];
   assignment_tracking_started_at: string | null;

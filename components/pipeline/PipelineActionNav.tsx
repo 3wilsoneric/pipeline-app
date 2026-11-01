@@ -1,6 +1,6 @@
 "use client";
 
-import { BarChart3, CalendarDays, FolderOpen, Plus, UsersRound } from "lucide-react";
+import { CalendarDays, ChartNoAxesCombined, ClipboardPlus, FolderOpen, UsersRound } from "lucide-react";
 import { recordRecentDestination } from "@/lib/pipeline/recent-destinations";
 
 export type PipelineNavTarget = "referrals" | "calendar" | "profiles" | "operations" | "packet" | "communications" | null;
@@ -53,7 +53,7 @@ export default function PipelineActionNav({
               : inactiveReferrals
           }`}
         >
-          <FolderOpen size={20} className="shrink-0" />
+          <FolderOpen size={28} strokeWidth={1.8} aria-hidden="true" />
           <span className={`${labelClass} whitespace-nowrap text-[12px] font-black uppercase tracking-[0.08em]`}>
             Workspaces
           </span>
@@ -72,12 +72,12 @@ export default function PipelineActionNav({
               : "border-transparent bg-transparent hover:border-[#27889a] hover:bg-[#e9f7f9] hover:shadow-[0_4px_14px_rgba(39,136,154,0.14)]"
           }`}
         >
-          <CalendarDays size={20} className="shrink-0" />
+          <CalendarDays size={28} strokeWidth={1.8} aria-hidden="true" />
           <span className={`${labelClass} whitespace-nowrap text-[12px] font-black uppercase tracking-[0.08em]`}>Calendar</span>
         </button>
         <button
           type="button"
-          aria-pressed={active === "profiles"}
+          aria-current={active === "profiles" ? "page" : undefined}
           data-active={active === "profiles" ? "true" : undefined}
           onClick={() => {
             recordRecentDestination({
@@ -98,7 +98,7 @@ export default function PipelineActionNav({
               : inactiveProfiles
           }`}
         >
-          <UsersRound size={20} className="shrink-0" />
+          <UsersRound size={28} strokeWidth={1.8} aria-hidden="true" />
           <span className={`${labelClass} whitespace-nowrap text-[12px] font-black uppercase tracking-[0.08em]`}>
             Clients
           </span>
@@ -127,7 +127,7 @@ export default function PipelineActionNav({
                 : "border-transparent bg-transparent hover:border-[#7d8b3f] hover:bg-[#f4f6e8] hover:shadow-[0_4px_14px_rgba(125,139,63,0.14)]"
             }`}
           >
-            <BarChart3 size={20} className="shrink-0" />
+            <ChartNoAxesCombined size={28} strokeWidth={1.8} aria-hidden="true" />
             <span className={`${labelClass} whitespace-nowrap text-[12px] font-black uppercase tracking-[0.08em]`}>Reports</span>
           </button>
         ) : null}
@@ -155,7 +155,7 @@ export default function PipelineActionNav({
             : inactivePacket
         }`}
       >
-        <Plus size={21} className="shrink-0" />
+        <ClipboardPlus size={28} strokeWidth={1.8} aria-hidden="true" />
         <span className="hidden max-sm:inline">New Intake</span>
       </button>
     </div>

@@ -40,6 +40,8 @@ test.describe("role-scoped home and reports", () => {
       await page.route("**/api/auth/me", async (route) => {
         const response = await route.fetch();
         const payload = await response.json();
+        payload.user.email = "reports@pipeline.local";
+        delete payload.user.demoPersona;
         payload.user.roles = [role];
         await route.fulfill({ response, json: payload });
       });
@@ -50,7 +52,9 @@ test.describe("role-scoped home and reports", () => {
       await page.goto("/?screen=operations");
       const allowed = role === "admin" || role === "assessment_coordinator";
       if (allowed) {
+        await page.getByRole("button", { name: /^Open profile menu for/ }).click();
         await expect(page.getByRole("button", { name: "Open reports", exact: true })).toBeVisible();
+        await page.keyboard.press("Escape");
         await expect(page.getByRole("main", { name: "Reports" })).toBeVisible();
         await expect(page.getByTestId("operations-workspace")).toBeVisible();
       } else {
@@ -81,12 +85,11 @@ test.describe("role-scoped home and reports", () => {
 
     await expect(page.getByRole("heading", { name: /Good (morning|afternoon|evening)/ })).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Current work", exact: true })).toBeVisible();
-    await page.getByRole("tab", { name: "New assignments", exact: true }).click();
-    await expect(page.getByRole("region", { name: "Since your last visit" })).toBeVisible();
-    await page.getByRole("tab", { name: "Board", exact: true }).click();
-    await page.getByRole("tab", { name: "Upcoming assessments", exact: true }).click();
+    await expect(page.getByRole("button", { name: "New assignments", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Board", exact: true })).toHaveCount(0);
+    await page.getByRole("button", { name: "Upcoming assessments", exact: true }).click();
     await expect(page.getByRole("region", { name: "Upcoming assessments" })).toBeVisible();
-    await page.getByRole("tab", { name: "Board", exact: true }).click();
+    await page.keyboard.press("Escape");
     await expect(page.getByRole("region", { name: "Search", exact: true })).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Continue working", exact: true })).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Recent" })).toHaveCount(0);
@@ -118,7 +121,7 @@ test.describe("role-scoped home and reports", () => {
     await expect(page.getByRole("button", { name: "Add module", exact: true })).toBeFocused();
 
     await expect(page.getByRole("region", { name: "Assessments to schedule" })).toBeVisible();
-    await page.getByRole("button", { name: "Remove Upcoming assessments from Home" }).click();
+    await expect(page.getByRole("button", { name: "Remove Upcoming assessments from Home" })).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Upcoming assessments" })).toHaveCount(0);
 
     await page.getByRole("button", { name: "Move Assessments to schedule", exact: true }).press("ArrowUp");
@@ -127,7 +130,7 @@ test.describe("role-scoped home and reports", () => {
     await page.getByRole("button", { name: "Move Assessments to schedule", exact: true }).press("ArrowUp");
     await expect.poll(async () => page.locator("[data-home-module]").evaluateAll((elements) => (
       elements.map((element) => element.getAttribute("data-home-module"))
-    ))).toEqual(["current-work", "scheduling-queue", "new-assignments", "search", "recent-work"]);
+    ))).toEqual(["current-work", "scheduling-queue", "search", "recent-work"]);
 
     await page.getByRole("button", { name: "Done" }).click();
     await expect(page).not.toHaveURL(/editHome=1/);
@@ -139,7 +142,7 @@ test.describe("role-scoped home and reports", () => {
     await expect(page.getByRole("region", { name: "Upcoming assessments" })).toHaveCount(0);
     await expect.poll(async () => page.locator("[data-home-module]").evaluateAll((elements) => (
       elements.map((element) => element.getAttribute("data-home-module"))
-    ))).toEqual(["current-work", "new-assignments", "scheduling-queue", "search", "recent-work"]);
+    ))).toEqual(["current-work", "scheduling-queue", "search", "recent-work"]);
 
     await page.setViewportSize({ width: 320, height: 720 });
     await page.goto("/settings");
@@ -149,7 +152,7 @@ test.describe("role-scoped home and reports", () => {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   });
 
-  test("keeps new assignments visible until the user explicitly acknowledges them", async ({ page }) => {
+  test("does not display or acknowledge retired Home assignments", async ({ page }) => {
     const assignment = {
             event_id: "home-activity-1",
             action: "referral_assigned",
@@ -189,16 +192,10 @@ test.describe("role-scoped home and reports", () => {
     });
 
     await page.goto("/");
-    await page.getByRole("tab", { name: "New assignments", exact: true }).click();
-    const summary = page.getByRole("region", { name: "Since your last visit" });
-    await expect(summary).toContainText("Home Activity Client");
-    await expect(summary).toContainText("New assignments");
-    await expect(summary.getByRole("button", { name: /Home Activity Client/ })).toContainText("Assigned");
-    expect(await page.evaluate(() => Object.keys(localStorage).some((key) => key.startsWith("pipeline:last-activity-visit:")))).toBe(false);
-
-    await summary.getByRole("button", { name: /Home Activity Client/ }).click();
-    await expect.poll(() => new URL(page.url()).searchParams.get("referralId")).toBe("424243");
-    await expect.poll(() => acknowledgment).toEqual({ acknowledgeAssignmentIds: [assignment.event_id] });
+    await expect(page.getByRole("button", { name: "Upcoming assessments", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "New assignments", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "Since your last visit" })).toHaveCount(0);
+    expect(acknowledgment).toBeNull();
   });
 
   test("returns only current personal assignments from the assignment feed", async ({ page }) => {
@@ -311,7 +308,7 @@ test.describe("role-scoped home and reports", () => {
     await expect(page.getByRole("dialog", { name: "Current work" })).toContainText("No referrals here");
     await page.getByRole("button", { name: "Close current work" }).click();
     await expect(page).not.toHaveURL(/work=current/);
-    await page.getByRole("tab", { name: "Upcoming assessments", exact: true }).click();
+    await page.getByRole("button", { name: "Upcoming assessments", exact: true }).click();
     await expect(page.getByRole("region", { name: "Upcoming assessments" })).toContainText("No assessments are scheduled");
     await expect(page.getByRole("region", { name: "Data completion" })).toHaveCount(0);
   });
@@ -457,14 +454,14 @@ test.describe("role-scoped home and reports", () => {
 
     await page.goto("/");
     const homeModule = page.getByRole("region", { name: "Current work", exact: true });
-    await expect(page.getByRole("tab", { name: "Board", exact: true })).toHaveCount(1);
-    await expect(page.getByRole("tab", { name: "Board", exact: true })).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByRole("heading", { name: "Board", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("tablist", { name: "Home panels" })).toHaveCount(0);
     await expect(homeModule.getByText("Team referrals", { exact: true })).toHaveCount(0);
     const homeBoard = homeModule.getByRole("region", { name: "Current work board" });
     await expect(homeBoard.locator("[data-board-card]")).toHaveCount(12);
     for (const stage of ["Referral received", "In progress", "Decision"]) await expect(homeBoard.getByRole("heading", { name: stage })).toBeVisible();
     await expect(page.locator("[data-home-module]").first()).toHaveAttribute("data-home-module", "current-work");
-    await expect(page.getByRole("tab", { name: "Upcoming assessments", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Upcoming assessments", exact: true })).toBeVisible();
     await expect(homeModule.getByRole("button", { name: /^(Collapse|Expand) Board$/ })).toHaveCount(0);
     await expect(homeBoard).toBeVisible();
     await page.getByRole("button", { name: "Open current work" }).click();
@@ -490,6 +487,14 @@ test.describe("role-scoped home and reports", () => {
   });
 
   test("combines Pipeline admissions with current census in Reports", async ({ page }) => {
+    await page.route("**/api/auth/me", async (route) => {
+      const response = await route.fetch();
+      const payload = await response.json();
+      payload.user.email = "reports@pipeline.local";
+      payload.user.roles = ["admin"];
+      delete payload.user.demoPersona;
+      await route.fulfill({ response, json: payload });
+    });
     let legacyReportRequests = 0;
     let censusRequests = 0;
     let censusAvailable = true;

@@ -10,6 +10,7 @@ import {
   patchPipelineWorkContinuityState,
 } from "@/lib/pipeline/work-continuity-store";
 import { getUserWorkspaceStateReadiness } from "@/lib/pipeline/user-workspace-state-store";
+import { requireReferralAccess } from "@/lib/pipeline/referral-access";
 
 export const runtime = "nodejs";
 const noStoreHeaders = { "Cache-Control": "private, no-store, max-age=0" };
@@ -37,6 +38,10 @@ export async function PATCH(request: Request) {
     if (!body.ok) return jsonError(body.message, body.status);
     const patch = parsePipelineWorkContinuityPatch(body.value);
     if (!patch) return jsonError("continuity update is invalid.");
+    if (patch.pinReferral?.pinned) {
+      const access = await requireReferralAccess(auth.user, patch.pinReferral.id);
+      if (!access.ok) return access.response;
+    }
     const state = await patchPipelineWorkContinuityState(auth.user.id, patch);
     if (!state) return jsonError("Work continuity changed in another session. Try again.", 409);
     return Response.json({ state }, { headers: noStoreHeaders });

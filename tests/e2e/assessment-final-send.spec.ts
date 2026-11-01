@@ -1,11 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
-import { createOperationalReferral } from "./support/operational-api";
+import { activeOperationalAssessor, createOperationalReferral } from "./support/operational-api";
 
 test("signed answers remain editable and saved; Add note appears only after the packet is sent", async ({ page }) => {
+  const assessor = await activeOperationalAssessor(page.request);
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", {
-    name: `Finalsend ${randomUUID().replaceAll(/[^a-z]/g, "")}`, owner: "Annette Everhart", tags: [], documentName: "", documentStatus: "Missing",
-  }, { assigneeId: "provisional:allo:annette" });
+    name: `Finalsend ${randomUUID().replaceAll(/[^a-z]/g, "")}`, owner: assessor.display_name, tags: [], documentName: "", documentStatus: "Missing",
+  }, { assigneeId: assessor.principal_id });
   const created = await page.request.post(`/api/referrals/${referral.id}/assessments`, {
     data: { client_mutation_id: randomUUID(), data: {} },
   });

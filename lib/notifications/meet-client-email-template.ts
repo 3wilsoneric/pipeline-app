@@ -1,6 +1,6 @@
 import { formatMeetClientDate, type MeetClientSummary } from "@/lib/assessment/assessment-summary";
 import { medicationAttachmentReference } from "@/lib/notifications/meet-client-medications";
-import type { MeetClientMessage } from "./meet-client-message";
+import { meetClientSectionOrder, type MeetClientMessage, type MeetClientSectionId } from "@/lib/notifications/meet-client-message";
 
 export function renderMeetClientEmail(
   summary: MeetClientSummary,
@@ -13,7 +13,7 @@ export function renderMeetClientEmail(
   const subject = `${options.demo ? "[DEMO] " : ""}${message?.subject ?? `Meet the Client | ${summary.community || "New admission"}`}`;
 
   const linked = Boolean(options.packetUrl || options.packetLinkPreview);
-  const content = meetClientContent(summary, linked ? [] : attachmentNames, message?.body);
+  const content = meetClientContent(summary, linked ? [] : attachmentNames, message);
   if (linked) appendPacketLink(content, attachmentNames.length, options.packetUrl);
   const html = `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>@media(max-width:600px){.email-sheet{padding:24px 16px!important}.email-table td{display:block!important;width:auto!important}.email-table td:first-child{border:0!important;padding:14px 0 2px!important}.email-table td:last-child{padding:0 0 14px!important}}</style></head><body style="margin:0;background:#fff;color:#243b32;font-family:Arial,sans-serif;font-size:17px;line-height:1.65;overflow-wrap:anywhere"><div class="email-sheet" style="max-width:760px;margin:0 auto;padding:32px;box-sizing:border-box"><div style="border-top:3px solid #0f8b73;padding-top:24px">${renderEmailHeader(options)}${content.html}<div style="margin-top:32px;border-top:1px solid #d9dfdb;padding-top:18px;font-size:13px;line-height:1.6;color:#59665f">${content.edited ? "Sender-edited handoff based on" : "Prepared from"} the signed assessment by ${escapeHtml(preparedBy)}.<br>Agreement status and coordination details come from the referral record; signing an assessment does not sign the admission agreement.<br>Confidential: contains protected health information. Use only for authorized care coordination.</div></div></div></body></html>`;
   return { subject, html, text: `${options.demo ? "Not production yet — no email will be sent. This admission packet is a demo.\n\n" : ""}${content.text}` };
@@ -24,42 +24,56 @@ function renderEmailHeader(options: { demo?: boolean; logoUrl?: string }) {
   return `<img src="${escapeHtml(options.logoUrl ?? "https://alamo-pipeline.com/brand/alamo-health-management.png")}" alt="Alamo Health Management" width="300" height="80" style="display:block;width:300px;max-width:100%;height:auto;margin:0 0 24px;border:0"><h1 style="margin:8px 0 24px;font-size:30px;line-height:1.2">Meet the Client</h1>${demoNotice}`;
 }
 
-function meetClientContent(summary: MeetClientSummary, attachmentNames: string[], body?: string | null) {
-  const identityRows = [
+export function meetClientIdentityRows(summary: MeetClientSummary) {
+  return [
     ["Name", summary.name],
     ["Date of birth", formatMeetClientDate(summary.dateOfBirth)],
     ["Community", summary.community],
     ["Admission date", formatMeetClientDate(summary.admissionDate)],
     ["Assessment date", formatMeetClientDate(summary.assessmentDate)],
+  ].filter(([, value]) => value);
+}
+
+export type MeetClientSection = {
+  id: MeetClientSectionId;
+  title: string;
+} & ({ kind: "items"; items: Array<{ label: string; value: string }> }
+  | { kind: "list"; values: string[] }
+  | { kind: "message"; text: string });
+
+/** One source for the working page, HTML email, and plain-text email. No sections can be removed by ordering. */
+export function meetClientSections(summary: MeetClientSummary, message?: MeetClientMessage): MeetClientSection[] {
+  const sections: MeetClientSection[] = message?.body != null ? [
+    { id: "message", title: "Message", kind: "message", text: message.body },
+    ...(message.body.includes(medicationAttachmentReference) ? [] : [{ id: "medications" as const, title: "Medications", kind: "list" as const, values: [medicationAttachmentReference] }]),
+  ] : [
+    { id: "coordination", title: "Admission & coordination", kind: "items", items: summary.admissionNotes ?? [] },
+    { id: "bio", title: "Meet the client", kind: "list", values: summary.bio },
+    { id: "medications", title: "Med room", kind: "items", items: [{ label: "Medications", value: medicationAttachmentReference }, ...summary.medicationNotes] },
+    { id: "safety", title: "Behavior & safety", kind: "items", items: summary.safetyNotes ?? [] },
+    { id: "diet", title: "Allergies & diet", kind: "items", items: summary.dietaryNotes ?? [] },
+    { id: "billing", title: "Billing team", kind: "items", items: summary.billingNotes ?? [] },
+    { id: "support", title: "Support snapshot", kind: "items", items: summary.supportSnapshot },
   ];
-  if (body != null) {
-    const referenceIncluded = body.includes(medicationAttachmentReference);
-    return {
-      html: `${table(identityRows)}<div style="white-space:pre-wrap">${escapeHtml(body)}</div>${referenceIncluded ? "" : emailSection("Medications", [medicationAttachmentReference])}${emailSection("Admission packet", attachmentNames)}`,
-      text: referenceIncluded ? body : `${body}\n\nMedications\n${medicationAttachmentReference}`, edited: true,
-    };
-  }
-  return { html: defaultMeetClientContent(summary, identityRows, attachmentNames), text: meetClientMessageText(summary), edited: false };
+  return meetClientSectionOrder(message).flatMap((id) => {
+    const section = sections.find((item) => item.id === id);
+    return section && (section.kind === "message" || (section.kind === "items" ? section.items.length : section.values.length)) ? [section] : [];
+  });
 }
 
-function defaultMeetClientContent(summary: MeetClientSummary, identityRows: string[][], attachmentNames: string[]) {
-  const medicationRows = [{ label: "Medications", value: medicationAttachmentReference }, ...summary.medicationNotes];
-  return `${admissionIntroduction(summary)}${table(identityRows)}${emailItemSection("Admission & coordination", summary.admissionNotes ?? [])}${emailSection("Meet the client", summary.bio)}${emailItemSection("Med room", medicationRows)}${emailItemSection("Behavior & safety", summary.safetyNotes ?? [])}${emailItemSection("Allergies & diet", summary.dietaryNotes ?? [])}${emailItemSection("Billing team", summary.billingNotes ?? [])}${emailItemSection("Support snapshot", summary.supportSnapshot)}${emailSection("Admission packet", attachmentNames)}`;
-}
-
-function meetClientMessageText(summary: MeetClientSummary) {
-  const items = (title: string, values: Array<{ label: string; value: string }>) => values.length
-    ? `${title}\n${values.map(({ label, value }) => `${label}: ${value}`).join("\n")}` : "";
-  return [
-    "Hello team,\n\nPlease review the handoff details below and the admission packet.",
-    items("Admission & coordination", summary.admissionNotes ?? []),
-    summary.bio.length ? `Meet the client\n${summary.bio.join("\n")}` : "",
-    items("Med room", [{ label: "Medications", value: medicationAttachmentReference }, ...summary.medicationNotes]),
-    items("Behavior & safety", summary.safetyNotes ?? []),
-    items("Allergies & diet", summary.dietaryNotes ?? []),
-    items("Billing team", summary.billingNotes ?? []),
-    items("Support snapshot", summary.supportSnapshot),
-  ].filter(Boolean).join("\n\n");
+function meetClientContent(summary: MeetClientSummary, attachmentNames: string[], message?: MeetClientMessage) {
+  const edited = message?.body != null;
+  const sections = meetClientSections(summary, message);
+  const html = sections.map((section) => section.kind === "items" ? emailItemSection(section.title, section.items)
+    : section.kind === "list" ? emailSection(section.title, section.values)
+    : `<div style="white-space:pre-wrap">${escapeHtml(section.text)}</div>`).join("");
+  const text = sections.map((section) => section.kind === "message" ? section.text
+    : `${section.title}\n${section.kind === "items" ? section.items.map(({ label, value }) => `${label}: ${value}`).join("\n") : section.values.join("\n")}`).join("\n\n");
+  return {
+    html: `${edited ? "" : admissionIntroduction(summary)}${table(meetClientIdentityRows(summary))}${html}${emailSection("Admission packet", attachmentNames)}`,
+    text: edited ? text : `Hello team,\n\nPlease review the handoff details below and the admission packet.\n\n${text}`,
+    edited,
+  };
 }
 function admissionIntroduction(summary: MeetClientSummary) {
   const arrival = summary.admissionDate ? `scheduled for admission on ${formatMeetClientDate(summary.admissionDate)}` : "being prepared for admission (date to be confirmed)";

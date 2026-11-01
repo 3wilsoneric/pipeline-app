@@ -38,8 +38,8 @@
   .messageEditor textarea { width: 100%; min-height: 360px; resize: vertical; border: 1px solid #bdcdc4; border-radius: 4px; padding: 16px; font: 16px/1.6 Arial, sans-serif; color: var(--color-ink); background: #fff; }
   .messageEditor textarea:focus-visible { outline: 2px solid var(--color-link); outline-offset: 2px; }
   .toolbar { display: flex; flex-shrink: 0; align-items: center; justify-content: space-between; gap: 24px; padding: 16px 24px; border-top: 1px solid #d9e1dd; background: var(--color-sheet); }
-  .sendButton { display: inline-flex; flex-shrink: 0; align-items: center; justify-content: center; gap: 9px; min-height: 48px; padding: 10px 20px; border-radius: 6px; background: var(--color-action); color: #fff; font-size: 16px; font-weight: 650; }
-  .sendButton:hover:enabled { background: color-mix(in srgb, var(--color-action) 85%, black); }
+  .sendButton { display: inline-flex; flex-shrink: 0; align-items: center; justify-content: center; gap: 12px; min-height: var(--spacing-action); padding: 12px 24px; border: 2px solid var(--color-night); border-radius: var(--radius-input); background: var(--color-action); color: var(--color-on-action); font-size: var(--text-value); font-weight: 650; }
+  .sendButton:hover:enabled { background: var(--color-action-hover); }
   .sendButton:disabled { background: var(--color-paper-rule); color: var(--color-ink-muted); cursor: not-allowed; }
   .addressRow { display: grid; grid-template-columns: 84px minmax(0, 1fr); align-items: start; gap: 16px; margin: 0 28px; padding: 12px 0; border-bottom: 1px solid var(--color-paper-rule); font-size: 16px; line-height: 26px; }
   .addressRow > :first-child { color: var(--color-ink-muted); white-space: nowrap; }
@@ -55,7 +55,7 @@
   .copyAddresses { flex-shrink: 0; min-height: 44px; padding: 8px 12px; border: 1px solid #b9d5ca; border-radius: 6px; color: #08664f; background: #f1f8f4; font-size: 14px; font-weight: 650; }
   .copyAddresses:hover { background: #e3f2ea; }
   .copyStatus { margin: 8px 28px; color: #08664f; font-size: 14px; }
-  .textButton { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 44px; padding: 6px 8px; color: var(--color-link); font-size: 15px; font-weight: 600; text-align: left; }
+  .textButton { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: var(--spacing-control); padding: 8px 12px; color: var(--color-link); font-size: var(--text-value); font-weight: 600; text-align: left; }
   .textButton:hover { background: var(--color-primary-soft); border-radius: 4px; }
   .textButton:disabled { opacity: .6; }
   .chartActions { display: flex; align-items: center; justify-content: flex-end; gap: 16px; margin-bottom: 12px; }
@@ -139,7 +139,8 @@
     .pageHeader h2 { font-size: 21px; }
     .pageHeader p { font-size: 15px; overflow-wrap: anywhere; }
     .toolbar { padding: 10px 12px; gap: 12px; flex-wrap: wrap; }
-    .sendButton, .textButton { min-height: 44px; }
+    .sendButton { min-height: var(--spacing-action); }
+    .textButton { min-height: var(--spacing-control); }
     .addressRow { margin: 0 14px; gap: 8px; padding: 13px 0; }
     .addressRow textarea { font-size: 16px; }
     .recipientSection { padding: 0 12px; }
@@ -202,9 +203,22 @@
   .reviewContent .confirmation { margin: 28px 0 12px; padding-top: 24px; border-top: 1px solid var(--color-paper-rule); }
   .packetReview { padding: 24px 32px; border: 0; }
   .packetReview > p { margin: 12px 0 24px; color: var(--color-ink-muted); font-size: 16px; line-height: 1.6; }
-  .packetReview .attachmentList { display: grid; gap: 12px; }
-  .packetReview .attachment { width: 100%; max-width: none; min-height: 76px; }
+  .packetReview .attachmentList { display: grid; gap: 0; padding: 0; border-bottom: 1px solid var(--color-paper-rule); }
+  .packetFile { display: flex; align-items: flex-start; gap: 8px; min-width: 0; padding: 12px 12px 12px 0; border-top: 1px solid var(--color-paper-rule); border-left: 3px solid transparent; }
+  .packetFile:has(input:is(:checked, :indeterminate)) { border-left-color: var(--color-night); background: var(--color-card-warm); }
+  .packetSelect { display: grid; place-items: center; flex: none; width: var(--spacing-control); min-height: var(--spacing-control); cursor: pointer; }
+  .packetSelect input { width: 22px; height: 22px; margin: 0; accent-color: var(--color-night); }
+  .packetSelect:has(input:disabled) { cursor: default; }
+  .packetSelect:has(input:focus-visible) { outline: 2px solid var(--color-focus); outline-offset: -3px; }
+  .packetReview .attachment { flex: 1; min-width: 0; width: 100%; max-width: none; min-height: var(--spacing-control); padding: 8px 0; border: 0; border-radius: 0; background: transparent; gap: 12px; }
+  .packetReview .attachment > svg { flex: none; color: var(--color-slate); }
   .packetReview .attachment strong { white-space: normal; overflow-wrap: anywhere; }
+  .packetReview .attachment:hover strong { text-decoration: underline; text-underline-offset: 3px; }
+  .packetReview .attachment strong, .packetGroup > strong { font-size: var(--text-value); font-weight: 600; color: var(--color-ink); }
+  .packetReview .attachment small, .packetGroup small { display: block; font-size: var(--text-meta); line-height: 1.5; color: var(--color-ink-muted); }
+  .packetGroup { flex: 1; min-width: 0; padding-block: 8px; }
+  .packetGroup > ul { display: grid; gap: 4px; margin-top: 8px; }
+  .packetGroup a { display: flex; align-items: center; min-height: var(--spacing-control); font-size: var(--text-value); overflow-wrap: anywhere; }
   .packetReview > .textButton { margin-top: 16px; }
   .composer > .toolbar > .textButton { flex-shrink: 0; }
   .composeScroll > .deliveryDetails { margin: 20px 28px; color: var(--color-ink-muted); font-size: 14px; }
@@ -220,3 +234,75 @@
     .reviewDialog .toolbar > span { font-size: 13px; color: var(--color-ink-muted); }
   }
   .reviewLanding .taskActions { justify-content: flex-start; margin: 0 0 28px; }
+
+/* A working letter: addresses first, selected files beside the message. */
+.composer { container-type: inline-size; }
+.composeEnvelope { display: grid; grid-template-columns: minmax(0, 1fr) 230px; align-items: start; gap: 24px; padding: 8px 4px 20px; }
+.envelopeRecipients.reviewContent { min-width: 0; padding: 0; }
+.handoffDate.reviewContent { display: grid; align-content: start; gap: 8px; padding: 8px 0 0; }
+.handoffDate .admissionDateField { font-size: var(--text-label); }
+.handoffDate .sourceNote { margin: 0; padding: 0; font-size: var(--text-meta); line-height: var(--text-meta--line-height); }
+.handoffDate input { min-height: var(--spacing-control); border-color: var(--color-control-border); border-radius: var(--radius-input); font-size: var(--text-value); }
+.handoffWorkspace { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; padding: 16px; background: var(--color-card-warm); align-items: start; border-radius: var(--radius-folder) var(--radius-paper) var(--radius-paper) var(--radius-paper); }
+.handoffDocument { min-width: 0; border: 1px solid var(--color-card-border); border-radius: var(--radius-paper); background: var(--color-paper); box-shadow: var(--shadow-file); }
+.handoffDocument .addressRow { grid-template-columns: 56px minmax(0, 1fr) auto; align-items: center; margin-inline: 24px; gap: 12px; }
+.handoffDocument .addressRow .textButton { font-size: var(--text-label); padding-inline: 4px; }
+.handoffDocument .messageBody { background: transparent; }
+.handoffTools { min-width: 0; color: var(--color-ink); }
+.handoffTools :is(.packetReview, .reviewContent) { padding: 0; }
+.handoffTools .reviewDisclosure { border: 0; margin-top: 12px; }
+.handoffTools .reviewDisclosure > summary { padding: 12px 0; font-size: var(--text-label); }
+.handoffTools .reviewDisclosure > summary span { flex-basis: 100%; font-size: var(--text-meta); }
+.handoffTools .packetReview > p { margin: 8px 0 16px; font-size: var(--text-meta); line-height: var(--text-meta--line-height); }
+.handoffTools .attachmentHeading h3 { font-size: var(--text-value); line-height: var(--text-value--line-height); }
+.handoffTools .attachmentHeading > span { font-size: var(--text-meta); }
+.handoffTools .attachmentList { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr)); gap: 12px; border: 0; }
+.handoffTools .packetFile { height: 100%; padding: 8px; border: 1px dashed var(--color-folder-edge); border-radius: var(--radius-paper); background: transparent; transition: background var(--motion-state), box-shadow var(--motion-state); }
+.handoffTools .packetFile:has(input:is(:checked, :indeterminate)) { border-style: solid; background: var(--color-paper); box-shadow: var(--shadow-file); }
+.handoffTools .packetReview .attachment { gap: 8px; background: transparent; }
+.handoffTools .packetReview .attachment > svg { color: var(--color-slate); }
+.handoffTools .packetReview .attachment strong { font-size: var(--text-label); line-height: var(--text-label--line-height); }
+.handoffTools .packetReview > .textButton { margin: 8px 0 0; padding-inline: 0; font-size: var(--text-label); }
+.composeScroll > .demoNotice { width: fit-content; margin: 0 0 8px; padding: 4px 8px; border: 0; border-radius: var(--radius-chip); font-size: var(--text-meta); }
+@container (min-width: 920px) {
+  .handoffWorkspace { grid-template-columns: minmax(0, 1fr) 240px; }
+  .handoffDocument { grid-column: 1; grid-row: 1; }
+  .handoffTools { grid-column: 2; grid-row: 1; position: sticky; top: 12px; }
+}
+@container (max-width: 640px) {
+  .composeEnvelope { grid-template-columns: minmax(0, 1fr); gap: 12px; padding: 4px 12px 16px; }
+  .handoffDate.reviewContent { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+  .handoffWorkspace { padding: 16px 8px; gap: 20px; }
+  .handoffTools { padding-inline: 8px; }
+  .handoffDocument .addressRow { margin-inline: 16px; grid-template-columns: 56px minmax(0, 1fr); }
+  .handoffDocument .subjectRow .textButton { grid-column: 2; justify-self: start; padding: 0; }
+}
+@container (max-width: 380px) {
+  .handoffDate.reviewContent { grid-template-columns: minmax(0, 1fr); }
+}
+@media (prefers-reduced-motion: reduce) { .handoffTools .packetFile { transition: none; } }
+
+.reviewToolbar { gap: 12px 24px; }
+.reviewToolbar .confirmation { flex: 1; min-width: 0; align-items: center; }
+.reviewToolbar .confirmation strong { font-size: var(--text-label); margin: 0; }
+.reviewToolbar .confirmation span span { font-size: var(--text-meta); line-height: var(--text-meta--line-height); }
+@media (max-width: 639px) {
+  .reviewToolbar { flex-wrap: wrap; padding: 12px 16px max(12px, env(safe-area-inset-bottom)); }
+  .reviewToolbar .confirmation { flex-basis: 100%; }
+  .reviewToolbar .sendButton { flex: 1; }
+}
+
+/* Pending handoffs occupy the same work surface as the composer, with one next action. */
+.pendingTask { padding: clamp(24px, 3vw, 40px); border-top: 3px solid var(--color-manila); border-radius: var(--radius-folder); background: var(--color-card-warm); }
+.pendingStep { display: flex; align-items: center; gap: 24px; padding-block: 8px 24px; }
+.pendingStep h3 { margin: 0; font-size: var(--text-section); font-weight: var(--text-section--font-weight); line-height: var(--text-section--line-height); }
+.pendingStep p { margin-top: 8px; color: var(--color-ink-muted); font-size: var(--text-value); line-height: var(--text-value--line-height); }
+.pendingActions { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 12px 24px; margin-top: 24px; }
+.pendingActions .textButton { margin-right: auto; padding-inline: 0; }
+@media (max-width: 640px) {
+  .pendingTask { padding: 20px 16px; }
+  .pendingStep { align-items: flex-start; gap: 16px; padding-block: 4px 12px; }
+  .pendingStep > svg { width: 48px; height: 48px; }
+  .pendingActions { margin-top: 12px; }
+  .pendingActions .sendButton { width: 100%; padding-inline: 12px; }
+}

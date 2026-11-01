@@ -377,7 +377,8 @@ for (const width of [1440, 834, 390]) test(`unsigned and undecided records retai
   const url = `/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`;
   await page.goto(url);
   const readiness = page.getByRole("region", { name: "Handoff readiness", exact: true });
-  await expect(readiness.getByRole("button")).toHaveCount(1);
+  await expect(readiness.locator('button[class*="sendButton"]')).toHaveCount(1);
+  await expect(readiness.getByRole("button", { name: "Open decision", exact: true })).toBeVisible();
   await expect(readiness.getByRole("button", { name: "Review & sign assessment", exact: true })).toBeInViewport();
   await expect(page.getByRole("button", { name: "Preview email", exact: true })).toHaveCount(0);
   await readiness.getByRole("button", { name: "Review & sign assessment", exact: true }).click();

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Activity, AlertTriangle, ArrowRight, RefreshCw, UserPlus, UserRound, UsersRound } from "lucide-react";
 
+import PipelineIllustration from "@/components/pipeline/PipelineIllustration";
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import type { PipelineWorkspaceLocation } from "@/lib/pipeline/work-continuity";
 import type { Referral } from "@/lib/pipeline/referral-types";
@@ -166,7 +167,7 @@ export function SinceLastVisitAssignments({
       {unavailable ? (
         <p className="border border-[#ead5ad] bg-[#fffaf0] px-5 py-10 text-center text-[12px] text-[#8a5a10]">New assignments could not be checked. Your current queue is still available on the Board.</p>
       ) : items.length === 0 ? (
-        <div className={`${deckStyles.empty} ${deckStyles.assignmentEmpty}`}><UserPlus aria-hidden="true" /><h3>You&apos;re up to date.</h3><p>No referrals were assigned since your last visit.</p></div>
+        <div className={deckStyles.empty}><PipelineIllustration kind="assignment" /><h3>You&apos;re up to date.</h3><p>No referrals were assigned since your last visit.</p></div>
       ) : (
         <div className={designV2 ? "flex flex-col gap-2.5" : "divide-y divide-[#e5e9e7] border-y border-[#dfe5e2]"}>
           {visibleItems.map((item) => (
@@ -397,7 +398,7 @@ function emptyDetail(scope: WorkspaceActivityScope) {
 
 function ActivitySkeleton() {
   return (
-    <div aria-label="Loading workspace activity" aria-busy="true" className="mt-4 animate-pulse divide-y divide-[#e4e8e6] border-y border-[#d4dbd8]">
+    <div role="status" aria-label="Loading workspace activity" aria-busy="true" className="mt-4 animate-pulse divide-y divide-[#e4e8e6] border-y border-[#d4dbd8]">
       {Array.from({ length: 5 }, (_, index) => <div key={index} className="flex h-16 items-center gap-3 px-4"><span className="h-8 w-8 bg-[#e8eeeb]" /><span className="h-3 w-2/3 bg-[#e8eeeb]" /></div>)}
     </div>
   );

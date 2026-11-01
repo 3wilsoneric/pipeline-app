@@ -8,17 +8,15 @@ import ReferralHandoffContacts from "./ReferralHandoffContacts";
 import { useHandoffRecipients } from "./useHandoffRecipients";
 import FeedbackCue from "@/components/pipeline/FeedbackCue";
 
-import { useCallback, useEffect, useEffectEvent, useLayoutEffect, useRef, useState, type CSSProperties, type Dispatch, type FocusEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type SetStateAction } from "react";
+import { useCallback, useEffect, useEffectEvent, useId, useLayoutEffect, useRef, useState, type CSSProperties, type Dispatch, type FocusEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type SetStateAction } from "react";
 import {
   ArrowRight,
-  CalendarClock,
   Check,
   CheckCircle2,
   CircleAlert,
   FolderOpen,
   GripVertical,
   History,
-  House,
   LoaderCircle,
   Plus,
   RefreshCw,
@@ -27,7 +25,9 @@ import {
 } from "lucide-react";
 
 import { pipelineCommunities, type PipelineCommunity } from "@/lib/pipeline/community-config";
-import { handoffWorkspaceView } from "@/lib/pipeline/admission-lifecycle";
+import { getPlannedAdmissionDate, handoffWorkspaceView } from "@/lib/pipeline/admission-lifecycle";
+import { formatProfileDate } from "@/lib/pipeline/client-profile-presentation";
+import { workflowStatusLabels } from "@/lib/pipeline/workflow-status";
 import { formatPhoneForEntry } from "@/lib/pipeline/phone-display";
 import {
   californiaCountyOptions,
@@ -41,15 +41,17 @@ import { useIntakeFileExtraction } from "@/components/pipeline/use-intake-file-e
 import { IntakeExtractionProgress, IntakeSuggestionLabel } from "@/components/pipeline/IntakeExtractionProgress";
 import AssessmentWorkspace, { assessmentOpenLabel } from "@/components/pipeline/AssessmentWorkspace";
 import AssessmentChartWorkspace from "@/components/pipeline/AssessmentChartWorkspace";
+import PipelineIllustration from "@/components/pipeline/PipelineIllustration";
 import ReferralWorkflowPanel from "@/components/pipeline/ReferralWorkflowPanel";
 import { usePipelineShell } from "@/components/pipeline/pipeline-shell-context";
 import TransferredWorkspaceChart from "@/components/pipeline/TransferredWorkspaceChart";
 import StartReferralFromChart from "@/components/pipeline/StartReferralFromChart";
-import { ClientChartFrame, ClientChartHeader, ChartHeaderCell, ChartBand } from "@/components/pipeline/ClientMedicalChart";
+import { ClientChartFrame, ClientChartHeader, ChartBand } from "@/components/pipeline/ClientMedicalChart";
 import folderStyles from "./ClientFolder.module.css";
 import { usePhoneAssessment } from "./use-phone-layout";
 import { ClientNotesButton } from "@/components/pipeline/ClientNotes";
 import workspaceFolderStyles from "./ReferralWorkspaceFolder.module.css";
+import intakeFormStyles from "./ReferralIntakeForm.module.css";
 import type { AssessmentListResponse, PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
 import { hasActiveAssessmentSchedule } from "@/components/pipeline/assessment-workspace-state";
 import DeleteWorkspaceDialog from "@/components/pipeline/DeleteWorkspaceDialog";
@@ -196,7 +198,7 @@ type ReferralPacketCanvasProps = {
   onReferralSaved?: (referral: Pick<Referral, "id" | "name" | "community">) => void;
   onReferralDeleted?: () => void;
   onWorkspaceStageChange?: (stage: WorkspaceStageName) => void;
-  onWorkspaceLocationChange?: (location: PipelineWorkspaceLocation) => void;
+  onWorkspaceLocationChange?: (location: PipelineWorkspaceLocation, reflectRoute?: boolean) => void;
   onOpenProfile?: (canonicalClientId: string) => void;
   onOpenAssignedWork?: () => void;
 };
@@ -498,6 +500,8 @@ export default function ReferralPacketCanvas({
   const [emailFinishing, setEmailFinishing] = useState(false);
   const emailSendingRef = useRef(false);
   const assessmentNavigationRef = useRef<((destination?: "email") => Promise<void>) | null>(null);
+  const [decisionReviewTarget, setDecisionReviewTarget] = useState<HTMLDivElement | null>(null);
+  const assessmentExitRef = useRef<(() => Promise<void>) | null>(null);
   const decisionExitRef = useRef<(() => Promise<void>) | null>(null);
   const placementExitRef = useRef<(() => Promise<void>) | null>(null);
   const preserveIntakeBeforeNavigationRef = useRef<() => Promise<void>>(async () => undefined);
@@ -516,7 +520,7 @@ export default function ReferralPacketCanvas({
       if (emailSendingRef.current) throw new Error("Wait for the email delivery result before leaving.");
       await preserveIntakeBeforeNavigationRef.current();
       await leaveHandoff();
-      await assessmentNavigationRef.current?.();
+      await assessmentExitRef.current?.();
       await decisionExitRef.current?.();
       await placementExitRef.current?.();
     };
@@ -2186,7 +2190,7 @@ export default function ReferralPacketCanvas({
   const openAssignedWork = async () => {
     if (!onOpenAssignedWork || emailSendingRef.current) return;
     await handoff.leave();
-    await assessmentNavigationRef.current?.();
+    await assessmentExitRef.current?.();
     await decisionExitRef.current?.();
     await placementExitRef.current?.();
     await preserveIntakeBeforeNavigationRef.current();
@@ -2534,13 +2538,11 @@ export default function ReferralPacketCanvas({
   // Redesign vertical flow (docs/design/DECISIONS.md, "Record layout").
   const verticalFlow = designV2 && !phone;
   const railActivePage = displayedPage === 1 && loadedReferral && !navigableWorkspaceSteps.some((step) => step.page === 1) ? chartPage : displayedPage;
-  const railProgress = verticalFlow ? workspaceStepProgress(loadedReferral?.workflowStatus, assessmentSummary) : undefined;
   // Recording a later decision does not finish an unsigned assessment. Every
   // step stays reachable for the remaining work and for reviewing filed work.
-  const railSteps = navigableWorkspaceSteps;
+  const railSteps = navigableWorkspaceSteps.filter((step) => step.page !== "workflow" || !navigableWorkspaceSteps.some((entry) => entry.page === 3));
   const railStepIndex = railSteps.findIndex((step) => step.page === railActivePage);
   const nextWorkspaceStep = railStepIndex >= 0 ? railSteps[railStepIndex + 1] : undefined;
-  const railDone = railProgress ? Object.values(railProgress).filter((state) => state === "done").length : 0;
   const readingAssessment = (displayedPage === 2 || displayedPage === 3) && !historicalReadOnly;
   const readingDecision = displayedPage === "workflow" && Boolean(loadedReferral);
   // Kept-mounted steps (docs/design/DECISIONS.md, "Kept-mounted steps"): on wide screens with the
@@ -2553,8 +2555,8 @@ export default function ReferralPacketCanvas({
     if (readingAssessment) setAssessmentVisitedReferral(referralWorkspaceId);
   }, [readingAssessment, referralWorkspaceId]);
   useEffect(() => {
-    if (readingDecision) setDecisionVisitedReferral(referralWorkspaceId);
-  }, [readingDecision, referralWorkspaceId]);
+    if (readingDecision || decisionReviewTarget) setDecisionVisitedReferral(referralWorkspaceId);
+  }, [readingDecision, decisionReviewTarget, referralWorkspaceId]);
   useEffect(() => {
     if (displayedPage === "files") setFilesVisitedReferral(referralWorkspaceId);
   }, [displayedPage, referralWorkspaceId]);
@@ -2570,7 +2572,7 @@ export default function ReferralPacketCanvas({
   const hasReferral = hasReferralRecord(loadedReferral, referral?.id);
   // Redesign: a new referral's Create referral sits at the bottom right of the intake, where the form ends,
   // like Next section and Review assessment on the other steps (owner, 2026-09-26).
-  const intakeFooterSave = verticalFlow && !hasReferral;
+  const intakeFooterSave = designV2 && !hasReferral;
   const renderSaveControl = () => <WorkspaceSaveControl
     saving={isSaving}
     hasReferral={hasReferral}
@@ -2765,12 +2767,11 @@ export default function ReferralPacketCanvas({
             {verticalFlow && loadedReferral ? (
               <div className={workspaceFolderStyles.railMeta}>
                 <span>{`Referral #${loadedReferral.id}`}{loadedReferral.community ? ` · ${loadedReferral.community}` : ""}</span>
-                <span aria-hidden="true" className={workspaceFolderStyles.railProgress}><span style={{ width: `${Math.round(railDone / 3 * 100)}%` }} /></span>
               </div>
             ) : null}
             {/* Client notes: beside the questions on the Assessment step; from this button everywhere else. */}
-            {designV2 && loadedReferral && (phone || displayedPage !== 2) && !trainingAssessmentMode && !trainingIntakeMode ? <ClientNotesButton key={loadedReferral.id} referralId={loadedReferral.id} readOnly={permissionReadOnly || historicalReadOnly} /> : null}
-            <WorkspaceStageNavigation steps={railSteps} activePage={displayedPage === 1 && loadedReferral && !navigableWorkspaceSteps.some((step) => step.page === 1) ? chartPage : displayedPage} onOpen={(page) => void navigatePage(page)} progress={designV2 ? workspaceStepProgress(loadedReferral?.workflowStatus, assessmentSummary) : undefined} />
+            {designV2 && loadedReferral && (phone || displayedPage !== 2) && !trainingAssessmentMode && !trainingIntakeMode ? <ClientNotesButton key={loadedReferral.id} inline={phone} referralId={loadedReferral.id} readOnly={permissionReadOnly || historicalReadOnly} /> : null}
+            <WorkspaceStageNavigation steps={navigableWorkspaceSteps} activePage={displayedPage === 1 && loadedReferral && !navigableWorkspaceSteps.some((step) => step.page === 1) ? chartPage : displayedPage} onOpen={(page) => void navigatePage(page)} progress={designV2 ? workspaceStepProgress(loadedReferral?.workflowStatus, assessmentSummary) : undefined} details={designV2 ? workspaceStepDetails(loadedReferral, assessmentSummary) : undefined} />
             {recordStack && stackVisible && editingControlsVisible ? renderSaveCenter() : null}
             {/* Redesign: no "is editing" pills in the rail (owner, 2026-09-26). Saves still refuse and
                 explain conflicting edits (renderWorkspaceConflicts). */}
@@ -2849,18 +2850,18 @@ export default function ReferralPacketCanvas({
     </ReferralDocumentUpload>
   );
 
-  const renderCreationHandoff = () => (showCreationHandoff && loadedReferral && displayedPage === chartPage ? <section aria-label="Workspace created" className="mb-4 rounded-lg border border-[#bbd6c8] bg-[#f7fbf8] p-4 sm:p-5">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div><h2 className="text-lg font-bold text-[#243d34]">Workspace created</h2><p className="mt-1 text-sm leading-6 text-[#586c63]">{loadedReferral.name} is saved in the chart. Choose what to do next.</p></div>
-          <button type="button" onClick={() => { setShowCreationHandoff(false); onWorkspaceLocationChange?.({ view: "chart" }); }} className="min-h-11 rounded px-3 text-sm font-semibold text-[#365b4d] hover:bg-[#eaf2ed] focus-visible:outline-2" aria-label="Dismiss workspace next steps">Dismiss</button>
+  const renderCreationHandoff = () => (showCreationHandoff && loadedReferral && displayedPage === chartPage ? <section aria-label="Workspace created" className={intakeFormStyles.created}>
+        <div className={intakeFormStyles.createdIdentity}><PipelineIllustration kind="folder" size={72} /><div><h2>Workspace created</h2><p>{loadedReferral.name} is saved in the chart. Choose what to do next.</p></div>
+          <button type="button" onClick={() => { setShowCreationHandoff(false); onWorkspaceLocationChange?.({ view: "chart" }); }} aria-label="Dismiss workspace next steps">Dismiss</button>
         </div>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <button type="button" disabled={permissionReadOnly} onClick={() => void continueCreatedWorkspace(true)} className="flex min-h-20 items-center gap-3 rounded-lg bg-[#08765e] p-4 text-left text-white hover:bg-[#065c49] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary)] disabled:opacity-50"><CalendarClock size={22} aria-hidden="true" /><span><strong className="block text-base">Schedule assessment</strong><small className="block text-sm">Choose a date, time and meeting details.</small></span></button>
-          <button type="button" disabled={permissionReadOnly} onClick={() => void continueCreatedWorkspace(false)} className="flex min-h-20 items-center gap-3 rounded-lg border border-[#c6d6ce] bg-white p-4 text-left text-[#234a3c] hover:bg-[#eaf2ed] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#08765e] disabled:opacity-50"><FolderOpen size={22} aria-hidden="true" /><span><strong className="block text-base">Assessment prep</strong><small className="block text-sm">Fill in what is known before the interview.</small></span></button>
+        <div className={intakeFormStyles.createdActions}>
+          <button type="button" disabled={permissionReadOnly} onClick={() => void continueCreatedWorkspace(false)}><PipelineIllustration kind="assessment" size={48} /><span><strong>Assessment prep</strong><small>Fill in what is known before the interview.</small></span><ArrowRight size={22} aria-hidden="true" /></button>
+          <button type="button" disabled={permissionReadOnly} onClick={() => void continueCreatedWorkspace(true)}><PipelineIllustration kind="calendar" size={48} /><span><strong>Schedule assessment</strong><small>Choose a date, time and meeting details.</small></span><ArrowRight size={22} aria-hidden="true" /></button>
         </div>
-        {saveError ? <p role="alert" className="mt-3 text-sm leading-6 text-[#59645e]">{saveError}</p> : null}
-        <p className="mt-3 text-sm text-[#586c63]">Neither option starts the interview. Begin interview when you are with the client.</p>
+        {saveError ? <p role="alert">{saveError}</p> : null}
+        <p>Neither option starts the interview. Begin interview when you are with the client.</p>
       </section> : null);
+
 
 
   // Step pages, shared by the one-page record and the page-by-page layout.
@@ -2897,6 +2898,7 @@ export default function ReferralPacketCanvas({
                 <ReferralWorkflowPanel
                   referral={current}
                   workspaceActive={active}
+                  decisionReviewTarget={displayedPage === 2 ? decisionReviewTarget : null}
                   beforeWorkspaceNavigationRef={assessmentNavigationRef}
                   beforeWorkspaceExitRef={decisionExitRef}
                   onRequirementStateChange={({ pending, failed }) => setDecisionSaveState({ referralId: current.id, pending, failed })}
@@ -2914,10 +2916,11 @@ export default function ReferralPacketCanvas({
   const renderAssessmentStep = (active: boolean, title: string, chartSlot?: HTMLElement | null) => (
             <PacketPage id="packet-page-2" title={title} flush>
                 <AssessmentWorkspace
-                  workspaceActive={active}
+                  workspaceActive={active && !draftRecoveryLoading}
                   readOnly={permissionReadOnly}
                   referralId={referralWorkspaceId}
                   referral={loadedReferral ?? undefined}
+                  onDecisionReviewTarget={!trainingAssessmentMode && !historicalReadOnly ? setDecisionReviewTarget : undefined}
                   recommendationControl={loadedReferral && !permissionReadOnly && !trainingAssessmentMode ? (assessmentId, onSavingChange) => <ReferralWorkflowPanel key={assessmentId} compactRecommendation recommendationAssessmentId={assessmentId} onSavingChange={onSavingChange} referral={loadedReferral} onReferralChange={applyConfirmedWorkflowReferral} onOpenIntake={() => openPage(1)} onOpenAssessment={() => openPage(2)} onOpenFiles={() => openPage("files")} onOpenEmail={() => openPage("email")} onOpenProfile={openClientProfile} /> : undefined}
                   trainingAssessmentMode={trainingAssessmentMode}
                   trainingAssessmentSection={trainingAssessmentSection}
@@ -2937,6 +2940,7 @@ export default function ReferralPacketCanvas({
                   onReviewAssessment={() => openPage(2, undefined, "review")}
                   onOpenAssessment={() => openPage(2, undefined, null)}
                   beforeWorkspaceNavigationRef={assessmentNavigationRef}
+                  beforeWorkspaceExitRef={assessmentExitRef}
                   packetEvidenceVersion={packetEvidenceVersion}
                   onSummaryChange={setAssessmentSummary}
                   onSaveStateChange={(state) => setAssessmentSaveState({ referralId: referralWorkspaceId, ...state })}
@@ -2945,7 +2949,7 @@ export default function ReferralPacketCanvas({
                   onOpenWorkspace={() => openPage(3)}
                   workspaceRailShown={interviewRailShown}
                   onOpenAssignedWork={onOpenAssignedWork ? openAssignedWork : undefined}
-                  onActiveSectionChange={(section, location) => {
+                  onActiveSectionChange={(section, location, reflectRoute = true) => {
                     lastAssessmentSectionRef.current = section;
                     lastAssessmentQuestionRef.current = location.assessmentQuestion;
                     if (location.assessmentMode !== "review") lastAssessmentLocationRef.current = location;
@@ -2954,7 +2958,7 @@ export default function ReferralPacketCanvas({
                     // Mount-time section publication is not a deliberate navigation choice.
                     if (resumeWorkflowOnOpen && !entryResolvedRef.current && previous === undefined) return;
                     if (previous !== undefined && previous !== section) entryResolvedRef.current = true;
-                    if (activePage === 2) onWorkspaceLocationChange?.(location);
+                    if (activePage === 2) onWorkspaceLocationChange?.(location, reflectRoute);
                   }}
                   onAssessmentSaved={async (assessment, savedReferral) => {
                     if (savedReferral) {
@@ -3015,14 +3019,21 @@ export default function ReferralPacketCanvas({
   const renderIntakePage = () => (
     <PacketPage id="packet-page-1" title={loadedReferral ? "Referral details" : "Intake"} flush>
             <IntakeEditScope readOnly={permissionReadOnly || draftRecoveryLoading} accessError={accessError} accessChecking={accessChecking}>
-            <div data-testid="intake-client-folder" className={`${folderStyles.recordFolder} ${workspaceFolderStyles.connectedFolder}`}>
+            <div data-testid="intake-client-folder" className={`${folderStyles.recordFolder} ${workspaceFolderStyles.connectedFolder} ${intakeFormStyles.form}`}>
               <div className={folderStyles.body}>
                 <div className={`${folderStyles.paper} ${folderStyles.recordPaper}`}>
             {referralDocumentAutofillEnabled ? <IntakeExtractionProgress extraction={intakeExtraction} referralId={loadedReferral?.id} suggestionCount={suggestionCount} /> : null}
-            {renderDocumentUpload(true)}
+            <div className={intakeFormStyles.intakeDesk}>
+            <aside className={intakeFormStyles.sourceTray}>
+              {renderDocumentUpload(false)}
+            </aside>
+            <div className={intakeFormStyles.intakePaper}>
             <ClientChartFrame label="Referral intake chart">
-              <ClientChartHeader title={loadedReferral ? "Referral details" : "Referral intake"}>
-                <ChartHeaderCell label="Intake details" value={`${fieldCount} of ${visibleChartFieldKeys.length} recorded`} />
+              <ClientChartHeader title={<><PipelineIllustration kind="intake" size={36} /><span>{loadedReferral ? "Referral details" : "Referral intake"}</span></>}>
+                <section aria-label="Intake completion" className={intakeFormStyles.progress}>
+                  <div><span>Intake details</span><strong>{fieldCount} of {visibleChartFieldKeys.length} recorded</strong></div>
+                  <progress aria-label="Intake details recorded" max={visibleChartFieldKeys.length} value={fieldCount} aria-valuetext={`${fieldCount} of ${visibleChartFieldKeys.length} intake details recorded`} />
+                </section>
               </ClientChartHeader>
               <div className="min-w-0" onFocusCapture={focusIntakeCell} onBlur={blurIntakeCell}>
                 <ChartSection title="Identity" complete={countCompleteFields(fields, ["name", "dob", "gender", "ssn"])} total={4}>
@@ -3167,20 +3178,19 @@ export default function ReferralPacketCanvas({
                 </ChartSection>
               </div>
 
-              <aside aria-label="Intake progress" className="border-t border-[#bfcac5] bg-[#f7faf8]">
+              {loadedReferral || trainingIntakeMode ? <aside aria-label="Intake progress" className={intakeFormStyles.nextStep}>
                 {loadedReferral && chartPage === 3 ? <div className="flex justify-end px-4 py-3">
                   <button type="button" onClick={() => void navigatePage(3)} className="min-h-11 rounded-md bg-[#087d66] px-6 text-[14px] font-semibold text-white">Done</button>
                 </div> : <ChartCompletionRail
-                  fieldCount={fieldCount}
-                  fieldTotal={visibleChartFieldKeys.length}
                   assessmentSummary={assessmentSummary}
                   continuing={isSaving}
                   hasReferral={Boolean(loadedReferral) || trainingIntakeMode}
                   onContinue={() => void continueToAssessment()}
                 />}
-              </aside>
+              </aside> : null}
             </ClientChartFrame>
             <ReferralHandoffContacts key={fields.community.value} value={handoff} community={fields.community.value} disabled={permissionReadOnly} compact />
+            </div></div>
                 </div>
               </div>
             </div>
@@ -3205,7 +3215,7 @@ export default function ReferralPacketCanvas({
         aria-busy={draftRecoveryLoading}
         data-interview-rail-shown={verticalFlow && interviewRailShown ? true : undefined}
         style={verticalFlow ? { "--interview-rail-width": `${interviewRailWidth}px` } as CSSProperties : undefined}
-        className={`mx-auto w-full max-w-[1480px] px-2 pb-10 pt-0 sm:px-4 lg:px-6 ${readingAssessment ? workspaceFolderStyles.readingWorkspace : ""} ${verticalFlow ? workspaceFolderStyles.verticalFlow : ""}`}
+        className={`mx-auto w-full max-w-[1480px] px-2 pb-10 pt-0 sm:px-4 lg:px-6 ${readingAssessment ? workspaceFolderStyles.readingWorkspace : ""} ${verticalFlow ? workspaceFolderStyles.verticalFlow : ""} ${!hasReferral ? workspaceFolderStyles.newIntake : ""}`}
       >
         {renderWorkspaceHeader()}
         {renderCreationHandoff()}
@@ -3307,7 +3317,7 @@ export default function ReferralPacketCanvas({
             </div>
           </PacketPage>
         </div> : null}
-        {!recordStack && loadedReferral && (readingDecision || decisionVisitedReferral === referralWorkspaceId) ? (
+        {!recordStack && loadedReferral && (readingDecision || decisionReviewTarget || decisionVisitedReferral === referralWorkspaceId) ? (
           <div key={`decision-${referralWorkspaceId}`} className="pipeline-step-enter" style={{ display: readingDecision ? undefined : "none" }} aria-hidden={!readingDecision} inert={!readingDecision}>
             {renderDecisionStep(readingDecision, loadedReferral)}
           </div>
@@ -3456,14 +3466,15 @@ function WorkspaceChartFolder({ children }: { children: React.ReactNode }) {
   </div>;
 }
 
-function WorkspaceStageNavigation({ steps, activePage, onOpen, progress }: {
+function WorkspaceStageNavigation({ steps, activePage, onOpen, progress, details }: {
   steps: ReadonlyArray<WorkspaceStep>;
   activePage: WorkspaceView;
   onOpen: (page: WorkspaceView) => void;
   progress?: StepProgress;
+  details?: StepDetails;
 }) {
   return (
-    <nav data-guide-target="workspace-stage-nav" aria-label="Workspace stages" className={workspaceFolderStyles.stages}>
+    <nav data-guide-target="workspace-stage-nav" aria-label="Workspace stages" data-single-step={steps.length === 1 || undefined} className={workspaceFolderStyles.stages}>
       <select aria-label="Workspace view" className={workspaceFolderStyles.phoneStagePicker} value={activePage} onChange={(event) => {
         const view = [...steps, { page: "files" as const }, { page: "activity" as const }].find((step) => String(step.page) === event.target.value)?.page;
         if (view !== undefined) onOpen(view);
@@ -3471,26 +3482,74 @@ function WorkspaceStageNavigation({ steps, activePage, onOpen, progress }: {
         {steps.map((step) => <option key={step.page} value={step.page}>{step.label}</option>)}
         <optgroup label="File tools"><option value="files">Files</option><option value="activity">Activity</option></optgroup>
       </select>
-      {steps.map((step) => <WorkspaceStageButton key={step.page} {...step} selected={activePage === step.page} onOpen={onOpen} progress={progress?.[String(step.page)]} />)}
+      {steps.filter((step) => step.page !== "workflow" || !steps.some((entry) => entry.page === 3)).map((step, index) => <div key={step.page} className={workspaceFolderStyles.stageEntry} data-step-state={progress?.[String(step.page)]}>
+        <WorkspaceStageButton {...step} number={index + 1} selected={activePage === step.page} onOpen={onOpen} progress={progress?.[String(step.page)]} detail={details?.[String(step.page)]} />
+        {step.page === 3 && steps.some((entry) => entry.page === "workflow") ? <button type="button" className={workspaceFolderStyles.filedDecision} aria-label="Decision" aria-current={activePage === "workflow" ? "page" : undefined} onClick={() => onOpen("workflow")}>Decision<span>{details?.workflow?.date ? details.workflow.label : null}</span></button> : null}
+      </div>)}
     </nav>
   );
 }
 
-function WorkspaceStageButton({ page, label, selected, onOpen, progress }: {
-  page: WorkspaceStep["page"]; label: string; selected: boolean; onOpen: (page: WorkspaceView) => void; progress?: StepState;
+function WorkspaceStageButton({ page, label, number, selected, onOpen, progress, detail }: {
+  page: WorkspaceStep["page"]; label: string; number: number; selected: boolean; onOpen: (page: WorkspaceView) => void; progress?: StepState; detail?: StepDetail;
 }) {
-  const designV2 = useDesignV2();
-  // Redesign rail: Chart is the record's home; the other stages show progress as icon-only markers.
-  const home = label === "Chart";
+  const picture = page === 2 ? "assessment" : page === "workflow" ? "decision" : page === "email" ? "placement" : "chart";
+  const descriptionId = useId();
+  const date = formatProfileDate(detail?.date);
   return <button type="button" data-guide-target={page === 2 ? "assessment-stage" : label === "Chart" ? "chart-stage" : page === "email" ? "chart-meet-client-tab" : undefined}
-    onClick={() => onOpen(page)} aria-current={selected ? "page" : undefined}
+    onClick={() => onOpen(page)} aria-current={selected ? "page" : undefined} aria-label={label}
+    aria-describedby={detail ? descriptionId : undefined}
     data-folder-stage={page}
-    data-step-home={designV2 && home ? "true" : undefined}
-    data-step-state={designV2 && !home ? progress ?? "todo" : undefined}
+    data-step-state={progress}
+    data-step-neutral={detail?.neutral || undefined}
     className={workspaceFolderStyles.stageTab}>
-    {designV2 ? <span aria-hidden="true" className={workspaceFolderStyles.stepMarker}>{home ? <House size={17} /> : progress === "done" ? <Check size={14} strokeWidth={3} /> : null}</span> : null}
-    <span className="whitespace-nowrap">{label}</span>
+    {detail ? <span id={descriptionId} className="sr-only">{[detail.label, date].filter(Boolean).join(" · ")}</span> : null}
+    <span aria-hidden="true" className={workspaceFolderStyles.stageStop}>
+      {progress === "done" ? <Check size={14} strokeWidth={3} /> : number}
+    </span>
+    <span className={workspaceFolderStyles.stageSurface}>
+      <span className={workspaceFolderStyles.stagePicture}><PipelineIllustration kind={picture} size={40} /></span>
+      <span className={workspaceFolderStyles.stageCopy}>
+        <span className={workspaceFolderStyles.stageLabel}>{label}</span>
+        {detail ? <span className={workspaceFolderStyles.stageDetail}>{detail.label}</span> : null}
+        {date ? <time className={workspaceFolderStyles.stageDate} dateTime={detail?.date ?? undefined}>{date}</time> : null}
+      </span>
+    </span>
   </button>;
+}
+
+type StepDetail = { label: string; date?: string | null; neutral?: boolean };
+type StepDetails = Partial<Record<string, StepDetail>>;
+
+// Dates describe recorded events, never completion inferred from the page being viewed.
+function workspaceStepDetails(referral: Referral | null, assessment: {
+  assessmentId?: string; signedAt?: string | null; startedAt?: string | null;
+  scheduledStartAt?: string | null; scheduleStatus?: PipelineAssessmentRecord["schedule_status"];
+}): StepDetails {
+  if (!referral) return {};
+  const decision = referral.admissionDecision;
+  const plannedDate = getPlannedAdmissionDate(referral);
+  const status = referral.workflowStatus;
+  const details: StepDetails = {
+    3: { label: workflowStatusLabels.ready_to_schedule, date: referral.createdAt },
+    workflow: decision
+      ? { label: workflowStatusLabels[decision.outcome], date: decision.decidedAt, neutral: decision.outcome === "declined" }
+      : { label: status && ["recommendation_submitted", "changes_requested", "decision_pending"].includes(status) ? workflowStatusLabels[status] : "Decision not recorded" },
+    email: referral.placementCancellation
+      ? { label: "Did not move in", date: referral.placementCancellation.cancelledAt, neutral: true }
+      : status === "admitted"
+        ? { label: workflowStatusLabels.admitted, date: referral.actualAdmissionDate }
+        : status === "closed"
+          ? { label: workflowStatusLabels.closed, neutral: true }
+          : plannedDate
+            ? { label: "Planned admission date", date: plannedDate }
+            : { label: "Meet the Client" },
+  };
+  if (assessment.assessmentId) details[2] = {
+    label: assessmentRailStatus(assessment),
+    date: assessment.signedAt || assessment.startedAt || (hasActiveAssessmentSchedule({ scheduled_start_at: assessment.scheduledStartAt, schedule_status: assessment.scheduleStatus }) ? assessment.scheduledStartAt : null),
+  };
+  return details;
 }
 
 type StepState = "done" | "active" | "todo";
@@ -3646,15 +3705,11 @@ function chartGuideTarget(title: string) {
 }
 
 function ChartCompletionRail({
-  fieldCount,
-  fieldTotal,
   assessmentSummary,
   continuing,
   hasReferral,
   onContinue,
 }: {
-  fieldCount: number;
-  fieldTotal: number;
   assessmentSummary: {
     captured: number;
     total: number;
@@ -3669,31 +3724,21 @@ function ChartCompletionRail({
   hasReferral: boolean;
   onContinue: () => void;
 }) {
-  const percent = fieldTotal === 0 ? 0 : Math.round((fieldCount / fieldTotal) * 100);
   const action = assessmentRailAction(assessmentSummary);
   const status = assessmentRailStatus(assessmentSummary);
 
   return (
-    <section aria-label="Intake completion" className="grid items-center gap-x-8 gap-y-2 px-5 py-4 sm:px-6 md:grid-cols-[minmax(0,1fr)_320px]">
-      <div className="flex items-center justify-between gap-4 md:col-start-1">
-        <h2 className="text-[14px] font-bold text-[#111111]">Intake details</h2>
-        <span className="text-[13px] font-bold tabular-nums text-[#5c6660]">{fieldCount.toLocaleString()} of {fieldTotal.toLocaleString()} recorded</span>
-      </div>
-      <div role="progressbar" aria-label="Intake details recorded" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent} aria-valuetext={`${fieldCount} of ${fieldTotal} intake details recorded`} className="h-1.5 overflow-hidden bg-[#e5e9e6] md:col-start-1">
-        <div className="h-full origin-left bg-[#0f8b73] transition-transform duration-150 motion-reduce:transition-none" style={{ transform: `scaleX(${percent / 100})` }} />
-      </div>
-      <dl className="flex flex-wrap gap-x-8 md:col-start-1">
-        <ChartStatusRow label="Assessment" value={status} />
-      </dl>
+    <div className={intakeFormStyles.continueRow}>
+      <dl><ChartStatusRow label="Assessment" value={status} /></dl>
       {hasReferral ? <button
         type="button"
         onClick={onContinue}
         disabled={continuing}
-        className="flex min-h-11 w-full items-center justify-between gap-3 bg-[#111111] px-4 py-3 text-left text-[13px] font-bold leading-5 text-white transition-colors hover:bg-[#0f8b73] disabled:cursor-not-allowed disabled:bg-[#d2d2d2] md:col-start-2 md:row-start-1 md:row-span-3"
+        className={intakeFormStyles.continueButton}
       >
         <span>{action}</span><ArrowRight size={16} className="shrink-0" aria-hidden="true" />
       </button> : null}
-    </section>
+    </div>
   );
 }
 

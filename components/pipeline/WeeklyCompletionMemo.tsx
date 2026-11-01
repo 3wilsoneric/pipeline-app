@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { ArrowLeft, ArrowRight, ClipboardCheck } from "lucide-react";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import type { HomeBriefingSnapshot } from "@/lib/pipeline/home-briefing-types";
@@ -46,7 +46,6 @@ export default function WeeklyCompletionMemoCard({ memo, viewerId, onOpenReview 
     <button type="button" onClick={review}
       className="mt-3 flex w-full items-center gap-3 rounded-sheet border border-stage-green-border bg-primary-soft px-4 py-3 text-left transition-colors hover:bg-stage-green-tile focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
       aria-label={`Open completion memo, ${memo.clients.length} clients with items to review`}>
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-paper bg-paper text-primary"><ClipboardCheck size={19} aria-hidden="true" /></span>
       <span className="min-w-0 flex-1">
         <span className="block text-label font-bold text-ink">{memo.scope === "team" ? "Team follow-up" : "My follow-up"} · week of {weekLabel}</span>
         <span className="block text-meta text-ink-muted">{memo.clients.length} clients · {memo.task_count} items to review</span>

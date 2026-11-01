@@ -62,7 +62,6 @@ type ReferralHomeProps = {
   onSearchTermChange: (value: string) => void;
   onOpenPacket: (referral?: Pick<Referral, "id" | "name" | "community">) => void;
   onOpenProfile: (canonicalClientId: string) => void;
-  onResumeDraft: (draftKey: `new-${string}`) => void;
   canViewTeam: boolean | undefined;
 };
 
@@ -79,7 +78,6 @@ function ReferralHome({
   onSearchTermChange,
   onOpenPacket,
   onOpenProfile,
-  onResumeDraft,
   scope,
 }: ReferralHomeProps & { scope: WorkspaceScope }) {
   const [initialDirectory] = useState(() => readPipelineJsonCache<ReferralDirectoryPayload>(
@@ -323,7 +321,6 @@ function ReferralHome({
       onSearchTermChange={onSearchTermChange}
       onOpenPacket={onOpenPacket}
       onOpenProfile={onOpenProfile}
-      onResumeDraft={onResumeDraft}
       scope={scope}
       filter={filter}
       onFilterChange={selectFilter}

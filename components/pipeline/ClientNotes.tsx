@@ -88,7 +88,7 @@ export function ClientNotesReopen({ onOpen }: { onOpen: () => void }) {
 
 // On steps without notes beside the questions: a round button at the bottom right that opens the same notes
 // upward from it. Rendered after the referral loads, so it portals to <body>.
-export function ClientNotesButton({ referralId, readOnly }: { referralId: number; readOnly: boolean }) {
+export function ClientNotesButton({ referralId, readOnly, inline = false }: { referralId: number; readOnly: boolean; inline?: boolean }) {
   const viewport = useMobileViewport();
   const [open, setOpen] = useState(false);
   const latest = useLatestNotes([referralId]).get(referralId);
@@ -96,16 +96,20 @@ export function ClientNotesButton({ referralId, readOnly }: { referralId: number
   const panel = useRef<HTMLDivElement>(null);
   useEffect(() => { if (open) panel.current?.querySelector<HTMLButtonElement>("button")?.focus(); }, [open]);
   const close = () => { setOpen(false); requestAnimationFrame(() => button.current?.focus()); };
-  return createPortal(<div ref={viewport} className={styles.floating}>
-    {open ? <div ref={panel} role="dialog" aria-label="Notes" className={styles.panel}
-      onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); close(); } }}>
-      <ClientNotes referralId={referralId} readOnly={readOnly} onClose={close} />
-    </div> : null}
-    <button ref={button} type="button" aria-label="Notes" aria-expanded={open} title={latest?.text} onClick={() => (open ? close() : setOpen(true))}
-      className={styles.fab} data-has-note={latest ? true : undefined}>
-      <NotebookPen size={20} aria-hidden="true" />
-    </button>
-  </div>, document.body);
+  const trigger = <button ref={button} type="button" aria-label="Notes" aria-expanded={open} title={latest?.text} onClick={() => (open ? close() : setOpen(true))}
+    className={`${styles.fab} ${inline ? styles.docked : ""}`} data-workspace-notes={inline || undefined} data-has-note={latest ? true : undefined}>
+    <NotebookPen size={20} aria-hidden="true" />{inline ? <span>Notes</span> : null}
+  </button>;
+  return <>
+    {inline ? trigger : null}
+    {createPortal(<div ref={viewport} className={styles.floating} data-inline-notes={inline || undefined}>
+      {open ? <div ref={panel} role="dialog" aria-label="Notes" className={styles.panel}
+        onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); close(); } }}>
+        <ClientNotes referralId={referralId} readOnly={readOnly} onClose={close} />
+      </div> : null}
+      {inline ? null : trigger}
+    </div>, document.body)}
+  </>;
 }
 
 // The latest note on a referral, one or two lines, for the Home board and Workspaces.

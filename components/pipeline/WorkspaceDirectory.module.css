@@ -1,26 +1,56 @@
+/* Local finishing pass: the existing directory layout and navigation stay in place. */
+main.directory[data-guide-target="workspace-directory"] { background: var(--color-paper); color: var(--color-ink); }
+.directory [data-testid="workspace-content-grid"] > section { border: 0; background: transparent; }
+.directory [aria-label="Workspace navigation"] { background: transparent; }
+.directory [aria-label="Workspace navigation"] button[aria-current="page"] { border: 1px solid var(--color-control-border); background: var(--color-action-soft); color: var(--color-ink-2); box-shadow: none; }
+.worklist .tableHead, .tableRow { display: grid; grid-template-columns: minmax(210px, 1fr) minmax(170px, 235px) minmax(140px, 180px) 64px 16px; gap: 16px; align-items: center; }
+.directory .worklist > div > div > div.tableHead:first-child { border: 1px solid var(--color-control-border); border-top: 2px solid var(--color-task-edge); border-radius: var(--radius-input) var(--radius-input) 0 0; padding: 14px 16px; background: var(--color-card-warm); color: var(--color-ink-muted); font-size: var(--text-meta); font-weight: 600; text-transform: none; letter-spacing: 0; }
+.rows { border: 1px solid var(--color-folder-edge); border-top: 0; border-radius: 0 0 var(--radius-input) var(--radius-input); }
+.directory .worklist .rows > .row + .row { margin-top: 0; border-top: 1px solid var(--color-paper-rule); }
+.row { width: 100%; min-width: 0; padding: 14px 16px; color: var(--color-ink); text-align: left; background: var(--color-paper); transition: background-color var(--duration-fade) ease; }
+.directory .worklist button.row { border: 0; border-radius: 0; }
+.worklist button.row [data-workspace-name] { font-size: var(--text-value); line-height: var(--text-value--line-height); white-space: normal; overflow-wrap: anywhere; }
+.identityDetail { display: block; margin-top: 3px; overflow-wrap: anywhere; color: var(--color-ink-muted); font-size: var(--text-meta); line-height: var(--text-meta--line-height); }
+.owner { min-width: 0; white-space: normal; overflow-wrap: anywhere; font-size: var(--text-label); color: var(--color-ink-2); }
+.date { white-space: nowrap; font-size: var(--text-meta); color: var(--color-ink-muted); }
+.worklist button.row:hover { background: var(--color-action-soft); }
+.row [data-workspace-open] { color: var(--color-primary); transition: transform var(--motion-state) var(--ease-open); }
+.row:is(:hover, :focus-visible) [data-workspace-open] { transform: translateX(3px); }
+.row:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -3px; }
+.compactRow { display: block; }
+.noteLine { display: block; margin-top: 6px; }
+.noteLine:empty { display: none; }
+.status { --status-ink: var(--color-stage-manila); display: block; min-width: 0; }
+.status[data-phase="assessment"] { --status-ink: var(--color-stage-blue); }
+.status:is([data-state="accepted"], [data-state="admitted"]) { --status-ink: var(--color-status-done); }
+.status[data-state="denied"] { --status-ink: var(--color-danger); }
+.status:is([data-state="unconfirmed"], [data-state="cancelled"]) { --status-ink: var(--color-warning); }
+.status[data-state="unknown"] { --status-ink: var(--color-ink-muted); }
+.status > strong { display: block; position: relative; max-width: 100%; padding-left: 15px; overflow-wrap: anywhere; color: var(--status-ink); font-size: var(--text-label); line-height: var(--text-label--line-height); font-weight: 600; }
+.status > strong::before { content: ""; position: absolute; left: 0; top: 7px; width: 6px; height: 6px; border-radius: var(--radius-pill); background: currentColor; }
+.worklist .status > span { padding-left: 15px; color: var(--color-ink-muted); font-size: var(--text-meta); line-height: var(--text-meta--line-height); }
+.directory details > summary[aria-controls] { height: auto; min-height: var(--spacing-control); padding-block: 10px; }
+.directory details > summary[aria-controls] > span { white-space: normal; overflow-wrap: anywhere; }
+.filters > * { flex: 1 1 260px; min-width: min(100%, 260px); }
+@media (prefers-reduced-motion: reduce) { .row, .row [data-workspace-open] { transition: none; } .row:is(:hover, :focus-visible) [data-workspace-open] { transform: none; } }
+
 .row[data-earlier-workspace="true"] span[data-workspace-name][title] {
-  color: #59645e;
+  color: var(--color-ink-muted);
   font-weight: 500;
 }
 
-.row[data-earlier-workspace="true"] [data-testid="workspace-chart-thumbnail"] {
-  filter: grayscale(1);
-  background: #f6f7f6;
-  border-color: #dce0dd;
-  box-shadow: none;
-}
-
-.row[data-earlier-workspace="true"] [data-workspace-open] { color: #737b76; }
-.row[data-earlier-workspace="true"] [data-workspace-progress] { background: #89958e; }
+.row[data-earlier-workspace="true"] [data-workspace-open] { color: var(--color-ink-muted); }
 
 .row[data-earlier-workspace="true"]:is(:hover, :focus-visible) span[data-workspace-name][title] {
-  color: #25382e;
+  color: var(--color-ink);
 }
 
 .month[data-earlier-workspace="true"]:not([aria-current="page"]) {
-  color: #68716b;
+  color: var(--color-ink-muted);
 }
 
 .month[data-earlier-workspace="true"]:not([aria-current="page"]) > span:first-of-type {
   font-weight: 500;
 }
+
+@media (max-width: 1023px) { .worklist > .rows { border-top: 2px solid var(--color-task-edge); border-radius: var(--radius-input); } }

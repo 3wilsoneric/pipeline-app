@@ -106,8 +106,8 @@
   /* Sharper type (DECISIONS.md, "Sharper pass"): Inter's tighter headings and its clearer letterforms. */
   .pipeline-surfaces { font-feature-settings: "cv11", "ss01"; }
   .pipeline-surfaces :is(h1, h2, h3) { letter-spacing: -0.011em; }
-  .pipeline-surfaces button.bg-\[\23 111111\] { border-color: var(--color-action); border-radius: var(--radius-input); background-color: var(--color-action); color: var(--color-on-fill); font-weight: 600; }
-  .pipeline-surfaces button.bg-\[\23 111111\]:hover:not(:disabled) { border-color: var(--color-primary-hover); background-color: var(--color-primary-hover); }
+  .pipeline-surfaces button.bg-\[\23 111111\] { border-color: var(--color-action); border-radius: var(--radius-input); background-color: var(--color-action); color: var(--color-on-action); font-weight: 600; }
+  .pipeline-surfaces button.bg-\[\23 111111\]:hover:not(:disabled) { border-color: var(--color-night); background-color: var(--color-action-hover); }
   .pipeline-surfaces button.bg-\[\23 111111\]:disabled { border-color: var(--color-control-border); background-color: var(--color-segment); color: var(--color-ink-muted); }
 
   /* Saved contacts: a card like the rest of the record. */
@@ -144,23 +144,6 @@
   .pipeline-surfaces main:has(input[aria-label="Search trash"]) > div > div.border-l-2 { border: 1px solid var(--color-stage-amber-border); border-radius: var(--radius-paper); background: var(--color-warning-soft); color: var(--color-warning); font-size: var(--text-meta); }
   .pipeline-surfaces main:has(input[aria-label="Search trash"]) > div > div.divide-y { overflow: hidden; border: 1px solid var(--color-card-border); border-radius: var(--radius-folder); background: var(--color-paper); box-shadow: var(--shadow-card); }
   .pipeline-surfaces main:has(input[aria-label="Search trash"]) > div > div.divide-y > * { border-color: var(--color-paper-rule); padding-inline: 16px; }
-
-  /* Intake form (docs/design/DECISIONS.md, "Intake"): the Chart's original field grid with hairline
-     dividers, so entering and reading a referral look like the same record. Sentence-case labels. */
-  .pipeline-surfaces article[aria-label="Referral intake chart"] section[aria-label$=" chart section"] > section > h2 { border-top: 0; padding-top: 20px; }
-  .pipeline-surfaces article[aria-label="Referral intake chart"] div:has(> [data-workspace-field]) { gap: 1px; padding: 0; background: var(--color-paper-rule); }
-  .pipeline-surfaces article[aria-label="Referral intake chart"] [data-workspace-field] { background: var(--color-paper); }
-  .pipeline-surfaces article[aria-label="Referral intake chart"] [data-workspace-field]:focus-within { outline: 2px solid var(--color-focus); outline-offset: -2px; }
-  .pipeline-surfaces article[aria-label="Referral intake chart"] [data-workspace-field] :is(label, h3) { color: var(--color-ink-muted); font-size: var(--text-meta); line-height: 16px; font-weight: 600; letter-spacing: 0; text-transform: none; }
-  .pipeline-surfaces article[aria-label="Referral intake chart"] [data-workspace-field] :is(input:not([type="checkbox"]), select, textarea) { color: var(--color-ink); font-size: var(--text-value); font-weight: 600; }
-  .pipeline-surfaces article[aria-label="Referral intake chart"] [data-workspace-field] :is(input, textarea)::placeholder { color: var(--color-ink-muted); font-weight: 400; }
-  .pipeline-surfaces article[aria-label="Referral intake chart"] [data-workspace-field] > section { padding: 0; border: 0; background: transparent; }
-  .pipeline-surfaces article[aria-label="Referral intake chart"] [data-workspace-field] textarea { border-color: var(--color-control-border); border-radius: var(--radius-input); background: var(--color-sheet); }
-  .pipeline-surfaces article[aria-label="Referral intake chart"] [data-workspace-field] textarea { font-weight: 400; line-height: 22px; }
-  /* Two labels are stored in capitals ("NAME", "GENDER"); show them in sentence case like the rest. */
-  .pipeline-surfaces article[aria-label="Referral intake chart"] :is([data-workspace-field="name"], [data-workspace-field="gender"]) > div:first-of-type > :first-child { text-transform: lowercase; }
-  .pipeline-surfaces article[aria-label="Referral intake chart"] :is([data-workspace-field="name"], [data-workspace-field="gender"]) > div:first-of-type > :first-child::first-letter { text-transform: uppercase; }
-  .pipeline-surfaces article[aria-label="Referral intake chart"] [data-workspace-field] :is(.uppercase, [class*="tracking-"]) { color: var(--color-ink-muted); font-size: var(--text-meta); font-weight: 600; }
 
   /* Workspaces (docs/design/DECISIONS.md, "Workspaces"): the Home board's layers. Warm page, white cards
      (tools, browsing, results), a quiet table: sentence-case headers, readable detail, one link-green cue. */
@@ -275,18 +258,8 @@
     border-color: var(--surface-accent);
   }
 
-  .pipeline-surfaces [data-working-field] [role="group"] button { font-size: 12px; font-weight: 600; }
-  .pipeline-surfaces [data-working-field] [role="group"] label { min-height: 44px; font-size: 13px; font-weight: 500; }
-  .pipeline-surfaces [data-working-field] [role="group"] button:first-child { border-radius: 6px 0 0 6px; }
-  .pipeline-surfaces [data-working-field] [role="group"] button:last-child { border-radius: 0 6px 6px 0; }
 
   /* Writing help is an inline disclosure, not another competing action button. */
-  .pipeline-surfaces [data-working-field] details:has([data-guide-target="assessment-answer-help"]) { border: 0; background: transparent; }
-  .pipeline-surfaces [data-guide-target="assessment-answer-help"] { min-height: 32px; padding: 4px 0; gap: 8px; }
-  .pipeline-surfaces [data-guide-target="assessment-answer-help"] > span:first-child { color: #426d8d; font-size: 11px; font-weight: 600; }
-  .pipeline-surfaces [data-guide-target="assessment-answer-help"] > span:last-child { color: #657384; font-size: 11px; font-weight: 400; }
-  .pipeline-surfaces [data-guide-target="assessment-answer-help"] svg { display: none; }
-  .pipeline-surfaces [data-working-field] details[open]:has([data-guide-target="assessment-answer-help"]) > div { border: 1px solid #d8e3ed; border-radius: 5px; background: #f5f9fd; }
 
   /* One action family, with emerald reserved for the forward or primary action. */
   .pipeline-surfaces [data-assessment-question-editor] > button,

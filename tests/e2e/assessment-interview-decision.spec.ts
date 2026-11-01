@@ -1,11 +1,12 @@
 import { expect, test, type Page } from "@playwright/test";
 import { randomUUID } from "node:crypto";
-import { createOperationalReferral, startOperationalAssessment } from "./support/operational-api";
+import { activeOperationalAssessor, createOperationalReferral, startOperationalAssessment } from "./support/operational-api";
 
 async function createInterview(page: Page) {
+  const assessor = await activeOperationalAssessor(page.request);
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", {
-    name: `Conversation ${randomUUID().replace(/[^a-z]/g, "")}`, owner: "Annette Everhart", tags: [], documentName: "", documentStatus: "Missing",
-  }, { assigneeId: "provisional:allo:annette" });
+    name: `Conversation ${randomUUID().replace(/[^a-z]/g, "")}`, owner: assessor.display_name, tags: [], documentName: "", documentStatus: "Missing",
+  }, { assigneeId: assessor.principal_id });
   const response = await page.request.post(`/api/referrals/${referral.id}/assessments`, { data: {
     client_mutation_id: randomUUID(), data: {
       language_barrier: "yes", language_barrier_details: "Synthetic interpreter arranged; allow pauses.",
@@ -28,8 +29,8 @@ for (const width of [1440, 390]) {
     await page.goto(url);
     const footer = page.locator('footer[aria-label="Assessment actions"]');
     await expect(page.getByTestId("assessment-client-folder")).toBeVisible();
-    // Interviewing keeps the questions dominant; the recommendation waits in review.
-    await expect(page.getByRole("combobox", { name: "Working decision" })).toHaveCount(0);
+    // The early bookmark is available before review and remains reversible.
+    await expect(footer.getByRole("combobox", { name: "Working decision" })).toBeEnabled();
     await page.goto(`${url}&assessmentMode=review`);
     const recommendation = page.getByRole("region", { name: "Placement recommendation", exact: true }).getByRole("combobox", { name: "Working decision" });
     await expect(recommendation).toBeEnabled();
@@ -39,6 +40,7 @@ for (const width of [1440, 390]) {
       await expect.poll(async () => (await read()).recommendation?.outcome).toBe(outcome);
       await expect(recommendation).toHaveValue(outcome);
       await expect(recommendation).toBeEnabled();
+      if (outcome === "needs_more_information") await page.getByRole("button", { name: "Not now", exact: true }).click();
       await expect(page).toHaveURL(/assessmentSection=diagnosis_clinical/);
     }
     let failedMutationId = "";
@@ -59,6 +61,7 @@ for (const width of [1440, 390]) {
     await recommendation.selectOption("needs_more_information");
     expect((await retried).postDataJSON().client_mutation_id).not.toBe(failedMutationId);
     await expect.poll(async () => (await read()).recommendation?.outcome).toBe("needs_more_information");
+    await page.getByRole("button", { name: "Not now", exact: true }).click();
     await page.screenshot({ path: info.outputPath(`recommendation-${width}.png`) });
     const workflow = await read();
     expect(workflow.decision).toBeNull();
@@ -78,7 +81,7 @@ for (const width of [1440, 390]) {
       await recommendation.selectOption("accept");
       await expect(footer.getByRole("button", { name: "Saving recommendation...", exact: true })).toBeDisabled();
     } finally { release(); }
-    await expect(footer.getByRole("button", { name: "Sign & continue to decision", exact: true })).toBeEnabled();
+    await expect(footer.getByRole("button", { name: "Sign assessment", exact: true })).toBeEnabled();
     await expect.poll(async () => (await read()).recommendation?.outcome).toBe("accept");
     expect((await read()).review).toBeNull();
   });
@@ -90,27 +93,27 @@ test("current information follows only the active section and keeps unverified s
   await page.route(`**/api/referrals/${referral.id}/assessments`, async (route) => {
     const response = await route.fetch();
     const payload = await response.json();
-    payload.assessments[0].field_provenance.secondary_diagnoses = [{ source_field_key: "secondary_diagnoses", source_file: "Synthetic referral.pdf", confidence: 0.8, review_status: "pending", source_page_no: 2, evidence_url: null }];
+    payload.assessments[0].field_provenance.current_symptoms = [{ source_field_key: "current_symptoms", source_file: "Synthetic referral.pdf", confidence: 0.8, review_status: "pending", source_page_no: 2, evidence_url: null }];
     await route.fulfill({ response, json: payload });
   });
   await page.goto(url);
   await expect(page.getByTestId("assessment-client-folder")).toBeVisible();
-  await page.getByRole("button", { name: "Interview", exact: true }).click();
+  await page.goto(`${url}&assessmentMode=interview`);
   const reference = page.getByRole("complementary", { name: "Current information" });
   await expect(reference.getByRole("combobox")).toHaveCount(0);
   await expect(reference).not.toContainText("Synthetic interpreter arranged");
   await expect(reference).not.toContainText("Synthetic walker");
   await expect(reference).not.toContainText("Hidden stale answer");
-  await expect(reference.getByRole("button", { name: "Edit Secondary diagnosis", exact: true })).toContainText("Needs verification");
+  await expect(reference.getByRole("button", { name: "Edit Current symptoms", exact: true })).toContainText("Needs verification");
   await expect(reference).not.toContainText("Synthetic earlier placement");
   await page.getByLabel("Assessment section", { exact: true }).selectOption("prior_history");
   await expect(reference).toContainText("Synthetic earlier placement");
-  await expect(reference).not.toContainText("Synthetic documented diagnosis");
+  await expect(reference).not.toContainText("Synthetic current concern");
   await expect(reference).not.toContainText("Synthetic interpreter arranged");
   await page.getByLabel("Assessment section", { exact: true }).selectOption("prior_placement");
   await expect(reference).not.toContainText("Synthetic earlier placement");
   await page.getByLabel("Assessment section", { exact: true }).selectOption("medication");
-  await expect(reference).not.toContainText("Synthetic documented diagnosis");
+  await expect(reference).not.toContainText("Synthetic current concern");
   await expect(reference).toContainText("Synthetic medication");
   await page.screenshot({ path: info.outputPath("conversation-context.png") });
 });
@@ -122,14 +125,14 @@ test("review summary links back to editable sections and explains signing", asyn
   await startOperationalAssessment(page.request, assessment);
   const read = async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
   await page.goto(url);
-  // Interviewing keeps section progress dominant and the recommendation out of the way.
-  const steps = page.getByRole("navigation", { name: "Assessment section steps", exact: true });
-  await expect(steps.getByRole("button", { name: "Next section", exact: true })).toBeVisible();
-  await expect(steps.getByRole("button", { name: "Previous section", exact: true })).toBeVisible();
-  await expect(page.getByRole("region", { name: "Placement recommendation", exact: true })).toHaveCount(0);
+  // Section progress and the early bookmark remain available while interviewing.
+  await expect(page.getByRole("combobox", { name: "Assessment section", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Review assessment", exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Placement recommendation", exact: true })).toBeVisible();
 
   await page.goto(`${url}&assessmentMode=review`);
-  const sections = page.getByRole("list", { name: "Answers by section" });
+  await page.locator("summary").filter({ hasText: /^Answers by section/ }).click();
+  const sections = page.getByRole("list", { name: /^Answers by section/ });
   await expect(sections.getByRole("button")).toHaveCount(12);
   await expect(sections.getByRole("button").first()).toContainText("recorded");
   const signing = page.getByRole("region", { name: "What signing does", exact: true });
@@ -142,8 +145,8 @@ test("review summary links back to editable sections and explains signing", asyn
   // A section link returns to that editable section; reviewing never signs.
   await sections.getByRole("button").nth(1).click();
   await expect(page).toHaveURL(/workspaceStage=assessment/);
-  await expect(page.locator("[data-assessment-section-heading]")).toBeVisible();
-  await expect(page.locator("[data-assessment-question-editor]")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Assessment questions", exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Assessment questions", exact: true }).getByRole("textbox").first()).toBeEditable();
   expect((await read()).signed_at).toBeNull();
   expect((await (await page.request.get(`/api/referrals/${referral.id}/workflow`)).json()).decision).toBeNull();
 });

@@ -1,7 +1,11 @@
 "use client";
 
+import { createPortal } from "react-dom";
+import { Bookmark } from "lucide-react";
+
 import { actualAdmissionDateError, getPlannedAdmissionDate } from "@/lib/pipeline/admission-lifecycle";
 import { useConfirmationDialog } from "./useConfirmationDialog";
+import DecisionFeedback from "./DecisionFeedback";
 
 import { useCallback, useEffect, useEffectEvent, useRef, useState, type ReactNode, type RefObject } from "react";
 import { usePersonaSwitchSave } from "@/lib/demo/persona-switch-save";
@@ -40,6 +44,7 @@ type ReferralWorkflowPanelProps = {
   onOpenDecision?: () => void;
   onOpenProfile: (canonicalClientId: string) => void;
   onDone?: () => Promise<void>;
+  decisionReviewTarget?: HTMLElement | null;
   compactRecommendation?: boolean;
   recommendationAssessmentId?: string;
   onSavingChange?: (pending: boolean, failed?: boolean) => void;
@@ -68,6 +73,7 @@ export default function ReferralWorkflowPanel({
   onOpenDecision,
   onOpenProfile,
   onDone,
+  decisionReviewTarget,
   compactRecommendation = false,
   recommendationAssessmentId,
   onSavingChange,
@@ -79,11 +85,13 @@ export default function ReferralWorkflowPanel({
   children,
 }: ReferralWorkflowPanelProps) {
   const { confirm, confirmationDialog } = useConfirmationDialog();
+  const display = (content: ReactNode) => decisionReviewTarget ? createPortal(content, decisionReviewTarget) : content;
   const [workflow, setWorkflow] = useState<WorkflowResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [recordedFeedback, setRecordedFeedback] = useState<AdmissionDecision | null>(null);
   const [recommendationDraft, setRecommendationDraft] = useState<RecommendationDraft>({ outcome: "", reasonCode: "", reasonNote: "" });
   const [admissionDateDraft, setAdmissionDateDraft] = useState(getPlannedAdmissionDate(referral));
   const [manualIntakeReason, setManualIntakeReason] = useState("");
@@ -324,11 +332,11 @@ export default function ReferralWorkflowPanel({
   };
 
   if (loading && !workflow) return placementOnly ? <section aria-label="Placement follow-through"><p role="status">Loading placement status…</p>{children}</section>
-    : requirementsOnly ? <div role="status">Loading admission requirements...</div> : compactRecommendation ? <span className={assessmentStyles.recoveryButton}>Loading decision...</span> : <ReferralWorkflowPanelLoading />;
+    : requirementsOnly ? <div role="status">Loading admission requirements...</div> : compactRecommendation ? <span className={assessmentStyles.recoveryButton}>Loading decision...</span> : display(<ReferralWorkflowPanelLoading />);
   if (!workflow) return placementOnly ? <section aria-label="Placement follow-through">
     {error ? <WorkflowNotice tone="error">Placement status could not be loaded. Meet the Client remains available below. <button type="button" onClick={() => void loadWorkflow().catch(() => setError("Placement status could not be loaded."))}>Retry status</button></WorkflowNotice> : <p role="status">Loading placement status…</p>}
     {children}
-  </section> : requirementsOnly ? <WorkflowNotice tone="error">{error || "Admission requirements could not be loaded."} <button type="button" onClick={() => { setLoading(true); void loadWorkflow().catch(() => { setError("Admission requirements could not be loaded."); setLoading(false); }); }}>Retry</button></WorkflowNotice> : compactRecommendation ? <button type="button" className={assessmentStyles.recoveryButton} onClick={() => void loadWorkflow().catch(() => setError("Decision unavailable. Try again."))}>Retry decision</button> : <WorkflowNotice tone="error">{error || "Workflow could not be loaded."}</WorkflowNotice>;
+  </section> : requirementsOnly ? <WorkflowNotice tone="error">{error || "Admission requirements could not be loaded."} <button type="button" onClick={() => { setLoading(true); void loadWorkflow().catch(() => { setError("Admission requirements could not be loaded."); setLoading(false); }); }}>Retry</button></WorkflowNotice> : compactRecommendation ? <button type="button" className={assessmentStyles.recoveryButton} onClick={() => void loadWorkflow().catch(() => setError("Decision unavailable. Try again."))}>Retry decision</button> : display(<WorkflowNotice tone="error">{error || "Workflow could not be loaded."}</WorkflowNotice>);
 
   const { currentReferral } = deriveWorkflowPanelView(workflow);
   const sections = normalizeReferralSectionVersions(currentReferral.sectionVersions);
@@ -422,14 +430,19 @@ export default function ReferralWorkflowPanel({
     } finally { setEmailSending(false); }
   };
   const emailDialog = emailRecommendation ? <UnderReviewEmailDialog key={`${emailRecommendation.recommendationId}:${emailRecommendation.version}`} initialMessage={defaultUnderReviewMessage(currentReferral.id, emailRecommendation.reasonNote)} sending={emailSending} error={emailError} onSend={(content) => void sendUnderReviewEmail(content)} onClose={() => setEmailRecommendation(null)} /> : null;
-  const submitDecision = async () => {
+  const submitDecision = async (confirmedInReview = false) => {
     if (!recommendationDraft.outcome) return;
     if (recommendationDraft.outcome === "needs_more_information") {
       saveRecommendation(recommendationDraft);
       return;
     }
     const outcome = recommendationDraft.outcome === "accept" ? "accepted" : "declined";
-    if (!await confirm({ title: outcome === "accepted" ? "Accept this referral?" : "Deny this referral?", message: decisionConfirmationMessage(outcome, false), confirmLabel: outcome === "accepted" ? "Record acceptance" : "Record denial", destructive: outcome === "declined" })) return;
+    const alreadyConfirmed = confirmedInReview && Boolean(decisionReviewTarget) && workflow.context.assessmentSigned
+      && workflow.recommendation?.assessmentId === workflow.context.assessmentId
+      && recommendationDraft.outcome === workflow.recommendation?.outcome
+      && recommendationDraft.reasonCode === workflow.recommendation?.reasonCode
+      && recommendationDraft.reasonNote === workflow.recommendation?.reasonNote;
+    if (!alreadyConfirmed && !await confirm({ title: outcome === "accepted" ? "Accept this referral?" : "Deny this referral?", message: decisionConfirmationMessage(outcome, false), decisionOutcome: outcome, confirmLabel: outcome === "accepted" ? "Record acceptance" : "Record denial", destructive: outcome === "declined" })) return;
     const saved = await runMutation(
       `decision:${currentReferral.version}:${sections.decision}:${JSON.stringify(recommendationDraft)}`,
       `/api/referrals/${currentReferral.id}/decision`,
@@ -443,6 +456,7 @@ export default function ReferralWorkflowPanel({
       },
       "Decision recorded",
     );
+    if (saved?.decision) setRecordedFeedback(saved.decision);
     if (saved && outcome === "accepted") onOpenEmail();
   };
 
@@ -545,7 +559,7 @@ export default function ReferralWorkflowPanel({
   const compactOutcome = workflow.decision ? (workflow.decision.outcome === "accepted" ? "accept" : "decline")
     : recommendationDirty.current ? recommendationDraft.outcome : workflow.recommendation?.outcome ?? "";
   if (compactRecommendation) return <><div data-quick-recommendation data-outcome={compactOutcome} className={assessmentStyles.quickRecommendation} aria-busy={Boolean(busy)}>
-    <label><span>{workflow.decision ? "Recorded decision" : "Working decision"}</span><select aria-label={workflow.decision ? "Recorded decision" : "Working decision"} title={workflow.decision || workflow.context.assessmentSigned ? "Review this choice in Decision." : "Guides the next steps. Does not sign, send, or record final admission."} value={compactOutcome} disabled={Boolean(busy) || !workflow.capabilities.can_recommend || Boolean(workflow.context.assessmentSigned) || Boolean(workflow.decision)} onChange={(event) => {
+    <Bookmark size={22} aria-hidden="true" /><label><span>{workflow.decision ? "Recorded decision" : "Working decision"}</span><select aria-label={workflow.decision ? "Recorded decision" : "Working decision"} title={workflow.decision || workflow.context.assessmentSigned ? "Review this choice in the chart." : "Guides the next steps. Does not sign, send, or record final admission."} value={compactOutcome} disabled={Boolean(busy) || !workflow.capabilities.can_recommend || Boolean(workflow.context.assessmentSigned) || Boolean(workflow.decision)} onChange={(event) => {
       const next = { ...recommendationDraft, outcome: event.target.value as AssessmentRecommendation["outcome"] };
       recommendationDirty.current = true;
       setRecommendationDraft(next);
@@ -579,8 +593,9 @@ export default function ReferralWorkflowPanel({
     onCloseDetail={() => setPendingDetail(null)}
   /></>;
 
-  return (
-    <>{confirmationDialog}{emailDialog}<ReferralWorkflowPanelPresentation
+  return display(
+    <>{confirmationDialog}{emailDialog}{recordedFeedback ? <DecisionFeedback decision={recordedFeedback} onDismiss={() => setRecordedFeedback(null)} /> : null}<ReferralWorkflowPanelPresentation
+      reviewConfirmation={Boolean(decisionReviewTarget)}
       placementOnly={placementOnly}
       placementContent={children}
       workflow={workflow}

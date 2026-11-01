@@ -39,6 +39,10 @@ export async function getHomeContinuity(
     const assignments = await loadNewAssignments(user, trackingStart);
     const acknowledged = new Set(state.acknowledgedAssignmentIds);
     const activeById = new Map(workflow.active_items.map((item) => [item.referral_id, item]));
+    // Intersect personal shortcuts with today's authorized, active workspaces.
+    // Stored IDs never grant access or revive an admitted/closed client on Home.
+    const eligibleIds = new Set((workflow.all_board_items ?? workflow.board_items ?? workflow.active_items)
+      .filter((item) => item.board.stage !== null).map((item) => item.referral_id));
     const candidates = [
       ...referralDraftResumeItems(referralDraftRecords, activeById),
       ...assessmentDraftResumeItems(assessmentDraftRecords, activeById),
@@ -46,6 +50,9 @@ export async function getHomeContinuity(
     ];
 
     return {
+      pinned_referral_ids: (state.pinnedReferralIds ?? []).filter((id) => eligibleIds.has(id)),
+      recent_referral_ids: (state.recentWorkspaces?.length ? state.recentWorkspaces : state.lastWorkspace ? [state.lastWorkspace] : [])
+        .map((visit) => visit.referralId).filter((id) => eligibleIds.has(id)),
       resume_items: dedupeAndRankResumeItems(candidates).slice(0, 3),
       new_assignments: (assignments?.items ?? []).filter((item) => !acknowledged.has(item.event_id)),
       assignment_tracking_started_at: trackingStart,

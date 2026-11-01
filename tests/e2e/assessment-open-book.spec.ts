@@ -182,21 +182,18 @@ test("reading pane and questions share page scrolling and section changes return
   await page.screenshot({ path: testInfo.outputPath("reading-desk-1024.png") });
 });
 
-test("sidebar expands on hover and keyboard focus; phone search jumps to captured answers", async ({ page }) => {
+test("sidebar labels stay available without moving content; phone search jumps to captured answers", async ({ page }) => {
   await openPractice(page);
   await page.emulateMedia({ reducedMotion: "reduce" });
   const appMenu = page.getByRole("complementary", { name: "App navigation", exact: true });
-  await page.mouse.move(700, 500);
-  await expect(appMenu).toHaveAttribute("data-sidebar-expanded", "false");
-  await page.getByRole("button", { name: "Pipeline home", exact: true }).hover();
-  await expect(appMenu).toHaveAttribute("data-sidebar-expanded", "true");
-  await page.mouse.move(700, 500);
-  await expect(appMenu).toHaveAttribute("data-sidebar-expanded", "false");
-  await page.getByRole("button", { name: "Expand navigation", exact: true }).focus();
-  await page.keyboard.press("Shift+Tab");
-  await expect(appMenu).toHaveAttribute("data-sidebar-expanded", "true");
-  await page.keyboard.press("Escape");
-  await expect(appMenu).toHaveAttribute("data-sidebar-expanded", "false");
+  const bounds = (await appMenu.boundingBox())!;
+  const home = appMenu.getByRole("button", { name: "Pipeline home", exact: true });
+  await home.hover();
+  await expect(home.getByText("Home", { exact: true })).toBeVisible();
+  await home.focus();
+  await expect(home).toBeFocused();
+  await expect(appMenu.locator("[data-navigation-toggle]")).toHaveCount(0);
+  expect((await appMenu.boundingBox())!.width).toBe(bounds.width);
   await page.setViewportSize({ width: 390, height: 844 });
   const search = page.getByRole("button", { name: "Choose questionnaire section", exact: true });
   await search.click();
@@ -236,7 +233,6 @@ test("browser Back and Forward restore the assessment section without bouncing",
   const section = page.getByRole("combobox", { name: "Assessment section", exact: true });
   await chooseSection(page, "prior_history");
   await expect(page).toHaveURL(/assessmentSection=prior_history/);
-  await page.getByRole("button", { name: "Expand navigation" }).click();
   await page.getByRole("button", { name: "Pipeline home", exact: true }).click();
   await expect(page.locator("[data-assessment-working-section]")).toHaveCount(0);
   await page.goBack();

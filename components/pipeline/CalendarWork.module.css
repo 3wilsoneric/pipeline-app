@@ -194,3 +194,7 @@
     .header { padding: 10px 12px; }
     .paper { padding: 10px; }
   }
+
+.emptyNotice { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; margin-top: 12px; padding: 16px 20px; border: 1px solid var(--color-card-border); border-radius: var(--radius-paper); background: var(--color-sheet); text-align: left; }
+.emptyCopy { flex: 1 1 280px; }
+.emptyActions { display: flex; flex-wrap: wrap; gap: 8px; }

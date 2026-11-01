@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { Pencil } from "lucide-react";
 
 import { assessmentInterviewFieldLabel, getAssessmentUnableReason, hasAssessmentInterviewValue, type AssessmentInterviewQuestion } from "@/lib/assessment/assessment-interview-schema";
-import type { AssessmentToolData, AssessmentToolSection } from "@/lib/assessment/assessment-tool-schema";
-import { capturedAssessmentAnswer } from "@/components/pipeline/assessment-working-view";
+import type { AssessmentToolData, AssessmentToolFieldKey, AssessmentToolSection } from "@/lib/assessment/assessment-tool-schema";
+import { assessmentQuestionStatus, capturedAssessmentAnswer } from "@/components/pipeline/assessment-working-view";
 import styles from "./InterviewSplit.module.css";
 
 // Split interview (docs/design/DECISIONS.md, "Split interview"): beside the questions, the information already
@@ -29,10 +30,13 @@ const subscribeWidth = (changed: () => void) => {
 
 type Topic = { key: AssessmentToolSection; label: string; questions: readonly AssessmentInterviewQuestion[] };
 
-export default function InterviewSplit({ topics, data, currentTopic, notes }: {
+export default function InterviewSplit({ topics, data, pending, currentTopic, notes, finalized, onEdit }: {
   topics: readonly Topic[];
   data: AssessmentToolData;
+  pending: readonly AssessmentToolFieldKey[];
   currentTopic: AssessmentToolSection;
+  finalized: boolean;
+  onEdit: (field: AssessmentToolFieldKey) => void;
   /** The current topic's notes, docked at the foot of the left side. */
   notes?: ReactNode;
 }) {
@@ -95,17 +99,23 @@ export default function InterviewSplit({ topics, data, currentTopic, notes }: {
 
   return <aside ref={pane} aria-label="Current information" className={styles.pane} data-interview-split>
     <div ref={text} className={styles.text} data-split-chart>
-      {/* One lined page: what is already known for this topic, then the notes written below it on the same ruling. */}
+      {/* Recorded facts above the shared notes; both remain available while answering. */}
       <div className={styles.page}>
       {topic ? <section key={topic.key} data-split-topic={topic.key} data-current aria-label={topic.label} className={styles.topic}>
         {answered.length ? <dl>{answered.map((question) => {
           const reason = getAssessmentUnableReason(data, question.field);
+          const status = assessmentQuestionStatus(question, data, pending);
           const answer = capturedAssessmentAnswer(question, data);
-          // A written answer runs the full width under its label; short facts keep the two columns.
-          return <div key={question.field} data-long={answer.length > 60 || answer.includes("\n") || undefined}><dt>{assessmentInterviewFieldLabel(question.field)}</dt><dd>{answer}{reason ? <span>{reason}</span> : null}</dd></div>;
+          // Every answer has the full width beneath its label, including short facts.
+          return <div key={question.field}><dt>{assessmentInterviewFieldLabel(question.field)}</dt><dd>
+            <button type="button" className={styles.answer} aria-label={(finalized ? "Review " : "Edit ") + assessmentInterviewFieldLabel(question.field)} onClick={() => onEdit(question.field)}>
+              <span>{answer}{status === "verify" ? <span className={styles.attention}>Needs verification</span> : status === "reason" ? <span className={styles.attention}>Reason missing</span> : null}</span>{!finalized ? <Pencil size={15} aria-hidden="true" /> : null}
+            </button>
+            {reason ? <span>{reason}</span> : null}
+          </dd></div>;
         })}</dl> : <p className={styles.empty}>No information recorded for this section yet.</p>}
       </section> : null}
-      {notes ? <div className={styles.notes}>{notes}</div> : null}
+      {notes ? <div className={styles.notes} tabIndex={0} role="region" aria-label="Notes">{notes}</div> : null}
       </div>
     </div>
     <div role="separator" aria-orientation="vertical" aria-label="Current information" aria-valuemin={minWidth} aria-valuemax={maxWidth} aria-valuenow={width} tabIndex={0}

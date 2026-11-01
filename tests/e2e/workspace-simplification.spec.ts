@@ -1,15 +1,17 @@
 import { expect, test, type Page } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import type { AxeResults } from "axe-core";
+import { activeOperationalAssessor } from "./support/operational-api";
 import { applyPipelineWorkspaceLocation, type PipelineWorkspaceView } from "../../lib/pipeline/work-continuity";
 
 async function createReferral(page: Page) {
+  const assessor = await activeOperationalAssessor(page.request);
   const response = await page.request.post("/api/referrals", { data: {
-    client_mutation_id: randomUUID(), assignee_id: "provisional:allo:annette",
+    client_mutation_id: randomUUID(), assignee_id: assessor.principal_id,
     referral: { name: `Synthetic clarity ${randomUUID().slice(0, 8)}`, date: "2026-09-17", stage: "New",
       community: "San Pablo", county: "Contra Costa County", dob: "1980-04-12", phone: "", email: "", payer: "",
       source: "Synthetic UI test", priority: "standard", tags: [], documentName: "",
-      documentStatus: "Missing", owner: "Annette Everhart", note: "", createdAt: new Date().toISOString(), requirements: [] },
+      documentStatus: "Missing", owner: assessor.display_name, note: "", createdAt: new Date().toISOString(), requirements: [] },
   } });
   expect(response.status(), await response.text()).toBe(201);
   return (await response.json()).referral as { id: number };
@@ -68,7 +70,10 @@ for (const width of [1440, 390]) {
         { field: "ssn", label: "Social Security number", before: "NEVER_RENDER_BEFORE", after: "NEVER_RENDER_AFTER", masked: true, values_available: true },
         { field: "county", label: "County", before: "Contra Costa County", after: "Alameda County", masked: false, values_available: true },
       ],
-    }];
+    }, {
+      ...event("assessment_started", ["workflowStatus"]), entity_type: "referral",
+      changes: [{ field: "workflowStatus", label: "Workflow status", before: "ready_to_schedule", after: "assessment_in_progress", masked: false, values_available: true }],
+    }, { ...event("assessment_started"), entity_type: "assessment" }];
     await page.route(`**/api/referrals/${referral.id}/activity`, (route) => route.fulfill({ json: { events, metadata: null } }));
     await page.goto(workspaceUrl(referral.id, "activity"));
     const activity = page.getByRole("region", { name: "Referral ownership and activity" });
@@ -79,7 +84,10 @@ for (const width of [1440, 390]) {
     await expect(activity.getByText("Contributors", { exact: true })).toHaveCount(0);
     await expect(activity.locator('[data-activity-event="referral_updated"]').getByText("Referral created", { exact: true }).first()).toBeVisible();
     await expect(activity.getByText("ready_to_schedule", { exact: true })).not.toBeVisible();
-    await expect(activity.getByText("Assessment signed", { exact: true }).first()).toHaveCSS("font-size", "15px");
+    await expect(activity.locator('[data-activity-event="assessment_started"]:visible')).toHaveCount(2);
+    await expect(activity.getByText("Assessment in progress", { exact: true })).toBeVisible();
+    await expect(activity.getByText("assessment_in_progress", { exact: true })).not.toBeVisible();
+    await expect(activity.getByText("Assessment signed", { exact: true }).first()).toHaveCSS("font-size", "19px");
     await expect(page.getByRole("button", { name: "Admission workflow", exact: true })).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     if (width < 640) await expect(page.getByLabel("Workspace view", { exact: true })).toHaveValue("activity");
@@ -90,7 +98,8 @@ for (const width of [1440, 390]) {
     await page.keyboard.press("Enter");
     const history = activity.getByRole("list", { name: "Detailed activity history" });
     await expect(history).toBeVisible();
-    await expect(history.locator("[data-activity-event]")).toHaveCount(5);
+    await expect(history.locator("[data-activity-event]")).toHaveCount(events.length);
+    await expect(history).toContainText("assessment_in_progress");
     await expect(history).toContainText("Value changed (masked)");
     await expect(history).toContainText("Contra Costa County");
     await expect(history).toContainText("Alameda County");

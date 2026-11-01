@@ -1,10 +1,11 @@
 import { expect, test } from "@playwright/test";
-import { createOperationalAssessment, createOperationalReferral } from "./support/operational-api";
+import { activeOperationalAssessor, createOperationalAssessment, createOperationalReferral } from "./support/operational-api";
 
-test("a pending or failed working decision keeps its retry available before leaving assessment", async ({ page }) => {
+test("a pending or failed bookmark survives stage navigation and protects workspace exit", async ({ page }) => {
+  const assessor = await activeOperationalAssessor(page.request);
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", {
-    name: "Synthetic recommendation exit recovery", owner: "Annette Everhart", tags: [],
-  }, { assigneeId: "provisional:allo:annette" });
+    name: "Synthetic recommendation exit recovery", owner: assessor.display_name, tags: [],
+  }, { assigneeId: assessor.principal_id });
   await createOperationalAssessment(page.request, referral.id);
 
   let release!: () => void;
@@ -33,22 +34,26 @@ test("a pending or failed working decision keeps its retry available before leav
 
   try {
     await stages.getByRole("button", { name: "Decision", exact: true }).click();
-    await expect(stages.getByRole("button", { name: "Assessment", exact: true })).toHaveAttribute("aria-current", "page");
+    await expect(stages.getByRole("button", { name: "Decision", exact: true })).toHaveAttribute("aria-current", "page");
     await page.getByRole("button", { name: "Open calendar", exact: true }).click();
-    await expect(page).toHaveURL(/workspaceStage=assessment/);
-    await expect(page.getByRole("button", { name: "Back to questions", exact: true })).toBeDisabled();
+    await expect(page).toHaveURL(/workspaceView=workflow/);
+    await stages.getByRole("button", { name: "Assessment", exact: true }).click();
+    await expect(recommendation.getByRole("combobox", { name: "Working decision" })).toBeDisabled();
   } finally { release(); }
 
   await expect(recommendation.getByRole("alert")).toContainText("Synthetic recommendation save unavailable");
   await expect(recommendation.getByRole("combobox", { name: "Working decision" })).toHaveValue("accept");
   await expect(recommendation.getByRole("button", { name: "Retry working decision", exact: true })).toBeEnabled();
   await stages.getByRole("button", { name: "Decision", exact: true }).click();
-  await expect(stages.getByRole("button", { name: "Assessment", exact: true })).toHaveAttribute("aria-current", "page");
+  await expect(stages.getByRole("button", { name: "Decision", exact: true })).toHaveAttribute("aria-current", "page");
   await page.getByRole("button", { name: "Open calendar", exact: true }).click();
-  await expect(page).toHaveURL(/workspaceStage=assessment/);
+  await expect(page).toHaveURL(/workspaceView=workflow/);
+  await stages.getByRole("button", { name: "Assessment", exact: true }).click();
 
   await recommendation.getByRole("button", { name: "Retry working decision", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Sign & continue to decision", exact: true })).toBeEnabled();
+  await expect(recommendation.getByRole("button", { name: "Retry working decision", exact: true })).toHaveCount(0);
+  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentMode=review`);
+  await expect(page.getByRole("button", { name: "Sign assessment", exact: true })).toBeEnabled();
   expect(mutationIds).toHaveLength(2);
   expect(mutationIds[1]).toBe(mutationIds[0]);
   expect(outcomes).toEqual(["accept", "accept"]);
@@ -60,9 +65,10 @@ test("a pending or failed working decision keeps its retry available before leav
 });
 
 test("a confirmed working decision stays saved when its workflow refresh fails", async ({ page }) => {
+  const assessor = await activeOperationalAssessor(page.request);
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", {
-    name: "Synthetic recommendation refresh failure", owner: "Annette Everhart", tags: [],
-  }, { assigneeId: "provisional:allo:annette" });
+    name: "Synthetic recommendation refresh failure", owner: assessor.display_name, tags: [],
+  }, { assigneeId: assessor.principal_id });
   await createOperationalAssessment(page.request, referral.id);
   let recommendationSaved = false;
   let failedRefreshes = 0;
@@ -86,7 +92,7 @@ test("a confirmed working decision stays saved when its workflow refresh fails",
   await expect(recommendation.getByRole("combobox", { name: "Working decision" })).toHaveValue("accept");
   await expect(recommendation.getByRole("alert")).toHaveCount(0);
   await expect(recommendation.getByRole("button", { name: "Retry working decision" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Sign & continue to decision", exact: true })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Sign assessment", exact: true })).toBeEnabled();
   const saved = (await (await page.request.get(`/api/referrals/${referral.id}/recommendation`)).json()).recommendation;
   expect(saved.outcome).toBe("accept");
 });

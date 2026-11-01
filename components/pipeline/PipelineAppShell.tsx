@@ -1,7 +1,6 @@
 "use client";
 
-import { ReactNode, Suspense, useCallback, useEffect, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ReactNode, Suspense, useEffect, useRef, useState } from "react";
 
 import PipelineHeader from "@/components/pipeline/PipelineHeader";
 import DemoEnvironmentBanner from "@/components/pipeline/training/DemoEnvironmentBanner";
@@ -78,39 +77,15 @@ export default function PipelineAppShell({
 
 function AppNavigation() {
   const phone = usePhoneAssessment();
-  const navigationRef = useRef<HTMLElement>(null);
-  const [pinned, setPinned] = useState(false);
-  const expanded = pinned;
-  const closeOnDestination = useCallback(() => {
-    if (window.matchMedia("(max-width: 959px)").matches) setPinned(false);
-  }, []);
-  const close = () => {
-    setPinned(false);
-  };
-  if (phone) return <Suspense fallback={null}><PipelineHeader phone onDestinationChange={closeOnDestination} /></Suspense>;
+  if (phone) return <Suspense fallback={null}><PipelineHeader phone /></Suspense>;
   return (
-    <aside ref={navigationRef} aria-label="App navigation" data-assessment-app-navigation="standard" data-sidebar-expanded={expanded} data-sidebar-pinned={pinned} className={mobileStyles.navigation}
-      onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) closeOnDestination(); }}
-      onKeyDown={(event) => {
-        if (expanded && event.key === "Escape") {
-          close();
-          navigationRef.current?.querySelector<HTMLButtonElement>("[data-navigation-toggle]")?.focus();
-        }
-      }}>
-      {expanded ? <button type="button" aria-label="Close navigation" tabIndex={-1} onClick={close} className={mobileStyles.backdrop} /> : null}
+    <aside aria-label="App navigation" data-assessment-app-navigation="standard" className={mobileStyles.navigation}>
       <div id="pipeline-app-navigation" className={mobileStyles.navigationPanel}>
         <div className={mobileStyles.navigationContent}>
           <Suspense fallback={<div aria-hidden="true" className={mobileStyles.sidebar} />}>
-            <PipelineHeader onDestinationChange={closeOnDestination} />
+            <PipelineHeader />
           </Suspense>
         </div>
-        <button type="button" data-navigation-toggle
-          aria-label={pinned ? "Collapse navigation" : "Expand navigation"}
-          title={pinned ? "Collapse navigation" : "Expand navigation"}
-          aria-expanded={expanded} aria-controls="pipeline-primary-navigation"
-          onClick={() => { if (pinned) close(); else setPinned(true); }} className={mobileStyles.expandButton}>
-          {pinned ? <ChevronLeft size={16} aria-hidden="true" /> : <ChevronRight size={16} aria-hidden="true" />}
-        </button>
       </div>
     </aside>
   );

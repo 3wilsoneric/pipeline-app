@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, FileText, UploadCloud, X } from "lucide-react";
+import { ChevronDown, FileText, FileUp, X } from "lucide-react";
 import { documentCategories, type DocumentCategory } from "@/lib/extraction/contracts";
 import { referralDocumentLabels, suggestReferralDocumentLabel, suggestUpdatedReferralDocumentLabel, validateReferralDocumentFiles, type LabeledReferralFile } from "@/lib/pipeline/referral-document-labels";
 import type { ReferralFile } from "@/lib/pipeline/referral-types";
@@ -37,6 +37,19 @@ export default function ReferralDocumentUpload({ readOnly = false, collapsible =
   const trigger = useRef<HTMLButtonElement>(null);
   const open = selection.length > 0;
 
+  useEffect(() => {
+    if (!dragging) return;
+    const clearDrag = () => { depth.current = 0; setDragging(false); };
+    window.addEventListener("drop", clearDrag);
+    window.addEventListener("dragend", clearDrag);
+    window.addEventListener("blur", clearDrag);
+    return () => {
+      window.removeEventListener("drop", clearDrag);
+      window.removeEventListener("dragend", clearDrag);
+      window.removeEventListener("blur", clearDrag);
+    };
+  }, [dragging]);
+
   const choose = (chosen: File[], previous?: ReferralFile | null) => {
     if (readOnly || !chosen.length) return;
     if (panel.current) panel.current.open = true;
@@ -67,7 +80,7 @@ export default function ReferralDocumentUpload({ readOnly = false, collapsible =
   const uploadControl = <>
     {!readOnly ? <>
       <button ref={trigger} type="button" data-guide-target="initial-packet-upload" className={styles.dropzone} onClick={() => input.current?.click()}>
-        <span className={styles.uploadIcon}><UploadCloud size={24} aria-hidden="true" /></span>
+        <span className={styles.uploadIcon}><FileUp size={24} aria-hidden="true" /></span>
         <span><strong>{dragging ? "Release to label your files" : "Drop files or choose files"}</strong><span>Label before adding. Up to 100 MB per file.</span></span>
         <span className={styles.browse}>Choose files</span>
       </button>
@@ -83,10 +96,10 @@ export default function ReferralDocumentUpload({ readOnly = false, collapsible =
     {children}
   </>;
   return <section data-guide-target="workspace-files-upload" aria-label="Document checklist" className={`${styles.surface} ${collapsible ? styles.compact : ""}`} data-file-drag-active={dragging || undefined}
-    onDragEnter={(event) => { if (readOnly || !event.dataTransfer.types.includes("Files")) return; event.preventDefault(); depth.current++; setDragging(true); if (panel.current) panel.current.open = true; }}
+    onDragEnter={(event) => { if (readOnly || !event.dataTransfer.types.includes("Files")) return; event.preventDefault(); depth.current++; setDragging(true); }}
     onDragOver={(event) => { if (!event.dataTransfer.types.includes("Files")) return; event.preventDefault(); event.dataTransfer.dropEffect = readOnly ? "none" : "copy"; }}
     onDragLeave={(event) => { if (!event.dataTransfer.types.includes("Files")) return; depth.current = Math.max(0, depth.current - 1); if (!depth.current) setDragging(false); }}
-    onDrop={(event) => { if (!event.dataTransfer.types.includes("Files") && !event.dataTransfer.files.length) return; event.preventDefault(); event.stopPropagation(); depth.current = 0; setDragging(false); choose(Array.from(event.dataTransfer.files)); }}>
+    onDrop={(event) => { if (!event.dataTransfer.types.includes("Files") && !event.dataTransfer.files.length) return; event.preventDefault(); event.stopPropagation(); depth.current = 0; setDragging(false); trigger.current?.focus({ preventScroll: true }); choose(Array.from(event.dataTransfer.files)); }}>
     {uploadControl}
     {collapsible ? <details ref={panel} data-testid="document-checklist-panel" className={styles.panel}>
       <summary data-testid="document-checklist-toggle"><strong>{designV2 ? <FileText size={20} aria-hidden="true" /> : null}Documents</strong><span>{documentCountLabel(dragging, queued.length, files.length)}<ChevronDown size={18} aria-hidden="true" /></span></summary>

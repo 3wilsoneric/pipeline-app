@@ -8,6 +8,7 @@ async function library(page: Page) {
   await expect(page.locator('[data-pipeline-ready="guided-coach"]')).toBeAttached();
   const more = page.getByRole("button", { name: /^Open page menu/ });
   if (await more.isVisible()) await more.click();
+  await page.getByRole("button", { name: /^Open profile menu for/ }).click();
   await page.getByRole("button", { name: "Open guided tutorials" }).click();
   return page.getByRole("dialog", { name: "Tutorials", exact: true });
 }
@@ -277,8 +278,8 @@ test("hidden phone board card points to its stage selector", async ({ page }) =>
   await expect(page.getByRole("button", { name: /^Open page menu/ })).toBeVisible();
   // The guide's highlight effect confirms its server-rendered controls hydrated.
   await expect(page.locator('[data-guide-target="home-board-card"]')).toHaveAttribute("data-tutorial-highlight", "true");
-  await page.getByRole("combobox", { name: "Referral stage", exact: true }).selectOption("received");
-  await expect(page.getByRole("combobox", { name: "Referral stage", exact: true })).toHaveValue("received");
+  await page.getByRole("combobox", { name: "Referral stage", exact: true }).selectOption("decision");
+  await expect(page.getByRole("combobox", { name: "Referral stage", exact: true })).toHaveValue("decision");
   await expect(page.locator('[data-guide-target="home-board-card"]')).toBeHidden();
   await page.getByRole("button", { name: "Show me where", exact: true }).click();
   await expect(page.getByRole("combobox", { name: "Referral stage", exact: true })).toBeFocused();

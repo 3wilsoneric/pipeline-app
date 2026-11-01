@@ -187,9 +187,8 @@ test.describe("Referral home and packet canvas", () => {
       expect((await navItem.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
     }
     await activeReferrals.hover();
-    await expect(activeReferrals).toHaveCSS("width", "44px");
-    await page.getByRole("button", { name: "Expand navigation" }).click();
-    await expect.poll(async () => (await activeReferrals.boundingBox())?.width ?? 0).toBeGreaterThan(100);
+    await expect(activeReferrals).toHaveCSS("width", "87px");
+    await expect(activeReferrals.getByText("Workspaces", { exact: true })).toBeVisible();
     await expect(page.getByRole("tab", { name: "Kanban board" })).toHaveCount(0);
 
     const workspaceSearch = page.getByLabel("Search all workspaces");
@@ -359,9 +358,8 @@ test.describe("Referral home and packet canvas", () => {
     await expect(page.getByRole("button", { name: "Pipeline home" })).toBeVisible();
     await expect(page.getByRole("navigation", { name: "Primary navigation" })).toBeVisible();
     await page.getByRole("button", { name: "Open referrals" }).hover();
-    await expect(page.getByRole("button", { name: "Open referrals" })).toHaveCSS("width", "44px");
-    await page.getByRole("button", { name: "Expand navigation" }).click();
-    await expect.poll(async () => (await page.getByRole("button", { name: "Open referrals" }).boundingBox())?.width ?? 0).toBeGreaterThan(100);
+    await expect(page.getByRole("button", { name: "Open referrals" })).toHaveCSS("width", "87px");
+    await expect(page.getByRole("button", { name: "Open referrals" }).getByText("Workspaces", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Pipeline home" }).click();
     await expect(page).toHaveURL(/\/$/);
     await expect(page.getByRole("heading", { name: /Welcome( back)?, / })).toHaveCount(0);
@@ -495,7 +493,7 @@ test.describe("Referral home and packet canvas", () => {
     await expect(documentChecklist.getByRole("button", { name: /Drop files or choose files/ })).toBeVisible();
     await expect(page.getByRole("region", { name: "Identity chart section" })).toBeVisible();
     await expect(documentChecklist.getByRole("button", { name: /drop document or browse$/ })).toHaveCount(0);
-    await expect(page.getByRole("complementary", { name: "Intake progress" })).toBeVisible();
+    await expect(page.getByRole("progressbar", { name: "Intake details recorded", exact: true })).toBeVisible();
     const documentChecklistBox = await documentChecklist.boundingBox();
     const identityBox = await page.getByRole("region", { name: "Identity chart section" }).boundingBox();
     expect(documentChecklistBox).not.toBeNull();

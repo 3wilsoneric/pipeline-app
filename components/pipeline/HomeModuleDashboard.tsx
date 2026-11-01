@@ -18,7 +18,6 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import HomeDialog from "@/components/pipeline/HomeDialog";
-import HomeFocusDeck, { homeFocusModules } from "@/components/pipeline/HomeFocusDeck";
 import { toPipelinePath } from "@/lib/pipeline/base-path";
 
 import {
@@ -97,14 +96,12 @@ const definitionsById = Object.fromEntries(
 export default function HomeModuleDashboard({
   viewerId,
   modules,
-  counts = {},
   initialEditing = false,
   onFinishEditing,
   onSearchVisibilityChange,
 }: {
   viewerId: string;
   modules: Record<PipelineHomeModuleId, ReactNode>;
-  counts?: Partial<Record<PipelineHomeModuleId, number>>;
   initialEditing?: boolean;
   onFinishEditing?: () => void;
   onSearchVisibilityChange: (visible: boolean) => void;
@@ -131,9 +128,10 @@ export default function HomeModuleDashboard({
   }, [viewerId]);
 
   const searchVisible = layout.module_ids.includes("search");
-  const optionalModuleIds = layout.module_ids.filter((id) => id !== "current-work");
-  const focusModuleIds = homeFocusModules.filter((id) => id === "current-work" || layout.module_ids.includes(id));
-  const visibleOptionalIds = editing ? optionalModuleIds : optionalModuleIds.filter((id) => !focusModuleIds.some((focusId) => focusId === id));
+  // Upcoming assessments now has a fixed Home ribbon; New assignments is retired from Home.
+  // Keep stored IDs readable without exposing obsolete modules in Arrange Home.
+  const visibleOptionalIds = layout.module_ids.filter((id) => id !== "current-work" && id !== "new-assignments" && id !== "upcoming-assessments");
+  const optionalModuleIds = visibleOptionalIds;
   useEffect(() => onSearchVisibilityChange(searchVisible), [searchVisible, onSearchVisibilityChange]);
 
   const updateLayout = useCallback((next: PipelineHomeDashboardLayout, message: string) => {
@@ -184,7 +182,7 @@ export default function HomeModuleDashboard({
     const target = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>("[data-home-module]");
     const targetId = target?.dataset.homeModule;
     if (!isPipelineHomeModuleId(targetId) || targetId === "current-work" || targetId === draggedModuleId) return;
-    reorder(draggedModuleId, optionalModuleIds.indexOf(targetId));
+    reorder(draggedModuleId, optionalModuleIds.findIndex((id) => id === targetId));
   };
 
   const endPointerDrag = (event: ReactPointerEvent<HTMLButtonElement>) => {
@@ -219,7 +217,7 @@ export default function HomeModuleDashboard({
         </div>
       ) : <span className="sr-only" aria-live="polite">{saveStatus}</span>}
 
-      {!editing ? modules["current-work"] ? <HomeFocusDeck modules={modules} moduleIds={focusModuleIds} counts={counts} /> : null : <div
+      {!editing ? modules["current-work"] ? <div data-home-module="current-work" data-home-surface="true" className="mb-7 min-w-0">{modules["current-work"]}</div> : null : <div
         data-home-module="current-work"
         data-home-surface="true"
         className="mb-7 min-w-0 border border-[#d9d9d9] bg-white p-4 sm:p-5"
@@ -327,7 +325,7 @@ function HomeModuleLibrary({
   return (
     <HomeDialog label="Home module library" title="Add modules" description="Choose what you want on Home. Click a screenshot for a closer look. Previews use example names." size="gallery" onClose={onClose}>
         <div className="grid gap-5 bg-[#f4f7f5] p-4 sm:p-6 lg:grid-cols-2">
-          {pipelineHomeModuleIds.map((moduleId) => {
+          {pipelineHomeModuleIds.filter((id) => id !== "new-assignments" && id !== "upcoming-assessments").map((moduleId) => {
             const definition = definitionsById[moduleId];
             const Icon = definition.icon;
             const added = selected.includes(moduleId);

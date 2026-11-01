@@ -1,5 +1,6 @@
-import { Check, ChevronDown, Sparkles } from "lucide-react";
+import { BookOpen, Check, ChevronDown } from "lucide-react";
 import { useState } from "react";
+import styles from "./AssessmentInterviewFields.module.css";
 
 import { getAssessmentFieldWritingSpec } from "@/lib/assessment/assessment-field-writing-spec";
 import { isHistoryOverviewField } from "@/lib/assessment/assessment-history";
@@ -56,7 +57,7 @@ function AssessmentFieldHeader({ id, definition, value, pending, timeline }: Pic
     <div className="mb-1.5 flex items-center justify-between gap-2">
       {timeline ? <span className="text-[11px] font-black text-ink">{definition.label}</span>
         : <label htmlFor={id} className="text-[11px] font-black text-[#444444]">{definition.label}</label>}
-      {pending ? <span className="bg-[#f2f5f3] px-2 py-0.5 text-xs font-semibold text-[#59645e]">Review</span> : hasValue(value) ? <Check size={12} className="text-[#0f8b73]" /> : null}
+      {pending ? <span className="bg-[#f2f5f3] px-2 py-0.5 text-xs font-semibold text-[#59645e]">Review</span> : hasValue(value) ? <Check size={16} aria-hidden="true" className="shrink-0 text-[var(--color-status-done)]" /> : null}
     </div>
   );
 }
@@ -110,13 +111,13 @@ type AssessmentFieldControlProps = AssessmentFieldProps & { id: string; readOnly
 function YesNoAssessmentField({ id, definition, question, value, unableReason, readOnly, onChange, onUnableReasonChange }: AssessmentFieldControlProps) {
   return (
     <>
-      <div id={id} className="grid min-h-10 grid-cols-[0.7fr_0.7fr_1.35fr]" role="group" aria-label={definition.label}>
+      <div id={id} className={`${styles.choices} ${styles.binaryChoices}`} role="group" aria-label={definition.label}>
         {(question.options ?? []).map((option) => {
           const active = value === option.value;
           return <button key={option.value} type="button" disabled={readOnly} aria-pressed={active} onClick={() => {
             if (option.value !== "unable_to_assess" && value === "unable_to_assess") onUnableReasonChange("");
             onChange(option.value);
-          }} className={`border border-r-0 px-2 py-2 text-[10px] font-black leading-4 transition-colors last:border-r ${active ? "border-[#0f8b73] bg-[#e7f3ee] text-[#0f6f5d]" : "border-[#c9ceca] bg-white text-[#737373] hover:bg-[#f4f7f5]"} disabled:cursor-not-allowed disabled:opacity-60`}>{option.label}</button>;
+          }} className={styles.choice}>{option.label}</button>;
         })}
       </div>
       {value === "unable_to_assess" ? (
@@ -131,9 +132,9 @@ function YesNoAssessmentField({ id, definition, question, value, unableReason, r
 }
 
 function RatingAssessmentField({ id, definition, value, readOnly, onChange }: AssessmentFieldControlProps) {
-  return <div id={id} className="grid h-10 grid-cols-5" role="group" aria-label={`${definition.label}, 1 through 5`}>{[1, 2, 3, 4, 5].map((rating) => {
+  return <div id={id} className={`${styles.choices} ${styles.ratingChoices}`} role="group" aria-label={`${definition.label}, 1 through 5`}>{[1, 2, 3, 4, 5].map((rating) => {
     const active = value === rating;
-    return <button key={rating} type="button" disabled={readOnly} aria-pressed={active} onClick={() => onChange(rating)} className={`border border-r-0 text-[11px] font-black last:border-r ${active ? "border-[#0f8b73] bg-[#e7f3ee] text-[#0f6f5d]" : "border-[#c9ceca] bg-white text-[#737373] hover:bg-[#f4f7f5]"} disabled:cursor-not-allowed disabled:opacity-60`}>{rating}</button>;
+    return <button key={rating} type="button" disabled={readOnly} aria-pressed={active} onClick={() => onChange(rating)} className={styles.choice}>{rating}</button>;
   })}</div>;
 }
 
@@ -148,9 +149,9 @@ function MultiSelectAssessmentField({ id, definition, question, value, readOnly,
   const options = question.options ?? [];
   const selectedValues = Array.isArray(value) ? value : [];
   const extraOptions = selectedValues.filter((selected) => !options.some((option) => option.value === selected)).map((selected) => ({ value: selected, label: selected }));
-  return <div id={id} className="grid gap-px border border-[#c9ceca] bg-[#d9dfdb] sm:grid-cols-2 lg:grid-cols-3" role="group" aria-label={definition.label}>{[...options, ...extraOptions].map((option) => {
+  return <div id={id} className={`${styles.choices} ${styles.multiChoices}`} role="group" aria-label={definition.label}>{[...options, ...extraOptions].map((option) => {
     const active = selectedValues.includes(option.value);
-    return <label key={option.value} className={`flex min-h-10 items-center gap-2 bg-white px-3 text-[11px] font-semibold ${readOnly ? "cursor-not-allowed opacity-60" : "cursor-pointer hover:bg-[#f4f7f5]"}`}><input type="checkbox" checked={active} disabled={readOnly} onChange={() => onChange(active ? selectedValues.filter((item) => item !== option.value) : [...selectedValues, option.value])} className="h-4 w-4 accent-[#0f8b73]" /><span>{option.label}</span></label>;
+    return <label key={option.value} className={`${styles.choice} ${styles.multiChoice}`}><input type="checkbox" checked={active} disabled={readOnly} onChange={() => onChange(active ? selectedValues.filter((item) => item !== option.value) : [...selectedValues, option.value])} /><span>{option.label}</span></label>;
   })}</div>;
 }
 
@@ -221,12 +222,13 @@ export function AssessmentFieldWritingGuidePanel({ field, initiallyOpen }: { fie
   if (!specification) return null;
 
   return (
-    <details open={initiallyOpen} className="pipeline-details-feedback mt-2 min-w-0 border border-[#d9dfdb] bg-[#f8faf9]">
-      <summary data-guide-target="assessment-answer-help" aria-label={`Language Lab for ${specification.label}`} className="flex min-h-9 cursor-pointer list-none flex-wrap items-center justify-between gap-x-3 gap-y-1 px-3 py-2 marker:hidden">
-        <span className="flex items-center gap-2 text-[10px] font-black text-[#315e50]"><Sparkles size={12} /> Language Lab</span>
-        <span className="text-[9px] font-semibold text-[#7b837e]">{specification.formatLabel} · {specification.lengthGuidance}</span>
+    <details open={initiallyOpen} className={styles.writingGuide}>
+      <summary data-guide-target="assessment-answer-help" aria-label={`Language Lab for ${specification.label}`}>
+        <span className={styles.guideLabel}><BookOpen size={18} aria-hidden="true" /> Language Lab</span>
+        <span className={styles.guideHint}>{specification.formatLabel} · {specification.lengthGuidance}</span>
+        <ChevronDown size={18} aria-hidden="true" className={styles.guideChevron} />
       </summary>
-      <div className="min-w-0 border-t border-[#d9dfdb] px-3 py-3">
+      <div className={styles.guideContent}>
         <AssessmentFieldWritingGuide specification={specification} />
       </div>
     </details>
@@ -236,23 +238,23 @@ export function AssessmentFieldWritingGuidePanel({ field, initiallyOpen }: { fie
 function AssessmentFieldWritingGuide({ specification }: { specification: NonNullable<ReturnType<typeof getAssessmentFieldWritingSpec>> }) {
   return (
     <>
-      <div className="min-w-0 border-l-2 border-[#0f8b73] bg-white px-3 py-2.5">
-        <div className="text-[9px] font-black uppercase tracking-[0.08em] text-[#315e50]">Use this order</div>
-        <p className="mt-1.5 break-words text-[10px] font-semibold leading-4 text-[#3f4a45]">{specification.formatTemplate}</p>
+      <div className={styles.guideFormat}>
+        <h4>Use this order</h4>
+        <p>{specification.formatTemplate}</p>
       </div>
-      <div className="mt-3 flex min-w-0 flex-col gap-3">
-        <div className="min-w-0">
-          <div className="text-[9px] font-black uppercase tracking-[0.08em] text-[#595959]">Include</div>
-          <ul className="mt-2 grid gap-1.5 text-[10px] leading-4 text-[#595959]">
-            {specification.requiredElements.map((item) => <li key={item} className="flex min-w-0 items-start gap-2 break-words"><Check size={11} className="mt-0.5 shrink-0 text-[#0f8b73]" /><span className="min-w-0">{item}</span></li>)}
+      <div className={styles.guideSections}>
+        <div>
+          <h4>Include</h4>
+          <ul>
+            {specification.requiredElements.map((item) => <li key={item}><Check size={16} aria-hidden="true" /><span>{item}</span></li>)}
           </ul>
         </div>
-        <div className="min-w-0 border-t border-[#d9dfdb] pt-3">
-          <div className="text-[9px] font-black uppercase tracking-[0.08em] text-[#595959]">Example format</div>
-          <p className="mt-2 break-words text-[10px] leading-4 text-[#4f5652]">{specification.strongExample}</p>
+        <div>
+          <h4>Example format</h4>
+          <p>{specification.strongExample}</p>
         </div>
       </div>
-      <p className="mt-3 break-words border-l-2 border-[#d2a759] bg-[#f7faf9] px-2 py-1.5 text-[9px] leading-4 text-[#59645e]">{specification.guardrail}</p>
+      <p className={styles.guideGuardrail}>{specification.guardrail}</p>
     </>
   );
 }

@@ -52,7 +52,7 @@ export default function RecipientChipField({ label, recipients, contacts, exclud
     return false;
   };
 
-  return <div className={`${styles.recipientRow} ${compact ? styles.compact : ""}`}>
+  return <div data-recipient-lane={label.toLowerCase()} className={`${styles.recipientRow} ${compact ? styles.compact : ""}`}>
     {readOnly ? <div className={styles.laneLabel}>{label}<span>{recipients.length}</span></div> : <label className={styles.laneLabel} htmlFor={id}>{label}<span>{recipients.length}</span></label>}
     <div className={styles.recipientBody}>
       <ul className={styles.chips} aria-label={`${label} recipients`}>

@@ -72,7 +72,7 @@ export function ClientChartFrame({ label, children }: { label: string; children:
   return <article aria-label={label} className={designV2 ? "min-w-0 overflow-hidden rounded-paper border border-paper-rule bg-paper" : "min-w-0 overflow-hidden border border-[#d4dcd8] bg-white"}>{children}</article>;
 }
 
-export function ClientChartHeader({ title, children, actions, hideTitle = false }: { title: string; children: React.ReactNode; actions?: React.ReactNode; hideTitle?: boolean }) {
+export function ClientChartHeader({ title, children, actions, hideTitle = false }: { title: React.ReactNode; children: React.ReactNode; actions?: React.ReactNode; hideTitle?: boolean }) {
   const designV2 = useDesignV2();
   return <header className={designV2 ? "grid grid-cols-1 border-b border-paper-rule bg-paper sm:grid-cols-[1fr_auto_auto]" : "grid grid-cols-1 border-b border-[#d4dcd8] bg-[#f5f7f6] sm:grid-cols-[1fr_auto_auto]"}>
     <div className={`flex min-w-0 flex-wrap items-center justify-between gap-x-4 px-5 sm:px-6 ${actions ? "py-1" : "py-3.5"}`}>
@@ -126,7 +126,7 @@ export function ChartGrid({
       : "sm:grid-cols-2 lg:grid-cols-3";
   // The redesign's record rail takes ~240px, so the chart widens to six columns only on wide screens.
   const railLayout = columns === "identity" ? "grid-cols-2 xl:grid-cols-6" : columns === "care" ? "sm:grid-cols-2 xl:grid-cols-3" : layout;
-  return <dl aria-label={ariaLabel} className={designV2 ? `grid gap-px bg-paper-rule ${railLayout}` : `grid gap-px bg-[#e0e5e2] ${layout}`}>{children}</dl>;
+  return <dl aria-label={ariaLabel} className={designV2 ? `grid gap-x-6 gap-y-px bg-paper ${railLayout}` : `grid gap-px bg-[#e0e5e2] ${layout}`}>{children}</dl>;
 }
 
 function chartCellSpan(fact: ClientChartFact, multiline: boolean) {

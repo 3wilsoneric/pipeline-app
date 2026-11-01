@@ -243,7 +243,7 @@ function CommandCenterClear({ generatedAt }: { generatedAt: string }) {
 }
 
 function CommandCenterSkeleton() {
-  return <div aria-label="Loading supervisor command center" aria-busy="true" className="animate-pulse px-4 py-5"><div className="h-3 w-44 bg-[#e5ebe8]" /><div className="mt-4 h-12 bg-[#eef2f0]" /><div className="mt-2 h-12 bg-[#eef2f0]" /></div>;
+  return <div role="status" aria-label="Loading supervisor command center" aria-busy="true" className="animate-pulse px-4 py-5"><div className="h-3 w-44 bg-[#e5ebe8]" /><div className="mt-4 h-12 bg-[#eef2f0]" /><div className="mt-2 h-12 bg-[#eef2f0]" /></div>;
 }
 
 function openException(
