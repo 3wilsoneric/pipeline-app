@@ -1200,7 +1200,7 @@ test.describe("Referral home and packet canvas", () => {
     await expect(page.getByTestId("workspace-identity-title")).toHaveText("Morgan Historical");
     await expect(page.getByRole("region", { name: "Chart", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Assessment", exact: true })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Chart", exact: true })).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Workspace stages", exact: true }).getByRole("button", { name: "Chart", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Save workspace" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Move workspace to trash" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "More workspace actions" })).toHaveCount(0);
@@ -1960,7 +1960,7 @@ test.describe("Referral home and packet canvas", () => {
     await workspaceButton.click();
     await expect(page.getByTestId("workspace-identity-title")).toHaveText(clientIdentityTitle);
     // Reopening returns to the chart after the scheduling dialog was dismissed.
-    await page.getByRole("button", { name: "Chart", exact: true }).click();
+    await page.getByRole("navigation", { name: "Workspace stages", exact: true }).getByRole("button", { name: "Chart", exact: true }).click();
     await page.getByRole("button", { name: "Edit referral details", exact: true }).click();
     await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toHaveValue(clientIdentityTitle);
     await expect(page.getByRole("combobox", { name: "GENDER", exact: true })).toHaveValue("Other");
@@ -1989,7 +1989,7 @@ test.describe("Referral home and packet canvas", () => {
     await expect(ssnChange).toContainText("Value changed (masked)");
     await expect(ssnChange).not.toContainText("000-00-0000");
     await expect(ssnChange).not.toContainText("111-11-1111");
-    await page.getByRole("button", { name: "Chart", exact: true }).click();
+    await page.getByRole("navigation", { name: "Workspace stages", exact: true }).getByRole("button", { name: "Chart", exact: true }).click();
     await page.getByRole("button", { name: "Edit referral details", exact: true }).click();
     await expect(fullHistory).not.toBeVisible();
     const savedPhone = page.getByRole("textbox", { name: "Referrer phone:", exact: true });
@@ -2045,7 +2045,7 @@ test.describe("Referral home and packet canvas", () => {
     await createReferralFromIntake(page);
     const createdResponse = await creation;
     expect(createdResponse.request().postDataJSON().referral.documentHash).toBe(packetHash);
-    expect(createdResponse.status(), await createdResponse.text()).toBe(201);
+    expect(createdResponse.status()).toBe(201);
 
     const createdReferralId = new URL(page.url()).searchParams.get("referralId");
     await expect.poll(async () => (await (await page.request.get(`/api/referrals/${createdReferralId}`)).json()).referral.documentStatus, { timeout: 120_000 }).toBe("Uploaded");
@@ -2307,7 +2307,7 @@ test.describe("Referral home and packet canvas", () => {
     await unableReason.blur();
     await expect.poll(async () => (await read())[0].unable_to_assess_reasons.language_barrier).toBe("The client could not participate and no collateral source was available.");
     await leaveInterviewFullScreen(page);
-    await page.getByRole("button", { name: "Chart", exact: true }).click();
+    await page.getByRole("navigation", { name: "Workspace stages", exact: true }).getByRole("button", { name: "Chart", exact: true }).click();
     await page.getByRole("button", { name: "Assessment", exact: true }).click();
     await section.selectOption("functional_adl");
     await expect(page.getByRole("complementary", { name: "Current information" }).getByRole("region", { name: "A usual day" })).toContainText(/Language barrier\s*Unable to assess\s*The client could not participate and no collateral source was available\./);
@@ -2540,7 +2540,7 @@ test.describe("Referral home and packet canvas", () => {
     const actions = placement.getByRole("dialog", { name: "Placement actions" });
     await expect(actions).not.toContainText(/ElderMark|manual entry|Mark pending|Record issue/i);
     await actions.getByRole("button", { name: "Close placement actions" }).click();
-    await page.getByRole("button", { name: "Chart", exact: true }).click();
+    await page.getByRole("navigation", { name: "Workspace stages", exact: true }).getByRole("button", { name: "Chart", exact: true }).click();
     const chartPlacement = page.locator(`section[data-chart-stage="Placement"]`);
     await expect(chartPlacement).toContainText("Admitted");
     await expect(chartPlacement).toContainText("Actual admission date");

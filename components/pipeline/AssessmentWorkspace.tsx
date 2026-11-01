@@ -691,7 +691,12 @@ export default function AssessmentWorkspace({
         // can sit below the toolbar. Use that same edge when following the scroll.
         const line = Math.max(0, toolbar?.getBoundingClientRect().bottom ?? 0, scrollEdge) + 1;
         const passed = headings.filter((heading) => heading.getBoundingClientRect().top <= line);
-        const current = (passed[passed.length - 1] ?? headings[0]).getAttribute("data-assessment-group-heading") as AssessmentToolSection;
+        // A short final topic cannot reach the toolbar when the pane is at its end.
+        const last = headings[headings.length - 1];
+        const atEnd = questionPage && questionPage.scrollHeight > questionPage.clientHeight
+          && Math.ceil(questionPage.scrollTop + questionPage.clientHeight) >= questionPage.scrollHeight
+          && last.getBoundingClientRect().top < questionPage.getBoundingClientRect().bottom;
+        const current = (atEnd ? last : passed[passed.length - 1] ?? headings[0]).getAttribute("data-assessment-group-heading") as AssessmentToolSection;
         setSpyGroup((previous) => previous === current ? previous : current);
       });
     };

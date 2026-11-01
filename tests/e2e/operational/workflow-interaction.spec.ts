@@ -80,7 +80,7 @@ test.describe("workflow interaction and durable feedback", () => {
     }
   });
 
-  test("refreshes existing Home immediately and keeps assignments beyond the preview unseen", async ({ browser, baseURL }) => {
+  test("refreshes Home and phone notifications while keeping assignments beyond the preview unseen", async ({ browser, baseURL }) => {
     const url = requireOperationalBaseURL(baseURL);
     const coordinator = await actorApiContext("assessmentCoordinator", url);
     const assessor = await actorApiContext("assessorA", url);
@@ -89,13 +89,20 @@ test.describe("workflow interaction and durable feedback", () => {
     try {
       await assessor.get("/api/auth/me");
       await page.goto("/");
-      await page.getByRole("tab", { name: "New assignments", exact: true }).click();
-      const panel = page.getByRole("region", { name: "Since your last visit" });
-      await expect(panel).toBeVisible();
-      await expect(panel).not.toContainText("could not be checked");
+      await expect(page.getByRole("region", { name: "Current work", exact: true })).toBeVisible();
       const referrals: Referral[] = [];
       for (let index = 0; index < 8; index += 1) referrals.push(await createReferral(coordinator, uniqueName(), pipelineActors.assessorA.id));
       await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+      await page.getByRole("button", { name: "Open in progress folder", exact: true }).click();
+      const currentWork = page.getByRole("dialog", { name: "In progress folder", exact: true });
+      for (const referral of referrals) {
+        await expect(currentWork.getByRole("button", { name: `Open ${referral.name}`, exact: true })).toBeVisible();
+      }
+      await page.keyboard.press("Escape");
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.getByRole("button", { name: /^Notifications/ }).click();
+      const panel = page.getByRole("region", { name: "Since your last visit" });
+      await expect(panel).not.toContainText("could not be checked");
       await expect(panel.getByRole("button", { name: new RegExp(referrals.at(-1)!.name!) })).toBeVisible();
       await expect(panel.getByRole("button", { name: /Show \d+ more assignments/ })).toBeVisible();
       const refreshed = await assessor.get("/api/operations/home");
@@ -103,13 +110,6 @@ test.describe("workflow interaction and durable feedback", () => {
       const snapshot = await refreshed.json();
       const ids = new Set(referrals.map((referral) => referral.id));
       expect(snapshot.continuity.new_assignments.filter((item: { workspace: { referral_id: number } }) => ids.has(item.workspace.referral_id))).toHaveLength(8);
-      await page.getByRole("tab", { name: "Board", exact: true }).click();
-      const currentWork = page.getByRole("region", { name: "Current work", exact: true });
-      await expect(currentWork.getByRole("button", { name: "Open current work" })).toBeVisible();
-      for (const referral of referrals) {
-        await expect(currentWork.getByRole("button", { name: `Open ${referral.name}`, exact: true })).toBeVisible();
-      }
-      await page.getByRole("tab", { name: "New assignments", exact: true }).click();
       let acknowledged: { acknowledgeAssignmentIds?: string[]; acknowledgeAssignmentsThrough?: string } | undefined;
       await page.route("**/api/me/work-continuity", async (route) => {
         const body = route.request().postDataJSON();
@@ -150,8 +150,9 @@ test.describe("workflow interaction and durable feedback", () => {
         expect(acknowledged.ok(), await acknowledged.text()).toBe(true);
       }
       await createReferral(api, uniqueName(), pipelineActors.assessorB.id);
+      await page.setViewportSize({ width: 390, height: 844 });
       await page.goto("/");
-      await page.getByRole("tab", { name: "New assignments", exact: true }).click();
+      await page.getByRole("button", { name: /^Notifications/ }).click();
       const panel = page.getByRole("region", { name: "Since your last visit" });
       await expect(panel.getByRole("button", { name: "Mark shown seen" })).toBeVisible();
       let held = false;
@@ -169,9 +170,14 @@ test.describe("workflow interaction and durable feedback", () => {
         await route.fulfill({ response });
         delivered = true;
       });
+      await page.clock.install();
       await expect.poll(async () => {
-        // An initial hydration refresh may still own the single in-flight read.
-        if (!held) await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+        // Initial hydration may still publish a cached read. Advance beyond that
+        // five-second cache before testing the held-response acknowledgement race.
+        if (!held) {
+          await page.clock.fastForward(6_000);
+          await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+        }
         return held;
       }).toBe(true);
       await panel.getByRole("button", { name: "Mark shown seen" }).click();
@@ -180,13 +186,12 @@ test.describe("workflow interaction and durable feedback", () => {
       await expect.poll(() => delivered).toBe(true);
       await expect(panel.getByRole("button", { name: "Mark shown seen" })).toHaveCount(0);
       await expect(panel).toContainText("No referrals were assigned");
-      await page.getByRole("button", { name: "Open calendar", exact: true }).click();
       holdReturn = true;
-      await page.getByRole("button", { name: "Pipeline home", exact: true }).click();
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await page.getByRole("button", { name: /^Notifications/ }).click();
       await expect.poll(() => returnPending).toBe(true);
       await expect(panel.getByRole("button", { name: "Mark shown seen" })).toHaveCount(0);
       releaseReturn();
-      await page.getByRole("tab", { name: "New assignments", exact: true }).click();
       await expect(panel).toContainText("No referrals were assigned");
     } finally {
       release();
@@ -206,14 +211,13 @@ test.describe("workflow interaction and durable feedback", () => {
       await page.getByRole("textbox", { name: "NAME", exact: true }).fill(uniqueName());
       await page.getByRole("combobox", { name: "Requested community", exact: true }).selectOption("San Pablo");
       await page.getByRole("combobox", { name: "Client county", exact: true }).selectOption("Contra Costa County");
-      await expect(page.getByTestId("document-checklist-panel")).not.toHaveAttribute("open");
-      await page.getByTestId("document-checklist-toggle").click();
+      await expect(page.getByRole("button", { name: "Drop files or choose files", exact: true })).toBeVisible();
       const packetBytes = syntheticPdf();
       await page.getByTestId("referral-documents-input").setInputFiles({
         name: "synthetic-intake.pdf", mimeType: "application/pdf", buffer: packetBytes,
       });
     await confirmReferralFileLabels(page, {}, "face_sheet");
-      await expect(page.getByRole("region", { name: "Document checklist" })).toContainText("1 pending");
+      await expect(page.getByRole("list", { name: "Queued referral files" })).toContainText("Pending upload");
       let uploading = false;
       await page.route("**/api/uploads/local", async (route) => {
         uploading = true;
@@ -229,13 +233,14 @@ test.describe("workflow interaction and durable feedback", () => {
       else await expect(saveStatus).toContainText("Workspace created");
       await expect(saveStatus).toContainText("Uploading");
       await page.getByRole("button", { name: "Edit referral details", exact: true }).click();
-      await page.getByTestId("document-checklist-toggle").click();
-      await expect(page.getByRole("region", { name: "Document checklist" })).toContainText("1 pending");
+      await expect(page.getByRole("list", { name: "Queued referral files" })).toContainText("Pending upload");
       await expect(page.getByRole("button", { name: "Create referral", exact: true })).toHaveCount(0);
       await page.screenshot({ path: testInfo.outputPath("creation-upload-pending.png") });
       releaseUpload();
       await expect(saveStatus).toContainText(redesign ? "All changes saved" : "Packet uploaded");
-      await expect(page.getByRole("region", { name: "Document checklist" })).toContainText("1 file");
+      await expect(page.getByRole("list", { name: "Queued referral files" })).toHaveCount(0);
+      await page.getByRole("button", { name: "Workspace files", exact: true }).click();
+      await expect(page.getByRole("region", { name: "Uploaded documents", exact: true })).toContainText("synthetic-intake.pdf");
       expect(new URL(page.url()).searchParams.get("referralId")).toBe(id);
       const storedPacket = await page.request.get(`/api/referrals/${id}/packet`);
       expect(storedPacket.status()).toBe(200);
@@ -334,10 +339,8 @@ test.describe("workflow interaction and durable feedback", () => {
       release();
       await page.getByRole("button", { name: "Pipeline home", exact: true }).click();
       await expect.poll(async () => (await (await api.get(`/api/assessments/${assessmentId}`)).json()).assessment.prior_placements).toBe(answer);
-      await page.getByRole("button", { name: "Open current work", exact: true }).click();
-      const board = page.getByRole("dialog", { name: "Current work", exact: true }).getByRole("region", { name: "Current work board" });
-      // Stacked folders expose their name tab; the next folder intentionally covers part of the body.
-      await board.getByRole("button", { name: `Open ${referral.name}`, exact: true }).getByText(referral.name, { exact: true }).click();
+      await page.getByRole("region", { name: "Recent clients", exact: true })
+        .getByRole("button", { name: `Open ${referral.name}`, exact: true }).click();
       await expect(page).toHaveURL(new RegExp(`referralId=${referral.id}.*assessmentSection=prior_history`));
       await expect(chart).toBeVisible();
       if (!redesign) await chart.getByRole("button", { name: "Edit Earlier care placements", exact: true }).click();
