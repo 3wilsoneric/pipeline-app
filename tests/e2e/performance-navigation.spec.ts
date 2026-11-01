@@ -39,8 +39,8 @@ test.describe("Pipeline warm navigation and bounded reads", () => {
       header.setAttribute("data-persistence-check", "same-shell");
     });
 
-    await page.getByRole("button", { name: "Open client profiles", exact: true }).click();
-    await expect(page.getByLabel("Search clients", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Open calendar", exact: true }).click();
+    await expect(page.getByRole("main", { name: "Calendar", exact: true })).toBeVisible();
     await expect(page.locator('header[data-persistence-check="same-shell"]')).toBeVisible();
 
     await page.getByRole("button", { name: "Create new referral", exact: true }).click();
@@ -48,7 +48,7 @@ test.describe("Pipeline warm navigation and bounded reads", () => {
     expect(documentRequests).toBe(initialDocumentRequests);
 
     await page.goBack();
-    await expect(page.getByLabel("Search clients", { exact: true })).toBeVisible();
+    await expect(page.getByRole("main", { name: "Calendar", exact: true })).toBeVisible();
     await page.goBack();
     await expect(page.getByRole("heading", { name: "Referral workspaces", exact: true })).toBeVisible();
     await expect(page.locator('header[data-persistence-check="same-shell"]')).toBeVisible();

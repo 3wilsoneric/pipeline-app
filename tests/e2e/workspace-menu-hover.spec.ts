@@ -29,7 +29,7 @@ for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]]
           const pageBounds = (await content.boundingBox())!;
           expect(pageBounds.x).toBeGreaterThanOrEqual(bounds.x + bounds.width);
           expect(pageBounds.y).toBe(bounds.y);
-          for (const [name, label] of [["Open referrals", "Workspaces"], ["Open calendar", "Calendar"], ["Open client profiles", "Clients"], ["Open reports", "Reports"], ["Create new referral", "New Intake"]]) {
+          for (const [name, label] of [["Open referrals", "Workspaces"], ["Open calendar", "Calendar"], ["Open reports", "Reports"], ["Create new referral", "New Intake"]]) {
             const item = rail.getByRole("button", { name, exact: true });
             await expect(item.getByText(label, { exact: true })).toBeVisible();
             const box = (await item.boundingBox())!;
@@ -48,11 +48,11 @@ for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]]
         const rail = page.getByRole("complementary", { name: "App navigation", exact: true });
         const calendar = rail.getByRole("button", { name: "Open calendar", exact: true });
         await expect(calendar).toHaveAttribute("aria-current", "page");
-        const clients = rail.getByRole("button", { name: "Open client profiles", exact: true });
-        await clients.focus();
-        await clients.press("Enter");
-        await expect(page).toHaveURL(/screen=profiles/);
-        await expect(clients).toHaveAttribute("aria-current", "page");
+        const workspaces = rail.getByRole("button", { name: "Open referrals", exact: true });
+        await workspaces.focus();
+        await workspaces.press("Enter");
+        await expect(page).toHaveURL(/view=referrals/);
+        await expect(workspaces).toHaveAttribute("aria-current", "page");
         const trigger = rail.getByRole("button", { name: /^Open profile menu for/ });
         await trigger.click();
         const profile = page.getByRole("dialog", { name: "Profile settings", exact: true });

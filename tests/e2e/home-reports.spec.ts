@@ -459,7 +459,7 @@ test.describe("role-scoped home and reports", () => {
     const homeBoard = homeModule.getByRole("region", { name: "Current work board" });
     await expect(homeBoard.locator("[data-board-card]")).toHaveCount(0);
     await expect(homeBoard.getByText("No recent work yet.", { exact: true })).toBeVisible();
-    for (const name of ["Open in progress folder", "Open decision folder"]) await expect(homeBoard.getByRole("button", { name, exact: true })).toBeVisible();
+    for (const name of ["Open in progress folder", "Open clients in handoff folder"]) await expect(homeBoard.getByRole("button", { name, exact: true })).toBeVisible();
     await expect(page.locator("[data-home-module]").first()).toHaveAttribute("data-home-module", "current-work");
     await expect(page.getByRole("button", { name: "Upcoming assessments", exact: true })).toBeVisible();
     await expect(homeModule.getByRole("button", { name: /^(Collapse|Expand) Board$/ })).toHaveCount(0);
@@ -469,7 +469,7 @@ test.describe("role-scoped home and reports", () => {
     const cards = board.locator("[data-board-card]");
     await expect(cards).toHaveCount(12);
     await expect(board.getByRole("button", { name: "Open Kai Ribbon" })).toBeVisible();
-    for (const name of ["Open in progress folder", "Open decision folder"]) await expect(board.getByRole("button", { name, exact: true })).toBeVisible();
+    for (const name of ["Open in progress folder", "Open clients in handoff folder"]) await expect(board.getByRole("button", { name, exact: true })).toBeVisible();
     await expect(board.getByRole("button", { name: "Open Blake Ribbon" })).toContainText("Assessment scheduled");
     await expect(board.getByRole("button", { name: "Open Dana Ribbon" })).toContainText("Under review");
     await expect(board.getByRole("button", { name: "Open Mara Denied", exact: true })).toContainText("Denied");

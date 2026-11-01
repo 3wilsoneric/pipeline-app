@@ -224,8 +224,10 @@ await measureJourney("home_current_work_to_all_workspaces", "queue", async () =>
   await activate(page.getByRole("button", { name: "Open referrals", exact: true }));
   await page.getByLabel("Referral worklist", { exact: true }).waitFor({ state: "visible" });
 });
-await measureJourney("referrals_to_clients", "navigation", async () => {
-  await activate(page.getByRole("button", { name: "Open client profiles", exact: true }));
+// Clients is retained by direct URL, but is no longer a primary navigation item.
+// Measure that document entry against the existing useful-content budget.
+await measureJourney("referrals_to_clients", "entry", async () => {
+  await page.goto(new URL("/?screen=profiles", baseUrl).href);
   await page.getByLabel("Search clients", { exact: true }).waitFor({ state: "visible" });
   await page.getByRole("button", { name: /file cabinet$/ }).first().waitFor({ state: "visible" });
 });
@@ -278,7 +280,7 @@ if (page.url() !== sourceChartUrl) {
 }
 await page.getByTestId("client-identity-title").waitFor({ state: "visible" });
 await measureJourney("profile_to_clients", "navigation", async () => {
-  await activate(page.getByRole("button", { name: "Open client profiles", exact: true }));
+  await activate(page.getByRole("button", { name: "Back to profiles", exact: true }));
   await page.getByLabel("Search this cabinet", { exact: true }).waitFor({ state: "visible" });
   await page.getByRole("button", { name: /Open profile for / }).first().waitFor({ state: "visible" });
 });
@@ -295,10 +297,12 @@ if (isLocalTarget) {
     if (await nameField.inputValue() !== "A") throw new Error("Packet field did not update synchronously.");
   });
 }
-await measureJourney("packet_step_change", "tab", async () => {
-  await activate(page.getByRole("button", { name: "Workspace files" }));
-  await page.getByRole("button", { name: /Drop files or choose files/ }).waitFor({ state: "visible" });
-  await page.getByText("No files added yet.", { exact: true }).waitFor({ state: "visible" });
+await measureJourney("intake_checklist_open", "tab", async () => {
+  const toggle = page.getByRole("button", { name: "Document checklist", exact: true });
+  await activate(toggle);
+  const panelId = await toggle.getAttribute("aria-controls");
+  await page.locator(`[id="${panelId}"]`).waitFor({ state: "visible" });
+  if (await toggle.getAttribute("aria-expanded") !== "true") throw new Error("Intake checklist did not expand.");
 });
 await measureJourney("new_referral_to_home", "navigation", async () => {
   await activate(page.getByRole("button", { name: "Pipeline home", exact: true }));
@@ -480,10 +484,12 @@ const result = {
 
 const navigationJourneys = result.warm_journeys.filter((journey) => journey.kind === "navigation");
 const assetJourneys = result.warm_journeys.filter((journey) => journey.kind === "asset");
+const directEntries = result.warm_journeys.filter((journey) => journey.kind === "entry");
 const localizedJourneys = result.warm_journeys.filter((journey) => ["filter", "queue", "tab", "input"].includes(journey.kind));
 const overlayJourneys = result.warm_journeys.filter((journey) => ["overlay", "export"].includes(journey.kind));
 const guideJourneys = result.warm_journeys.filter((journey) => journey.kind === "guide");
 result.checks = {
+  direct_entry: directEntries.length > 0 && directEntries.every((journey) => journey.duration_ms <= limits.useful_content_ms),
   ttfb: result.cold.ttfb_ms <= limits.ttfb_ms,
   fcp: result.cold.fcp_ms <= limits.fcp_ms,
   lcp: result.cold.lcp_ms > 0 && result.cold.lcp_ms <= limits.lcp_ms,

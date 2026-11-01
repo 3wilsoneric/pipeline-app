@@ -204,7 +204,7 @@ test("Placement keeps a failed planned-date save available to retry", async ({ p
   const current = (await (await page.request.get(`/api/referrals/${referral.id}`)).json()).referral;
   await recordOperationalAcceptance(page.request, current);
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
-  const placement = page.getByRole("region", { name: "Placement follow-through", exact: true });
+  const placement = page.getByRole("region", { name: "Handoff follow-through", exact: true });
   const stages = page.getByRole("navigation", { name: "Workspace stages", exact: true });
   const review = placement.getByRole("region", { name: "Review client handoff", exact: true });
   await review.getByLabel("Planned admit date", { exact: true }).fill("2026-11-12");
@@ -222,14 +222,14 @@ test("Placement keeps a failed planned-date save available to retry", async ({ p
   await expect(review.getByRole("alert")).toContainText("Synthetic date save interruption");
   expect(attemptedSaves).toBe(1);
   await expect(review.getByLabel("Planned admit date", { exact: true })).toHaveValue("2026-11-12");
-  await expect(stages.getByRole("button", { name: "Placement", exact: true })).toHaveAttribute("aria-current", "page");
+  await expect(stages.getByRole("button", { name: "Handoff", exact: true })).toHaveAttribute("aria-current", "page");
   await page.unroute(saveRoute);
   await review.getByRole("button", { name: "Preview email", exact: true }).click();
   await expect.poll(async () => (await (await page.request.get(`/api/referrals/${referral.id}`)).json()).referral.plannedAdmissionDate).toBe("2026-11-12");
   await expect(page.getByRole("dialog", { name: "Meet the Client email", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Close email preview", exact: true }).click();
   await stages.getByRole("button", { name: "Decision", exact: true }).click();
-  await stages.getByRole("button", { name: "Placement", exact: true }).click();
+  await stages.getByRole("button", { name: "Handoff", exact: true }).click();
   await expect(placement.getByRole("region", { name: "Email and referral packet", exact: true })).toBeVisible();
 });
 

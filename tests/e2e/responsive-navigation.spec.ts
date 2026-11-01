@@ -22,15 +22,16 @@ test.describe("Responsive application navigation", () => {
       const phone = viewport.width < 640;
       if (phone) await page.getByRole("button", { name: /^Open page menu/ }).click();
 
-      for (const name of ["Open referrals", "Open calendar", "Open client profiles", "Open reports", "Create new referral"]) {
+      for (const name of ["Open referrals", "Open calendar", "Open reports", "Create new referral"]) {
         await expect(page.getByRole("button", { name })).toBeVisible();
       }
+      await expect(page.getByRole("button", { name: "Open client profiles", exact: true })).toHaveCount(0);
       // Carelog uses the action accent to identify the selected destination.
       const active = page.getByRole("button", { name: "Open referrals", exact: true });
       await expect(active).toHaveAttribute("aria-current", "page");
       await expect(active).toHaveCSS("background-color", "rgb(244, 162, 97)");
       await expect(active).toHaveCSS("color", "rgb(3, 47, 48)");
-      for (const name of ["Open calendar", "Open client profiles", "Open reports", "Create new referral"]) {
+      for (const name of ["Open calendar", "Open reports", "Create new referral"]) {
         await expect(page.getByRole("button", { name, exact: true })).toHaveCSS("color", phone ? name === "Create new referral" ? "rgb(8, 92, 96)" : "rgb(3, 47, 48)" : "rgb(207, 229, 230)");
       }
       await expect(page.getByRole("button", { name: "Pipeline home" })).toBeVisible();
@@ -103,6 +104,16 @@ async function expectCommunityRowsAreAdjacent(archive: Locator) {
 }
 
 async function mockReferralDirectory(page: Page) {
+  // Exercise the full navigation with the reserved report-enabled test identity,
+  // independently of the local preview's currently selected demo persona.
+  await page.route("**/api/auth/me", async (route) => {
+    const response = await route.fetch();
+    const payload = await response.json();
+    payload.user.email = "reports@pipeline.local";
+    payload.user.roles = ["admin"];
+    delete payload.user.demoPersona;
+    await route.fulfill({ response, json: payload });
+  });
   await page.route(/\/api\/referrals(?:\/directory|\/changes)?(?:\?|$)/, async (route) => {
     if (route.request().url().includes("/changes")) {
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ changed: false, sequence: 1 }) });

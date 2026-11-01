@@ -13,7 +13,7 @@ for (const width of [1440, 390]) test(`accepted work resumes the client handoff 
   });
   const workspace = `/?view=referrals&screen=packet&referralId=${referral.id}`;
   await page.goto(workspace);
-  const handoff = page.getByRole("region", { name: "Placement follow-through", exact: true });
+  const handoff = page.getByRole("region", { name: "Handoff follow-through", exact: true });
   await expect(handoff).toBeVisible();
   await expect(page).toHaveURL(/workspaceView=email/);
   await expect(handoff).toContainText("Accepted · Not sent");
@@ -57,7 +57,7 @@ test("signed work opens Decision while unsigned work keeps its questionnaire loc
   await page.goto(`${workspace}&workspaceStage=assessment&workspaceEntry=resume`);
   await expect(page.getByRole("region", { name: "Admission decision", exact: true })).toBeVisible();
   await expect(page).toHaveURL(/workspaceView=workflow/);
-  await expect(page.getByRole("region", { name: "Placement follow-through", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Handoff follow-through", exact: true })).toHaveCount(0);
 });
 
 test("late handoff loading does not override a deliberate navigation choice", async ({ page }) => {

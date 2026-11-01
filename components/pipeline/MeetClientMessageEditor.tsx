@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { Mail } from "lucide-react";
 import { formatMeetClientDate, type MeetClientSummary } from "@/lib/assessment/assessment-summary";
 import { toPipelinePath } from "@/lib/pipeline/base-path";
@@ -43,7 +44,7 @@ export default function MeetClientMessageEditor({ summary, preview, preparedBy, 
       </>}
       {workspace && editable ? <button type="button" className={styles.textButton} onClick={() => { flush(); setEditing(!editing); }}>{editing ? "Back to email preview" : "Edit message"}</button> : null}
     </div>
-    {!workspace ? <div className={styles.addressRow}><span>Admission</span><span>{admissionDate ? formatMeetClientDate(admissionDate) : "Add the planned admission date in Decision before sending."}</span></div> : null}
+    {!workspace ? <div className={styles.addressRow}><span>Admission</span><span>{admissionDate ? formatMeetClientDate(admissionDate) : "Add the planned admit date before sending."}</span></div> : null}
     {editable && !workspace ? <div className={styles.messageTools}>
       <button type="button" className={styles.textButton} onClick={() => { flush(); setEditing(!editing); }}>{editing ? "Back to email preview" : "Edit message"}</button>
       {editing ? <span>Client details stay linked to the assessment.</span> : null}
@@ -52,6 +53,7 @@ export default function MeetClientMessageEditor({ summary, preview, preparedBy, 
   return <>
     {renderEnvelope()}
     <div className={styles.messageBody}>
+      {workspace && summary ? <Image src={toPipelinePath("/brand/alamo-health-management.png")} alt="Alamo Health Management" width={300} height={80} unoptimized className={styles.brandLogo} /> : null}
       {renderBody()}
     </div>
   </>;

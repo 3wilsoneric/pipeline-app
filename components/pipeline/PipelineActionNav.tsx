@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, ChartNoAxesCombined, ClipboardPlus, FolderOpen, UsersRound } from "lucide-react";
+import { CalendarDays, ChartNoAxesCombined, ClipboardPlus, FolderOpen } from "lucide-react";
 import { recordRecentDestination } from "@/lib/pipeline/recent-destinations";
 
 export type PipelineNavTarget = "referrals" | "calendar" | "profiles" | "operations" | "packet" | "communications" | null;
@@ -22,8 +22,6 @@ export default function PipelineActionNav({
   const labelClass = "hidden xl:inline";
   const inactiveReferrals =
     "border-transparent bg-transparent hover:border-[#0f8b73] hover:bg-[#e7f3ee] hover:shadow-[0_4px_14px_rgba(15,139,115,0.14)]";
-  const inactiveProfiles =
-    "border-transparent bg-transparent hover:border-[#4b68ad] hover:bg-[#eef1ff] hover:shadow-[0_4px_14px_rgba(75,104,173,0.14)]";
   const inactivePacket =
     "border-transparent bg-transparent text-[#a9473d] hover:border-[#c85b4d] hover:bg-[#fff0ed] hover:shadow-[0_4px_14px_rgba(200,91,77,0.14)]";
 
@@ -74,34 +72,6 @@ export default function PipelineActionNav({
         >
           <CalendarDays size={28} strokeWidth={1.8} aria-hidden="true" />
           <span className={`${labelClass} whitespace-nowrap text-[12px] font-black uppercase tracking-[0.08em]`}>Calendar</span>
-        </button>
-        <button
-          type="button"
-          aria-current={active === "profiles" ? "page" : undefined}
-          data-active={active === "profiles" ? "true" : undefined}
-          onClick={() => {
-            recordRecentDestination({
-              id: "page:profiles",
-              kind: "page",
-              screen: "profiles",
-              title: "Client profiles",
-              detail: "Profile directory",
-            });
-            onNavigate("profiles");
-          }}
-          aria-label="Open client profiles"
-          data-guide-target="primary-clients"
-          title="Client profiles"
-          className={`${navItem} ${destinationSize} text-[#4b68ad] ${
-            active === "profiles"
-              ? "border-[#4b68ad] bg-[#eef1ff] shadow-[0_4px_14px_rgba(75,104,173,0.14)]"
-              : inactiveProfiles
-          }`}
-        >
-          <UsersRound size={28} strokeWidth={1.8} aria-hidden="true" />
-          <span className={`${labelClass} whitespace-nowrap text-[12px] font-black uppercase tracking-[0.08em]`}>
-            Clients
-          </span>
         </button>
         {showReports ? (
           <button

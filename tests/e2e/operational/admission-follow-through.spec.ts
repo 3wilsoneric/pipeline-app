@@ -18,7 +18,7 @@ test.describe("admission follow-through", () => {
         if (request.method() === "POST" && /meet-client-email|outlook-draft/.test(request.url())) sendRequests++;
       });
       await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
-      await expect(page.getByRole("region", { name: "Placement follow-through" })).toBeVisible();
+      await expect(page.getByRole("region", { name: "Handoff follow-through" })).toBeVisible();
       await expect(page.getByRole("region", { name: "Email and referral packet" })).toBeVisible();
       const summary = await (await api.get(`/api/referrals/${referral.id}/admission-summary`)).json();
       expect(summary.email.blockers.join(" ")).toContain("planned admit date before sending Meet the Client");
@@ -43,7 +43,7 @@ test.describe("admission follow-through", () => {
       expect(coordinatorWorkflow.capabilities.can_confirm_admission).toBe(true);
       expect(adminWorkflow.capabilities.can_confirm_admission).toBe(true);
       await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
-      const placement = page.getByRole("region", { name: "Placement follow-through" });
+      const placement = page.getByRole("region", { name: "Handoff follow-through" });
       await expect(placement.getByRole("heading", { name: "Meet the Client", exact: true })).toBeVisible();
       await expect(placement.getByRole("button", { name: /Confirm admission/i })).toHaveCount(0);
       await placement.getByRole("button", { name: "More actions" }).click();
@@ -82,7 +82,7 @@ test.describe("admission follow-through", () => {
       const dialog = page.getByRole("alertdialog", { name: "Confirm actual admission?" });
       await expect(dialog).toContainText("does not send an email or create a census identity link");
       await dialog.getByRole("button", { name: "Record admission" }).click();
-      await expect(page.getByRole("region", { name: "Placement follow-through" })).toContainText("Admitted");
+      await expect(page.getByRole("region", { name: "Handoff follow-through" })).toContainText("Admitted");
       const saved = (await (await api.get(`/api/referrals/${referral.id}`)).json()).referral as { stage: string; actualAdmissionDate?: string };
       expect(saved.stage).toBe("Accepted / Admitted");
       expect(saved.actualAdmissionDate).toBe(calendarToday());
@@ -106,7 +106,7 @@ test.describe("admission follow-through", () => {
       expect(forged.status()).toBe(400);
       await page.setViewportSize({ width, height: 850 });
       await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
-      const placement = page.getByRole("region", { name: "Placement follow-through" });
+      const placement = page.getByRole("region", { name: "Handoff follow-through" });
       await expect(placement.getByRole("heading", { name: "Meet the Client", exact: true })).toBeVisible();
       await expect(page.getByText("This referral is closed as declined.", { exact: true })).toHaveCount(0);
       await expect(page.getByRole("region", { name: "Email and referral packet" })).toBeVisible();

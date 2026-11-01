@@ -434,15 +434,11 @@ test.describe("Pipeline home", () => {
     await page.goto("/");
     await page.waitForLoadState("networkidle");
 
-    await page.getByRole("button", { name: "Open client profiles" }).click();
+    await page.goto("/?screen=profiles");
     await expect(page.getByRole("main", { name: "Client profiles" })).toBeVisible();
     await expect.poll(async () => (await page.getByTestId("profiles-workspace").boundingBox())?.width ?? 0).toBeLessThanOrEqual(1800);
     await expect.poll(async () => (await page.getByTestId("profiles-workspace").boundingBox())?.width ?? 0).toBeGreaterThan(1000);
-    const activeProfiles = page.getByRole("button", { name: "Open client profiles" });
-    await expect(activeProfiles).toHaveAttribute("aria-current", "page");
-    await expect(activeProfiles).toHaveAttribute("data-active", "true");
-    await expect(activeProfiles).toHaveCSS("background-color", "rgb(244, 162, 97)");
-    await expect(activeProfiles).toHaveCSS("border-color", "rgb(244, 162, 97)");
+    await expect(page.getByRole("button", { name: "Open client profiles", exact: true })).toHaveCount(0);
     await page.getByRole("button", { name: /file cabinet$/ }).first().click();
     await expect(page.getByRole("region", { name: /file cabinet$/ }).getByText("1 client", { exact: true })).toBeVisible();
     await expect(page.getByText("Avery Example", { exact: true })).toBeVisible();
@@ -553,7 +549,7 @@ test.describe("Pipeline home", () => {
     });
 
     await page.goto("/");
-    await page.getByRole("button", { name: "Open client profiles" }).click();
+    await page.goto("/?screen=profiles");
     await page.getByRole("button", { name: /file cabinet$/ }).first().click();
     await page.getByRole("button", { name: /Avery Example/ }).click();
 
@@ -650,7 +646,7 @@ test.describe("Pipeline home", () => {
 
     await page.goto("/");
     await page.waitForLoadState("networkidle");
-    await page.getByRole("button", { name: "Open client profiles" }).click();
+    await page.goto("/?screen=profiles");
     const sanPablo = page.getByRole("button", { name: "Open A & A Health Services San Pablo file cabinet", exact: true });
     const turlock = page.getByRole("button", { name: "Open AHS Turlock OP LLC file cabinet", exact: true });
     await expect(sanPablo).toContainText("2 clients");
@@ -716,7 +712,7 @@ test.describe("Pipeline home", () => {
     await page.goto("/");
     await page.waitForLoadState("networkidle");
     expect(pagesLoaded).toBe(2);
-    await page.getByRole("button", { name: "Open client profiles" }).click();
+    await page.goto("/?screen=profiles");
     await page.getByRole("button", { name: /file cabinet$/ }).first().click();
     await expect(page.getByText("Morgan Lee", { exact: true })).toBeVisible();
     await expect(page.getByText("The Alamo client directory is unavailable", { exact: false })).toHaveCount(0);
@@ -869,7 +865,7 @@ test.describe("Pipeline home", () => {
     });
 
     await page.goto("/");
-    await page.getByRole("button", { name: "Open client profiles" }).click();
+    await page.goto("/?screen=profiles");
     await page.getByRole("button", { name: /file cabinet$/ }).first().click();
     await page.getByRole("button", { name: /Avery Example/ }).click();
     await expect(page.getByRole("heading", { name: "Identity connection", exact: true })).toBeVisible();

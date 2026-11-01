@@ -59,9 +59,13 @@
 .sourceTray [data-guide-target="initial-packet-upload"] strong { font-size: var(--text-value); }
 .sourceTray > section > p { margin: 0; font-size: var(--text-label); color: var(--color-ink-muted); }
 .sourceTray > section > :is(ul, [role="alert"], section) { flex-basis: 100%; min-width: 0; }
-.sourceTray [data-document-checklist-disclosure] { margin: 0; padding: 0; border: 0; background: transparent; }
-.sourceTray [data-document-checklist-disclosure][open] { flex-basis: 100%; }
-.form .sourceTray [data-document-checklist-disclosure] > summary { min-height: var(--spacing-control); padding-inline: 12px; border: 0; border-radius: var(--radius-input); background: transparent; box-shadow: none; }
+.checklistToggle { display: inline-flex; align-items: center; justify-content: space-between; gap: 12px; min-height: var(--spacing-control); padding: 8px 16px; border: 1px solid var(--color-control-border); border-radius: var(--radius-input); background: var(--color-paper); color: var(--color-ink); font-size: var(--text-label); font-weight: 650; cursor: pointer; }
+.form .sourceTray .checklistToggle { flex: none; margin: 0; box-shadow: none; }
+.checklistToggle svg { flex: none; transition: transform var(--duration-move) var(--ease-open); }
+.checklistToggle[aria-expanded="true"] svg { transform: rotate(180deg); }
+.checklistToggle:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 3px; }
+.checklistContent { flex-basis: 100%; min-width: 0; }
+@media (prefers-reduced-motion: reduce) { .checklistToggle svg { transition: none; } }
 .form article[aria-label="Referral intake chart"] { border: 1px solid var(--color-paper-rule); border-top: 3px solid var(--color-stage-blue); box-shadow: none; }
 .form article[aria-label="Referral intake chart"] > header { background: var(--color-card-warm); border: 0; }
 .form article[aria-label="Referral intake chart"] section + section { border-top: 0; }

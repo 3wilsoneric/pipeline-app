@@ -67,11 +67,11 @@ for (const width of [1440, 390]) {
     for (const stage of ["in_progress", "decision"]) {
       const column = page.locator(`[data-board-stage="${stage}"]`);
       await expect(column).toBeVisible();
-      const count = stage === "in_progress" ? 4 : 2;
+      const count = stage === "in_progress" ? 6 : 0;
       await expect(column.locator("[data-board-card]")).toHaveCount(0);
       await expect(column.locator("[data-open-folder]")).toContainText(`${count} files`);
-      await expect(column.locator("[data-open-folder]")).toHaveCSS("border-top-color", "rgb(101, 117, 110)");
-      await expect(column.locator("[data-open-folder]")).toHaveCSS("background-color", stage === "in_progress" ? "rgb(237, 241, 252)" : "rgb(242, 237, 247)");
+      await expect(column.locator("[data-open-folder]")).toHaveCSS("border-top-color", stage === "in_progress" ? "rgb(47, 84, 200)" : "rgb(23, 113, 79)");
+
       if (stage === "in_progress") {
         await expect(page.getByRole("region", { name: "Recent clients" }).getByRole("button", { name: "Open Avery Rivera", exact: true })).toHaveAccessibleDescription("Referral received Resume");
         await expect(page.getByRole("region", { name: "Recent clients" }).getByRole("button", { name: "Open Jordan Rivera", exact: true })).toHaveAccessibleDescription("Assessment underway Resume");
@@ -141,14 +141,15 @@ async function homeFixture(page: Page, moduleIds = ["current-work", "new-assignm
         { ...item, referral_id: 930002, client_name: "Denied Client", workflow_status: "declined", outcome_state: "declined", flow_state: "complete", board: { stage: "decision", detail: "Denied", next_action: "Review decision", location: { view: "workflow" } } },
         { ...item, referral_id: 930003, client_name: "Admitted Client", workflow_status: "admitted", outcome_state: "accepted", flow_state: "complete", board: { stage: null, detail: "Admitted", next_action: "Send Meet the Client", location: { view: "email" } } },
         { ...item, referral_id: 930004, client_name: "Awaiting Client", workflow_status: "approved_for_placement", outcome_state: "accepted", flow_state: "complete", board: { stage: "decision", detail: "Awaiting admit", next_action: "Record admission", location: { view: "workflow" } } },
+        { ...item, referral_id: 930005, client_name: "Reassessment Client", workflow_status: "assessment_in_progress", outcome_state: "accepted", assessment_state: "in_progress", board: { stage: "in_progress", detail: "Assessment underway", next_action: "Continue assessment", location: { view: "assessment" } } },
       ];
     }
     payload.workflow.all_board_items = [...payload.workflow.board_items];
     if (scope) {
-      for (const [index, workflow_status] of ["ready_to_schedule", "assessment_in_progress", "decision_pending", "admitted"].entries()) {
+      for (const [index, workflow_status] of ["ready_to_schedule", "assessment_in_progress", "approved_for_placement", "admitted"].entries()) {
         payload.workflow.all_board_items.push({ ...item, referral_id: 940000 + index, client_name: `Team ${["Rivera", "Brooks", "Chen", "Patel"][index]}`, workflow_status,
-          owner: "Another Assessor", outcome_state: workflow_status === "admitted" ? "accepted" : "pending",
-          board: { stage: ["received", "in_progress", "decision", null][index], detail: ["Referral received", "Assessment underway", "Under review", "Admitted"][index], next_action: "Open workspace", location: { view: "workflow" } } });
+          owner: "Another Assessor", outcome_state: ["approved_for_placement", "admitted"].includes(workflow_status) ? "accepted" : "pending",
+          board: { stage: ["received", "in_progress", "decision", null][index], detail: ["Referral received", "Assessment underway", "Awaiting admit", "Admitted"][index], next_action: "Open workspace", location: { view: "workflow" } } });
       }
       if (scope === "team-only") Object.assign(payload.workflow, { active_items: [], board_items: [], active_total: 0 });
     }
@@ -176,14 +177,14 @@ for (const width of [1440, 390]) test(`folder All and Mine switch instantly with
   await page.setViewportSize({ width, height: 900 });
   await homeFixture(page, undefined, 2, true, false, "mixed");
   await page.goto("/");
-  for (const [index, title] of ["In progress", "Decision"].entries()) {
+  for (const [index, title] of ["In progress", "Clients in handoff"].entries()) {
     const opener = page.getByRole("button", { name: `Open ${title.toLowerCase()} folder`, exact: true });
     await opener.click();
     const folder = page.getByRole("dialog", { name: `${title} folder`, exact: true });
     const toggle = folder.getByRole("group", { name: "Folder scope" });
     await expect(toggle.getByRole("button", { name: "Mine", exact: true })).toHaveAttribute("aria-pressed", "true");
     await folder.evaluate(async element => { await Promise.all(element.getAnimations().map(animation => animation.finished.catch(() => undefined))); });
-    const mineCount = index === 0 ? 4 : 5;
+    const mineCount = index === 0 ? 7 : 2;
     const extra = index === 0 ? 2 : 1;
     await expect(folder.locator("[data-board-card]")).toHaveCount(mineCount);
     // All data is already present. Even a disconnected browser can switch scopes.
@@ -210,7 +211,7 @@ for (const width of [1440, 390]) test(`folder All and Mine switch instantly with
 test("All is reachable when Mine is empty without pulling admitted referrals back into Decision", async ({ page }) => {
   await homeFixture(page, undefined, 0, false, false, "team-only");
   await page.goto("/");
-  for (const title of ["In progress", "Decision"]) {
+  for (const title of ["In progress", "Clients in handoff"]) {
     await page.getByRole("button", { name: `Open ${title.toLowerCase()} folder`, exact: true }).click();
     const folder = page.getByRole("dialog", { name: `${title} folder`, exact: true });
     await expect(folder).toContainText("None assigned to you here.");
@@ -233,6 +234,16 @@ for (const width of [1440, 834, 390, 320]) test(`Home ribbon opens its accessibl
   const upcoming = home.getByRole("button", { name: "Upcoming assessments", exact: true });
   await expect(upcoming).toContainText("1");
   expect((await upcoming.boundingBox())!.height).toBeGreaterThanOrEqual(48);
+  const priorities = home.locator("[data-home-priorities]");
+  const buttons = priorities.locator("button");
+  await expect(buttons).toHaveCount(3);
+  const boxes = await buttons.evaluateAll(nodes => nodes.map(node => { const {x,y,width,height}=node.getBoundingClientRect(); return {x,y,width,height}; }));
+  expect(Math.max(...boxes.map(box => box.width)) - Math.min(...boxes.map(box => box.width))).toBeLessThan(2);
+  expect(Math.max(...boxes.map(box => box.height)) - Math.min(...boxes.map(box => box.height))).toBeLessThan(2);
+  if (width >= 640) expect(new Set(boxes.map(box => Math.round(box.y))).size).toBe(1);
+  else expect(boxes[2].y).toBeGreaterThan(boxes[1].y);
+  expect((await priorities.boundingBox())!.y).toBeLessThan((await home.getByRole("region", {name: "Recent clients"}).boundingBox())!.y);
+  await priorities.screenshot({ path: info.outputPath(`home-priorities-${width}.png`), animations: "disabled" });
   await upcoming.focus();
   await page.keyboard.press("Enter");
   const schedule = page.getByRole("dialog", { name: "Upcoming assessments", exact: true });
@@ -290,15 +301,14 @@ for (const unavailable of [false, true]) test(`Home ribbon distinguishes ${unava
   if (unavailable) await expect(dialog).not.toContainText("No assessments are scheduled");
 });
 
-for (const width of [1440, 390]) test(`Decision status distinguishes accepted denied and under review at ${width}px`, async ({ page }) => {
+for (const width of [1440, 390]) test(`Home separates accepted handoffs from pending decisions at ${width}px`, async ({ page }) => {
   await page.setViewportSize({ width, height: 950 });
   await homeFixture(page, undefined, 1, true);
   await page.goto("/");
-  await page.getByRole("button", { name: "Open decision folder", exact: true }).click();
+  await page.getByRole("button", { name: "Open clients in handoff folder", exact: true }).click();
   for (const [name, status, token] of [
     ["Accepted Client", "Accept", "--color-status-done"],
-    ["Denied Client", "Denied", "--color-danger"],
-    ["Morgan Rivera", "Under review", "--color-warning"],
+    ["Awaiting Client", "Awaiting admit", "--color-status-done"],
   ]) {
     const card = page.getByRole("dialog").getByRole("button", { name: `Open ${name}`, exact: true });
     await expect(card.locator("[data-board-status]")).toHaveText(status);
@@ -312,6 +322,14 @@ for (const width of [1440, 390]) test(`Decision status distinguishes accepted de
     }, token);
     await expect(card.locator("[data-board-status]")).toHaveCSS("color", expected);
   }
+  await expect(page.getByRole("dialog").getByRole("button", { name: "Open Morgan Rivera", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("dialog").getByRole("button", { name: "Open Reassessment Client", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Open Denied Client", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Open Admitted Client", exact: true })).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "Open in progress folder", exact: true }).click();
+  await expect(page.getByRole("dialog").getByRole("button", { name: "Open Morgan Rivera", exact: true })).toHaveAccessibleDescription("Under review Record decision");
+  await expect(page.getByRole("dialog").getByRole("button", { name: "Open Reassessment Client", exact: true })).toHaveAccessibleDescription("Assessment underway Continue assessment");
   await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
   const violations = await page.evaluate(async () => {
     const axe = (window as unknown as { axe: { run: (selector: string, options: object) => Promise<AxeResults> } }).axe;
@@ -342,7 +360,7 @@ test("Home customization preserves the ribbon and cannot restore retired modules
   await expect(page.getByRole("button", { name: "New assignments", exact: true })).toHaveCount(0);
 });
 
-for (const width of [1440, 834, 390, 320]) test(`stage folder expands in place with all twenty combined files at ${width}px`, async ({ page }, info) => {
+for (const width of [1440, 834, 390, 320]) test(`stage folder expands in place with all thirty combined files at ${width}px`, async ({ page }, info) => {
   await page.setViewportSize({ width, height: 950 });
   await homeFixture(page, undefined, 10);
   await page.goto("/");
@@ -366,8 +384,8 @@ for (const width of [1440, 834, 390, 320]) test(`stage folder expands in place w
   const dialog = page.getByRole("dialog", { name: "In progress folder", exact: true });
   await expect(dialog).toBeVisible();
   await dialog.evaluate(async element => { await Promise.all(element.getAnimations().map(animation => animation.finished.catch(() => undefined))); });
-  await expect(dialog.getByRole("heading", { name: /^In progress 20 files$/i })).toBeVisible();
-  await expect(dialog.locator("[data-board-card]")).toHaveCount(20);
+  await expect(dialog.getByRole("heading", { name: /^In progress 30 files$/i })).toBeVisible();
+  await expect(dialog.locator("[data-board-card]")).toHaveCount(30);
   await expect(dialog.getByRole("combobox")).toHaveCount(0);
   expect(page.url()).toBe(originalUrl);
   expect(homeReads).toBe(0);
@@ -404,20 +422,20 @@ for (const width of [1440, 834, 390, 320]) test(`stage folder expands in place w
   await expect(page).toHaveURL(/referralId=920009/);
 });
 
-test("decision tabs use distinct colors and admitted files leave the board", async ({ page }, info) => {
+test("handoff retains accepted statuses and excludes closed or pending clients", async ({ page }, info) => {
   await homeFixture(page, undefined, 1, true);
   await page.goto("/");
   await expect(page.locator('[data-board-stage]')).toHaveCount(2);
   await expect(page.getByRole("button", { name: "Open Admitted Client", exact: true })).toHaveCount(0);
-  await page.getByRole("button", { name: "Open decision folder", exact: true }).click();
-  const dialog = page.getByRole("dialog", { name: "Decision folder", exact: true });
+  await page.getByRole("button", { name: "Open clients in handoff folder", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Clients in handoff folder", exact: true });
   const accepted = dialog.getByRole("button", { name: "Open Accepted Client", exact: true });
   await expect(accepted).toHaveAccessibleDescription("Accept Open Files");
   await expect(accepted.locator('[title="Signed medication list, TB test result, Signed admission agreement"]')).toBeVisible();
   await expect(dialog.getByRole("button", { name: "Open Admitted Client", exact: true })).toHaveCount(0);
-  await expect(dialog.locator("[data-board-status]")).toHaveText(["Under review", "Accept", "Denied", "Awaiting admit"]);
+  await expect(dialog.locator("[data-board-status]")).toHaveText(["Accept", "Awaiting admit"]);
   const colors = await dialog.locator("[data-board-status]").evaluateAll(tabs => tabs.map(tab => getComputedStyle(tab).color));
-  expect(new Set(colors).size).toBe(3);
+  expect(new Set(colors).size).toBe(1);
   await dialog.screenshot({ path: info.outputPath("decision-tabs.png"), animations: "disabled" });
 });
 
@@ -432,7 +450,7 @@ test("Board action opens its named file tab even when the last visit was Chart",
     } } });
   });
   await page.goto("/");
-  await page.getByRole("button", { name: "Open decision folder", exact: true }).click();
+  await page.getByRole("button", { name: "Open clients in handoff folder", exact: true }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Open Accepted Client", exact: true }).click();
   await expect(page).toHaveURL(/referralId=930001/);
   await expect(page).toHaveURL(/workspaceView=files/);
@@ -443,12 +461,12 @@ test("folder expansion respects reduced motion and empty stages", async ({ page 
   await page.emulateMedia({ reducedMotion: "reduce" });
   await homeFixture(page);
   await page.goto("/");
-  const open = page.getByRole("button", { name: "Open decision folder", exact: true });
+  const open = page.getByRole("button", { name: "Open clients in handoff folder", exact: true });
   await open.click();
-  const dialog = page.getByRole("dialog", { name: "Decision folder", exact: true });
+  const dialog = page.getByRole("dialog", { name: "Clients in handoff folder", exact: true });
   await expect(dialog).toContainText("No referrals in this folder.");
   expect(await dialog.evaluate(element => element.getAnimations().length)).toBe(0);
-  await dialog.getByRole("button", { name: "Close decision folder", exact: true }).click();
+  await dialog.getByRole("button", { name: "Close clients in handoff folder", exact: true }).click();
   await expect(dialog).toHaveCount(0);
   await expect(open).toBeFocused();
 });
@@ -487,7 +505,7 @@ test("expanded folders retain stage accents and long file labels stay readable",
   await homeFixture(page, undefined, 3, true, true);
   await page.goto("/");
   const colors = new Set<string>();
-  for (const title of ["In progress", "Decision"]) {
+  for (const title of ["In progress", "Clients in handoff"]) {
     await page.getByRole("button", { name: `Open ${title.toLowerCase()} folder`, exact: true }).click();
     const folder = page.getByRole("dialog", { name: `${title} folder`, exact: true });
     await expect(folder).toBeVisible();
@@ -525,7 +543,7 @@ test("iPad folder scrolling does not turn the Home deck", async ({ baseURL }) =>
     await open.tap();
     const dialog = page.getByRole("dialog", { name: "In progress folder", exact: true });
     await expect(dialog).toBeVisible();
-    await expect(dialog.locator("[data-board-card]")).toHaveCount(20);
+    await expect(dialog.locator("[data-board-card]")).toHaveCount(30);
     const grid = dialog.locator("[data-expanded-folder]");
     await grid.dispatchEvent("pointerdown", { pointerId: 8, isPrimary: true, pointerType: "touch", button: 0, clientX: 200, clientY: 300 });
     await grid.dispatchEvent("pointermove", { pointerId: 8, clientX: 80, clientY: 304 });
@@ -555,7 +573,7 @@ for (const width of [1440, 390]) test(`personal clients pin first, deduplicate a
   await expect(pinned.getByRole("button", { name: "Unpin Avery Rivera", exact: true })).toBeFocused();
   await expect(recent.getByRole("button", { name: "Open Avery Rivera", exact: true })).toHaveCount(0);
   expect(page.url()).toBe(originalUrl);
-  await page.getByRole("button", { name: "Open decision folder", exact: true }).click();
+  await page.getByRole("button", { name: "Open in progress folder", exact: true }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByRole("button", { name: "Pin Morgan Patel", exact: true }).click();
   await expect(dialog.getByRole("button", { name: "Unpin Morgan Patel", exact: true })).toHaveAttribute("aria-pressed", "true");
@@ -609,4 +627,24 @@ test("recent Resume honors the user's saved page", async ({ page }) => {
   await expect(page).toHaveURL(/referralId=910501/);
   await expect(page).toHaveURL(/workspaceView=files/);
   await expect(page).toHaveURL(/workspaceEntry=resume/);
+});
+
+
+test("unavailable work counts stay distinct from zero and leave the schedule accessible", async ({ page }) => {
+  await page.route("**/api/operations/home", async route => {
+    const response = await route.fetch();
+    const payload = await response.json();
+    payload.unavailable_sections = [...payload.unavailable_sections.filter((section: string) => section !== "upcoming"), "workflow"];
+    payload.upcoming = [];
+    await route.fulfill({ response, json: payload });
+  });
+  await page.goto("/");
+  const priorities = page.locator("[data-home-priorities]");
+  for (const name of ["Open in progress folder", "Open clients in handoff folder"]) {
+    const button = priorities.getByRole("button", { name, exact: true });
+    await expect(button).toBeDisabled();
+    await expect(button).toContainText("Unavailable");
+  }
+  await priorities.getByRole("button", { name: "Upcoming assessments", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Upcoming assessments", exact: true })).toBeVisible();
 });

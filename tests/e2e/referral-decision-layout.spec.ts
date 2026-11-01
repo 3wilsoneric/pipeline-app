@@ -68,7 +68,7 @@ for (const width of [1440, 834, 390, 320]) {
     expect((await (await page.request.get(`/api/referrals/${referral.id}/workflow`)).json()).decision).toBeNull();
     await panel.getByRole("button", { name: "Record decision", exact: true }).click();
     await page.getByRole("alertdialog").getByRole("button", { name: "Record acceptance", exact: true }).click();
-    const placement = page.getByRole("region", { name: "Placement follow-through" });
+    const placement = page.getByRole("region", { name: "Handoff follow-through" });
     await expect(placement).toBeVisible();
     await expect(placement.getByRole("heading", { name: "Meet the Client", exact: true })).toBeVisible();
     await expect(placement).toContainText("Accepted · Not sent");
@@ -77,26 +77,26 @@ for (const width of [1440, 834, 390, 320]) {
     await expect(placement.getByRole("button", { name: "Placement did not happen" })).toHaveCount(0);
     await expect(placement.getByRole("button", { name: /confirm admission/i })).toHaveCount(0);
     await expect(placement.getByLabel("Planned admission date", { exact: true })).toHaveCount(0);
-    await expectAccessibleDecision(page, '[aria-label="Placement follow-through"]');
+    await expectAccessibleDecision(page, '[aria-label="Handoff follow-through"]');
     await page.screenshot({ path: info.outputPath(`accepted-${width}.png`), animations: "disabled" });
     if (width < 640) await page.getByLabel("Workspace view", { exact: true }).selectOption({ label: "Decision" });
     else await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: "Decision", exact: true }).click();
     await expect(panel.getByRole("heading", { name: "Accepted", exact: true })).toBeVisible();
-    await expect(panel.getByRole("button", { name: "Continue to Placement" })).toBeEnabled();
+    await expect(panel.getByRole("button", { name: "Continue to Handoff" })).toBeEnabled();
     await expect(panel.getByRole("region", { name: "Admission follow-through" })).toHaveCount(0);
     await expectAccessibleDecision(page);
     await page.reload();
     await expect(panel.getByRole("heading", { name: "Accepted", exact: true })).toBeVisible();
     await expect(panel).toContainText("Synthetic placement decision for UI testing only.");
-    await panel.getByRole("button", { name: "Continue to Placement" }).click();
+    await panel.getByRole("button", { name: "Continue to Handoff" }).click();
     await expect(placement.getByRole("button", { name: "More actions" })).toBeVisible();
     await placement.getByRole("button", { name: "More actions" }).click();
-    const placementActions = placement.getByRole("dialog", { name: "Placement actions" });
+    const placementActions = placement.getByRole("dialog", { name: "Handoff actions" });
     await expect(placementActions.getByRole("button", { name: "Placement did not happen" })).toBeVisible();
     await expect(placementActions).not.toContainText(/ElderMark|manual entry|Mark pending|Record issue/i);
-    await placementActions.getByRole("button", { name: "Close placement actions" }).click();
+    await placementActions.getByRole("button", { name: "Close handoff actions" }).click();
     await expect(placement).not.toContainText(/EHR handoff/i);
-    await expectAccessibleDecision(page, '[aria-label="Placement follow-through"]');
+    await expectAccessibleDecision(page, '[aria-label="Handoff follow-through"]');
     if (width === 1440) await page.screenshot({ path: info.outputPath("placement-1440.png"), animations: "disabled" });
     expect(sends).toBe(0);
   });
@@ -143,7 +143,7 @@ for (const outcome of ["Accept", "Deny"] as const) {
       expect(await feedback.evaluate((element) => getComputedStyle(element).pointerEvents)).toBe("none");
       const animation = await feedback.evaluate((element) => getComputedStyle(element).animationName);
       expect(animation === "none").toBe(outcome === "Deny");
-      if (outcome === "Accept") await expect(page.getByRole("region", { name: "Placement follow-through" })).toBeVisible();
+      if (outcome === "Accept") await expect(page.getByRole("region", { name: "Handoff follow-through" })).toBeVisible();
       else await expect(panel.getByRole("heading", { name: "Denied", exact: true })).toBeVisible();
       await expect(feedback).toHaveCount(0);
       await page.reload();
@@ -255,7 +255,7 @@ test("Meet the Client stays visible when Placement status cannot load", async ({
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: "Synthetic Placement Fallback", owner: "", tags: [] });
   await page.route(`**/api/referrals/${referral.id}/workflow`, (route) => route.fulfill({ status: 503, json: { error: "Synthetic status interruption" } }));
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
-  const placement = page.getByRole("region", { name: "Placement follow-through" });
+  const placement = page.getByRole("region", { name: "Handoff follow-through" });
   await expect(placement.getByRole("button", { name: "Retry status" })).toBeVisible();
   await expect(placement.getByRole("region", { name: "Email and referral packet" })).toBeVisible();
 });
@@ -270,8 +270,8 @@ test("Meet the Client remains usable while Placement status is loading", async (
   });
   try {
     await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
-    const placement = page.getByRole("region", { name: "Placement follow-through" });
-    await expect(placement.getByText("Loading placement status…")).toBeVisible();
+    const placement = page.getByRole("region", { name: "Handoff follow-through" });
+    await expect(placement.getByText("Loading handoff status…")).toBeVisible();
     await expect(placement.getByRole("region", { name: "Email and referral packet" })).toBeVisible();
   } finally {
     releaseWorkflow();
@@ -304,7 +304,7 @@ test("the decision page keeps one assessment summary and records the decision wi
   await panel.getByRole("radio", { name: "Accept", exact: true }).check();
   await panel.getByRole("button", { name: "Record decision", exact: true }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Record acceptance", exact: true }).click();
-  const placement = page.getByRole("region", { name: "Placement follow-through" });
+  const placement = page.getByRole("region", { name: "Handoff follow-through" });
   await expect(placement.getByRole("heading", { name: "Meet the Client", exact: true })).toBeVisible();
   await expect(placement).toContainText("Accepted · Not sent");
   const workflow = await (await page.request.get(`/api/referrals/${referral.id}/workflow`)).json();

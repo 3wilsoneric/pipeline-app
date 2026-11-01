@@ -40,7 +40,7 @@ try {
   const navigation = (name) => page.getByRole("button", { name, exact: true });
   const cards = () => page.getByRole("button", { name: /^Open profile for / });
   await measure("home_useful_content", () => page.goto(base.href), () => page.getByRole("region", { name: "Current work", exact: true }).waitFor());
-  await measure("current_directory_first_card", () => navigation("Open client profiles").click(), () => cards().first().waitFor());
+  await measure("current_directory_first_card", () => page.goto(new URL("/?screen=profiles", base).href), () => cards().first().waitFor());
   for (let index = 0; index < Math.min(4, await cards().count()); index += 1) {
     const label = await cards().nth(index).getAttribute("aria-label");
     await measure(`unvisited_chart_${index + 1}`, () => page.getByRole("button", { name: label, exact: true }).click(),
@@ -76,7 +76,7 @@ try {
         } finally { await popup.close(); }
       }, async () => {}, 500);
     }
-    await measure(`return_to_directory_${index + 1}`, () => navigation("Open client profiles").click(), () => cards().first().waitFor(), 100);
+    await measure(`return_to_directory_${index + 1}`, () => navigation("Back to profiles").click(), () => cards().first().waitFor(), 100);
   }
   result.ok = result.steps.length >= 10 && result.api_errors.length === 0 && result.steps.every((step) => !step.over_budget);
 } catch (error) {

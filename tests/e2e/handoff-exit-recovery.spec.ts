@@ -9,7 +9,7 @@ test.skip(process.env.PIPELINE_DESKTOP_E2E !== "true", "Requires the isolated ha
 // Installed-app behavior remains covered by the regular workflow suites.
 test.use({ serviceWorkers: "block" });
 
-async function chooseWorkspaceView(page: Page, label: "Files" | "Decision" | "Placement") {
+async function chooseWorkspaceView(page: Page, label: "Files" | "Decision" | "Handoff") {
   await expect(page.getByRole("navigation", { name: "Workspace stages", exact: true })).toBeVisible();
   const phonePicker = page.getByRole("combobox", { name: "Workspace view", exact: true });
   if (await phonePicker.isVisible()) await phonePicker.selectOption({ label });
@@ -101,7 +101,7 @@ for (const exit of ["Workspace files", "Change packet files"]) test(`a failed ha
   await expect(page.locator("#packet-files")).toBeVisible();
   await expect(page).toHaveURL(/workspaceView=files/);
   await expect(page.locator("dialog[open]")).toHaveCount(0);
-  await chooseWorkspaceView(page, "Placement");
+  await chooseWorkspaceView(page, "Handoff");
   await expect(page.getByRole("region", { name: "Email and referral packet", exact: true }).getByRole("alert")).toContainText("Synthetic recipient save interrupted");
   const recoveredDialog = await openRecipients(page);
   await expect(recoveredDialog.getByRole("list", { name: "Cc recipients", exact: true })).toContainText("unsaved@example.invalid");
@@ -161,7 +161,7 @@ test("unfinished recipient text survives tab navigation and cannot be skipped in
   await expect(dialog.getByRole("button", { name: "Preview email", exact: true })).toBeDisabled();
   await expect(verified).not.toBeChecked();
   await chooseWorkspaceView(page, "Files");
-  await chooseWorkspaceView(page, "Placement");
+  await chooseWorkspaceView(page, "Handoff");
   await openRecipients(page);
   await expect(dialog.getByRole("combobox", { name: /^Cc/ })).toHaveValue("additional@example.invalid");
   await dialog.getByRole("combobox", { name: /^Cc/ }).press("Enter");
@@ -262,7 +262,7 @@ test("an invalid unfinished address remains editable across workspace tabs", asy
   await dialog.getByRole("combobox", { name: /^Cc/ }).fill("unfinished");
   await chooseWorkspaceView(page, "Files");
   await expect(page).toHaveURL(/workspaceView=files/);
-  await chooseWorkspaceView(page, "Placement");
+  await chooseWorkspaceView(page, "Handoff");
   const recoveredDialog = await openRecipients(page);
   await expect(recoveredDialog.getByRole("combobox", { name: /^Cc/ })).toHaveValue("unfinished");
   await recoveredDialog.getByRole("combobox", { name: /^Cc/ }).fill("finished@example.invalid");

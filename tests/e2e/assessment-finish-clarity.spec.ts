@@ -98,7 +98,7 @@ for (const width of [1440, 834, 390]) {
     await decision.getByRole("button", { name: "Record decision", exact: true }).click();
     await page.getByRole("alertdialog").getByRole("button", { name: "Record acceptance", exact: true }).click();
     expect((await readWorkflow()).decision.outcome).toBe("accepted");
-    await expect(page.getByRole("region", { name: "Placement follow-through", exact: true })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Handoff follow-through", exact: true })).toBeVisible();
     const email = page.getByRole("region", { name: "Email and referral packet", exact: true });
     await expect(email).toBeVisible();
     const inlineReview = email.getByRole("region", { name: "Review client handoff", exact: true });

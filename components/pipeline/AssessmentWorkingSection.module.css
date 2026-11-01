@@ -286,6 +286,7 @@
   .footer :is(button, summary, select):focus-visible { outline: 2px solid var(--color-focus); outline-offset: 3px; }
   .headerTools { display: flex; align-items: flex-end; gap: 8px; min-width: 152px; min-height: 60px; }
   .earmarkDock { display: flex; align-items: center; flex: 0 1 auto; min-width: 200px; min-height: calc(var(--spacing-control) + var(--text-meta--line-height)); }
+  .earmarkDock[data-finalized]:empty { display: none; }
   .quickRecommendation { --decision-fill: var(--color-task-peach); --decision-ink: var(--color-ink); position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; color: var(--decision-ink); }
   .quickRecommendation[data-outcome="accept"] { --decision-fill: var(--color-status-done-soft); --decision-ink: var(--color-status-done); }
   .quickRecommendation[data-outcome="decline"] { --decision-fill: var(--color-danger-soft); --decision-ink: var(--color-danger); }
