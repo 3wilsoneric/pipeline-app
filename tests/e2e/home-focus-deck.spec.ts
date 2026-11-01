@@ -674,6 +674,7 @@ for (const width of [320, 390]) test(`phone shows only personal work even with t
     await expect(folder.getByText(/Team (Rivera|Brooks|Chen)/)).toHaveCount(0);
     expect(await folder.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
     await page.keyboard.press("Escape");
+    await expect(folder).toHaveCount(0);
   }
   await page.screenshot({ path: info.outputPath(`personal-phone-${width}.png`), fullPage: true, animations: "disabled" });
   // Mobile ignores desktop module preferences without overwriting them.
