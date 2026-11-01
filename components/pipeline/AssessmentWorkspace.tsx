@@ -664,7 +664,7 @@ export default function AssessmentWorkspace({
       window.removeEventListener("touchstart", release, true);
     };
   }, []);
-  // The section picker follows the scroll: the group whose heading most recently passed the top third. Worked out
+  // The section picker follows the scroll: the group whose heading most recently passed the sticky toolbar. Worked out
   // from the headings' positions on each scroll (not from intersection changes, which can leave a stale answer
   // after quick jumps).
   useEffect(() => {
@@ -683,7 +683,13 @@ export default function AssessmentWorkspace({
         }
         const headings = [...document.querySelectorAll<HTMLElement>("[data-assessment-group-heading]")].filter((heading) => heading.offsetParent);
         if (!headings.length) return;
-        const line = window.innerHeight * 0.34;
+        const toolbar = headings[0].closest("[data-assessment-view]")?.querySelector<HTMLElement>('nav[aria-label="Assessment sections"]');
+        const questionPage = headings[0].closest<HTMLElement>('[data-guide-target="packet-workspace"]')
+          ?? headings[0].closest<HTMLElement>("[data-assessment-question-page]");
+        const scrollEdge = questionPage ? questionPage.getBoundingClientRect().top + (parseFloat(getComputedStyle(questionPage).scrollPaddingTop) || 0) : 0;
+        // scrollIntoView honors the question pane's padding, so the selected heading
+        // can sit below the toolbar. Use that same edge when following the scroll.
+        const line = Math.max(0, toolbar?.getBoundingClientRect().bottom ?? 0, scrollEdge) + 1;
         const passed = headings.filter((heading) => heading.getBoundingClientRect().top <= line);
         const current = (passed[passed.length - 1] ?? headings[0]).getAttribute("data-assessment-group-heading") as AssessmentToolSection;
         setSpyGroup((previous) => previous === current ? previous : current);
@@ -2436,7 +2442,7 @@ export default function AssessmentWorkspace({
       <AssessmentEmpty
         title="Questionnaire"
         detail="Fill in what you know from the referral. Schedule and begin the interview when ready."
-        action={canCreateAssignedAssessment ? <button type="button" data-guide-target="assessment-open" onClick={createAssessmentDraft} disabled={isBusy} className="min-h-11 rounded-md bg-[#0f8b73] px-5 text-[14px] font-semibold text-white transition-colors hover:bg-[#0b6d5b] disabled:opacity-50">Prepare assessment</button> : null}
+        action={canCreateAssignedAssessment ? <button type="button" data-guide-target="assessment-open" onClick={createAssessmentDraft} disabled={isBusy} className="min-h-control rounded-input bg-action px-5 text-value font-semibold text-on-action transition-colors hover:bg-action-hover disabled:opacity-50">Prepare assessment</button> : null}
         error={error}
       />
     </>);
@@ -2455,7 +2461,7 @@ export default function AssessmentWorkspace({
             <p className="mt-0.5 truncate text-[11px] text-[#68716c]">{assessmentSummaryLine(selected, completion, nextRequiredTarget)}</p>
           </div>
         </div>
-        <button type="button" data-guide-target={["assessment-open", "assessment-schedule-open"].join(" ")} onClick={openFocusedAssessment} className="flex h-9 w-full items-center justify-center gap-2 bg-[#0f8b73] px-4 text-[11px] font-bold text-white transition-colors hover:bg-[#0b6d5b] sm:w-auto">{openLabel} <ChevronRight size={14} /></button>
+        <button type="button" data-guide-target={["assessment-open", "assessment-schedule-open"].join(" ")} onClick={openFocusedAssessment} className="flex min-h-control w-full items-center justify-center gap-2 bg-action px-4 text-label font-bold text-on-action transition-colors hover:bg-action-hover sm:w-auto">{openLabel} <ChevronRight size={14} /></button>
       </section>
     </>);
   }
@@ -2477,7 +2483,7 @@ export default function AssessmentWorkspace({
     {selected.signed_at && canAddAddendum ? <button type="button" onClick={() => setShowAddendum((value) => !value)} disabled={isBusy}><Plus size={14} />Add note</button> : null}
   </>;
   const assessmentDetails = <>{renderAssessmentDetails()}
-    <button type="button" onClick={() => setShowInterviewDate(true)}><CalendarClock size={15} aria-hidden="true" />Interview date{draft.assessment_date ? `: ${draft.assessment_date}` : ""}</button>
+    <button type="button" onClick={(event) => { event.currentTarget.focus(); setShowInterviewDate(true); }}><CalendarClock size={15} aria-hidden="true" />Interview date{draft.assessment_date ? `: ${draft.assessment_date}` : ""}</button>
   </>;
   // One saved working decision stays available while preparing, interviewing and reviewing.
   const renderPhoneQuestionHeading = () => phoneInterview ? <div className="sr-only"><h3>{preparing ? preparationGroup.label : sectionDefinition.label}</h3></div> : null;
@@ -2555,7 +2561,7 @@ export default function AssessmentWorkspace({
           {renderReturnToInterview()}
           {/* Redesign: while answering, Details would hold only the interview date, so the date sits in the bar itself. */}
           {embeddedFolder && designV2 && !reviewingChart && !(selected.signed_at && canAddAddendum)
-            ? <button type="button" className={workingStyles.saveRecovery} onClick={() => setShowInterviewDate(true)}><CalendarClock size={15} aria-hidden="true" />Interview date{draft.assessment_date ? `: ${draft.assessment_date}` : ""}</button>
+            ? <button type="button" className={workingStyles.saveRecovery} onClick={(event) => { event.currentTarget.focus(); setShowInterviewDate(true); }}><CalendarClock size={15} aria-hidden="true" />Interview date{draft.assessment_date ? `: ${draft.assessment_date}` : ""}</button>
             : embeddedFolder && assessmentDetails ? <AssessmentFileDetails label="Details" detailsRef={secondaryActionsRef}>{assessmentDetails}</AssessmentFileDetails> : null}
         </div>
   );
@@ -2732,7 +2738,7 @@ export default function AssessmentWorkspace({
     <button type="button" aria-label="Previous section" className={workingStyles.previousSection} onClick={() => { if (previousSection) { setWorkingTarget(null); setActiveSection(previousSection.key); } }} disabled={!previousSection || isClosing} title={previousSection ? `Previous: ${previousSection.label}` : undefined}><ChevronLeft size={16} aria-hidden="true" /><span>Previous</span></button>
     <span className={workingStyles.stepPosition} aria-label={`Section ${pageIndex + 1} of ${pageSections.length}`}><strong>{pageIndex + 1}</strong> of {pageSections.length}</span>
     </>}
-    <div data-assessment-primary-action><button type="button" data-guide-target={preparationNeedsStart && !nextSection ? "assessment-begin" : "assessment-next-section"} onClick={nextConversationSection} disabled={isClosing || (!nextSection && (preparing ? preparationActionDisabled : isBusy))} title={nextSection ? `Next: ${nextSection.label}` : undefined}>{nextSection ? "Next section" : preparing ? preparationActionLabel : "Review assessment"}<ChevronRight size={16} aria-hidden="true" /></button></div>
+    <div data-assessment-primary-action><button type="button" data-guide-target={preparationNeedsStart && !nextSection ? "assessment-begin" : "assessment-next-section"} onClick={(event) => { event.currentTarget.focus(); nextConversationSection(); }} disabled={isClosing || (!nextSection && (preparing ? preparationActionDisabled : isBusy))} title={nextSection ? `Next: ${nextSection.label}` : undefined}>{nextSection ? "Next section" : preparing ? preparationActionLabel : "Review assessment"}<ChevronRight size={16} aria-hidden="true" /></button></div>
   </nav>;
 
   // Kept-mounted steps: this editor draws the Chart step (with its appointment and unanswered-items
@@ -2824,7 +2830,7 @@ export default function AssessmentWorkspace({
             {trainingAssessmentMode && activeSection === "provenance_qc" && practiceReview ? <PracticeAssessmentReview review={practiceReview} /> : null}
             <QuestionPage
               key={`${selected.assessment_id}-${preparing}`}
-              workspaceActive={workspaceActive}
+              workspaceActive={workspaceActive && questionsOnScreen}
               preparing={preparing}
               onQuestionChange={rememberPhoneQuestion}
               onSectionChange={(section) => { setWorkingTarget(null); setActiveSection(section); }}
@@ -2888,7 +2894,7 @@ export default function AssessmentWorkspace({
 
       </div>
 
-      <footer aria-label="Assessment actions" data-assessment-chart-review={reviewingChart || undefined} className={`${workingStyles.footer} flex shrink-0 flex-wrap items-center justify-between bg-white ${phoneLayout ? phoneStyles.mobileFooter : "gap-x-3 gap-y-2 px-4 py-2 sm:px-6 lg:px-8"}`}>
+      {questionsOnScreen ? <footer aria-label="Assessment actions" data-assessment-chart-review={reviewingChart || undefined} className={`${workingStyles.footer} flex shrink-0 flex-wrap items-center justify-between bg-white ${phoneLayout ? phoneStyles.mobileFooter : "gap-x-3 gap-y-2 px-4 py-2 sm:px-6 lg:px-8"}`}>
         {!reviewingChart && preparing && phoneLayout ? sectionSteps : null}
         {reviewingChart && error ? <p role="alert" className={workingStyles.reviewError}>{error}</p> : null}
         {recommendationNode ? <section className={workingStyles.earmarkDock} aria-label="Placement recommendation">{recommendationNode}</section> : null}
@@ -2897,7 +2903,7 @@ export default function AssessmentWorkspace({
         {!reviewingChart && !phoneLayout ? sectionSteps : (reviewingChart || selected.signed_at) ? <div>
         {renderPrimaryAssessmentActions()}
         </div> : null}
-      </footer>
+      </footer> : null}
 
     </AssessmentFileSurface>
   </>);

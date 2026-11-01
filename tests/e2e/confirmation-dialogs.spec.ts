@@ -23,7 +23,7 @@ for (const scenario of [
       page.on("dialog", async (dialog) => { nativePrompts++; await dialog.dismiss(); });
       page.on("request", (request) => { if (request.method() === "POST" && request.url().endsWith(`${assessmentUrl}/sign`)) signatures++; });
       await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentMode=review&assessmentSection=provenance_qc`);
-      const trigger = page.getByRole("button", { name: "Sign & continue to decision", exact: true });
+      const trigger = page.getByRole("button", { name: "Sign assessment", exact: true });
       await trigger.click();
       const dialog = page.getByRole("alertdialog", { name: "Sign this assessment?", exact: true });
       await expect(dialog).toBeVisible();
@@ -31,9 +31,12 @@ for (const scenario of [
       const cancel = dialog.getByRole("button", { name: "Cancel", exact: true });
       const sign = dialog.getByRole("button", { name: "Sign assessment", exact: true });
       await expect(cancel).toBeFocused();
+      // The confirmation enters with the shared motion; measure its settled position.
+      await expect.poll(async () => {
+        const box = (await dialog.boundingBox())!;
+        return Math.max(Math.abs(box.x + box.width / 2 - scenario.width / 2), Math.abs(box.y + box.height / 2 - scenario.height / 2));
+      }).toBeLessThan(2);
       const box = (await dialog.boundingBox())!;
-      expect(Math.abs(box.x + box.width / 2 - scenario.width / 2)).toBeLessThan(2);
-      expect(Math.abs(box.y + box.height / 2 - scenario.height / 2)).toBeLessThan(2);
       expect(box.x).toBeGreaterThanOrEqual(15);
       expect(box.y).toBeGreaterThanOrEqual(15);
       await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });

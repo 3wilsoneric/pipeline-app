@@ -21,7 +21,7 @@
   .question textarea { min-height: 132px; }
   .interview .question [data-working-field] :is(button:not([aria-pressed]), summary) { min-height: 44px; }
   .question p { font-size: 13px; line-height: 1.6; color: #596c60; }
-  .paging { display: flex; flex-shrink: 0; align-items: center; gap: 14px; padding: 10px 20px; border-top: 1px solid #e3ebe7; background: #fff; }
+  .paging { display: flex; flex-shrink: 0; align-items: center; gap: 14px; padding: 3px 20px; border-top: 1px solid #e3ebe7; background: #fff; }
   .paging button { display: flex; align-items: center; justify-content: center; gap: 12px; min-width: var(--spacing-control); min-height: var(--spacing-action); border: 1px solid var(--color-paper-rule); border-radius: var(--radius-input); padding: 12px; font-size: var(--text-value); font-weight: 650; }
   .paging button:last-child { min-width: 48%; margin-left: auto; padding-inline: 18px; color: var(--color-on-action); background: var(--color-action); border: 2px solid var(--color-night); }
   .paging button:last-child:hover:not(:disabled) { background: var(--color-action-hover); }
@@ -85,3 +85,7 @@
 .interview .progress span { background: var(--color-stage-rose); }
 .interview .question [data-working-field] :is(input:not([type="checkbox"]), textarea, select) { min-height: var(--spacing-action); line-height: 1.7; }
 .interview .question [data-working-field] :is(input, textarea)::placeholder { color: var(--color-ink-muted); opacity: 1; }
+
+/* Keep the working decision and save status on one row on short touch screens. */
+.mobileFooter [aria-label="Placement recommendation"] { min-height: var(--spacing-control); }
+.mobileFooter [aria-label="Placement recommendation"] label { display: flex; align-items: center; gap: 12px; }

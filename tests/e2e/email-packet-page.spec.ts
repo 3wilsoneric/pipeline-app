@@ -182,7 +182,9 @@ for (const reopened of [false, true]) test(`summary proceeds to the medication f
   await expect(summary.getByRole("button", { name: "Preview email", exact: true })).toBeDisabled();
   const files = reviewHandoff(page);
   await expect(files).toBeVisible();
-  await expect(files).toContainText("Only checked files will be included.");
+  await expect(files).toContainText("Client data sheet · always included");
+  await expect(files.getByRole("checkbox", { name: "Include Client data sheet.pdf", exact: true })).toBeChecked();
+  await expect(files.getByRole("checkbox", { name: "Include Client data sheet.pdf", exact: true })).toBeDisabled();
 });
 
 test("Decision continues to Placement, where the first handoff review owns the planned date", async ({ page }) => {
@@ -492,7 +494,7 @@ for (const width of [1440, 390]) test(`review shows the record and opens an unre
   const review = page.getByRole("region", { name: "Assessment chart review", exact: true });
   await expect(review.getByRole("heading", { name: "Review assessment", exact: true })).toBeVisible();
   await expect(review).toContainText("Recorded answers");
-  await expect(page.getByRole("button", { name: "Sign & continue to decision", exact: true })).toBeInViewport();
+  await expect(page.getByRole("button", { name: "Sign assessment", exact: true })).toBeInViewport();
   await expect(review).toContainText("They do not prevent signing");
   await review.locator("details > summary").filter({ hasText: "Answers by section" }).click();
   const gaps = review.getByRole("list", { name: /^Answers by section/ });

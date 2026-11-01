@@ -24,9 +24,10 @@ test("finished steps are filed into the Chart and remain in the rail", async ({ 
     await expect(chart.getByRole("heading", { name: "Referral chart", exact: true })).toHaveClass("sr-only");
     const requirements = page.getByRole("region", { name: "Admission requirements", exact: true });
     await expect(requirements).toHaveCount(1);
-    const progress = requirements.getByRole("progressbar", { name: "Admission requirements resolved" });
-    await expect(progress).toBeVisible();
-    expect(Number(await progress.getAttribute("max"))).toBeGreaterThan(0);
+    const progress = requirements.locator("summary");
+    await expect(progress).toHaveText(/Admission requirements:.*\d+.*\/.*\d+.*resolved/);
+    await progress.click();
+    expect(await requirements.getByRole("listitem").count()).toBeGreaterThan(0);
     expect(await requirements.evaluate((node) => Boolean(node.compareDocumentPosition(document.querySelector('article[aria-label="Referral chart"]')!) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
     const pencil = chart.getByRole("button", { name: "Edit Phone", exact: true });
     expect((await pencil.boundingBox())!.height).toBeGreaterThanOrEqual(44);
@@ -80,7 +81,7 @@ test("accepting first leaves the unsigned assessment editable and signable", asy
     const assessmentTab = rail.getByRole("button", { name: "Assessment", exact: true });
     await expect(assessmentTab).toHaveAttribute("data-step-state", "active");
     await expect(page.locator('[data-chart-stage="Assessment"]')).not.toHaveAttribute("data-filed", "true");
-    await expect(rail.getByRole("button", { name: "Decision", exact: true })).toHaveAttribute("data-step-state", "done");
+    await expect(rail.getByRole("button", { name: "Decision", exact: true })).toContainText("Accepted");
     expect((await read()).signed_at).toBeNull();
     await assessmentTab.click();
     const answer = "Synthetic answer finished after acceptance.";
@@ -90,7 +91,7 @@ test("accepting first leaves the unsigned assessment editable and signable", asy
     await page.getByRole("button", { name: "Begin interview", exact: true }).click();
     await page.getByRole("dialog", { name: "Begin interview", exact: true }).getByRole("button", { name: "Begin interview", exact: true }).click();
     await page.getByRole("button", { name: "Review assessment", exact: true }).click();
-    await page.getByRole("button", { name: "Sign & continue to decision", exact: true }).click();
+    await page.getByRole("button", { name: "Sign assessment", exact: true }).click();
     await page.getByRole("alertdialog", { name: "Sign this assessment?", exact: true }).getByRole("button", { name: "Sign assessment", exact: true }).click();
     await expect.poll(async () => Boolean((await read()).signed_at)).toBe(true);
     expect((await read()).current_location).toBe(answer);

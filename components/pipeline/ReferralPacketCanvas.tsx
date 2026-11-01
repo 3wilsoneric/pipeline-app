@@ -1711,7 +1711,8 @@ export default function ReferralPacketCanvas({
     if (typeof page === "number") onWorkspaceStageChange?.(workspaceStageName(page));
     onWorkspaceLocationChange?.(locationForPage(page, editField, assessmentMode));
     requestAnimationFrame(() => {
-      if (!editField && !returningToChart) canvasRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+      // The assessment restores its own section/scroll position when reopened.
+      if (page !== 2 && !editField && !returningToChart) canvasRef.current?.scrollTo({ top: 0, behavior: "smooth" });
     });
   };
 
@@ -1760,7 +1761,8 @@ export default function ReferralPacketCanvas({
     lastFocusRef.current = key;
     if (activePage === 1 && onWorkspaceLocationChange) {
       locallyFocusedFieldRef.current = key;
-      onWorkspaceLocationChange({ view: "intake", intakeField: key });
+      // Keep the recovery target without routing during the focus/input event.
+      onWorkspaceLocationChange({ view: "intake", intakeField: key }, false);
     }
   };
 
@@ -2933,7 +2935,7 @@ export default function ReferralPacketCanvas({
                   {...assessmentChartProps(Boolean(chartSlot))}
                   chartSlot={chartSlot}
                   sectionJumps={!chartSlot || displayedPage === 2}
-                  questionsOnScreen={!chartSlot || displayedPage === 2}
+                  questionsOnScreen={displayedPage === 2}
                   chartDocuments={renderChartDocuments()}
                   onOpenChart={() => openPage(3)}
                   onOpenFiles={() => openPage("files")}

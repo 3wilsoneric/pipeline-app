@@ -19,7 +19,6 @@ test("upload preview, original, cancel/delete, audit and restore preserve chart 
     await page.getByRole("button", { name: "Edit referral details", exact: true }).click();
     await expect(page.getByRole("combobox", { name: "Assessor", exact: true })).toHaveValue("assessor-a");
     await expect(page.getByTestId("packet-workspace")).toHaveAttribute("aria-busy", "false");
-    await page.getByTestId("document-checklist-toggle").click();
     const canvas = createCanvas(160, 60);
     const drawing = canvas.getContext("2d");
     drawing.fillStyle = "white"; drawing.fillRect(0, 0, 160, 60);
@@ -37,7 +36,6 @@ test("upload preview, original, cancel/delete, audit and restore preserve chart 
     await page.getByRole("button", { name: "Workspace activity", exact: true }).click();
     await expect(history.getByText("Document uploaded", { exact: true }).first()).toBeVisible();
     await page.goto(intakeUrl);
-    await page.getByTestId("document-checklist-toggle").click();
     expect((await stranger.get(`/api/files/${file.id}`)).status()).toBe(403);
     expect((await stranger.delete(`/api/files/${file.id}`, { data: { confirmed: true } })).status()).toBe(403);
     expect((await api.delete(`/api/files/${file.id}`, { data: { confirmed: false } })).status()).toBe(400);
@@ -69,7 +67,6 @@ test("upload preview, original, cancel/delete, audit and restore preserve chart 
     // Deleting and explicitly selecting again creates one new, retry-stable file.
     await api.delete(`/api/files/${file.id}`, { data: { confirmed: true } });
     await page.goto(intakeUrl);
-    await page.getByTestId("document-checklist-toggle").click();
     await page.getByLabel("Choose referral documents").setInputFiles(packet);
     await confirmReferralFileLabels(page);
     await expect.poll(async () => (await files()).length).toBe(1);

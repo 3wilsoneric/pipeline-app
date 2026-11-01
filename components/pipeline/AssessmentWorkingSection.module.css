@@ -208,7 +208,7 @@
   .navigation[data-with-work-mode] .sectionProgress { font-size: var(--text-label); }
   .navigation[data-with-work-mode] .sectionProgress strong { font-size: var(--text-label); }
   .navigation[data-with-work-mode] .prepActions { gap: 6px; }
-  .navigation[data-with-work-mode] .prepActions :is(button, [role="button"]) { min-height: 36px; padding-inline: 10px; font-size: var(--text-label); }
+  .navigation[data-with-work-mode] .prepActions :is(button, [role="button"]) { min-height: var(--spacing-control); padding-inline: 10px; font-size: var(--text-label); }
   .navigation[data-with-work-mode] .prepActions svg { width: 15px; height: 15px; }
   .navigation[data-with-work-mode] .sectionProgress { order: 2; min-width: 0; max-width: none; margin-left: auto; white-space: nowrap; }
   .navigation[data-with-work-mode] .prepActions { order: 3; }

@@ -25,11 +25,11 @@ test.describe("Responsive application navigation", () => {
       for (const name of ["Open referrals", "Open calendar", "Open client profiles", "Open reports", "Create new referral"]) {
         await expect(page.getByRole("button", { name })).toBeVisible();
       }
-      // Palette follows the family tokens; selecting a destination never looks like a primary action.
+      // Carelog uses the action accent to identify the selected destination.
       const active = page.getByRole("button", { name: "Open referrals", exact: true });
       await expect(active).toHaveAttribute("aria-current", "page");
-      await expect(active).toHaveCSS("background-color", phone ? "rgb(232, 245, 245)" : "rgb(18, 67, 67)");
-      await expect(active).toHaveCSS("color", phone ? "rgb(8, 92, 96)" : "rgb(255, 255, 255)");
+      await expect(active).toHaveCSS("background-color", "rgb(244, 162, 97)");
+      await expect(active).toHaveCSS("color", "rgb(3, 47, 48)");
       for (const name of ["Open calendar", "Open client profiles", "Open reports", "Create new referral"]) {
         await expect(page.getByRole("button", { name, exact: true })).toHaveCSS("color", phone ? name === "Create new referral" ? "rgb(8, 92, 96)" : "rgb(3, 47, 48)" : "rgb(207, 229, 230)");
       }

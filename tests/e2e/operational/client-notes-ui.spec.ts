@@ -69,6 +69,7 @@ test("client notes stay together, save while typing, and fit beside the question
   await expect(split.locator('[data-split-topic="identity"]')).toContainText("Synthetic referral source");
   await page.getByRole("textbox", { name: "Time at current location" }).fill("Three weeks in Turlock");
   await page.keyboard.press("Tab");
+  await picker.selectOption("identity");
   await expect(split.locator('[data-split-topic="identity"]')).toContainText("Three weeks in Turlock");
   // Interview layout (docs/design/DECISIONS.md, "Interview layout"): the record rail is tucked away; the
   // divider brings it back and hides it again. Scheduling stays in All questions.

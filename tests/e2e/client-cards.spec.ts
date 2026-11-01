@@ -33,7 +33,7 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
       await page.mouse.move(width - 1, 1);
       await expect(card.locator("strong")).toHaveCSS("font-size", "18px");
       await expect(card.locator("strong")).toHaveCSS("font-weight", "700");
-      await expect(card.getByText("Community", { exact: true })).toHaveCSS("font-size", "10px");
+      await expect(card.getByText("Community", { exact: true })).toHaveCSS("font-size", "13px");
       await expect(card.getByText("Community", { exact: true })).toHaveCSS("font-weight", "700");
       await expect(card.getByText("Level 2", { exact: true })).toHaveCSS("font-size", "14px");
       await expect(card.getByText("Level 2", { exact: true })).toHaveCSS("font-weight", "600");
@@ -41,9 +41,9 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
       await expect(chartLabel).toHaveCSS("font-weight", "800");
       await expect(chartLabel).toHaveCSS("border-left-width", "3px");
       await expect(body.locator(":scope > span > span").first()).toHaveCSS("background-color", "rgb(241, 247, 243)");
-      await expect(body).not.toHaveCSS("box-shadow", "none");
-      await expect(tab).toHaveCSS("background-color", "rgb(232, 217, 184)");
-      await expect(body).toHaveCSS("background-color", "rgb(232, 217, 184)");
+      await expect(body).toHaveCSS("box-shadow", "none");
+      await expect(tab).toHaveCSS("background-color", "rgb(245, 247, 245)");
+      await expect(body).toHaveCSS("background-color", "rgb(245, 247, 245)");
       const tabBounds = await tab.boundingBox();
       const label = tab.locator(":scope > span");
       await expect(label).toHaveCSS("background-image", "linear-gradient(rgb(255, 255, 255), rgb(255, 253, 248))");
@@ -81,7 +81,11 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
       const summary = body.locator(":scope > span > span").nth(1);
       expect(await summary.evaluate((node) => getComputedStyle(node).gridTemplateColumns.split(" ").length)).toBe(width >= 768 ? 4 : 2);
       await expect(summary.locator(":scope > span")).toHaveCount(11);
-      if (width === 1440) expect(firstBounds!.width).toBeGreaterThan(width * 0.9);
+      if (width === 1440) {
+        const navigation = await page.getByRole("complementary", { name: "App navigation" }).boundingBox();
+        expect(firstBounds!.x).toBeCloseTo(navigation!.width + 24, 1);
+        expect(firstBounds!.x + firstBounds!.width).toBeCloseTo(width - 24, 1);
+      }
       for (const bounds of await cards.evaluateAll((nodes) => nodes.map((node) => {
         const rect = node.getBoundingClientRect();
         return { left: rect.left, right: rect.right, width: node.clientWidth, contentWidth: node.scrollWidth };
@@ -100,7 +104,10 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
 
     await page.setViewportSize({ width: 1440, height: 900 });
     await expect(page.getByRole("complementary", { name: "App navigation" })).toBeVisible();
-    await expect(card).toHaveCSS("width", "1324px");
+    await expect.poll(async () => {
+      const navigation = await page.getByRole("complementary", { name: "App navigation" }).boundingBox();
+      return (await card.boundingBox())!.width + navigation!.width + 48;
+    }).toBe(1440);
     const resting = await card.boundingBox();
     await tab.hover();
     await expect(body).toHaveCSS("border-color", "rgb(164, 147, 109)");

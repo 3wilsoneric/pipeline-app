@@ -24,7 +24,10 @@ for (const width of [1440, 834, 390]) {
       else await stages.getByRole("button", { name: label, exact: true }).click();
     };
     if (width < 640) await expect(stagePicker.locator(":scope > option")).toHaveText(["Intake"]);
-    else await expect(stages.getByRole("button")).toHaveText(["Intake"]);
+    else {
+      await expect(stages.getByRole("button")).toHaveCount(1);
+      await expect(stages.getByRole("button", { name: "Intake", exact: true })).toBeVisible();
+    }
     const intake = page.getByTestId("intake-client-folder");
     await intake.locator('[data-workspace-field="name"] input').fill(name);
     await intake.locator('[data-workspace-field="email"] input').fill("example@example.invalid");
@@ -39,7 +42,11 @@ for (const width of [1440, 834, 390]) {
     expect(referral.community).toBe("San Pablo");
     expect(referral.email).toBe("example@example.invalid");
     if (width < 640) await expect(stagePicker.locator(":scope > option")).toHaveText(["Chart", "Assessment", "Decision", "Placement"]);
-    else await expect(stages.getByRole("button")).toHaveText(["Chart", "Assessment", "Decision", "Placement"]);
+    else {
+      await expect(stages.locator("button[data-folder-stage]")).toHaveCount(3);
+      expect(await stages.getByRole("button").evaluateAll(buttons => buttons.map(button => button.getAttribute("aria-label"))))
+        .toEqual(["Chart", "Decision", "Assessment", "Placement"]);
+    }
     await expectStage("Chart");
     await expect(page.getByRole("article", { name: "Referral chart", exact: true })).toContainText("San Pablo");
     await expect(page.getByRole("article", { name: "Referral chart", exact: true }).getByTestId("client-identity-title")).not.toHaveText(/Not documented/);
@@ -77,8 +84,10 @@ for (const width of [1440, 834, 390]) {
     await schedule.getByRole("button", { name: "Schedule interview", exact: true }).click();
     await expect(schedule).toHaveCount(0);
     await page.goto(`/?view=referrals&screen=packet&referralId=${referralId}&workspaceStage=assessment&assessmentMode=prepare&assessmentSection=diagnosis_clinical`);
+    await expect(page.getByTestId("packet-workspace")).toHaveAttribute("aria-busy", "false");
     const partial = page.locator("#assessment-secondary_diagnoses");
     await partial.fill("Synthetic preparation retained during the complete journey");
+    await expect(partial).toHaveValue("Synthetic preparation retained during the complete journey");
     await partial.blur();
     if (width < 640) await stagePicker.selectOption("files");
     else await page.getByRole("button", { name: "Workspace files", exact: true }).click();
@@ -104,6 +113,9 @@ for (const width of [1440, 834, 390]) {
     await page.getByRole("button", { name: "Begin interview", exact: true }).click();
     await page.getByRole("dialog", { name: "Begin interview", exact: true }).getByRole("button", { name: "Begin interview", exact: true }).click();
     await expect.poll(async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment.started_at).toBeTruthy();
+    await page.goto(`/?view=referrals&screen=packet&referralId=${referralId}&workspaceStage=assessment&assessmentMode=interview&assessmentSection=diagnosis_clinical&assessmentQuestion=current_symptoms`);
+    await expect(page.getByTestId("packet-workspace")).toHaveAttribute("aria-busy", "false");
+    await expect(page.locator("#assessment-current_symptoms")).toBeVisible();
     await page.goto(`/?view=referrals&screen=packet&referralId=${referralId}&workspaceStage=assessment&assessmentMode=review`);
     const review = page.getByRole("region", { name: "Assessment chart review", exact: true });
     await expect(review).toContainText("Synthetic conversation completed");
@@ -116,16 +128,16 @@ for (const width of [1440, 834, 390]) {
     await page.screenshot({ path: info.outputPath(`assessment-review-${width}.png`), animations: "disabled" });
     await review.getByRole("button", { name: "Back to questions", exact: true }).click();
     await expect(page).not.toHaveURL(/assessmentMode=review/);
-    expect(new URL(page.url()).searchParams.get("assessmentSection")).toBe(new URL(reviewUrl).searchParams.get("assessmentSection"));
+    await expect.poll(() => new URL(page.url()).searchParams.get("assessmentSection")).toBe("diagnosis_clinical");
     await page.goto(reviewUrl);
     // A native select does not navigate when its current option is reselected.
     if (width < 640) await openStage("Chart");
     await openStage("Assessment");
     await expect(page).not.toHaveURL(/assessmentMode=review/);
     await page.goto(reviewUrl);
-    await page.getByRole("button", { name: "Sign & continue to decision", exact: true }).click();
+    await page.getByRole("button", { name: "Sign assessment", exact: true }).click();
     await page.getByRole("alertdialog", { name: "Sign this assessment?", exact: true }).getByRole("button", { name: "Sign assessment", exact: true }).click();
-    await expectStage("Decision");
+    await expectStage("Assessment");
     const decision = page.getByRole("region", { name: "Admission decision", exact: true });
     await expect(decision).toBeVisible();
     await expect(page.getByTestId("packet-workspace")).not.toHaveAttribute("inert", "");
@@ -251,16 +263,16 @@ test("a failed signature or decision stays in place; retry advances only after s
   const stages = page.getByRole("navigation", { name: "Workspace stages" });
   const signRoute = `**/api/assessments/${assessment.assessment_id}/sign`;
   await page.route(signRoute, (route) => route.fulfill({ status: 503, json: { error: "Synthetic signature unavailable. Retry signing." } }));
-  await page.getByRole("button", { name: "Sign & continue to decision", exact: true }).click();
+  await page.getByRole("button", { name: "Sign assessment", exact: true }).click();
   await page.getByRole("alertdialog", { name: "Sign this assessment?", exact: true }).getByRole("button", { name: "Sign assessment", exact: true }).click();
   await expect(page.getByRole("alert").filter({ hasText: "Synthetic signature unavailable" })).toBeVisible();
   await expect(stages.getByRole("button", { name: "Assessment", exact: true })).toHaveAttribute("aria-current", "page");
   expect((await read()).signed_at).toBeNull();
   expect((await read()).current_location).toBe("Synthetic referral source");
   await page.unroute(signRoute);
-  await page.getByRole("button", { name: "Sign & continue to decision", exact: true }).click();
+  await page.getByRole("button", { name: "Sign assessment", exact: true }).click();
   await page.getByRole("alertdialog", { name: "Sign this assessment?", exact: true }).getByRole("button", { name: "Sign assessment", exact: true }).click();
-  await expect(stages.getByRole("button", { name: /Decision$/ })).toHaveAttribute("aria-current", "page");
+  await expect(stages.getByRole("button", { name: "Assessment", exact: true })).toHaveAttribute("aria-current", "page");
   const decision = page.getByRole("region", { name: "Admission decision", exact: true });
   await decision.getByRole("radio", { name: "Under review", exact: true }).check();
   await decision.getByRole("button", { name: "Save under review", exact: true }).click();
@@ -307,6 +319,8 @@ test("practice signing stays in assessment review and never creates a decision",
   await page.goto("/?view=referrals&screen=packet&trainingAssessment=interview&demo=1&workspaceStage=chart");
   const stages = page.getByRole("navigation", { name: "Workspace stages" });
   await expect(stages.getByRole("button", { name: "Chart", exact: true })).toHaveAttribute("aria-current", "page");
+  await stages.getByRole("button", { name: "Assessment", exact: true }).click();
+  await page.getByRole("combobox", { name: "Assessment section", exact: true }).selectOption("provenance_qc");
   await page.getByRole("button", { name: "Review assessment", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Review assessment", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Sign assessment", exact: true }).click();
@@ -326,10 +340,10 @@ test("iPad WebKit keeps signing and finishing in the same folder", async ({ base
     await createOperationalAssessment(page.request, referral.id);
     await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentMode=review`);
     await expect(page.getByRole("heading", { name: "Review assessment", exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "Sign & continue to decision", exact: true }).tap();
+    await page.getByRole("button", { name: "Sign assessment", exact: true }).tap();
     await page.getByRole("alertdialog", { name: "Sign this assessment?", exact: true }).getByRole("button", { name: "Sign assessment", exact: true }).tap();
     const stages = page.getByRole("navigation", { name: "Workspace stages" });
-    await expect(stages.getByRole("button", { name: /Decision$/ })).toHaveAttribute("aria-current", "page");
+    await expect(stages.getByRole("button", { name: "Assessment", exact: true })).toHaveAttribute("aria-current", "page");
     const decision = page.getByRole("region", { name: "Admission decision", exact: true });
     await decision.getByRole("radio", { name: "Accept", exact: true }).check();
     await decision.getByRole("button", { name: "Record decision", exact: true }).tap();

@@ -113,3 +113,6 @@
 .fab.docked { display: inline-flex; gap: 6px; width: auto; min-height: var(--spacing-control); height: auto; padding: 8px; border: 0; border-radius: var(--radius-input); box-shadow: none; font-size: var(--text-label); font-weight: 600; }
 .floating[data-inline-notes] .panel { position: fixed; top: calc(var(--mobile-viewport-top, 0px) + 12px); right: 12px; left: 12px; width: auto; z-index: 70; }
 .floating[data-inline-notes] .panel .notes { height: calc(var(--mobile-viewport-height, 100dvh) - 112px); min-height: 0; }
+
+.fab.docked { width: var(--spacing-control); justify-content: center; }
+.fab.docked > span { display: none; }

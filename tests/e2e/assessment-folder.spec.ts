@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { createOperationalReferral } from "./support/operational-api";
-import { editPreparedAnswer } from "./support/assessment-navigation";
+import { editPreparedAnswer, leaveInterviewFullScreen } from "./support/assessment-navigation";
 
 async function openFolder(page: Page, secondaryDiagnosis = "Synthetic prepared diagnosis", currentSymptoms?: string, section = "diagnosis_clinical") {
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", {
@@ -129,15 +129,16 @@ for (const width of [1440, 1024, 768, 640]) {
 for (const width of [1440, 1024, 768, 640, 390, 320]) {
   test(`folder keeps identity, navigation and one safe return usable at ${width}px`, async ({ page }, info) => {
     await page.setViewportSize({ width, height: 900 });
-    const { referral, assessment, folder } = await openFolder(page);
+    const { assessment, folder } = await openFolder(page);
+    await leaveInterviewFullScreen(page);
     const header = page.getByTestId("workspace-folder-header");
     const back = workspaceReturn(page);
-    await expect(header.getByRole("heading", { name: referral.name, exact: true })).toBeVisible();
+    await expect(page.getByTestId("workspace-identity-title")).toBeVisible();
     await expect(back).toBeInViewport();
     expect(await header.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
     expect(await folder.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
     await expect(folder).toHaveCSS("background-image", "none");
-    const titleBox = (await header.getByRole("heading").boundingBox())!;
+    const titleBox = (await page.getByTestId("workspace-identity-title").boundingBox())!;
     const backBox = (await back.boundingBox())!;
     if (width >= 640) expect(backBox.x + backBox.width).toBeLessThanOrEqual(titleBox.x);
     else expect(backBox.y + backBox.height).toBeLessThanOrEqual(titleBox.y);
@@ -154,7 +155,7 @@ for (const width of [1440, 1024, 768, 640, 390, 320]) {
       await expect(picker.locator("optgroup option")).toHaveText(["Files", "Activity"]);
       await expect(picker.locator("option:checked")).toHaveText("Assessment");
     } else {
-      await expect(pages.getByRole("button")).toHaveText(["Chart", "Assessment", "Decision", "Placement"]);
+      expect(await pages.getByRole("button").evaluateAll((buttons) => buttons.map((button) => button.getAttribute("aria-label")))).toEqual(["Chart", "Decision", "Assessment", "Placement"]);
       await expect(pages.getByRole("button", { name: "Assessment", exact: true })).toHaveAttribute("aria-current", "page");
     }
     if (width < 640) {
@@ -172,7 +173,7 @@ for (const width of [1440, 1024, 768, 640, 390, 320]) {
     if (width < 640) await expect(folder.getByRole("textbox", { name: "Current symptoms", exact: true })).toBeVisible();
 
     if (width >= 640) {
-      await expect(folder.locator('footer[aria-label="Assessment actions"]').getByRole("button", { name: "Next section", exact: true })).toBeInViewport();
+      await expect(folder.locator('footer[aria-label="Assessment actions"]').getByRole("button", { name: "Review assessment", exact: true })).toBeInViewport();
     } else {
       expect((await header.boundingBox())!.height).toBeLessThanOrEqual(110);
       const menu = page.getByRole("button", { name: /^Open page menu/ });

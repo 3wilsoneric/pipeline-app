@@ -189,8 +189,11 @@ test("an assessment chart pencil resumes its exact answer and saves it back to t
   } });
   expect(legacy.status(), await legacy.text()).toBe(200);
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=prior_history`);
+  // Recovery keeps the workspace inert until saved work has been checked.
+  await expect(page.getByTestId("packet-workspace")).toHaveAttribute("aria-busy", "false");
   const answer = page.locator("#assessment-prior_placements");
   await answer.fill("Synthetic prior placement");
+  await expect(answer).toHaveValue("Synthetic prior placement");
   await openAssessmentChart(page);
   const record = page.getByRole("article", { name: "Assessment record", exact: true });
   await expect(record).not.toContainText("Resident number");
@@ -199,6 +202,8 @@ test("an assessment chart pencil resumes its exact answer and saves it back to t
   await expect(record.getByRole("button", { name: "Edit Longest sobriety in the last five years", exact: true })).toHaveCount(0);
   await record.locator(":scope > details > summary").click();
   await record.locator("details summary").filter({ hasText: "Record details" }).click();
+  const details = record.locator(":scope > details");
+  if (await details.getAttribute("open") === null) await details.locator(":scope > summary").click();
   const edit = record.getByRole("button", { name: "Edit Earlier care placements", exact: true });
   await expect(edit.locator("svg")).toBeVisible();
   await edit.click();

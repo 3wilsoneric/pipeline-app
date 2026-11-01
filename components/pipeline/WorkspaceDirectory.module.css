@@ -54,3 +54,7 @@ main.directory[data-guide-target="workspace-directory"] { background: var(--colo
 }
 
 @media (max-width: 1023px) { .worklist > .rows { border-top: 2px solid var(--color-task-edge); border-radius: var(--radius-input); } }
+
+@media (max-width: 639px) {
+  .directory [aria-label="Workspace navigation"] { padding: 4px; gap: 4px; }
+}

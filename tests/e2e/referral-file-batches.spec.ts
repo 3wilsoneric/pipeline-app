@@ -7,7 +7,6 @@ test("a draft recovers queued bytes and document labels before referral creation
   await page.goto(`/?view=referrals&screen=packet&draftId=${randomUUID()}`);
   await expect(page.locator('[data-performance-ready="packet"]')).toBeVisible();
   await page.getByRole("textbox", { name: "NAME", exact: true }).fill("Robin Recovery");
-  await page.getByTestId("document-checklist-toggle").click();
   await page.getByTestId("referral-documents-input").setInputFiles([
     { name: "recovery-a.txt", mimeType: "text/plain", buffer: Buffer.from("Recovery document A") },
     { name: "recovery-b.txt", mimeType: "text/plain", buffer: Buffer.from("Recovery document B") },
@@ -16,7 +15,6 @@ test("a draft recovers queued bytes and document labels before referral creation
   await expect(page.getByTestId("workspace-save-status")).toContainText("Saved on this device");
   await page.reload();
   await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toHaveValue("Robin Recovery");
-  await page.getByTestId("document-checklist-toggle").click();
   const queued = page.getByRole("list", { name: "Queued referral files" });
   await expect(queued).toContainText("Medication list");
   await expect(queued).toContainText("Provider form");
@@ -36,7 +34,6 @@ test("keeps intake and later referral files in one workspace", async ({ page }) 
   const name = `Batch File Client ${randomUUID().slice(0, 8)}`;
   await page.goto(`/?view=referrals&screen=packet&draftId=${randomUUID()}`);
   await page.getByRole("textbox", { name: "NAME", exact: true }).fill(name);
-  await page.getByTestId("document-checklist-toggle").click();
   await page.getByTestId("referral-documents-input").setInputFiles([
     { name: "batch-face-sheet.pdf", mimeType: "application/pdf", buffer: Buffer.from(`packet-${name}`) },
     { name: "batch-referral-note.pdf", mimeType: "application/pdf", buffer: Buffer.from(`note-${name}`) },

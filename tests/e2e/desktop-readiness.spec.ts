@@ -241,6 +241,10 @@ test.describe("desktop feature enabled", () => {
   });
 
   test("lists and resumes an interrupted pre-workspace intake", async ({ page }) => {
+    const layout = await page.request.put("/api/me/home-layout", { data: { layout: {
+      schema: 3, module_ids: ["current-work", "recent-work"], locked: true,
+    } } });
+    expect(layout.status(), await layout.text()).toBe(200);
     await page.goto("/?view=referrals");
     const draftId = randomUUID();
     const draftKey = `new-${draftId}`;
@@ -265,8 +269,8 @@ test.describe("desktop feature enabled", () => {
       ]),
     });
 
-    await page.reload();
-    const recovery = page.getByRole("region", { name: "Unfinished referral intake" });
+    await page.goto("/");
+    const recovery = page.getByRole("region", { name: "Continue working" });
     await expect(recovery).toBeVisible();
     await recovery.getByText(clientName, { exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`draftId=${draftId}`));

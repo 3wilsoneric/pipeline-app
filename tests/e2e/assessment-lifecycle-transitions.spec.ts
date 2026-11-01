@@ -42,7 +42,7 @@ test("signing completes while internal tabs remain usable and app exit waits", a
     await pending;
     await route.continue();
   });
-  await page.getByRole("button", { name: "Sign & continue to decision", exact: true }).click();
+  await page.getByRole("button", { name: "Sign assessment", exact: true }).click();
   await page.getByRole("alertdialog", { name: "Sign this assessment?", exact: true }).getByRole("button", { name: "Sign assessment", exact: true }).click();
   await requested;
   const stages = page.getByRole("navigation", { name: "Workspace stages", exact: true });
@@ -52,7 +52,10 @@ test("signing completes while internal tabs remain usable and app exit waits", a
     await page.getByRole("button", { name: "Open calendar", exact: true }).evaluate((button) => (button as HTMLButtonElement).click());
     await expect(page).not.toHaveURL(/screen=calendar/);
   } finally { release(); }
-  await expect(stages.getByRole("button", { name: "Decision", exact: true })).toHaveAttribute("aria-current", "page");
+  await expect.poll(async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment.signed_at).toBeTruthy();
+  await stages.getByRole("button", { name: "Assessment", exact: true }).click();
+  await page.locator('footer[aria-label="Assessment actions"]').getByRole("button", { name: "Review assessment", exact: true }).click();
+  await expect(page.getByRole("region", { name: "Admission decision", exact: true })).toBeVisible();
   const saved = (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
   expect(saved.signed_at).toBeTruthy();
   expect(saved.audit_events.filter((event: { action: string }) => event.action === "assessment_signed")).toHaveLength(1);
@@ -70,9 +73,9 @@ test("a lost sign response replays one signature with the same mutation ID", asy
     else await route.fulfill({ response });
   });
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentMode=review`);
-  await page.getByRole("button", { name: "Sign & continue to decision", exact: true }).click();
+  await page.getByRole("button", { name: "Sign assessment", exact: true }).click();
   await page.getByRole("alertdialog", { name: "Sign this assessment?", exact: true }).getByRole("button", { name: "Sign assessment", exact: true }).click();
-  await expect(page.getByRole("navigation", { name: "Workspace stages", exact: true }).getByRole("button", { name: "Decision", exact: true })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("region", { name: "Admission decision", exact: true })).toBeVisible();
   expect(mutationIds).toHaveLength(2);
   expect(mutationIds[1]).toBe(mutationIds[0]);
   const saved = (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
@@ -184,11 +187,11 @@ test("a failed referral refresh after signing does not reopen the signature or b
   });
 
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentMode=review`);
-  await page.getByRole("button", { name: "Sign & continue to decision", exact: true }).click();
+  await page.getByRole("button", { name: "Sign assessment", exact: true }).click();
   await page.getByRole("alertdialog", { name: "Sign this assessment?", exact: true }).getByRole("button", { name: "Sign assessment", exact: true }).click();
 
   await expect.poll(() => failedRefreshes).toBeGreaterThanOrEqual(1);
-  await expect(page.getByRole("navigation", { name: "Workspace stages", exact: true }).getByRole("button", { name: "Decision", exact: true })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("region", { name: "Admission decision", exact: true })).toBeVisible();
   expect(signed).toBe(true);
   const saved = (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
   expect(saved.signed_at).toBeTruthy();

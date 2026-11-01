@@ -757,9 +757,9 @@
   .intakeFooter .createTab::after { content: none; }
 }
 
-.phoneWorkspace .tabRow:has([data-workspace-notes]) { grid-template-columns: minmax(0, 1fr) auto auto; }
-.phoneWorkspace [data-workspace-notes] { grid-column: 2; grid-row: 1; }
-.phoneWorkspace .tabRow:has([data-workspace-notes]) .stages { grid-column: 1 / -1; grid-row: 2; }
+.phoneWorkspace .tabRow:has([data-workspace-notes]) { grid-template-columns: minmax(0, 1fr) minmax(108px, 140px) auto auto; }
+.phoneWorkspace [data-workspace-notes] { grid-column: 3; grid-row: 1; }
+.phoneWorkspace .tabRow:has([data-workspace-notes]) .stages { grid-column: 2; grid-row: 1; }
 
 /* Decision is a chart tool; the journey contains the three working stages. */
 .stageEntry { display: flex; align-items: flex-end; position: relative; min-width: 0; }
@@ -773,4 +773,11 @@
   .verticalFlow .stageEntry > .stageTab { width: 100%; }
   .verticalFlow .filedDecision { margin: -4px 0 4px 32px; padding: 4px 12px; }
   .verticalFlow .filedDecision::before { content: ""; width: 12px; height: 12px; align-self: start; margin-top: 8px; border-left: 1px solid var(--color-control-border); border-bottom: 1px solid var(--color-control-border); }
+}
+
+.phoneWorkspace .tabRow:has([data-workspace-notes]) .actions { grid-column: 4; }
+.phoneWorkspace .actions .trashTab { width: var(--spacing-control); min-height: var(--spacing-control); padding: 0; justify-content: center; }
+.phoneWorkspace .actions .trashTab span { display: none; }
+@media (max-height: 500px) and (orientation: landscape) {
+  .phoneWorkspace .connectedFolder:has([data-phone-interview]) > div { padding: 0; }
 }
