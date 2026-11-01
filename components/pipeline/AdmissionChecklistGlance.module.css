@@ -54,13 +54,25 @@ li[data-complete="true"] .item strong { color: var(--color-ink-2); font-weight: 
 
 /* Chart built by the process (docs/design/DECISIONS.md, "Chart built by the process"): one section per step in the
    order of the work; a filed step gets a green stamp, a step under way a muted status line. */
-.process { display: flex; flex-direction: column; gap: 28px; margin-top: 24px; }
-.stage { min-width: 0; border: 1px solid var(--color-card-border); border-radius: var(--radius-paper); overflow: hidden; background: var(--color-paper); }
-.stageHead { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 12px 18px; border-bottom: 1px solid var(--color-paper-rule); background: var(--color-sheet); }
-.stage[data-chart-stage="Decision"] .stageHead, .stage[data-chart-stage="Handoff"] .stageHead { background: var(--color-stage-orange-tile); border-color: var(--color-stage-orange-border); }
+/* A continuous record of completed work; the links reopen the existing editors. */
+.process { display: flex; flex-direction: column; margin-top: 24px; border-top: 2px solid var(--color-control-border); }
+.stage { min-width: 0; padding: 20px 0; border-bottom: 1px solid var(--color-paper-rule); background: var(--color-paper); }
+.stageHead { display: grid; grid-template-columns: minmax(120px, auto) minmax(0, 1fr) auto; align-items: center; gap: 8px 20px; }
 .stageHead h2 { margin: 0; color: var(--color-ink); font-size: var(--text-section); line-height: var(--text-section--line-height); font-weight: 700; }
-.stamp { display: inline-flex; align-items: center; gap: 6px; min-width: 0; color: var(--color-ink-muted); font-size: var(--text-label); line-height: var(--text-label--line-height); font-weight: 600; }
-.stage[data-filed] .stamp { padding: 2px 10px; border: 1px solid var(--color-stage-green-border); border-radius: var(--radius-pill); background: var(--color-status-done-soft); color: var(--color-stage-green); }
-.stageHead .open { margin-left: auto; }
-.stageBody { display: flex; flex-direction: column; gap: 12px; padding: 16px 18px; }
-.stageBody > .glance { margin: 0; }
+.stamp { display: inline-flex; align-items: center; gap: 6px; min-width: 0; color: var(--color-ink-muted); font-size: var(--text-label); line-height: var(--text-label--line-height); }
+.stage[data-filed] .stamp { color: var(--color-stage-green); }
+.stageHead .open { justify-self: end; color: var(--color-link); }
+.stageBody { display: flex; flex-direction: column; gap: 10px; padding-top: 8px; }
+.stageBody > .appointment { margin: 0; }
+.stageBody [data-chart-unanswered] { padding: 0; font-size: var(--text-label); }
+.stageBody > .glance { margin: 0; padding: 8px 0; border: 0; box-shadow: none; }
+.stageBody .facts { gap: 14px 24px; margin: 0; }
+.stageBody .facts > div { padding: 0; border: 0; background: transparent; }
+.stageBody [data-assessment-collapsible] { border: 0; }
+.stageBody [data-assessment-collapsible] > details > summary { padding: 10px 14px; border: 1px solid var(--color-paper-rule); border-radius: var(--radius-input); background: var(--color-card-warm); }
+.stageBody [data-assessment-collapsible] h2 { font-size: var(--text-value); }
+@media (max-width: 640px) {
+  .stageHead { grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; }
+  .stageHead .stamp { grid-column: 1; grid-row: 2; }
+  .stageHead .open { grid-column: 2; grid-row: 1 / 3; font-size: var(--text-label); }
+}

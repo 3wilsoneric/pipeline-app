@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { Children, useEffect, useState, type ReactNode } from "react";
 import { ArrowRight, Check, ChevronDown, Circle, Minus } from "lucide-react";
 
 import { fetchPipelineJson, readPipelineJsonCache, usePipelineDataGeneration } from "@/lib/auth/authenticated-fetch";
@@ -193,6 +193,6 @@ function ChartStage({ id, title, filed, status, action, children }: { id: string
       {status ? <span className={styles.stamp}>{filed ? <Check size={13} strokeWidth={3} aria-hidden="true" /> : null}{status}</span> : null}
       {action}
     </header>
-    {children ? <div className={styles.stageBody}>{children}</div> : null}
+    {Children.toArray(children).length ? <div className={styles.stageBody}>{children}</div> : null}
   </section>;
 }

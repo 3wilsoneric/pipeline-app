@@ -22,7 +22,10 @@ for (const width of [1440, 390]) {
     const { handoff, id } = await createFromIntake(page);
     expect(await handoff.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
     await page.screenshot({ path: info.outputPath(`created-${width}.png`) });
-    await handoff.getByRole("button", { name: /Schedule assessment/ }).click();
+    await expect(handoff.getByRole("button", { name: /Schedule assessment/ })).toHaveCount(0);
+    await handoff.getByRole("button", { name: "Assessment prep", exact: true }).click();
+    await expect(page.getByRole("dialog", { name: "Schedule interview", exact: true })).toHaveCount(0);
+    await page.getByRole("button", { name: "Schedule interview", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "Schedule interview", exact: true });
     await expect(dialog).toBeVisible();
     const read = async () => (await (await page.request.get(`/api/referrals/${id}/assessments`)).json()).assessments;
@@ -120,7 +123,10 @@ test("Workspaces resumes the intake handoff until an option is chosen", async ({
   await page.getByRole("button", { name: `Open ${name} referral workspace`, exact: true }).click();
   await expect(handoff).toBeVisible();
   expect((await (await page.request.get(`/api/referrals/${id}/assessments`)).json()).assessments).toHaveLength(0);
-  await handoff.getByRole("button", { name: /Schedule assessment/ }).click();
+  await expect(handoff.getByRole("button", { name: /Schedule assessment/ })).toHaveCount(0);
+  await handoff.getByRole("button", { name: "Assessment prep", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Schedule interview", exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "Schedule interview", exact: true }).click();
   const schedule = page.getByRole("dialog", { name: "Schedule interview", exact: true });
   await expect(schedule).toBeVisible();
   await page.goto("/?view=referrals");

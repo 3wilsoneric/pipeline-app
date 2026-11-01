@@ -136,8 +136,7 @@ test("review summary links back to editable sections and explains signing", asyn
   await expect(sections.getByRole("button")).toHaveCount(12);
   await expect(sections.getByRole("button").first()).toContainText("recorded");
   const signing = page.getByRole("region", { name: "What signing does", exact: true });
-  await expect(signing).toContainText("does not record the admission decision");
-  await expect(signing).toContainText("does not send the Meet the Client packet");
+  await expect(signing).toContainText("The decision and email are separate actions");
   await expect(signing).toContainText("Unanswered items stay unanswered");
   await expect(page.getByRole("region", { name: "Placement recommendation", exact: true })).toBeVisible();
   await page.screenshot({ path: info.outputPath("assessment-review-summary.png"), fullPage: true, animations: "disabled" });
@@ -146,7 +145,14 @@ test("review summary links back to editable sections and explains signing", asyn
   await sections.getByRole("button").nth(1).click();
   await expect(page).toHaveURL(/workspaceStage=assessment/);
   await expect(page.getByRole("region", { name: "Assessment questions", exact: true })).toBeVisible();
-  await expect(page.getByRole("region", { name: "Assessment questions", exact: true }).getByRole("textbox").first()).toBeEditable();
+  await expect(page.locator('[data-working-field="diagnosis_categories"] input').first()).toBeFocused();
+  // Preparation gaps open preparation; an interview gap opens its question directly.
+  await expect(page).toHaveURL(/assessmentMode=prepare/);
+  await page.goto(`${url}&assessmentMode=review`);
+  await page.locator("summary").filter({ hasText: /^Answers by section/ }).click();
+  await page.getByRole("list", { name: /^Answers by section/ }).getByRole("button").filter({ hasText: "Anything else" }).click();
+  await expect(page).toHaveURL(/assessmentMode=interview/);
+  await expect(page.getByRole("textbox", { name: "Additional information", exact: true })).toBeFocused();
   expect((await read()).signed_at).toBeNull();
   expect((await (await page.request.get(`/api/referrals/${referral.id}/workflow`)).json()).decision).toBeNull();
 });

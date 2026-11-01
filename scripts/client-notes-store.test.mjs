@@ -9,6 +9,17 @@ import { actor, clean, loadEntry, root } from "./contact-import-fixtures.mjs";
 
 const noteModel = loadEntry("lib/pipeline/client-notes.ts");
 
+test("a pending consolidation can deliberately remove carried text even when the result matches the old unified note", () => {
+  const entries = {
+    notes: { body: "Original", saved: "Original", updated_at: "2026-11-01T10:00:00Z", consolidate: true },
+    before: { body: "Later legacy text", saved: "Later legacy text", updated_at: "2026-11-01T11:00:00Z" },
+  };
+  assert.equal(noteModel.combinedClientNote(entries), "Original");
+  entries.notes = { body: "Original", saved: "Original", updated_at: "2026-11-01T12:00:00Z" };
+  assert.equal(noteModel.combinedClientNote(entries), "Original");
+  assert.equal(entries.before.body, "Later legacy text", "the original record is retained");
+});
+
 test("one editor carries every existing topic note and picks up later legacy edits", () => {
   const [first, second] = noteModel.noteHeadings();
   const entries = {

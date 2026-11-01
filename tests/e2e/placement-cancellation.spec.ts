@@ -39,7 +39,7 @@ for (const width of [1440, 390]) test(`accepted placement can be cancelled witho
   await page.goto(`/?view=referrals&screen=packet&referralId=${accepted.id}&workspaceView=email`);
   await expect(page.getByRole("region", { name: "Handoff follow-through" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Placement did not happen" })).toHaveCount(0);
-  await page.getByRole("button", { name: "More actions" }).click();
+  await page.getByRole("button", { name: "Handoff actions" }).click();
   const actions = page.getByRole("dialog", { name: "Handoff actions" });
   await expect(actions).toBeVisible();
   await expect(actions).not.toContainText(/ElderMark|manual entry|Mark pending|Record issue/i);

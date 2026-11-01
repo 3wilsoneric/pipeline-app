@@ -1,6 +1,7 @@
 import { closeTestBrowser } from "./support/browser-lifecycle";
 import { chromium, expect, test, webkit, type Locator } from "@playwright/test";
 import { randomUUID } from "node:crypto";
+import { createCanvas } from "@napi-rs/canvas";
 import { confirmReferralFileLabels } from "./support/referral-upload";
 import { createOperationalReferral } from "./support/operational-api";
 
@@ -51,6 +52,10 @@ for (const [name, browserType] of [["chromium", chromium], ["webkit", webkit]] a
       await page.screenshot({ path: info.outputPath("intake-drag-over.png"), animations: "disabled" });
       expect(await dragFiles(toggle, ["dropped-face-sheet.pdf", "dropped-care-note.pdf"])).toEqual([true]);
       await expect(documents).not.toHaveAttribute("data-file-drag-active");
+      const preview = page.getByTitle("Preview dropped-face-sheet.pdf", { exact: true });
+      await expect(preview).toBeVisible();
+      await expect(preview).toHaveAttribute("src", /^blob:/);
+      await page.screenshot({ path: info.outputPath("intake-pdf-preview.png"), animations: "disabled" });
       await confirmReferralFileLabels(page, { "dropped-care-note.pdf": "assessment" });
       await expect(page.getByRole("list", { name: "Queued referral files" })).toContainText("dropped-face-sheet.pdf");
       const queued = page.getByRole("list", { name: "Queued referral files" });
@@ -168,4 +173,90 @@ test("read-only intake does not accept dropped files", async ({ page }) => {
   expect(uploads).toEqual([]);
   const saved = (await (await page.request.get(`/api/referrals/${referral.id}`)).json()).referral;
   expect(saved.documentName).not.toBe("forbidden.pdf");
+});
+
+for (const width of [1440, 390]) test(`selected files can be inspected and removed before upload at ${width}px`, async ({ page }, info) => {
+  await page.setViewportSize({ width, height: 900 });
+  await page.goto(`/?view=referrals&screen=packet&draftId=${randomUUID()}`);
+  await expect(page.locator('[data-performance-ready="packet"]')).toBeVisible();
+  const mutations: string[] = [];
+  page.on("request", (request) => { if (request.method() === "POST" && /\/api\/(uploads|referrals|packets)/.test(request.url())) mutations.push(request.url()); });
+  await page.evaluate(() => {
+    const state = window as unknown as { previewPolicyFailures: string[]; revokedPreviews: string[] };
+    state.previewPolicyFailures = [];
+    state.revokedPreviews = [];
+    document.addEventListener("securitypolicyviolation", event => state.previewPolicyFailures.push(event.violatedDirective));
+    const revoke = URL.revokeObjectURL.bind(URL);
+    URL.revokeObjectURL = url => { state.revokedPreviews.push(url); revoke(url); };
+  });
+  const canvas = createCanvas(600, 400);
+  const context = canvas.getContext("2d");
+  context.fillStyle = "white";
+  context.fillRect(0, 0, 600, 400);
+  context.fillStyle = "black";
+  context.font = "24px sans-serif";
+  context.fillText("Synthetic medication list", 30, 60);
+  context.fillText("Local preview fixture", 30, 110);
+  await page.getByTestId("referral-documents-input").setInputFiles([
+    { name: "medication-list.pdf", mimeType: "application/pdf", buffer: Buffer.from(syntheticPdf()) },
+    { name: "referral-note.txt", mimeType: "text/plain", buffer: Buffer.from("Synthetic reference\n<img src=x onerror=alert(1)>\nKeep these original bytes.") },
+    { name: "medication-photo.png", mimeType: "image/png", buffer: canvas.toBuffer("image/png") },
+    { name: "unknown.html", mimeType: "text/html", buffer: Buffer.from("<script>window.top.__unsafePreview=true</script>") },
+    { name: "mislabeled.pdf", mimeType: "application/pdf", buffer: Buffer.from("<html><script>window.top.__unsafePreview=true</script></html>") },
+  ]);
+  const dialog = page.getByRole("dialog", { name: "Label your files", exact: true });
+  const pdf = dialog.getByTitle("Preview medication-list.pdf", { exact: true });
+  await expect(pdf).toBeVisible();
+  await expect(pdf).toHaveAttribute("src", /^blob:/);
+  const url = (await pdf.getAttribute("src"))?.split("#")[0];
+  await dialog.getByRole("button", { name: "Preview referral-note.txt", exact: true }).click();
+  const text = dialog.locator("pre");
+  await expect(text).toContainText("Keep these original bytes.");
+  await expect(text.locator("img")).toHaveCount(0);
+  await expect.poll(() => page.evaluate(() => (window as unknown as { revokedPreviews: string[] }).revokedPreviews)).toContain(url);
+  await expect(dialog.getByRole("combobox", { name: "Document type for medication-list.pdf", exact: true })).toHaveValue("medication_list");
+  await page.addScriptTag({ path: "node_modules/axe-core/axe.min.js" });
+  const violations = await page.evaluate(async () => (await (window as unknown as { axe: typeof import("axe-core") }).axe.run(document.querySelector("dialog[open]")!, { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21aa"] } })).violations);
+  expect(violations).toEqual([]);
+  expect(await dialog.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+  await page.screenshot({ path: info.outputPath(`selected-files-preview-${width}.png`), animations: "disabled" });
+  await dialog.getByRole("button", { name: "Preview medication-photo.png", exact: true }).click();
+  const image = dialog.getByRole("img", { name: "Preview medication-photo.png", exact: true });
+  await expect(image).toBeVisible();
+  await expect.poll(() => image.evaluate(el => (el as HTMLImageElement).naturalWidth)).toBe(600);
+  const imageUrl = await image.getAttribute("src");
+  await dialog.getByRole("button", { name: "Preview unknown.html", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => (window as unknown as { revokedPreviews: string[] }).revokedPreviews)).toContain(imageUrl);
+  await expect(dialog).toContainText("Preview isn’t available for this file type.");
+  await dialog.getByRole("button", { name: "Preview mislabeled.pdf", exact: true }).click();
+  await expect(dialog).toContainText("Preview unavailable. You can still add this file.");
+  await expect(dialog.locator("iframe")).toHaveCount(0);
+  await dialog.getByRole("button", { name: "Remove mislabeled.pdf", exact: true }).click();
+  await expect(dialog.getByRole("combobox", { name: "Document type for mislabeled.pdf", exact: true })).toHaveCount(0);
+  expect(await page.evaluate(() => (window as unknown as { __unsafePreview?: boolean }).__unsafePreview)).toBeUndefined();
+  await expect.poll(() => page.evaluate(() => (window as unknown as { previewPolicyFailures: string[] }).previewPolicyFailures)).toEqual([]);
+  await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByRole("list", { name: "Queued referral files" })).toHaveCount(0);
+  expect(mutations).toEqual([]);
+});
+
+test("medication files remain at the top and earlier typed history still saves", async ({ page }) => {
+  const history = "Synthetic earlier medication history";
+  const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { owner: "", currentMedications: history });
+  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=intake&workspaceField=currentMedications`);
+  await expect(page.getByRole("heading", { name: /^Medication list/ })).toHaveCount(0);
+  const toggle = page.getByText("Earlier typed medication history", { exact: true });
+  await toggle.click();
+  const field = page.locator('[data-workspace-field="currentMedications"] textarea');
+  await expect(field).toHaveValue(history);
+  expect(await field.evaluate(el => Boolean(el.closest("aside")?.querySelector('[data-guide-target="workspace-files-upload"]')))).toBe(true);
+  await field.fill(`${history}\nSynthetic update`);
+  await page.getByRole("textbox", { name: "NAME", exact: true }).focus();
+  await expect.poll(async () => (await (await page.request.get(`/api/referrals/${referral.id}`)).json()).referral.currentMedications).toBe(`${history}\nSynthetic update`);
+  await page.reload();
+  await page.getByText("Earlier typed medication history", { exact: true }).click();
+  await expect(field).toHaveValue(`${history}\nSynthetic update`);
+  await page.getByRole("button", { name: "Document checklist", exact: true }).click();
+  await expect(page.getByRole("region", { name: "Document checklist", exact: true }).getByText("Signed Medication List", { exact: true })).toBeVisible();
 });

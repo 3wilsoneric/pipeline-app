@@ -1,22 +1,29 @@
-/* Chart drawer over the interview (docs/design/DECISIONS.md, "Interview context"). Redesign only. */
-
-.trigger { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px; border: 1px solid var(--color-control-border); border-radius: var(--radius-input); background: var(--color-paper); color: var(--color-ink-2); font-size: var(--text-label); font-weight: 600; }
-.trigger svg { color: var(--color-link); }
-.trigger:hover { border-color: var(--color-ink-muted); color: var(--color-ink); }
-.trigger:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
-
-.drawer { width: min(820px, 94vw); max-width: none; height: 100dvh; max-height: none; margin: 0 0 0 auto; padding: 0; overflow: hidden; border: 0; border-left: 1px solid var(--color-card-border); background: var(--color-page); box-shadow: var(--shadow-popover); color: var(--color-ink); }
-.drawer[open] { display: flex; flex-direction: column; animation: chart-peek-in var(--duration-move) var(--ease-open); }
-.drawer::backdrop { background: rgb(15 23 42 / 0.28); }
-
-.head { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 0 12px 0 20px; border-bottom: 1px solid var(--color-card-border); background: var(--color-paper); }
-.head h2 { margin: 0; font-size: var(--text-section); line-height: var(--text-section--line-height); font-weight: 700; }
-.close { display: grid; place-items: center; width: 40px; height: 40px; margin-left: auto; border-radius: var(--radius-input); color: var(--color-ink-muted); }
-.close:hover { background: var(--color-segment); color: var(--color-ink); }
-.close:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 1px; }
-
-.body { flex: 1; min-height: 0; padding: 16px 20px 32px; overflow-y: auto; overscroll-behavior: contain; }
-.body > * + * { margin-top: 16px; }
-
-@keyframes chart-peek-in { from { transform: translateX(24px); opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { .drawer[open] { animation: none; } }
+/* A movable reference, never a modal: the assessment stays usable underneath. */
+.trigger, .close, .handle { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; color: var(--color-link); border-radius: var(--radius-input); }
+.trigger { gap: 8px; padding: 0 12px; border: 1px solid var(--color-control-border); background: var(--color-paper); font-size: var(--text-label); font-weight: 600; }
+.source { touch-action: none; user-select: none; }
+.source[data-chart-lifted] { cursor: grabbing; }
+.source[data-chart-lifted] :global([data-pipeline-picture="chart"]) { transform: translateY(-4px) rotate(-5deg); }
+.trigger:hover, .close:hover, .handle:hover { background: var(--color-segment); }
+.trigger:focus-visible, .close:focus-visible, .handle:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.panel { position: fixed; z-index: 45; display: flex; flex-direction: column; width: min(520px, calc(100vw - 24px)); height: min(620px, calc(100dvh - 24px)); max-height: calc(100dvh - 24px); overflow: hidden; border: 1px solid var(--color-control-border); border-top: 4px solid var(--color-link); border-radius: var(--radius-sheet); background: var(--color-paper); box-shadow: var(--shadow-popover); color: var(--color-ink); animation: chart-unfold var(--duration-move) var(--ease-open); transform-origin: top left; }
+.panel:focus { outline: none; }
+.head { display: flex; align-items: center; gap: 8px; padding: 4px 8px; flex: 0 0 auto; background: var(--color-card-warm); border-bottom: 1px solid var(--color-card-border); }
+.head h2 { margin: 0; font-size: var(--text-section); font-weight: 700; }
+.close { margin-left: auto; }
+.handle { cursor: grab; touch-action: none; }
+.handle:active { cursor: grabbing; }
+.body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; overflow-wrap: anywhere; container: chart-reference / inline-size; }
+.body > * + * { margin-top: 12px; }
+.body :global(article[aria-label="Referral chart"] > header) { display: block; }
+.body :global(article[aria-label="Referral chart"] > header > div:first-child) { padding: 0; }
+.body :global(article[aria-label="Referral chart"] > header > div:not(:first-child)) { display: flex; align-items: baseline; gap: 8px; padding: 8px 16px; border: 0; }
+/* Canonical chart grids normally follow viewport width; this panel follows its own width. */
+.body :global([data-chart-grid]) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.body :global([data-chart-field]) { padding: 12px 16px; min-height: 0; }
+.body :global([data-chart-field="Client"]) { grid-column: 1 / -1; }
+.ghost { position: fixed; z-index: 110; pointer-events: none; transform: translate(-24px, -24px) rotate(-8deg); padding: 12px; background: var(--color-paper); border: 1px solid var(--color-control-border); border-radius: var(--radius-paper); box-shadow: var(--shadow-file-lift); }
+@keyframes chart-unfold { from { opacity: 0; transform: scale(.86) translateY(-12px); } }
+@media (max-width: 639px) { .panel { height: min(480px, 60dvh); } }
+@container chart-reference (max-width: 400px) { .body :global([data-chart-field]), .body :global([data-chart-fact]) { grid-column: 1 / -1; } }
+@media (prefers-reduced-motion: reduce) { .panel { animation: none; } .source[data-chart-lifted] :global([data-pipeline-picture="chart"]) { transform: none; } }

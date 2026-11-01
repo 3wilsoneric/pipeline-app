@@ -1,7 +1,7 @@
 import ReferralAdmissionPanel from "./ReferralAdmissionPanel";
 import PipelineIllustration from "./PipelineIllustration";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
-import { ArrowRight, Check, CheckCircle2, Circle, Clock3, LoaderCircle, Minus, PanelRightOpen, X } from "lucide-react";
+import { ArrowRight, Check, CheckCircle2, Circle, Clock3, LoaderCircle, Minus, SlidersHorizontal, X } from "lucide-react";
 
 import ActionDetailDialog from "@/components/pipeline/ActionDetailDialog";
 import ReferralClientActivationPanel from "@/components/pipeline/ReferralClientActivationPanel";
@@ -141,7 +141,7 @@ export function ReferralWorkflowPanelPresentation({
       {workflow.decision ? <p className={styles.placementNotice}>This referral was denied. Its decision remains in the record.</p> : null}
       {placementContent ? <div className={styles.placementHandoff}>{placementContent}</div> : onOpenDecision ? <SecondaryButton onClick={onOpenDecision}>Open decision</SecondaryButton> : null}
     </> : <>
-      <div className={styles.placementIntro}><div className={styles.placementHeading}><div><h3 className="sr-only">Meet the Client</h3><p role="status">{workflow.referral.placementCancellation ? "Did not move in" : view.currentReferral.stage === "Accepted / Admitted" ? "Admitted" : workflow.context.packetSentAt ? "Sent · Awaiting verified admission" : "Accepted · Not sent"}</p></div><button ref={followUpTriggerRef} type="button" aria-haspopup="dialog" aria-expanded={followUpOpen} className={styles.followUpTrigger} onClick={openFollowUp}><PanelRightOpen size={18} aria-hidden="true" />More actions</button></div></div>
+      <div className={styles.placementIntro}><div className={styles.placementHeading}><div><h3 className="sr-only">Meet the Client</h3><p role="status">{workflow.referral.placementCancellation ? "Did not move in" : view.currentReferral.stage === "Accepted / Admitted" ? "Admitted" : workflow.context.packetSentAt ? "Sent · Awaiting verified admission" : "Accepted · Not sent"}</p></div><button ref={followUpTriggerRef} type="button" aria-label="Handoff actions" title="Handoff actions" aria-haspopup="dialog" aria-expanded={followUpOpen} className={styles.followUpTrigger} onClick={openFollowUp}><SlidersHorizontal size={18} aria-hidden="true" /></button></div></div>
       <div className={styles.placementMain}>
         {workflow.context.packetSentAt && view.currentReferral.stage !== "Accepted / Admitted" ? <div className={styles.placementPlan}>
           <h4>Planned arrival</h4>
@@ -175,7 +175,7 @@ export function ReferralWorkflowPanelPresentation({
     <section data-guide-target="workspace-decision" aria-label="Admission decision" className={styles.page}>
       <div className={styles.decisionHeader}>
         {!workflow.decision ? <DecisionContext workflow={workflow} busy={busy} onOpenAssessment={onOpenAssessment} /> : null}
-        {workflow.decision?.outcome !== "accepted" ? <div className={styles.followUpBar}><button ref={followUpTriggerRef} type="button" aria-haspopup="dialog" aria-expanded={followUpOpen} className={styles.followUpTrigger} onClick={openFollowUp}><PanelRightOpen size={18} aria-hidden="true" />Other actions</button></div> : null}
+        {workflow.decision?.outcome !== "accepted" ? <div className={styles.followUpBar}><button ref={followUpTriggerRef} type="button" aria-label="Administrative controls" title="Administrative controls" aria-haspopup="dialog" aria-expanded={followUpOpen} className={styles.followUpTrigger} onClick={openFollowUp}><SlidersHorizontal size={18} aria-hidden="true" /></button></div> : null}
       </div>
       {!followUpOpen && message ? <div className={message === "Decision recorded" ? "sr-only" : undefined}><WorkflowNotice tone="success">{message}</WorkflowNotice></div> : null}
       {!followUpOpen && error ? <WorkflowNotice tone="error">{error}</WorkflowNotice> : null}
@@ -183,7 +183,7 @@ export function ReferralWorkflowPanelPresentation({
       <div className={styles.layout} data-recorded={Boolean(workflow.decision) || undefined}>
         <div className={styles.main} ref={resultRef} {...recordedDecisionAttributes(workflow)}>
           <DecisionCard workflow={workflow} busy={busy} recommendation={recommendation} onRecommendationChange={onRecommendationChange} onSubmitDecision={onSubmitDecision} onOpenUnderReviewEmail={onOpenUnderReviewEmail} onOpenAssessment={onOpenAssessment} />
-          {workflow.decision?.outcome === "accepted" && onOpenPlacement ? <div className={styles.decisionNext}><p>The decision is recorded. Continue in Handoff to plan the arrival and prepare Meet the Client.</p><PrimaryButton disabled={Boolean(busy)} onClick={onOpenPlacement}>Continue to Handoff <ArrowRight size={17} aria-hidden="true" /></PrimaryButton></div> : null}
+          {workflow.decision?.outcome === "accepted" && onOpenPlacement ? <div className={styles.decisionNext}><PrimaryButton disabled={Boolean(busy)} onClick={onOpenPlacement}>Continue to Handoff <ArrowRight size={17} aria-hidden="true" /></PrimaryButton></div> : null}
           {showDecisionDone(workflow) && onDone ? (
             <div className={styles.done}>
               <p>{workflow.referral.placementCancellation ? "Placement cancelled. The earlier decision and handoff remain in the record." : workflow.decision ? "No client handoff is needed." : "The referral stays open. Return when you have more information."}</p>
@@ -194,7 +194,7 @@ export function ReferralWorkflowPanelPresentation({
       </div>
 
       <dialog ref={followUpRef} aria-labelledby="decision-follow-up-title" className={styles.followUpDrawer} onClose={() => { setFollowUpOpen(false); followUpTriggerRef.current?.focus(); }} onClick={(event) => { if (event.target === event.currentTarget) event.currentTarget.close(); }}>
-        <div className={styles.followUpHead}><h2 id="decision-follow-up-title">{workflow.decision?.outcome === "accepted" ? "Follow-up tools" : "Other actions"}</h2><button type="button" aria-label="Close follow-up tools" onClick={closeFollowUp}><X size={18} aria-hidden="true" /></button></div>
+        <div className={styles.followUpHead}><h2 id="decision-follow-up-title">Administrative controls</h2><button type="button" aria-label="Close follow-up tools" onClick={closeFollowUp}><X size={18} aria-hidden="true" /></button></div>
         <div className={styles.followUpBody}>
           {followUpOpen && message ? <WorkflowNotice tone="success">{message}</WorkflowNotice> : null}
           {followUpOpen && error ? <WorkflowNotice tone="error">{error}</WorkflowNotice> : null}

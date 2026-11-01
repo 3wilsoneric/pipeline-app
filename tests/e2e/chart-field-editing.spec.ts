@@ -40,7 +40,7 @@ test("late supporting records preserve chart focus and leave intake editing usab
 
 for (const [browserName, browserType] of [["chromium", chromium], ["webkit", webkit]] as const) {
   for (const width of [1440, 834, 390]) {
-    test(`${browserName}: chart pencils open the exact intake field and retain edits at ${width}px`, async ({ baseURL }, info) => {
+    test(`${browserName}: chart values open the exact intake field and retain edits at ${width}px`, async ({ baseURL }, info) => {
       const browser = await browserType.launch();
       try {
         const page = await browser.newPage({ baseURL, viewport: { width, height: 900 }, hasTouch: width < 1000 });
@@ -53,8 +53,9 @@ for (const [browserName, browserType] of [["chromium", chromium], ["webkit", web
         const chart = page.getByRole("article", { name: "Referral chart", exact: true });
         for (const field of ["Client", "Date of birth", "Gender", "Community", "Medication history", "Conserved status"]) {
           const edit = chart.getByRole("button", { name: `Edit ${field}`, exact: true });
-          await expect(edit.locator("svg")).toBeVisible();
-          // The pencil stays visible without repeating the editor hint on every field.
+          await expect(edit.locator("svg")).toHaveCount(0);
+          await expect(edit).toHaveAccessibleDescription(/.+/);
+          // The value is the edit target, with no per-field pencil or repeated hint.
           await expect(edit).not.toContainText("Edit in intake");
           await expect(edit).toHaveAttribute("title", `Edit in intake: ${field}`);
           await expect(edit).toHaveAttribute("aria-description", "Opens this field in intake");
@@ -65,7 +66,7 @@ for (const [browserName, browserType] of [["chromium", chromium], ["webkit", web
         }
         const identityBounds = await chart.locator('[aria-label="Referral identity"]').evaluate((grid) => {
           const fields = Array.from(grid.children).map((element) => element.getBoundingClientRect());
-          return { top: fields.map((rect) => rect.top), ssnWidth: fields[3].width, width: grid.getBoundingClientRect().width };
+          return { top: fields.map((rect) => rect.top), ssnWidth: fields[3].width, width: grid.clientWidth - parseFloat(getComputedStyle(grid).paddingLeft) - parseFloat(getComputedStyle(grid).paddingRight) };
         });
         if (width >= 1024) expect(new Set(identityBounds.top).size).toBe(1);
         else {
@@ -205,7 +206,8 @@ test("an assessment chart pencil resumes its exact answer and saves it back to t
   const details = record.locator(":scope > details");
   if (await details.getAttribute("open") === null) await details.locator(":scope > summary").click();
   const edit = record.getByRole("button", { name: "Edit Earlier care placements", exact: true });
-  await expect(edit.locator("svg")).toBeVisible();
+  await expect(edit.locator("svg")).toHaveCount(0);
+  await expect(edit).toHaveAccessibleDescription("Synthetic prior placement");
   await edit.click();
   await expect(answer).toBeFocused();
   await answer.fill("Synthetic corrected placement");
@@ -328,9 +330,12 @@ test("a chart visit that changes nothing writes nothing, and signing stays in as
   const chart = page.getByRole("article", { name: "Referral chart", exact: true });
   await expect(chart).toBeVisible();
 
-  // Unanswered items read as a neutral way in, not as a warning on the chart.
-  const unanswered = page.getByRole("button", { name: "Review unanswered assessment items", exact: true });
-  await expect(unanswered).toBeVisible();
+  // Chart has one assessment entry, with a neutral answer count.
+  const openAssessment = page.getByRole("button", { name: "Open assessment", exact: true });
+  await expect(openAssessment).toBeVisible();
+  await expect(page.getByRole("button", { name: "Next: Assessment", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Review unanswered assessment items", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Schedule interview", exact: true })).toHaveCount(0);
   await expect(page.getByText(/^Assessment answers: \d+ of \d+ recorded\./)).toBeVisible();
   await expect(page.getByRole("button", { name: /^Sign/ })).toHaveCount(0);
 
@@ -340,7 +345,8 @@ test("a chart visit that changes nothing writes nothing, and signing stays in as
   await page.getByRole("button", { name: "Done", exact: true }).click();
   await expect(chart.getByRole("button", { name: "Edit Phone", exact: true })).toBeFocused();
 
-  await unanswered.click();
+  await openAssessment.click();
+  await page.getByRole("button", { name: "Review assessment", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Review assessment", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: /^Sign/ })).toBeVisible();
   const after = (await (await page.request.get(`/api/referrals/${referral.id}`)).json()).referral;

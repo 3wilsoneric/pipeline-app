@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
-import { Pencil } from "lucide-react";
 
 import { assessmentInterviewFieldLabel, getAssessmentUnableReason, hasAssessmentInterviewValue, type AssessmentInterviewQuestion } from "@/lib/assessment/assessment-interview-schema";
 import type { AssessmentToolData, AssessmentToolFieldKey, AssessmentToolSection } from "@/lib/assessment/assessment-tool-schema";
@@ -109,7 +108,7 @@ export default function InterviewSplit({ topics, data, pending, currentTopic, no
           // Every answer has the full width beneath its label, including short facts.
           return <div key={question.field}><dt>{assessmentInterviewFieldLabel(question.field)}</dt><dd>
             <button type="button" className={styles.answer} aria-label={(finalized ? "Review " : "Edit ") + assessmentInterviewFieldLabel(question.field)} onClick={() => onEdit(question.field)}>
-              <span>{answer}{status === "verify" ? <span className={styles.attention}>Needs verification</span> : status === "reason" ? <span className={styles.attention}>Reason missing</span> : null}</span>{!finalized ? <Pencil size={15} aria-hidden="true" /> : null}
+              <span>{answer}{status === "verify" ? <span className={styles.attention}>Needs verification</span> : status === "reason" ? <span className={styles.attention}>Reason missing</span> : null}</span>
             </button>
             {reason ? <span>{reason}</span> : null}
           </dd></div>;

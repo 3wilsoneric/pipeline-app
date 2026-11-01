@@ -2,20 +2,20 @@
 
 import { fetchPipelineJson, PipelineApiError } from "@/lib/auth/authenticated-fetch";
 import { loadOfflineClientNotes, saveOfflineClientNotes } from "@/lib/offline/offline-assessment-store";
-import type { ClientNoteDraft, NoteBlock } from "@/lib/pipeline/client-notes";
+import { combinedClientNote, unifiedNoteKey, type ClientNoteDraft, type NoteBlock } from "@/lib/pipeline/client-notes";
 import { rememberLatestNote } from "./useLatestNotes";
 
-export type NotesStatus = "loading" | "saved" | "saving" | "waiting" | "failed";
+export type NotesStatus = "loading" | "saved" | "unsaved" | "saving" | "waiting" | "failed";
 type Snapshot = {
   entries: Record<string, ClientNoteDraft>; loaded: boolean; loadFailed: boolean;
-  pending: Record<string, true>; waiting: Record<string, true>; failed: Record<string, string>;
+  pending: Record<string, true>; saving: Record<string, true>; waiting: Record<string, true>; failed: Record<string, string>;
   conflicts: Record<string, { theirs: NoteBlock }>;
 };
-export const emptyNotes: Snapshot = { entries: {}, loaded: false, loadFailed: false, pending: {}, waiting: {}, failed: {}, conflicts: {} };
+export const emptyNotes: Snapshot = { entries: {}, loaded: false, loadFailed: false, pending: {}, saving: {}, waiting: {}, failed: {}, conflicts: {} };
 const retryDelays = [2_000, 5_000, 10_000, 20_000, 30_000];
 // Undoing to the last acknowledged text is still pending if an earlier write
 // may have committed. Keep that intent until a server reply reconciles it.
-const needsSave = (entry: ClientNoteDraft) => entry.body !== entry.saved || entry.sent !== undefined;
+const needsSave = (entry: ClientNoteDraft) => entry.body !== entry.saved || entry.sent !== undefined || entry.consolidate === true;
 
 // One owner per account/referral in this document. Closing a panel doesn't discard a
 // save; multiple mounted views use the same text, version, and per-heading queue.
@@ -41,7 +41,7 @@ export class ClientNotesController {
     this.state = { ...this.state, ...patch };
     this.listeners.forEach((listener) => listener());
   }
-  private clear(field: "pending" | "waiting" | "failed" | "conflicts", key: string) {
+  private clear(field: "pending" | "saving" | "waiting" | "failed" | "conflicts", key: string) {
     const next = { ...this.state[field] }; delete next[key]; this.update({ [field]: next });
   }
   private put(key: string, entry: ClientNoteDraft) {
@@ -81,7 +81,10 @@ export class ClientNotesController {
       if (!needsSave(draft)) continue;
       const theirs = remote.get(key);
       const saved = theirs?.body ?? "";
-      if (saved === draft.body) entries[key] = { body: saved, saved, version: theirs?.version ?? 0, updated_at: theirs?.updated_at };
+      if (saved === draft.body) entries[key] = { body: saved, saved, version: theirs?.version ?? 0, updated_at: theirs?.updated_at,
+        // A deliberate deletion of carried-over legacy text can equal the old
+        // unified body. It still needs a save to acknowledge that consolidation.
+        consolidate: key === unifiedNoteKey && draft.consolidate === true && combinedClientNote(entries) !== saved || undefined };
       else if (saved === draft.saved || saved === draft.sent) entries[key] = { ...draft, saved, version: theirs?.version ?? 0, updated_at: theirs?.updated_at };
       else { entries[key] = draft; if (theirs) conflicts[key] = { theirs }; }
     }
@@ -105,10 +108,13 @@ export class ClientNotesController {
 
   change = (key: string, body: string) => {
     if (!this.state.loaded || this.disposed) return;
-    this.put(key, { ...(this.state.entries[key] ?? { version: 0, saved: "" }), body });
+    const entry = this.state.entries[key];
+    const consolidate = entry?.consolidate || (key === unifiedNoteKey && combinedClientNote(this.state.entries) !== (entry?.body ?? ""));
+    if (entry?.body === body && Boolean(entry.consolidate) === Boolean(consolidate)) return;
+    this.put(key, { ...(entry ?? { version: 0, saved: "" }), body, consolidate: consolidate || undefined });
     this.update({ pending: { ...this.state.pending, [key]: true } });
     this.preserve();
-    this.schedule(key, 700);
+    this.schedule(key, 5_000);
   };
   private schedule(key: string, delay: number) {
     clearTimeout(this.timers.get(key));
@@ -122,7 +128,7 @@ export class ClientNotesController {
     const entry = this.state.entries[key];
     if (!entry || !needsSave(entry)) { this.clear("pending", key); return; }
     this.inFlight.add(key);
-    this.update({ pending: { ...this.state.pending, [key]: true } });
+    this.update({ pending: { ...this.state.pending, [key]: true }, saving: { ...this.state.saving, [key]: true } });
     const previousSent = entry.sent;
     this.put(key, { ...entry, sent: entry.sent ?? entry.body });
     this.preserve();
@@ -157,7 +163,10 @@ export class ClientNotesController {
       }
     } finally {
       this.inFlight.delete(key);
-      if (again && !this.disposed) void this.send(key);
+      this.clear("saving", key);
+      // Typing during a request keeps its quiet-period timer. Explicit flushes
+      // clear that timer, so leaving/closing still drains the latest edit.
+      if (again && !this.disposed && !this.timers.has(key)) void this.send(key);
     }
   }
 

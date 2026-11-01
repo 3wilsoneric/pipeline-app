@@ -71,12 +71,12 @@ test("client notes stay together, save while typing, and fit beside the question
   await page.keyboard.press("Tab");
   await picker.selectOption("identity");
   await expect(split.locator('[data-split-topic="identity"]')).toContainText("Three weeks in Turlock");
-  // Interview layout (docs/design/DECISIONS.md, "Interview layout"): the record rail is tucked away; the
-  // divider brings it back and hides it again. Scheduling stays in All questions.
+  // Chart stays reachable by default; the divider can still hide the rail.
+  // Scheduling stays in preparation.
   const root = page.locator("html");
   await expect(root).toHaveAttribute("data-interview-focus", "true");
   const railChart = page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: "Chart", exact: true });
-  await expect(railChart).toBeHidden();
+  await expect(railChart).toBeVisible();
   await leaveInterviewFullScreen(page);
   await expect(railChart).toBeVisible();
   const railDivider = page.getByRole("separator", { name: "Resize workspace rail", exact: true });

@@ -12,8 +12,8 @@
   .decisionHeader:empty { display: none; }
 
   .followUpBar { display: flex; justify-content: flex-end; margin-left: auto; }
-  .followUpTrigger { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 12px; border: 1px solid var(--color-control-border); border-radius: var(--radius-input); background: var(--color-paper); color: var(--color-ink-2); font-size: 14px; font-weight: 650; }
-  .followUpTrigger:hover { border-color: var(--color-ink-muted); color: var(--color-ink); }
+  .followUpTrigger { display: inline-flex; align-items: center; justify-content: center; flex: none; width: var(--spacing-control); height: var(--spacing-control); padding: 0; border: 0; border-radius: var(--radius-input); background: transparent; color: var(--color-ink-muted); }
+  .followUpTrigger:hover { background: var(--color-card-warm); color: var(--color-ink); }
   .followUpTrigger:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
   .followUpDrawer { width: min(520px, 100vw); max-width: none; height: 100dvh; max-height: none; margin: 0 0 0 auto; padding: 0; overflow: hidden; border: 0; border-left: 1px solid var(--color-card-border); background: var(--color-page); box-shadow: var(--shadow-popover); color: var(--color-ink); }
   .followUpDrawer[open] { display: flex; flex-direction: column; }
@@ -154,7 +154,6 @@
   .handoff h4 { font-size: 21px; font-weight: 700; letter-spacing: -.02em; }
   .handoff > p { margin-top: 5px; color: var(--decision-muted); font-size: 14px; line-height: 1.5; }
   .decisionNext { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; margin-top: 24px; padding-top: 22px; border-top: 1px solid var(--color-paper-rule); }
-  .decisionNext p { max-width: 42ch; color: var(--decision-muted); font-size: 15px; line-height: 1.5; }
   .decisionNext button { margin-top: 0; }
   @media (prefers-reduced-motion: no-preference) {
     .savedDecision { animation: record-filed var(--duration-move) var(--ease-open); }

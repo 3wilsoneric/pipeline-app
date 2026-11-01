@@ -81,8 +81,9 @@
 
   /* "View all" dialog: the same folders, unstacked, on the stage column. */
   dialog.expandedFolder {
+    --motion-confirm: var(--duration-move);
     width: calc(100% - 32px);
-    max-width: 1600px;
+    max-width: 1120px;
     height: calc(100dvh - 32px);
     max-height: calc(100dvh - 32px);
     border: 1px solid var(--color-sheet-border);
@@ -122,8 +123,8 @@
     flex: 1;
     overflow-y: auto;
     overscroll-behavior: contain;
-    padding: 28px;
-    background: var(--stage-column);
+    padding: 12px 24px 24px;
+    background: var(--color-paper);
     scrollbar-color: var(--color-ink-muted) transparent;
   }
   .scopeBar { display: flex; flex-wrap: wrap; align-items: center; flex-shrink: 0; gap: 10px 16px; padding: 12px 20px; border-bottom: 1px solid var(--color-sheet-border); background: var(--color-paper); }
@@ -133,7 +134,8 @@
   .scopeToggle button[aria-pressed="true"] { border-color: var(--color-control-border); background: var(--color-paper); color: var(--color-ink); }
   .scopeToggle button:hover { text-decoration: underline; text-underline-offset: 3px; }
   .scopeToggle button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
-  .expandedGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 360px), 1fr)); align-items: start; gap: 24px; }
+  .expandedGrid { display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; gap: 0; animation: folderContents var(--duration-move) var(--ease-open) both; }
+  @keyframes folderContents { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
   .emptyFolder { display: grid; place-content: center; min-height: 240px; max-width: 620px; margin: 16px auto; padding: 20px; border: 1px dashed var(--docket-edge); border-radius: var(--radius-paper); background: rgb(255 255 255 / 70%); color: var(--color-ink-2); font-size: var(--text-value); line-height: var(--text-value--line-height); text-align: center; }
 
   @media (max-width: 639px) {
@@ -143,11 +145,12 @@
     .expandedIcon { display: none; }
     .expandedCount { justify-self: start; padding: 0; border: 0; background: none; grid-row: 2; }
     .expandedScroll { padding: 20px 12px; }
-    .expandedGrid { gap: 22px; }
+    .expandedGrid { gap: 0; }
   }
 
   @media (prefers-reduced-motion: reduce) {
     .docket:hover:not(:has(dialog[open])) { transform: none; }
+    .expandedGrid { animation: none; }
   }
 
   @media (forced-colors: active) {
@@ -158,22 +161,30 @@
     .track > span { background: CanvasText; }
   }
 
-.expandedGrid .card { background: var(--color-paper); border-color: var(--color-card-border); }
+.expandedGrid .card { display: grid; grid-template-columns: minmax(0, 1fr) 180px; align-items: center; gap: 12px 24px; min-height: 90px; padding: 16px 12px; background: var(--color-paper); border: 0; border-bottom: 1px solid var(--color-paper-rule); border-radius: 0; box-shadow: none; }
+.expandedGrid .card::before { content: none; }
+.expandedGrid .card:hover { transform: none; background: var(--stage-tint); box-shadow: none; }
+.expandedGrid .footer { margin: 0; padding: 0; }
+.expandedGrid .nextStep { justify-content: flex-end; }
 .expandedGrid .cardHead { flex-wrap: wrap; }
 .expandedGrid .identity { flex-basis: 220px; }
 .expandedGrid .status { max-width: 100%; }
+@media (max-width: 639px) {
+  .expandedGrid .card { grid-template-columns: minmax(0, 1fr); gap: 8px; padding: 16px 8px; }
+  .expandedGrid .nextStep { justify-content: flex-start; }
+}
 
 .requirementDetail { color: var(--color-ink-muted); font-size: var(--text-label); line-height: var(--text-label--line-height); overflow-wrap: anywhere; }
 
 /* Carelog's task hierarchy: one resume tile, followed by compact client rows.
-   Pin/recent ordering and every clinical status still come from the existing model. */
+   Recent ordering and every clinical status still come from the existing model. */
 .clientSpace { display: flex; flex-direction: column; gap: 28px; }
 .workingClients { display: grid; gap: 28px; }
 .shelfTitle { margin: 0 0 12px; color: var(--color-ink-2); font-size: var(--text-value); line-height: var(--text-value--line-height); font-weight: 600; }
 .clientShelf { display: grid; gap: 0; }
 .clientFile { position: relative; min-width: 0; --stage-accent: var(--color-stage-blue); --docket-edge: var(--color-stage-blue-border); }
 .clientFile[data-card-stage="decision"] { --stage-accent: var(--color-stage-violet); --docket-edge: var(--color-stage-violet-border); }
-.workingClients .clientFile .card { display: grid; grid-template-columns: minmax(0, 1fr) 128px; align-items: center; gap: 20px; min-height: 88px; padding: 16px 64px 16px 24px; border: 1px solid var(--color-folder-edge); border-radius: 0; background: var(--color-paper); box-shadow: none; }
+.workingClients .clientFile .card { display: grid; grid-template-columns: minmax(0, 1fr) 128px; align-items: center; gap: 20px; min-height: 88px; padding: 16px 24px; border: 1px solid var(--color-folder-edge); border-radius: 0; background: var(--color-paper); box-shadow: none; }
 .workingClients .clientFile + .clientFile:not([data-featured]) .card { border-top-width: 0; }
 .workingClients .clientFile:first-child .card, .workingClients .clientFile[data-featured] + .clientFile .card { border-top-width: 1px; border-radius: var(--radius-task) var(--radius-task) 0 0; }
 .workingClients .clientFile:last-child .card { border-radius: 0 0 var(--radius-task) var(--radius-task); }
@@ -198,59 +209,54 @@
 .workingClients .clientFile[data-featured] .nextStep > svg { width: 30px; height: 30px; }
 .taskArt { display: grid; place-items: center; }
 .clientFile .card { height: 100%; }
-.clientFile .cardHead { padding-right: 32px; }
-.workingClients .pin { top: 50%; right: 4px; transform: translateY(-50%); }
-.pin { position: absolute; top: 2px; right: 2px; display: grid; place-items: center; min-width: 44px; min-height: 44px; border-radius: var(--radius-input); color: var(--color-ink-muted); background: transparent; }
-.workingClients .clientFile[data-featured] .pin { top: 2px; right: 2px; transform: none; }
-.pin[aria-pressed="true"] { color: var(--color-primary); }
-.pin[aria-pressed="true"] svg { fill: var(--color-primary-soft); }
-.pin:hover { color: var(--color-primary); background: var(--color-primary-soft); }
-.pin:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -3px; }
-.pin[aria-busy="true"] { opacity: .5; }
-.pinError { color: var(--color-danger); font-size: var(--text-label); line-height: var(--text-label--line-height); }
 .emptyRecent { padding: 18px 0; margin: 0; color: var(--color-ink-muted); font-size: var(--text-value); line-height: var(--text-value--line-height); }
-.categoryLinks { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: stretch; }
+.categoryLinks { display: grid; grid-template-columns: 240px max-content max-content; gap: 16px; align-items: center; }
 .categoryLinks .docket { padding: 0; border: 0; }
-.categoryLinks .docket[data-board-stage="decision"] { --stage-accent: var(--color-stage-green); --stage-tint: var(--color-stage-green-tile); }
-.categoryLinks .stageHeading, .categoryLinks .stageHeading h2 { height: 100%; margin: 0; }
-.upcoming { --stage-accent: var(--color-primary); --stage-tint: var(--color-primary-soft); }
-.categoryLinks .openFolder, .upcoming {
-  display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: 1fr auto;
-  width: 100%; height: 100%; min-height: calc(var(--spacing-action) * 2); gap: 12px; padding: 16px 20px;
-  border: 1px solid var(--color-control-border); border-top: 3px solid var(--stage-accent); border-radius: var(--radius-paper);
-  background: linear-gradient(120deg, var(--color-paper) 35%, var(--stage-tint)); box-shadow: var(--shadow-card);
-  color: var(--color-ink); text-align: left; transition: box-shadow var(--motion-state) var(--ease-open), border-color var(--motion-state) var(--ease-open);
+.categoryLinks .docket[data-board-stage="decision"] { --stage-accent: var(--color-stage-green); --stage-tint: var(--color-stage-green-tile); --docket-edge: var(--color-stage-green-border); }
+.categoryLinks .stageHeading, .categoryLinks .stageHeading h2 { margin: 0; }
+.categoryLinks .openFolder {
+  min-height: var(--spacing-action); width: 100%; padding: 12px 18px;
+  border: 1px solid var(--stage-accent); border-radius: var(--radius-task);
+  background: var(--stage-tint); color: var(--stage-accent); box-shadow: none;
+  transition: background var(--motion-state) var(--ease-open), transform var(--motion-press) var(--ease-open);
 }
-.categoryLinks .openFolder:hover:not(:disabled), .upcoming:hover { border-color: var(--stage-accent); box-shadow: var(--shadow-card-hover); }
-.upcoming:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
-.categoryLinks .openFolder:disabled { cursor: default; }
-.categoryLinks .stageIdentity { display: contents; }
-.categoryLinks .stageTitle { grid-column: 1 / -1; align-self: start; color: var(--color-ink-2); font-size: var(--text-value); line-height: var(--text-value--line-height); font-weight: var(--text-section--font-weight); }
-.categoryLinks .stageCount { grid-column: 1; padding: 0; background: none; color: var(--stage-accent); font-size: var(--text-section); line-height: var(--text-section--line-height); font-weight: var(--text-section--font-weight); }
-.categoryLinks .expandAffordance { grid-column: 2; min-height: 28px; font-size: 0; gap: 0; color: var(--stage-accent); }
+.categoryLinks .openFolder:disabled { cursor: default; background: var(--color-sheet); }
+.categoryLinks .stageIdentity { display: flex; flex-wrap: nowrap; justify-content: space-between; align-items: center; width: 100%; gap: 20px; }
+.categoryLinks .stageTitle { color: var(--color-ink-2); font-size: var(--text-value); line-height: var(--text-value--line-height); font-weight: var(--text-section--font-weight); }
+.categoryLinks .stageCount { flex-shrink: 0; padding: 0; background: none; color: var(--stage-accent); font-size: var(--text-section); line-height: var(--text-section--line-height); font-weight: var(--text-title--font-weight); font-variant-numeric: tabular-nums; }
+.categoryLinks .openFolder:disabled .stageIdentity { flex-wrap: wrap; gap: 4px 12px; }
+.categoryLinks .openFolder:disabled .stageCount { font-size: var(--text-label); }
+@media (hover: hover) and (pointer: fine) {
+  .categoryLinks .openFolder:hover:not(:disabled) { background: var(--docket-edge); }
+}
+.categoryLinks .openFolder:active:not(:disabled) { transform: translateY(1px); box-shadow: none; }
 @media (prefers-reduced-motion: reduce) {
-  .categoryLinks .openFolder, .upcoming { transition: none; }
+  .categoryLinks .openFolder { transition: none; }
+  .categoryLinks .openFolder:active:not(:disabled) { transform: none; }
+}
+@media (max-width: 767px) {
+  .categoryLinks { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: stretch; }
+  .categoryLinks > button { grid-column: 1 / -1; justify-self: start; }
+  .categoryLinks .stageHeading, .categoryLinks .stageHeading h2, .categoryLinks .openFolder { height: 100%; }
+  .categoryLinks .openFolder { padding: 10px 12px; }
+  .categoryLinks .stageIdentity { gap: 10px; }
+  .categoryLinks .stageTitle { font-size: var(--text-label); line-height: var(--text-label--line-height); }
 }
 @media (max-width: 639px) {
   .clientSpace, .workingClients { gap: 24px; }
-  .workingClients .clientFile .card { grid-template-columns: minmax(0, 1fr) 88px; gap: 12px; padding: 16px 48px 16px 16px; }
+  .workingClients .clientFile .card { grid-template-columns: minmax(0, 1fr) 88px; gap: 12px; padding: 16px; }
   .workingClients .clientFile .cardHead { flex-direction: column; gap: 4px; }
   .workingClients .clientFile .nextStep { gap: 6px; }
   .workingClients .clientFile .fileIndex { display: grid; gap: 3px; }
   .workingClients .clientFile .owner::before { content: none; }
   .workingClients .clientFile[data-featured] .card { grid-template-columns: 48px minmax(0, 1fr); gap: 12px; padding: 20px 16px 0; background: var(--color-paper); }
-  .workingClients .clientFile[data-featured] .name { font-size: var(--text-section); line-height: var(--text-section--line-height); padding-right: 22px; }
+  .workingClients .clientFile[data-featured] .name { font-size: var(--text-section); line-height: var(--text-section--line-height); }
   .taskArt > svg { width: 48px; height: 48px; }
   .workingClients .clientFile[data-featured] .footer { grid-column: 1 / -1; margin-inline: -16px; border-radius: 0 0 var(--radius-task) var(--radius-task); background: var(--surface-task); }
   .workingClients .clientFile[data-featured] .nextStep { flex-direction: row; justify-content: space-between; min-height: 64px; padding: 12px 20px; }
   .workingClients .clientFile[data-featured] .actionText { font-size: var(--text-value); }
-  .categoryLinks { grid-template-columns: minmax(0, 1fr); gap: 12px; }
-  .categoryLinks .openFolder, .upcoming { grid-template-columns: minmax(0, 1fr) auto auto; grid-template-rows: auto; min-height: calc(var(--spacing-control) * 1.5); gap: 16px; padding: 12px 16px; }
-  .categoryLinks .stageTitle { grid-column: 1; align-self: center; font-size: var(--text-label); }
-  .categoryLinks .stageCount { grid-column: 2; }
-  .categoryLinks .expandAffordance { grid-column: 3; }
 }
 @media (forced-colors: active) {
-  .workingClients .clientFile .card, .workingClients .clientFile[data-featured] .card, .categoryLinks .openFolder, .upcoming { border-color: ButtonText; background: Canvas; box-shadow: none; }
+  .workingClients .clientFile .card, .workingClients .clientFile[data-featured] .card, .categoryLinks .openFolder { border-color: ButtonText; background: Canvas; box-shadow: none; }
   .workingClients .clientFile[data-featured] .footer { background: Canvas; }
 }

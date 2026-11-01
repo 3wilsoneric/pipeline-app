@@ -1,0 +1,9 @@
+.text { white-space: normal; overflow-wrap: anywhere; }
+.text > * { margin: 0; }
+.text > * + * { margin-top: 12px; }
+.text p, .text li { white-space: pre-wrap; }
+.text ul, .text ol { padding-left: 1.3em; }
+.text ul { list-style: disc; }
+.text ol { list-style: decimal; }
+.text li + li { margin-top: 4px; }
+.heading { display: block; font-weight: 700; }

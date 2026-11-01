@@ -106,7 +106,7 @@ function ScheduleAssessmentDialog({ modal, assessment, isBusy, error, scheduleSt
       footer={renderScheduleActions()}
     >
       <div data-guide-target="assessment-schedule-open" className="space-y-7" onBlur={onDraftBlur}>
-        <p className="text-[14px] leading-6 text-[#59635d]">{assessment.scheduled_start_at ? "Your existing appointment stays booked until you save a new time." : "Not booked yet. Scheduling adds an appointment to the calendar; you can prepare answers before or after booking."}</p>
+        <p className="text-[14px] leading-6 text-[#59635d]">{assessment.scheduled_start_at ? "Your existing appointment stays booked until you save a new time." : "Adds a calendar appointment. The interview starts separately."}</p>
         {draftStatus ? <p role="status" className="text-[14px] leading-6 text-[#315e50]">{draftStatus}</p> : null}
         {assessment.scheduled_start_at ? <p className="border-l-2 border-[#0f8b73] bg-[#f4f8f6] px-4 py-3 text-[14px] leading-6 text-[#315e50]">Currently scheduled for <strong>{new Date(assessment.scheduled_start_at).toLocaleString("en-US", { timeZone: "America/Los_Angeles", timeZoneName: "short" })}</strong>.</p> : null}
         <div className="grid gap-6 sm:grid-cols-[minmax(0,1fr)_200px]">
@@ -230,7 +230,7 @@ function BeginAssessmentDialog({ assessment, isBusy, error, canEditClinical, onC
       onCancel={(event) => { event.preventDefault(); if (!isBusy) onClose(); }}
       onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); if (!isBusy) onClose(); } }}>
       <h2>Begin interview</h2>
-      <p id="assessment-start-description">Your prepared answers become the section reference. Continue with the remaining questions and check what has changed with the client.</p>
+      <p id="assessment-start-description">Your prepared answers become the section reference.</p>
       <dl>
         <BeginAssessmentDetail label="Interview date and start time" value={assessment.assessment_date ? `Keeping recorded date: ${assessment.assessment_date}. Start time recorded when you confirm.` : "Recorded when you confirm (Pacific time)"} />
         <BeginAssessmentDetail label="Assessor" value={assessment.assessor || "Not assigned"} />

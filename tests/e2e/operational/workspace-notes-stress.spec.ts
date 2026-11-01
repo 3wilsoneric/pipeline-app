@@ -64,15 +64,16 @@ test("existing topic notes become one editable note without losing their saved o
     const toggle = page.locator('button[aria-label="Notes"][aria-expanded]');
     await toggle.click();
     const panel = page.getByRole("dialog", { name: "Notes", exact: true });
-    const field = await openNote(panel, "notes");
-    await expect(field).toHaveValue(combined);
+    const expectText = async (value: string) => expect.poll(() => panel.locator("textarea").evaluateAll((fields) => fields.map((field) => (field as HTMLTextAreaElement).value))).toEqual(value.split(/\n{2,}/));
+    await expectText(combined);
     await expect(panel.locator("[data-note-heading]")).toHaveCount(1);
     const edited = `${combined}\n\nNew note after consolidation.`;
-    await field.fill(edited);
+    const last = panel.locator("textarea").last();
+    await last.fill(`${await last.inputValue()}\n\nNew note after consolidation.`);
     // Close immediately, without waiting for the debounce or an explicit save.
     await panel.getByRole("button", { name: "Close notes" }).click();
     await toggle.click();
-    await expect(await openNote(panel, "notes")).toHaveValue(edited);
+    await expectText(edited);
     await panel.getByRole("button", { name: "Close notes" }).click();
     await returnToAssessmentQuestions(page);
     await openAllQuestions(page);
@@ -87,7 +88,7 @@ test("existing topic notes become one editable note without losing their saved o
     await openAssessmentChart(page);
     await page.reload();
     await toggle.click();
-    await expect(await openNote(panel, "notes")).toHaveValue(edited);
+    await expectText(edited);
     await expect.poll(async () => Object.fromEntries((await read()).map(block => [block.block_key, block.body])).notes).toBe(edited);
     for (const [key, body] of expected) expect(Object.fromEntries((await read()).map(block => [block.block_key, block.body]))[key]).toBe(body);
     const olderTabKey = noteHeadings()[0].key;
@@ -96,7 +97,12 @@ test("existing topic notes become one editable note without losing their saved o
     })).status()).toBe(200);
     await page.reload();
     await toggle.click();
-    await expect(await openNote(panel, "notes")).toHaveValue(/Synthetic note from an older open tab/);
+    await expect.poll(() => panel.locator("textarea").evaluateAll((fields) => fields.map((field) => (field as HTMLTextAreaElement).value).join("\n\n"))).toContain("Synthetic note from an older open tab");
+    // Clear each paragraph, joining the empty paragraph back into the preceding one.
+    while (await panel.locator("textarea").count() > 1) {
+      await panel.locator("textarea").last().fill("");
+      await panel.locator("textarea").last().press("Backspace");
+    }
     await (await openNote(panel, "notes")).fill("");
     await panel.getByRole("button", { name: "Close notes" }).click();
     await expect.poll(async () => Object.fromEntries((await read()).map(block => [block.block_key, block.body])).notes).toBe("");

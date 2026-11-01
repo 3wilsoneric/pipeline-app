@@ -27,6 +27,7 @@ import {
   type PipelineCurrentUser,
 } from "@/lib/auth/authenticated-fetch";
 import { getAssessmentCompletionSummary } from "@/lib/assessment/assessment-completion";
+import { formatProfileDate } from "@/lib/pipeline/client-profile-presentation";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import type { ReferralChartEditField } from "@/lib/pipeline/client-chart-context";
 import WorkspaceClientChart from "@/components/pipeline/TransferredWorkspaceChart";
@@ -163,6 +164,7 @@ type AssessmentWorkspaceProps = {
   chartDocuments?: ReactNode;
   /** Kept-mounted steps: the Chart step is drawn into this element by this same editor. */
   chartSlot?: HTMLElement | null;
+  chartReferenceSource?: HTMLElement | null;
   /** Kept-mounted steps: false while another step (Chart, Decision) is the one opened, so sections don't move it. */
   sectionJumps?: boolean;
   /** Kept-mounted steps: false while this workspace only draws the Chart step, so the questions are not on screen. */
@@ -379,6 +381,7 @@ export default function AssessmentWorkspace({
   chartActions,
   chartDocuments,
   chartSlot,
+  chartReferenceSource,
   sectionJumps = true,
   questionsOnScreen = true,
   onEditReferralField,
@@ -632,8 +635,7 @@ export default function AssessmentWorkspace({
     : conversationSections.map((section) => ({ key: section.key, label: section.label, questions: section.questions, referenceQuestions: section.referenceQuestions })),
   [stackedQuestionsView, preparing, draft, conversationSections]);
   const [spyGroup, setSpyGroup] = useState<AssessmentToolSection | null>(null);
-  // Interview layout (docs/design/DECISIONS.md, "Interview layout"): on a wide screen the interview hides the record
-  // rail (the assessment bar brings it back) so information and notes sit beside the questions with room to read.
+  // Interview layout keeps the record rail resizable while information and notes sit beside the questions.
   const wideRecordLayout = useWideRecordLayout();
   const interviewFocus = designV2 && wideRecordLayout && !phoneLayout && !trainingAssessmentMode && Boolean(referralId) && Boolean(referral)
     && stackedQuestionsView && !preparing && !reviewingChart && workspaceActive && questionsOnScreen
@@ -2474,19 +2476,11 @@ export default function AssessmentWorkspace({
   }
 
   const openScheduleDialog = () => { setError(""); setShowBeginDialog(false); setShowScheduleDialog(true); };
-  const scheduleLabel = () => hasActiveAssessmentSchedule(selected) ? "Change appointment" : "Schedule interview";
-  const renderScheduleDetail = () => (canScheduleUnstartedAssessment(selected, canEditClinical) ? <button type="button" data-guide-target={showScheduleDialog ? undefined : "assessment-schedule-open"} onClick={openScheduleDialog} aria-label={scheduleLabel()}><CalendarClock size={15} />{scheduleLabel()}</button> : null);
-  // Scheduling belongs beside the referral's contact and coordination details, not only in a menu.
-  const renderChartScheduling = () => ((reviewingChart || Boolean(chartSlot)) && !assessmentReview ? <div className={workingStyles.chartScheduling}>
-    <p>{hasActiveAssessmentSchedule(selected)
-      ? `Assessment appointment: ${new Date(selected.scheduled_start_at!).toLocaleString("en-US", { timeZone: "America/Los_Angeles", weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" })}`
-      : "No assessment appointment booked yet."}</p>
-    {canScheduleUnstartedAssessment(selected, canEditClinical)
-      ? <button type="button" onClick={openScheduleDialog} disabled={isBusy || isClosing}><CalendarClock size={16} aria-hidden="true" />{scheduleLabel()}</button>
-      : null}
+  // Chart references the booking; preparation owns booking and interview entry.
+  const renderChartScheduling = () => ((reviewingChart || Boolean(chartSlot)) && !assessmentReview && hasActiveAssessmentSchedule(selected) ? <div className={workingStyles.chartScheduling}>
+    <p>{`Assessment appointment: ${new Date(selected.scheduled_start_at!).toLocaleString("en-US", { timeZone: "America/Los_Angeles", weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" })}`}</p>
   </div> : null);
   const renderAssessmentDetails = () => <>
-    {reviewingChart ? renderScheduleDetail() : null}
     {selected.signed_at && canAddAddendum ? <button type="button" onClick={() => setShowAddendum((value) => !value)} disabled={isBusy}><Plus size={14} />Add note</button> : null}
   </>;
   const assessmentDetails = <>{renderAssessmentDetails()}
@@ -2557,7 +2551,7 @@ export default function AssessmentWorkspace({
   // page has one in-page navigation row (owner, 2026-09-26: "four layers of nav").
   const workModeInNavigation = designV2 && stackedQuestionsView && !phoneInterview;
   // Redesign: Schedule interview and the appointment line show only while the interview has not begun.
-  const renderWorkMode = () => (!reviewingChart && !selected.signed_at ? <AssessmentWorkMode preparing={preparing} compactPreparation={simplifiedPreparation} disabled={isBusy || isClosing} canBegin={!simplifiedPreparation && assessmentReadyToBegin(selected) && canEditClinical} startAttemptFailed={unrecordedStartId === selectedId} onChange={changeWorkingMode} onBegin={requestInterviewStart} scheduleAction={(designV2 ? canScheduleUnstartedAssessment(selected, canEditClinical) : canEditClinical) && !interviewFocus ? renderScheduleAction() : null} chartAction={designV2 && referral && !trainingAssessmentMode && !splitInterview ? <ChartPeek referral={referral} assessment={{ ...selected, ...draft }} /> : null} appointment={hasActiveAssessmentSchedule(selected) && !(designV2 && selected.started_at) ? new Date(selected.scheduled_start_at!).toLocaleString("en-US", { timeZone: "America/Los_Angeles", weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" }) : undefined} /> : null);
+  const renderWorkMode = () => (!reviewingChart && !selected.signed_at ? <AssessmentWorkMode preparing={preparing} compactPreparation={simplifiedPreparation} disabled={isBusy || isClosing} canBegin={!simplifiedPreparation && assessmentReadyToBegin(selected) && canEditClinical} startAttemptFailed={unrecordedStartId === selectedId} onChange={changeWorkingMode} onBegin={requestInterviewStart} scheduleAction={(designV2 ? canScheduleUnstartedAssessment(selected, canEditClinical) : canEditClinical) && !interviewFocus ? renderScheduleAction() : null} appointment={hasActiveAssessmentSchedule(selected) && !(designV2 && selected.started_at) ? new Date(selected.scheduled_start_at!).toLocaleString("en-US", { timeZone: "America/Los_Angeles", weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" }) : undefined} /> : null);
   // In full screen the rail is hidden, so the bottom bar shows the save status again.
   const renderSaveStatus = () => (
     <div className={workingStyles.footerUtilities}>
@@ -2644,47 +2638,44 @@ export default function AssessmentWorkspace({
     if (!canLeaveRecommendationReview()) return;
     setActiveSection(section);
     setWorkingTarget(field ? { field } : null);
-    setNotebookView("prepare");
+    setNotebookView(field && isInterviewFocusField(field) ? "assessment" : "prepare");
     onOpenAssessment?.();
   };
   const reviewEditDisabled = isBusy || isClosing || isRecommendationPending || !canEditClinical || isAssessmentFinalized(selected);
   const remainingReviewItems = reviewSections.reduce((count, section) => count + section.remaining.length, 0);
 
   const renderSigningExplanation = () => (selected.signed_at || !canEditClinical ? null : <section className={workingStyles.signingNote} aria-label="What signing does">
-                <h4>Before you sign</h4>
-                <p>Signing records your signature and the time on this assessment and marks it complete. Unanswered items stay unanswered; they never become a clinical finding and they do not prevent signing.</p>
-                <p>Signing does not record the admission decision and does not send the Meet the Client packet. You can keep correcting answers until that packet is sent, and changes after signing are logged.</p>
+                <p>Signing records your signature. Unanswered items stay unanswered. The decision and email are separate actions.</p>
               </section>);
 
   const renderReviewOverview = () => <div className={workingStyles.reviewOverview}>
               <dl className={workingStyles.reviewFacts}>
                 <div><dt>Assessor</dt><dd>{draft.assessor || selected.assessor || "Not recorded"}</dd></div>
-                <div><dt>Assessment date</dt><dd>{draft.assessment_date || "Not recorded"}</dd></div>
+                <div><dt>Assessment date</dt><dd>{formatProfileDate(draft.assessment_date) || "Not recorded"}</dd></div>
                 <div><dt>Recorded answers</dt><dd>{reviewSections.reduce((count, section) => count + section.questions.length - section.remaining.length, 0)} of {reviewSections.reduce((count, section) => count + section.questions.length, 0)}</dd></div>
               </dl>
               {remainingReviewItems > 0
-                ? <p className={workingStyles.reviewRemaining}>{remainingReviewItems} item{remainingReviewItems === 1 ? "" : "s"} still need an answer or verification. They do not prevent signing.</p>
+                ? <p className={workingStyles.reviewRemaining}>{remainingReviewItems} item{remainingReviewItems === 1 ? "" : "s"} still need an answer or verification.{!selected.signed_at ? " They do not prevent signing." : ""}</p>
                 : <p className={workingStyles.reviewComplete}><Check size={17} aria-hidden="true" />All visible questions have recorded answers. Review for accuracy before signing.</p>}
               <details className={workingStyles.reviewSectionIndex}>
               <summary id="assessment-review-sections">Answers by section <span>{reviewSections.length} sections · {remainingReviewItems} to review</span></summary>
-              <ul className={workingStyles.reviewChecklist} aria-labelledby="assessment-review-sections">{reviewSections.map((section) => <li key={section.key}>
-                  <button type="button" disabled={reviewEditDisabled} onClick={() => openSectionForReview(section.key, section.remaining[0]?.field)}>
+              <ul className={workingStyles.reviewChecklist} aria-labelledby="assessment-review-sections">{reviewSections.map((section) => <li key={section.key} data-complete={section.remaining.length === 0 || undefined}>
+                  <button type="button" disabled={reviewEditDisabled} onClick={() => openSectionForReview(section.key, section.remaining[0]?.field ?? section.questions[0]?.field)}>
                     <span>{section.label}</span>
+                    <progress aria-label={`${section.label}: recorded answers`} max={Math.max(1, section.questions.length)} value={section.questions.length - section.remaining.length} />
                     <span>{section.questions.length - section.remaining.length} of {section.questions.length} recorded{section.remaining.length > 0 ? ` · ${section.remaining.length} to review` : ""}<ChevronRight size={15} aria-hidden="true" /></span>
                   </button>
                 </li>)}</ul>
               </details>
-              {renderSigningExplanation()}
             </div>;
 
-  // Chart shows unanswered items as a neutral way into the review, not a warning.
+  // Keep one assessment entry in Chart, with its answer count for reference.
   const renderUnansweredEntry = () => {
     const questions = reviewSections.reduce((count, section) => count + section.questions.length, 0);
     const remaining = reviewSections.reduce((count, section) => count + section.remaining.length, 0);
     if (!remaining) return null;
     return <div className={workingStyles.chartReviewNotice} data-chart-unanswered>
-      {onReviewAssessment ? <button type="button" onClick={() => void reviewChart()} disabled={isBusy || isClosing}>Review unanswered assessment items<ChevronRight size={15} aria-hidden="true" /></button> : null}
-      <p>Assessment answers: {questions - remaining} of {questions} recorded.<span data-chart-unanswered-note> The rest are unanswered or unverified and do not prevent continuing.</span></p>
+      <p>Assessment answers: {questions - remaining} of {questions} recorded.</p>
     </div>;
   };
 
@@ -2709,6 +2700,7 @@ export default function AssessmentWorkspace({
               onOpenDecision={onContinueToWorkflow && !trainingAssessmentMode ? continueToWorkflow : undefined}
               onOpenAssessment={onOpenAssessment && !trainingAssessmentMode ? onOpenAssessment : undefined} onOpenFinish={onOpenFinish} />
             </div>
+            {assessmentReview ? renderSigningExplanation() : null}
             {designV2 ? chartDocuments : null}
           </section>
   );
@@ -2752,6 +2744,7 @@ export default function AssessmentWorkspace({
   // entry); in the signed review it draws the plain chart there instead.
   const stackedChart = chartSlot ? (assessmentReview ? plainStackedChart : createPortal(renderChartReview(), chartSlot)) : null;
   return (<>{stackedChart}
+    {designV2 && referral && !trainingAssessmentMode && workspaceActive && questionsOnScreen ? <ChartPeek key={referral.id} referral={referral} assessment={{ ...selected, ...draft }} source={chartReferenceSource} /> : null}
     <AssessmentFileSurface
       title={workspaceTitle}
       container={contentRef.current}

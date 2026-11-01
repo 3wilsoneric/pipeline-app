@@ -1,3 +1,4 @@
+import styles from "./ReferralIntakeSummary.module.css";
 import type { ReactNode } from "react";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import type { PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
@@ -31,7 +32,7 @@ export default function ReferralIntakeSummary({ referral, assessment, headerActi
     return <ChartCell key={value.label} fact={value} onEdit={onEditField && field ? () => onEditField(field) : undefined} editHint="Edit in intake" multiline />;
   };
 
-  return <ClientChartFrame label="Referral chart">
+  return <ClientChartFrame label="Referral chart" className={designV2 ? styles.chart : undefined}>
     <ClientChartHeader title="Referral chart" hideTitle={designV2} actions={headerActions}>
       <ChartHeaderCell label="Referral updated" value={formatProfileDate(referral.updatedAt || referral.createdAt) || "Not documented"} />
     </ClientChartHeader>

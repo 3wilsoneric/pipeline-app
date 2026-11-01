@@ -1,9 +1,11 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { ChevronDown, FileText, FileUp, X } from "lucide-react";
 import { documentCategories, type DocumentCategory } from "@/lib/extraction/contracts";
+import { isBrowserPreviewable } from "@/lib/extraction/document-access-policy";
 import { referralDocumentLabels, suggestReferralDocumentLabel, suggestUpdatedReferralDocumentLabel, validateReferralDocumentFiles, type LabeledReferralFile } from "@/lib/pipeline/referral-document-labels";
 import type { ReferralFile } from "@/lib/pipeline/referral-types";
 import UploadedDocumentList from "./UploadedDocumentList";
@@ -120,6 +122,7 @@ function FileLabelDialog({ selection, setSelection, onClose, onCommit, readOnly 
   const dialog = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   const descriptionId = useId();
+  const [previewFile, setPreviewFile] = useState<File | null>(selection[0]?.file ?? null);
   const canAdd = documentSelectionReady(selection, readOnly);
   useEffect(() => {
     const current = dialog.current;
@@ -132,17 +135,61 @@ function FileLabelDialog({ selection, setSelection, onClose, onCommit, readOnly 
       <div className={styles.rows}>
         {selection.map(({ file, category, previousName }, index) => <div key={index} className={styles.row}>
           <FileText className={styles.fileIcon} size={22} aria-hidden="true" />
-          <div className={styles.filename}><strong>{file.name}</strong><small>{formatSize(file.size)}</small>{previousName ? <small>Updated copy of {previousName}. The original stays in Files. Existing checklist links and chart answers are unchanged.</small> : null}</div>
+          <div className={styles.filename}><strong>{file.name}</strong><small>{formatSize(file.size)}</small><button type="button" className={styles.previewToggle} aria-label={`Preview ${file.name}`} aria-expanded={previewFile === file} aria-controls={`${titleId}-preview-${index}`} onClick={() => setPreviewFile((current) => current === file ? null : file)}>Preview <ChevronDown size={16} aria-hidden="true" /></button>{previousName ? <small>Updated copy of {previousName}. The original stays in Files. Existing checklist links and chart answers are unchanged.</small> : null}</div>
           <label><span>Document type</span><select autoFocus={index === 0} aria-label={`Document type for ${file.name}`} value={category} onChange={(event) => setSelection((current) => current.map((item, i) => i === index ? { ...item, category: event.target.value as Selection["category"] } : item))}>
             <option value="">Choose a type</option>
             {documentCategories.map((value) => <option key={value} value={value}>{referralDocumentLabels[value]}</option>)}
           </select></label>
-          <button type="button" aria-label={`Remove ${file.name}`} onClick={() => setSelection((current) => current.filter((_, i) => i !== index))}><X size={18} /></button>
+          <button type="button" aria-label={`Remove ${file.name}`} onClick={() => {
+            if (previewFile === file) setPreviewFile(selection.find((_, i) => i !== index)?.file ?? null);
+            setSelection((current) => current.filter((_, i) => i !== index));
+          }}><X size={18} /></button>
+          <div id={`${titleId}-preview-${index}`} hidden={previewFile !== file} className={styles.preview}>
+            {previewFile === file ? <SelectedFilePreview key={`${file.name}-${file.lastModified}-${index}`} file={file} /> : null}
+          </div>
         </div>)}
       </div>
       <p className={styles.notice}>Labels organize the chart. They do not verify signatures or approve a document. Original filenames are kept.</p>
       <footer><span>{selection.length} {selection.length === 1 ? "file" : "files"}</span><button type="button" onClick={() => onClose()}>Cancel</button><button type="button" className={styles.add} disabled={!canAdd} onClick={onCommit}>Add files</button></footer>
     </dialog>, document.body);
+}
+
+// Read the selected file on this device. Uploading still belongs to Add files.
+function SelectedFilePreview({ file }: { file: File }) {
+  const [content, setContent] = useState<{ url?: string; text?: string; error?: string }>({});
+  const supported = isBrowserPreviewable(file.type);
+  useEffect(() => {
+    if (!supported) return;
+    let disposed = false;
+    let objectUrl: string | undefined;
+    const load = async () => {
+      if (file.type === "text/plain") {
+        const text = await file.slice(0, 256_000).text();
+        if (!disposed) setContent({ text });
+        return;
+      }
+      // Never frame HTML or another active file mislabeled as a PDF.
+      if (file.type === "application/pdf" && await file.slice(0, 5).text() !== "%PDF-") {
+        throw new Error("Preview unavailable. You can still add this file.");
+      }
+      if (disposed) return;
+      objectUrl = URL.createObjectURL(file);
+      setContent({ url: objectUrl });
+    };
+    void load().catch(() => {
+      if (!disposed) setContent({ error: "Preview unavailable. You can still add this file." });
+    });
+    return () => { disposed = true; if (objectUrl) URL.revokeObjectURL(objectUrl); };
+  }, [file, supported]);
+  if (!supported) return <p className={styles.previewMessage}>Preview isn’t available for this file type. You can still add it.</p>;
+  if (content.error) return <p role="status" className={styles.previewMessage}>{content.error}</p>;
+  if (content.text !== undefined) return <>
+    <pre aria-label={`Preview ${file.name}`} className={styles.textPreview}>{content.text}</pre>
+    {file.size > 256_000 ? <p className={styles.previewMessage}>Showing the beginning of this file. The complete file will be added.</p> : null}
+  </>;
+  if (!content.url) return <p role="status" className={styles.previewMessage}>Loading preview…</p>;
+  if (file.type.startsWith("image/")) return <Image src={content.url} alt={`Preview ${file.name}`} width={1200} height={1600} unoptimized className={styles.imagePreview} onError={() => setContent({ error: "Preview unavailable. You can still add this file." })} />;
+  return <iframe src={`${content.url}#navpanes=0&view=FitH`} title={`Preview ${file.name}`} className={styles.pdfPreview} />;
 }
 
 function QueuedDocuments({ files, onRemove, disabled }: { files: LabeledReferralFile[]; onRemove: (file: File) => void; disabled: boolean }) {

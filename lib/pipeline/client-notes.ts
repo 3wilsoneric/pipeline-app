@@ -23,14 +23,14 @@ export function isNoteHeadingKey(value: unknown): value is string {
 
 export type NoteBlock = { block_key: string; body: string; version: number; updated_at: string; updated_by_name: string };
 export type LatestNote = { referral_id: number; text: string; updated_at: string };
-export type ClientNoteDraft = { body: string; version: number; saved: string; sent?: string; updated_at?: string };
+export type ClientNoteDraft = { body: string; version: number; saved: string; sent?: string; updated_at?: string; consolidate?: boolean };
 
 // Old topic notes remain in storage. Until the first edit, show them together in the
 // single editor; after that, only append a topic note if an older open tab saved it
 // after the unified note. No existing note is deleted during this transition.
-export function combinedClientNote(entries: Readonly<Record<string, Pick<ClientNoteDraft, "body" | "saved" | "updated_at">>>): string {
+export function combinedClientNote(entries: Readonly<Record<string, Pick<ClientNoteDraft, "body" | "saved" | "updated_at" | "consolidate">>>): string {
   const unified = entries[unifiedNoteKey];
-  if (unified && unified.body !== unified.saved) return unified.body;
+  if (unified && (unified.body !== unified.saved || unified.consolidate)) return unified.body;
   const legacy = noteHeadings()
     .map(({ key, label }) => ({ label, entry: entries[key] }))
     .filter(({ label, entry }) => entry?.body?.trim()

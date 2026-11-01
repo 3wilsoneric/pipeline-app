@@ -89,8 +89,8 @@ for (const width of [1440, 834, 390, 320]) {
     await expect(panel.getByRole("heading", { name: "Accepted", exact: true })).toBeVisible();
     await expect(panel).toContainText("Synthetic placement decision for UI testing only.");
     await panel.getByRole("button", { name: "Continue to Handoff" }).click();
-    await expect(placement.getByRole("button", { name: "More actions" })).toBeVisible();
-    await placement.getByRole("button", { name: "More actions" }).click();
+    await expect(placement.getByRole("button", { name: "Handoff actions" })).toBeVisible();
+    await placement.getByRole("button", { name: "Handoff actions" }).click();
     const placementActions = placement.getByRole("dialog", { name: "Handoff actions" });
     await expect(placementActions.getByRole("button", { name: "Placement did not happen" })).toBeVisible();
     await expect(placementActions).not.toContainText(/ElderMark|manual entry|Mark pending|Record issue/i);
@@ -340,8 +340,8 @@ test("administrative stage controls are separate, labeled, and only change the s
   await expect(panel.getByRole("button", { name: "Record decision", exact: true })).toBeDisabled();
   await expect(panel.getByRole("combobox", { name: "Workflow stage" })).not.toBeVisible();
 
-  await panel.getByRole("button", { name: "Other actions" }).click();
-  await page.getByRole("dialog", { name: "Other actions" }).locator("summary").filter({ hasText: /^Administrative controls$/ }).click();
+  await panel.getByRole("button", { name: "Administrative controls" }).click();
+  await page.getByRole("dialog", { name: "Administrative controls" }).locator("summary").filter({ hasText: /^Administrative controls$/ }).click();
   await expect(panel).toContainText("They do not record the decision, sign the assessment, or send anything.");
   await panel.getByRole("combobox", { name: "Workflow stage", exact: true }).selectOption("Assessment");
   await expect(panel.getByText("Stage changed to Assessment", { exact: true })).toBeVisible();

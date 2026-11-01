@@ -1,20 +1,21 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type ComponentProps, type ReactNode } from "react";
-import { ArrowRight, CalendarClock, CalendarPlus } from "lucide-react";
+import { ArrowRight, CalendarPlus } from "lucide-react";
 
 import PipelineIllustration from "@/components/pipeline/PipelineIllustration";
 import CurrentWorkOverlay from "@/components/pipeline/CurrentWorkOverlay";
 import ReferralWorkflowTracker from "@/components/pipeline/ReferralWorkflowTracker";
 import ContinueWorkPanel from "@/components/pipeline/ContinueWorkPanel";
 import HomeModuleDashboard from "@/components/pipeline/HomeModuleDashboard";
-import HomeDialog from "@/components/pipeline/HomeDialog";
+import HomeDialog, { type HomeDialogOrigin } from "@/components/pipeline/HomeDialog";
+import HomeAssessmentCalendar from "./HomeAssessmentCalendar";
 import ApplicationActivityCard from "@/components/pipeline/ApplicationActivityCard";
 import PipelineSearchPanel from "@/components/pipeline/PipelineSearchPanel";
 import { usePipelineShell } from "@/components/pipeline/pipeline-shell-context";
 import { fetchPipelineJson, usePipelineDataGeneration } from "@/lib/auth/authenticated-fetch";
-import type { PipelineCalendarEvent, PipelineUnscheduledAssessment } from "@/lib/pipeline/calendar-types";
-import { assessmentEventNextStep, unscheduledNextStep } from "@/lib/pipeline/assessment-calendar";
+import type { PipelineUnscheduledAssessment } from "@/lib/pipeline/calendar-types";
+import { calendarDate, calendarToday, unscheduledNextStep } from "@/lib/pipeline/assessment-calendar";
 import type { PipelineHomeModuleId } from "@/lib/pipeline/home-dashboard-layout";
 import type { HomeBriefingSnapshot } from "@/lib/pipeline/home-briefing-types";
 import type { AssessmentEntryAction, PipelineWorkspaceLocation } from "@/lib/pipeline/work-continuity";
@@ -24,7 +25,6 @@ import type { PipelineSiteScreen } from "@/lib/pipeline/site-search";
 import { prefetchPipelineWorkspace, cancelPipelineWarmup } from "@/lib/pipeline/client-navigation";
 import { pipelineSurfaceReady } from "@/lib/observability/browser-performance-contract";
 import deckStyles from "./HomeFocusDeck.module.css";
-import { setPipelineWorkspacePinned } from "@/lib/pipeline/work-continuity-client";
 
 export default function PipelineWelcome({
   onOpenPacket,
@@ -61,7 +61,7 @@ export default function PipelineWelcome({
   const dataGeneration = usePipelineDataGeneration();
   const refreshController = useRef<AbortController | null>(null);
   const pendingRefresh = useRef<Promise<void> | null>(null);
-  const [upcomingOpen, setUpcomingOpen] = useState(false);
+  const [upcomingOrigin, setUpcomingOrigin] = useState<HomeDialogOrigin | null>(null);
   const { searchOpen, setSearchOpen } = usePipelineShell();
   const [searchVisible, setSearchVisible] = useState(true);
 
@@ -130,15 +130,9 @@ export default function PipelineWelcome({
     onOpenDestination: onOpenSearchDestination,
     onViewAllResults: onViewAllSearchResults,
   };
-  const pinWorkspace = async (id: number, pinned: boolean) => {
-    const { state } = await setPipelineWorkspacePinned(id, pinned);
-    setBriefing((current) => current ? { ...current, continuity: {
-      ...current.continuity, pinned_referral_ids: state.pinnedReferralIds ?? [],
-    } } : current);
-  };
   const briefingModules = briefing ? {
     "recent-work": <ContinueWorkPanel items={briefing.continuity.resume_items} unavailable={briefing.continuity.unavailable} onOpenPacket={onOpenPacket} onResumeDraft={onResumeDraft} />,
-    "current-work": <CurrentWorkSummary briefing={briefing} onOpenPacket={onOpenPacket} onPin={pinWorkspace} onOpenUpcoming={() => setUpcomingOpen(true)} />,
+    "current-work": <CurrentWorkSummary briefing={briefing} onOpenPacket={onOpenPacket} onOpenUpcoming={setUpcomingOrigin} />,
     "new-assignments": null,
     "upcoming-assessments": null,
     "scheduling-queue": <SchedulingQueuePanel briefing={briefing} onOpenPacket={onOpenPacket} />,
@@ -191,9 +185,7 @@ export default function PipelineWelcome({
           {!briefing && !error ? <HomeSkeleton /> : null}
         </div>
       </main>
-      {briefing && upcomingOpen ? <HomeDialog label="Upcoming assessments" title="Upcoming assessments" onClose={() => setUpcomingOpen(false)}>
-        <div className={deckStyles.panelDialog}><UpcomingAssessmentsPanel briefing={briefing} onOpenPacket={onOpenPacket} /></div>
-      </HomeDialog> : null}
+      {briefing && upcomingOrigin ? <HomeAssessmentCalendar key={briefing.viewer.id} viewer={briefing.viewer} refreshKey={briefing.generated_at} origin={upcomingOrigin} onClose={() => setUpcomingOrigin(null)} onOpenPacket={onOpenPacket} /> : null}
       {briefing && currentWorkOpen ? (
         <CurrentWorkOverlay briefing={briefing} onClose={onCloseCurrentWork} onOpenPacket={onOpenPacket} />
       ) : null}
@@ -223,37 +215,19 @@ function HomeSearchAccess({ visible, searchProps, onClose }: {
   );
 }
 
-function CurrentWorkSummary({ briefing, onOpenPacket, onPin, onOpenUpcoming }: {
+function CurrentWorkSummary({ briefing, onOpenPacket, onOpenUpcoming }: {
   briefing: HomeBriefingSnapshot;
   onOpenPacket: ComponentProps<typeof PipelineWelcome>["onOpenPacket"];
-  onPin: (id: number, pinned: boolean) => Promise<void>;
-  onOpenUpcoming: () => void;
+  onOpenUpcoming: (origin: HomeDialogOrigin) => void;
 }) {
   return (
     <section data-guide-target="my-queue" aria-label="Current work" className="bg-white">
       <div id="home-referral-board">
         <ReferralWorkflowTracker key={briefing.viewer.id} briefing={briefing} onOpenPacket={(referral, location) => onOpenPacket(referral, location, undefined, true)} layout="board"
-          clientSpace={{ pinnedIds: briefing.continuity.pinned_referral_ids ?? [], recentIds: briefing.continuity.recent_referral_ids ?? [],
-            unavailable: briefing.continuity.unavailable, onPin, onResume: onOpenPacket,
-            upcoming: { count: briefing.upcoming.length, unavailable: briefing.unavailable_sections.includes("upcoming"), onOpen: onOpenUpcoming } }} />
+          clientSpace={{ recentIds: briefing.continuity.recent_referral_ids ?? [],
+            unavailable: briefing.continuity.unavailable, onResume: onOpenPacket,
+            upcoming: { count: briefing.upcoming.length, unavailable: briefing.unavailable_sections.includes("upcoming"), date: calendarDate(briefing.generated_at) ?? calendarToday(), onOpen: onOpenUpcoming } }} />
       </div>
-    </section>
-  );
-}
-
-function UpcomingAssessmentsPanel({ briefing, onOpenPacket }: BriefingPanelProps) {
-  return (
-    <section aria-label="Upcoming assessments" className="min-w-0">
-      <SectionHeader title="Upcoming assessments" detail={briefing.unavailable_sections.includes("upcoming") ? "Unavailable" : "Next 7 days"} icon={<CalendarClock size={15} />} />
-      {briefing.unavailable_sections.includes("upcoming") ? (
-        <UnavailableLine />
-      ) : briefing.upcoming.length === 0 ? (
-        <div className={deckStyles.empty}><PipelineIllustration kind="calendar" /><h3>A little room in your schedule.</h3><p>No assessments are scheduled in the next seven days.</p></div>
-      ) : (
-        <div className={deckStyles.scheduleList}>
-          {briefing.upcoming.map((event) => <ScheduleRow key={event.id} event={event} onOpenPacket={onOpenPacket} />)}
-        </div>
-      )}
     </section>
   );
 }
@@ -302,28 +276,6 @@ function UnscheduledAssessmentRow({ item, onOpenPacket }: { item: PipelineUnsche
         {next.label}
         <ArrowRight size={14} className="transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
       </span>
-    </button>
-  );
-}
-
-function ScheduleRow({ event, onOpenPacket }: { event: PipelineCalendarEvent } & Pick<BriefingPanelProps, "onOpenPacket">) {
-  const next = assessmentEventNextStep(event);
-  return (
-    <button
-      type="button"
-      onClick={() => onOpenPacket(
-        { id: event.referralId, name: clientDisplayName(event.clientName, event.community), community: event.community as Referral["community"] },
-        { view: "assessment" },
-        next.entry,
-      )}
-      className={deckStyles.scheduleRow}
-    >
-      <span className={deckStyles.scheduleDate}><PipelineIllustration kind="calendar" /><span>{formatScheduleDate(event)}</span></span>
-      <span className={deckStyles.scheduleClient}>
-        <strong>{clientDisplayName(event.clientName, event.community)}</strong>
-        <span>{event.community} · {methodLabel(event.method)}</span>
-      </span>
-      <span className={deckStyles.scheduleAction}>{next.label}<ArrowRight size={16} aria-hidden="true" /></span>
     </button>
   );
 }
@@ -392,19 +344,6 @@ function PanelSkeleton() {
 
 function SkeletonBlock({ className }: { className: string }) {
   return <div className={`bg-[#e9eeeb] ${className}`} />;
-}
-
-function formatScheduleDate(event: PipelineCalendarEvent) {
-  const date = new Date(event.startsAt ?? `${event.date}T12:00:00`);
-  if (!Number.isFinite(date.getTime())) return event.date;
-  const day = date.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
-  if (!event.startsAt) return day;
-  return `${day} · ${date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`;
-}
-
-function methodLabel(value?: string) {
-  const labels: Record<string, string> = { in_person: "In person", phone: "Phone", zoom: "Zoom", video: "Zoom", record_review: "Record review" };
-  return labels[value ?? ""] ?? "";
 }
 
 function clientDisplayName(name: string, community?: string) {

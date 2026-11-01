@@ -186,7 +186,7 @@ for (const width of [1440, 390]) {
     if (width < 640) await page.getByLabel("Workspace view", { exact: true }).selectOption({ label: "Handoff" });
     else await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: "Handoff", exact: true }).click();
     await expect(placement.getByLabel("Planned admit date", { exact: true })).toHaveValue("2026-10-01");
-    await placement.getByRole("button", { name: "More actions", exact: true }).click();
+    await placement.getByRole("button", { name: "Handoff actions", exact: true }).click();
     const placementActions = page.getByRole("dialog", { name: "Handoff actions", exact: true });
     await placementActions.getByRole("combobox", { name: "Workflow stage", exact: true }).selectOption("Assessment");
     await expect.poll(async () => (await (await page.request.get(`/api/referrals/${referral.id}`)).json()).referral.stage).toBe("Assessment");

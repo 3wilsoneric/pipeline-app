@@ -15,6 +15,8 @@ test("upload policy permits only the configured valid storage account without we
     assert.equal(pipelineContentSecurityPolicy({ storageAccount }), pipelineContentSecurityPolicy());
   }
   assert.match(policy, /object-src 'none'; frame-ancestors 'none';/);
+  assert.match(policy, /frame-src 'self' https:\/\/login\.microsoftonline\.com https:\/\/www\.loom\.com blob:;/);
+  assert.doesNotMatch(policy, /script-src [^;]*blob:/);
   assert.match(pipelineContentSecurityPolicy({ development: true }), /'unsafe-eval'/);
 });
 
