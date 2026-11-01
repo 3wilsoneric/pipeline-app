@@ -9,16 +9,16 @@ async function syntheticHome(page: Page, scope: "personal" | "team" = "team") {
     const response = await route.fetch();
     const payload = await response.json();
     const names = ["Taylor Rivera", "Christopher Montgomery-Worthington", "Morgan Chen", "Casey Brooks", "Alex Reed", "Riley Hart"];
-    const statuses = ["ready_to_schedule", "profile_incomplete", "assessment_scheduled", "assessment_in_progress", "decision_pending", "admitted"];
+    const statuses = ["ready_to_schedule", "profile_incomplete", "assessment_scheduled", "assessment_in_progress", "approved_for_placement", "admitted"];
     const actions = ["Schedule the assessment", "Complete the referral details", "Assessment on Thursday at 10:00 AM", "Continue Clinical", "Review the recommendation", "Admission recorded"];
     const items = names.map((name, index) => ({
       referral_id: 910101 + index, client_name: name, community: "San Pablo", stage: "New",
       workflow_status: statuses[index], flow_state: index < 2 ? "ready_to_schedule" : index < 4 ? "assessment" : "complete_chart",
-      assessment_state: index === 2 ? "scheduled" : "in_progress", outcome_state: index === 5 ? "accepted" : "pending",
+      assessment_state: index === 2 ? "scheduled" : "in_progress", outcome_state: index >= 4 ? "accepted" : "pending",
       assignment_state: "assigned", document_state: "partial", profile_state: "partial", assessment_is_reassessment: false,
       owner: "Example Assessor", priority: "standard", categories: [], primary_category: "follow_up", next_action: actions[index],
       board: { stage: index === 5 ? null : index < 2 ? "received" : index < 4 ? "in_progress" : "decision",
-        detail: index < 2 ? "Referral created" : index < 4 ? "Assessment underway" : "Under review",
+        detail: index < 2 ? "Referral created" : index < 4 ? "Assessment underway" : "Accepted",
         next_action: actions[index], location: { view: index < 2 ? "intake" : "assessment" } },
       blockers: [], missing_data: [], urgency: "normal", due_at: null, last_activity_at: "2026-09-17T15:00:00Z", received_at: "2026-09-17T15:00:00Z",
       age_hours: 1, completion_pct: 40, missing_document_count: index === 0 ? 2 : 0, location: { view: index < 2 ? "intake" : "assessment" },
@@ -42,7 +42,7 @@ async function syntheticHome(page: Page, scope: "personal" | "team" = "team") {
   });
   await page.goto("/");
   await expect(page.getByRole("button", { name: "Open in progress folder", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Open decision folder", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Open clients in handoff folder", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Pipeline home", exact: true })).toBeVisible();
   await page.evaluate(() => document.fonts.ready);
 }
@@ -54,7 +54,7 @@ for (const width of [1440, 1024, 437, 390]) {
     await page.setViewportSize({ width, height: width === 437 ? 536 : width === 390 ? 844 : 1000 });
     await syntheticHome(page);
     const seen: string[] = [];
-    for (const [title, count] of [["In progress", 4], ["Decision", 1]] as const) {
+    for (const [title, count] of [["In progress", 4], ["Clients in handoff", 1]] as const) {
       const open = page.getByRole("button", { name: `Open ${title.toLowerCase()} folder`, exact: true });
       await expect.poll(async () => (await open.boundingBox())!.height).toBeGreaterThanOrEqual(44);
       await open.click();

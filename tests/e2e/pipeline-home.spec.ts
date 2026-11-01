@@ -48,7 +48,7 @@ test.describe("Pipeline home", () => {
     await expect(page.getByRole("link", { name: "Analytics" })).toHaveCount(0);
     await expect(page.getByText("Workspaces", { exact: true })).toBeVisible();
     await expect(page.getByText("Calendar", { exact: true })).toBeVisible();
-    await expect(page.getByText("Clients", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Open client profiles" })).toHaveCount(0);
     await expect(page.getByText("Reports", { exact: true }).first()).toBeVisible();
     await expect(page.getByRole("button", { name: "Create new referral" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Focus search" })).toHaveCount(0);
@@ -668,7 +668,7 @@ test.describe("Pipeline home", () => {
     await expect(page.getByText("Oscar Martin", { exact: true })).toBeVisible();
   });
 
-  test("preloads the complete governed current census before Clients opens", async ({ page }) => {
+  test("preloads the governed census and loads the same complete roster on direct entry", async ({ page }) => {
     const directory = clientDirectoryFixture as unknown as {
       clients: Array<Record<string, unknown>>;
       [key: string]: unknown;
@@ -717,7 +717,8 @@ test.describe("Pipeline home", () => {
     await expect(page.getByText("Morgan Lee", { exact: true })).toBeVisible();
     await expect(page.getByText("The Alamo client directory is unavailable", { exact: false })).toHaveCount(0);
     await expect(page.getByRole("region", { name: /file cabinet$/ }).getByText("2 clients", { exact: true })).toBeVisible();
-    expect(pagesLoaded).toBe(2);
+    // Direct entry creates a fresh document, so both governed pages are loaded again.
+    expect(pagesLoaded).toBe(4);
   });
 
   test("requires explicit human review before joining a referral to an admitted resident", async ({ page }) => {

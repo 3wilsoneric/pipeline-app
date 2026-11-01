@@ -469,7 +469,7 @@ test.describe("role-scoped home and reports", () => {
     const cards = board.locator("[data-board-card]");
     await expect(cards).toHaveCount(12);
     await expect(board.getByRole("button", { name: "Open Kai Ribbon" })).toBeVisible();
-    for (const name of ["Open in progress folder", "Open clients in handoff folder"]) await expect(board.getByRole("button", { name, exact: true })).toBeVisible();
+    for (const name of ["Open in progress folder", "Open decision folder"]) await expect(board.getByRole("button", { name, exact: true })).toBeVisible();
     await expect(board.getByRole("button", { name: "Open Blake Ribbon" })).toContainText("Assessment scheduled");
     await expect(board.getByRole("button", { name: "Open Dana Ribbon" })).toContainText("Under review");
     await expect(board.getByRole("button", { name: "Open Mara Denied", exact: true })).toContainText("Denied");

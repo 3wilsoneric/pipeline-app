@@ -64,7 +64,7 @@ test("intake and appointment changes agree across Board and Calendar while Home 
   const afterRename = await home();
   expect(findUpcoming(afterRename)).toHaveLength(0);
   expect(findBoard(afterRename).map((item) => item.client_name)).toEqual([updatedName]);
-  expect((await calendar()).events.filter((event) => event.referralId === referral.id).map((event) => event.clientName)).toContain(updatedName);
+  expect((await calendar()).events.filter((event) => event.kind === "assessment" && event.referralId === referral.id).map((event) => event.clientName)).toContain(updatedName);
 
   const currentAssessment = await (await page.request.get(`/api/assessments/${scheduled.assessment_id}`)).json();
   const originalAppointment = currentAssessment.assessment;
@@ -88,8 +88,8 @@ test("intake and appointment changes agree across Board and Calendar while Home 
   const afterMove = await home();
   expect(findUpcoming(afterMove)).toHaveLength(0);
   const movedDate = calendarDate(movedStart)!;
-  expect((await calendar()).events.filter((event) => event.referralId === referral.id)).toHaveLength(0);
-  expect((await calendar(movedDate)).events.filter((event) => event.referralId === referral.id)).toHaveLength(1);
+  expect((await calendar()).events.filter((event) => event.kind === "assessment" && event.referralId === referral.id)).toHaveLength(0);
+  expect((await calendar(movedDate)).events.filter((event) => event.kind === "assessment" && event.referralId === referral.id)).toHaveLength(1);
 
   const completedResponse = await page.request.post(`/api/assessments/${scheduled.assessment_id}/schedule`, {
     data: {
@@ -108,7 +108,7 @@ test("intake and appointment changes agree across Board and Calendar while Home 
   const afterCompletion = await home();
   expect(findUpcoming(afterCompletion)).toHaveLength(0);
   expect(findBoard(afterCompletion)).toHaveLength(1);
-  expect((await calendar(movedDate)).events.filter((event) => event.referralId === referral.id)).toHaveLength(1);
+  expect((await calendar(movedDate)).events.filter((event) => event.kind === "assessment" && event.referralId === referral.id)).toHaveLength(1);
 
   const currentReferral = (await (await page.request.get(`/api/referrals/${referral.id}`)).json()).referral as typeof referral;
   const trashedResponse = await page.request.delete(`/api/referrals/${referral.id}`, {
@@ -117,5 +117,5 @@ test("intake and appointment changes agree across Board and Calendar while Home 
   expect(trashedResponse.ok(), await trashedResponse.text()).toBe(true);
   expect(findUpcoming(await home())).toHaveLength(0);
   expect(findBoard(await home())).toHaveLength(0);
-  expect((await calendar(movedDate)).events.filter((event) => event.referralId === referral.id)).toHaveLength(0);
+  expect((await calendar(movedDate)).events.filter((event) => event.kind === "assessment" && event.referralId === referral.id)).toHaveLength(0);
 });

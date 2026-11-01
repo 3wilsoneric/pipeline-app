@@ -621,8 +621,8 @@ test.describe("Referral home and packet canvas", () => {
     expect(saveBox?.y ?? 0).toBeGreaterThan(firstPageBox?.y ?? 0);
     await expect(savePacket).toBeInViewport();
 
-    await page.getByRole("button", { name: "Workspace files" }).click();
-    const secondPageBox = await page.getByRole("region", { name: "Files", exact: true }).boundingBox();
+    await page.getByRole("button", { name: "Workspace activity" }).click();
+    const secondPageBox = await page.getByRole("region", { name: "Activity", exact: true }).boundingBox();
     expect(Math.abs((firstPageBox?.y ?? 0) - (secondPageBox?.y ?? 0))).toBeLessThan(1);
 
     await page.setViewportSize({ width: 390, height: 844 });
@@ -776,7 +776,7 @@ test.describe("Referral home and packet canvas", () => {
     await expect(page.getByText("Scheduled Client", { exact: true }).first()).toBeVisible();
     await expect(page.locator('button[title^="Scheduled Client - Assessment scheduled"]')).toHaveClass(/bg-\[#eef1ff\]/);
     await expect(page.getByRole("combobox", { name: "Filter calendar by event type" })).toHaveCount(0);
-    await expect(page.getByRole("navigation", { name: "Primary navigation" }).getByRole("button")).toHaveCount(4);
+    await expect(page.getByRole("navigation", { name: "Primary navigation" }).getByRole("button")).toHaveCount(3);
     await expect(page.getByRole("button", { name: "Focus search" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Create new referral" })).toBeVisible();
 
@@ -2214,16 +2214,17 @@ test.describe("Referral home and packet canvas", () => {
     await page.getByRole("button", { name: "Create new referral" }).click();
     await expect(page.getByTestId("packet-workspace")).toHaveAttribute("aria-busy", "false");
     await expect(page.getByRole("button", { name: "Intake" })).toHaveAttribute("aria-current", "page");
-    await page.getByRole("button", { name: "Workspace files" }).click();
-    await expect(page.getByRole("button", { name: "Workspace files" })).toHaveAttribute("aria-current", "page");
+    await expect(page.getByRole("button", { name: "Workspace files" })).toHaveCount(0);
+    await page.getByRole("button", { name: "Workspace activity" }).click();
+    await expect(page.getByRole("button", { name: "Workspace activity" })).toHaveAttribute("aria-current", "page");
+    await expect(page.getByRole("region", { name: "Activity", exact: true })).toBeVisible();
     await expect(page.getByRole("region", { name: "Intake", exact: true })).toHaveCount(0);
-    await expect(page.getByTestId("document-checklist-toggle")).toHaveCount(0);
-    await expect(page.getByRole("button", { name: /Drop files or choose files/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Document checklist", exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Assessment", exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Decision" })).toHaveCount(0);
     await page.getByRole("button", { name: "Intake", exact: true }).click();
     await expect(page.getByRole("region", { name: "Intake", exact: true })).toBeVisible();
-    await page.locator("summary").filter({ hasText: /^Document checklist$/ }).click();
+    await page.getByRole("button", { name: "Document checklist", exact: true }).click();
     await expect(page.getByText("Signed Medication List", { exact: true })).toBeVisible();
     await expect(page.getByText("TB Test-Results", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: /Drop files or choose files/ })).toBeVisible();
