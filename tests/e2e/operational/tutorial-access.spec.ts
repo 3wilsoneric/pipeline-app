@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { showTutorialHelp } from "../support/app-navigation";
 import { actorApiContext, actorPage, requireOperationalBaseURL } from "../support/pipeline-actors";
 
 test.describe("tutorial access follows shared Pipeline access", () => {
@@ -17,7 +18,7 @@ test.describe("tutorial access follows shared Pipeline access", () => {
       try {
         await page.goto("/");
         await expect(page.locator('[data-pipeline-ready="guided-coach"]')).toBeAttached();
-        await page.getByRole("button", { name: "Open guided tutorials" }).click();
+        await (await showTutorialHelp(page)).click();
         const menu = page.getByRole("dialog", { name: "Tutorials", exact: true });
         for (const name of ["Create a referral & add files", "Schedule an appointment", "Fill out the assessment", "Review & sign", "Record a decision", "Prepare the admission packet"]) {
           await expect(menu.getByRole("button", { name, exact: true })).toBeEnabled();

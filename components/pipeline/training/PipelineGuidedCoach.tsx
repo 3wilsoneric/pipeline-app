@@ -90,7 +90,7 @@ export default function PipelineGuidedCoach() {
     if (event.type === "close" || event.type === "end" || event.type === "open-library") navigationGeneration.current += 1;
     if (event.type === "close" && document.activeElement?.closest("[data-guide-dock]")) {
       queueMicrotask(() => {
-        const controls = document.querySelectorAll<HTMLElement>('[data-guide-target="guided-help"], button[aria-label^="Open page menu"]');
+        const controls = document.querySelectorAll<HTMLElement>('[data-guide-target="guided-help"], [data-guide-target="profile-menu"], button[aria-label^="Open page menu"]');
         [...controls].find((control) => control.getClientRects().length > 0)?.focus();
       });
     }

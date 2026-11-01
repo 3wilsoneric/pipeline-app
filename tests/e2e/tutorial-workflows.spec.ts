@@ -461,10 +461,15 @@ test("an unnamed supervisor cannot see or dispatch the Reports tutorial", async 
   await expect(page.getByTestId("guided-coach-panel")).toHaveCount(0);
 });
 
-test("Escape closes the menu without navigating", async ({ page }) => {
-  await page.goto("/");
-  const panel = await library(page);
-  await page.keyboard.press("Escape");
-  await expect(panel).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Open guided tutorials" })).toBeFocused();
-});
+for (const width of [1440, 390]) {
+  test(`Escape closes the menu and restores visible navigation focus at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/");
+    const url = page.url();
+    const panel = await library(page);
+    await page.keyboard.press("Escape");
+    await expect(panel).toHaveCount(0);
+    await expect(page).toHaveURL(url);
+    await expect(page.getByRole("button", { name: width < 640 ? /^Open page menu/ : /^Open profile menu for/ })).toBeFocused();
+  });
+}
