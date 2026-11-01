@@ -56,3 +56,8 @@ layout. Both macOS Chromium and Linux Chromium in the CI Playwright 1.61.1 image
 passed all six comparisons after review. Screenshot assertions, masks, dimensions,
 and the 0.002 pixel-difference limit were unchanged. This refresh does not waive
 any functional, accessibility, security, or release check.
+
+The current profile-menu tutorial path passed 32 browser cases, including phone
+navigation and draft preservation. The performance scorecard measures each of its
+two inputs separately under the existing per-input budgets; all three isolated
+production-build runs passed without changing thresholds or sample counts.

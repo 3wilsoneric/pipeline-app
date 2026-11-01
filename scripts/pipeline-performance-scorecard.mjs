@@ -317,6 +317,12 @@ await measureJourney("profile_menu_close", "overlay", async () => {
 await page.locator('[data-pipeline-ready="guided-coach"]').waitFor({ state: "attached" });
 const tutorialLibrary = page.getByRole("dialog", { name: "Tutorials", exact: true });
 const reportGuide = page.getByRole("complementary", { name: "View reports tutorial", exact: true });
+// Help now lives in Profile. Score both inputs separately against the existing
+// response budgets, as with the other menu and navigation gestures in this suite.
+await measureJourney("guide_profile_open", "overlay", async () => {
+  await activate(page.getByRole("button", { name: /^Open profile menu for/ }));
+  await page.getByRole("button", { name: "Open guided tutorials", exact: true }).waitFor({ state: "visible" });
+});
 await measureJourney("guide_library_open", "guide", async () => {
   await activate(page.getByRole("button", { name: "Open guided tutorials", exact: true }));
   await tutorialLibrary.waitFor({ state: "visible" });
@@ -337,6 +343,10 @@ await measureJourney("guide_step_back", "guide", async () => {
 await measureJourney("guide_pause", "guide", async () => {
   await activate(reportGuide.getByRole("button", { name: "Pause tutorial", exact: true }));
   await reportGuide.waitFor({ state: "hidden" });
+});
+await measureJourney("guide_profile_reopen", "overlay", async () => {
+  await activate(page.getByRole("button", { name: /^Open profile menu for/ }));
+  await page.getByRole("button", { name: "Open guided tutorials", exact: true }).waitFor({ state: "visible" });
 });
 await measureJourney("guide_library_reopen", "guide", async () => {
   await activate(page.getByRole("button", { name: "Open guided tutorials", exact: true }));
@@ -391,6 +401,10 @@ await measureJourney("history_forward_to_referrals", "navigation", async () => {
   await page.getByRole("heading", { name: "Referral workspaces", exact: true }).waitFor({ state: "visible" });
 });
 
+await measureJourney("referrals_profile_open", "overlay", async () => {
+  await activate(page.getByRole("button", { name: /^Open profile menu for/ }));
+  await page.getByRole("button", { name: "Open guided tutorials", exact: true }).waitFor({ state: "visible" });
+});
 await measureJourney("referrals_to_learning_center", "navigation", async () => {
   const startedAt = performance.now();
   await activate(page.getByRole("button", { name: "Open guided tutorials", exact: true }));
@@ -418,6 +432,7 @@ await measureJourney("learning_workflow_close", "navigation", async () => {
   await page.getByRole("heading", { name: "Referral workspaces", exact: true }).waitFor({ state: "visible" });
 });
 await page.locator('[data-pipeline-ready="guided-coach"]').waitFor({ state: "attached" });
+await activate(page.getByRole("button", { name: /^Open profile menu for/ }));
 await activate(page.getByRole("button", { name: "Open guided tutorials", exact: true }));
 await tutorialLibrary.waitFor({ state: "visible" });
 await measureJourney("learning_task_open", "overlay", async () => {

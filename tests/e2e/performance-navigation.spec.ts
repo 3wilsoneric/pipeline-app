@@ -1,3 +1,4 @@
+import { showTutorialHelp } from "./support/app-navigation";
 import { expect, test } from "@playwright/test";
 
 test.describe("Pipeline warm navigation and bounded reads", () => {
@@ -13,7 +14,7 @@ test.describe("Pipeline warm navigation and bounded reads", () => {
     });
 
     await page.goto("/");
-    await page.getByRole("button", { name: "Open guided tutorials", exact: true }).click();
+    await (await showTutorialHelp(page)).click();
     await expect(page.getByRole("dialog", { name: "Tutorials", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Close tutorials", exact: true }).click();
     const initialDocumentRequests = documentRequests;
