@@ -311,6 +311,8 @@ for (const size of [{ width: 320, height: 568 }, { width: 390, height: 844 }, { 
     try {
       await page.goto("/settings");
       await expect(page.getByRole("heading", { name: "Your profile", exact: true })).toBeVisible();
+      if (size.width < 640) await expect(page.getByRole("link", { name: "Edit Home", exact: true })).toHaveCount(0);
+      else await expect(page.getByRole("link", { name: "Edit Home", exact: true })).toBeVisible();
       await page.locator("summary").filter({ hasText: "Contact & facility directory" }).click();
       await page.getByLabel("Contacts or referral facilities CSV", { exact: true }).setInputFiles({ name: "settings-fixture.csv", mimeType: "text/csv", buffer: Buffer.from("organization,email\nSettings Fixture,settings@example.test") });
       await page.getByRole("button", { name: "Preview", exact: true }).click();
