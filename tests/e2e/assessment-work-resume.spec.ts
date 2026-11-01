@@ -105,6 +105,7 @@ test("a phone interview returns to the exact question and uses the prepared answ
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: "Synthetic Interview", owner: "", tags: [] });
   const assessment = await createOperationalAssessment(page.request, referral.id);
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentMode=prepare&assessmentSection=identity&assessmentQuestion=referrer_contact`);
+  await waitForAssessmentReady(page);
   const pocket = page.locator("[data-phone-interview]");
   const input = page.getByRole("textbox", { name: "Referrer contact", exact: true });
   await input.fill("Synthetic contact");
