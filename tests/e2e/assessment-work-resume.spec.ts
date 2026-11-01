@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
+import type { PipelineWorkContinuityState } from "../../lib/pipeline/work-continuity";
 import { openAllQuestions, waitForAssessmentReady } from "./support/assessment-navigation";
 import { createOperationalAssessment, createOperationalReferral, scheduleOperationalAssessment } from "./support/operational-api";
 
@@ -80,7 +81,11 @@ test("opening from Workspaces resumes scheduling; a newer booking supersedes the
   await expect(dialog.getByRole("status")).toContainText("draft saved");
   await expect.poll(async () => {
     const response = await page.request.get("/api/me/work-continuity");
-    return (await response.json()).state?.lastWorkspace?.location?.assessmentDialog;
+    expect(response.ok()).toBe(true);
+    const { state } = await response.json() as { state: PipelineWorkContinuityState };
+    // Other clients can have later visits from the suite's clock simulations.
+    // Resuming this workspace uses its own saved location, not the global last visit.
+    return state.recentWorkspaces?.find((workspace) => workspace.referralId === referral.id)?.location.assessmentDialog;
   }).toBe("schedule");
   await page.goto("/?view=referrals");
   await page.getByRole("button", { name: `Open ${name} referral workspace`, exact: true }).click();
