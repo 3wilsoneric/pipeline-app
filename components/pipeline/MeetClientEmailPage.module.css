@@ -34,6 +34,7 @@
   .messageTools > div { display: flex; gap: 8px; }
   .messageTools > span { color: var(--color-ink-muted); font-size: 13px; }
   .messageTools button[aria-pressed="true"] { background: var(--color-primary-soft); text-decoration: underline; text-underline-offset: 4px; }
+  .brandLogo { display: block; width: min(300px, calc(100% - 48px)); height: auto; margin: 24px; }
   .messageEditor { display: grid; gap: 8px; padding: 20px clamp(14px, 3vw, 32px); font-size: 14px; }
   .messageEditor textarea { width: 100%; min-height: 360px; resize: vertical; border: 1px solid #bdcdc4; border-radius: 4px; padding: 16px; font: 16px/1.6 Arial, sans-serif; color: var(--color-ink); background: #fff; }
   .messageEditor textarea:focus-visible { outline: 2px solid var(--color-link); outline-offset: 2px; }

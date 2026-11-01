@@ -74,7 +74,7 @@ test.describe("Stable visual surfaces", () => {
   test("desktop profiles match their baseline", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await openStable(page, "/");
-    await page.getByRole("button", { name: "Open client profiles" }).click();
+    await page.goto("/?screen=profiles");
     await expect(page.getByRole("main", { name: "Client profiles" })).toBeVisible();
     await expect(page.getByRole("group", { name: "Community file cabinets" }).getByRole("button").first()).toBeVisible();
     await expect(page.getByTestId("profiles-workspace").getByRole("alert")).toHaveCount(0);

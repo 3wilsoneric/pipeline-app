@@ -100,7 +100,7 @@ test.describe("assessment outcome and admission handoff", () => {
           await expect(page.getByRole("region", { name: "Email and referral packet", exact: true })).toHaveCount(0);
           return;
         }
-        await page.getByRole("navigation", { name: "Workspace stages", exact: true }).getByRole("button", { name: "Placement", exact: true }).click();
+        await page.getByRole("navigation", { name: "Workspace stages", exact: true }).getByRole("button", { name: "Handoff", exact: true }).click();
         const before = await (await admin.get(`/api/referrals/${referral.id}/admission-summary`)).json();
         expect(before.email.ready).toBe(false);
         expect(before.email.blockers.join(" ")).toContain("planned admit date before sending Meet the Client");

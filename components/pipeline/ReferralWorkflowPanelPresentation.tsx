@@ -129,12 +129,12 @@ export function ReferralWorkflowPanelPresentation({
     {error ? <WorkflowNotice tone="error">{error}</WorkflowNotice> : null}
     {message && message !== "Decision recorded" ? <WorkflowNotice tone="success">{message}</WorkflowNotice> : null}
     <DecisionCard confirmRecommendation workflow={workflow} busy={busy} recommendation={recommendation} onRecommendationChange={onRecommendationChange} onSubmitDecision={onSubmitDecision} onOpenUnderReviewEmail={onOpenUnderReviewEmail} />
-    {workflow.decision?.outcome === "accepted" && onOpenPlacement ? <div className={styles.decisionActions}><PrimaryButton disabled={Boolean(busy)} onClick={onOpenPlacement}>Continue to Placement<ArrowRight size={18} aria-hidden="true" /></PrimaryButton></div> : null}
+    {workflow.decision?.outcome === "accepted" && onOpenPlacement ? <div className={styles.decisionActions}><PrimaryButton disabled={Boolean(busy)} onClick={onOpenPlacement}>Continue to Handoff<ArrowRight size={18} aria-hidden="true" /></PrimaryButton></div> : null}
     {showDecisionDone(workflow) && onDone ? <div className={styles.decisionActions}><PrimaryButton disabled={Boolean(busy)} onClick={onDone}>Done<ArrowRight size={18} aria-hidden="true" /></PrimaryButton></div> : null}
     </div>
   </section>;
 
-  if (placementOnly) return <section aria-label="Placement follow-through" className={styles.page}>
+  if (placementOnly) return <section aria-label="Handoff follow-through" className={styles.page}>
     {message ? <WorkflowNotice tone="success">{message}</WorkflowNotice> : null}
     {error ? <WorkflowNotice tone="error">{error}</WorkflowNotice> : null}
     {workflow.decision?.outcome !== "accepted" ? <>
@@ -151,7 +151,7 @@ export function ReferralWorkflowPanelPresentation({
       </div>
       {view.currentReferral.stage === "Accepted / Admitted" ? <section className={styles.paperwork} aria-label="Client profile"><ReferralClientActivationPanel referralId={view.currentReferral.id} canReconcile={workflow.capabilities.can_reconcile_identity} canReview={workflow.capabilities.can_review_identity} onOpenProfile={onOpenProfile} /></section> : null}
       <dialog ref={followUpRef} aria-labelledby="placement-actions-title" className={styles.followUpDrawer} onClose={() => { setFollowUpOpen(false); followUpTriggerRef.current?.focus(); }} onClick={(event) => { if (event.target === event.currentTarget) event.currentTarget.close(); }}>
-        <div className={styles.followUpHead}><h2 id="placement-actions-title">Placement actions</h2><button type="button" aria-label="Close placement actions" onClick={closeFollowUp}><X size={18} aria-hidden="true" /></button></div>
+        <div className={styles.followUpHead}><h2 id="placement-actions-title">Handoff actions</h2><button type="button" aria-label="Close handoff actions" onClick={closeFollowUp}><X size={18} aria-hidden="true" /></button></div>
         <div className={styles.followUpBody}>
           {view.currentReferral.stage !== "Accepted / Admitted" && workflow.capabilities.can_cancel_placement ? <div className={styles.drawerSection}><h3>Placement change</h3><ReferralAdmissionPanel key={workflow.referral.id} referral={workflow.referral} packetSentAt={workflow.context.packetSentAt} admissionDate={admissionDate} disabled={!workflow.capabilities.can_update || Boolean(busy)} onAdmissionDateChange={onAdmissionDateChange} onSaveAdmissionDate={onSaveAdmissionDate} onSavePlacementCancellation={onSavePlacementCancellation} showReviewButton={false} showDateEditor={false} /></div> : null}
           {view.currentReferral.stage !== "Accepted / Admitted" && !workflow.referral.placementCancellation && workflow.capabilities.can_confirm_admission ? <section className={styles.drawerSection} aria-label="Confirm actual admission">
@@ -183,7 +183,7 @@ export function ReferralWorkflowPanelPresentation({
       <div className={styles.layout} data-recorded={Boolean(workflow.decision) || undefined}>
         <div className={styles.main} ref={resultRef} {...recordedDecisionAttributes(workflow)}>
           <DecisionCard workflow={workflow} busy={busy} recommendation={recommendation} onRecommendationChange={onRecommendationChange} onSubmitDecision={onSubmitDecision} onOpenUnderReviewEmail={onOpenUnderReviewEmail} onOpenAssessment={onOpenAssessment} />
-          {workflow.decision?.outcome === "accepted" && onOpenPlacement ? <div className={styles.decisionNext}><p>The decision is recorded. Continue in Placement to plan the arrival and prepare Meet the Client.</p><PrimaryButton disabled={Boolean(busy)} onClick={onOpenPlacement}>Continue to Placement <ArrowRight size={17} aria-hidden="true" /></PrimaryButton></div> : null}
+          {workflow.decision?.outcome === "accepted" && onOpenPlacement ? <div className={styles.decisionNext}><p>The decision is recorded. Continue in Handoff to plan the arrival and prepare Meet the Client.</p><PrimaryButton disabled={Boolean(busy)} onClick={onOpenPlacement}>Continue to Handoff <ArrowRight size={17} aria-hidden="true" /></PrimaryButton></div> : null}
           {showDecisionDone(workflow) && onDone ? (
             <div className={styles.done}>
               <p>{workflow.referral.placementCancellation ? "Placement cancelled. The earlier decision and handoff remain in the record." : workflow.decision ? "No client handoff is needed." : "The referral stays open. Return when you have more information."}</p>

@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { createOperationalAssessment, createOperationalReferral, startOperationalAssessment } from "./support/operational-api";
-import { leaveInterviewFullScreen, openWorkspaceFiles, returnToAssessmentQuestions } from "./support/assessment-navigation";
+import { editPreparedAnswer, leaveInterviewFullScreen, openWorkspaceFiles, returnToAssessmentQuestions, waitForAssessmentReady } from "./support/assessment-navigation";
 
 test("an older assessment save cannot retire a newer failed edit after a tab round-trip", async ({ page }) => {
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", {
@@ -213,6 +213,8 @@ test("a queued assessment answer syncs after leaving the workspace", async ({ pa
   await expect.poll(async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment.prior_placements).toBe("Synthetic background answer");
   await page.goBack();
   await expect(page).toHaveURL(new RegExp(`referralId=${referral.id}`));
-  await returnToAssessmentQuestions(page);
+  await waitForAssessmentReady(page);
+  // A synced answer reopens as recorded information; use its existing Edit action.
+  await editPreparedAnswer(page, "Earlier care placements");
   await expect(answer).toHaveValue("Synthetic background answer");
 });

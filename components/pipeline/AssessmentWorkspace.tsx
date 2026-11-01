@@ -2905,7 +2905,7 @@ export default function AssessmentWorkspace({
       <footer hidden={!questionsOnScreen} style={questionsOnScreen ? undefined : { display: "none" }} aria-label="Assessment actions" data-assessment-chart-review={reviewingChart || undefined} className={`${workingStyles.footer} flex shrink-0 flex-wrap items-center justify-between bg-white ${phoneLayout ? phoneStyles.mobileFooter : "gap-x-3 gap-y-2 px-4 py-2 sm:px-6 lg:px-8"}`}>
         {!reviewingChart && preparing && phoneLayout ? sectionSteps : null}
         {reviewingChart && error ? <p role="alert" className={workingStyles.reviewError}>{error}</p> : null}
-        {recommendationNode ? <section className={workingStyles.earmarkDock} aria-label="Placement recommendation">{recommendationNode}</section> : null}
+        {recommendationNode ? <section className={workingStyles.earmarkDock} data-finalized={Boolean(selected.signed_at) || undefined} aria-label="Placement recommendation">{recommendationNode}</section> : null}
         {/* Interview layout: the save status and interview date sit in the top-right of the interview bar instead. */}
         {interviewFocus ? null : renderSaveStatus()}
         {!reviewingChart && !phoneLayout ? sectionSteps : (reviewingChart || selected.signed_at) ? <div>

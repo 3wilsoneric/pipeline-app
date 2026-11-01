@@ -76,8 +76,11 @@ test.describe("Responsive and accessible application shell", () => {
     await expect(name).toBeFocused();
     await expectNoPageOverflow(page);
     await expectNoSeriousAxeViolations(page);
-    if (compactSteps) await stepSelect.selectOption("files");
-    else await page.getByRole("button", { name: "Workspace files" }).click();
+    const checklistToggle = page.getByRole("button", { name: "Document checklist", exact: true });
+    const checklist = page.locator(`[id="${await checklistToggle.getAttribute("aria-controls")}"]`);
+    await checklistToggle.click();
+    await expect(checklistToggle).toHaveAttribute("aria-expanded", "true");
+    await expect(checklist).toBeVisible();
     await expect(page.getByRole("region", { name: "Document checklist" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Choose referral documents" })).toBeVisible();
     await expectNoPageOverflow(page);
@@ -93,6 +96,11 @@ test.describe("Responsive and accessible application shell", () => {
     await expect(page).toHaveURL(/referralId=\d+/);
     const createdPanel = page.getByRole("region", { name: "Workspace created" });
     await createdPanel.getByRole("button", { name: "Dismiss workspace next steps" }).click();
+    if (compactSteps) await stepSelect.selectOption("files");
+    else await page.getByRole("button", { name: "Workspace files" }).click();
+    await expect(page.getByRole("region", { name: "Document checklist" })).toBeVisible();
+    await expectNoPageOverflow(page);
+    await expectNoSeriousAxeViolations(page);
     if (compactSteps) await stepSelect.selectOption({ label: "Assessment" });
     else await page.getByRole("button", { name: "Assessment", exact: true }).click();
     await expect(page.getByRole("region", { name: "Assessment", exact: true })).toBeVisible();

@@ -331,10 +331,10 @@ export default function ReferralWorkflowPanel({
     return result;
   };
 
-  if (loading && !workflow) return placementOnly ? <section aria-label="Placement follow-through"><p role="status">Loading placement status…</p>{children}</section>
+  if (loading && !workflow) return placementOnly ? <section aria-label="Handoff follow-through"><p role="status">Loading handoff status…</p>{children}</section>
     : requirementsOnly ? <div role="status">Loading admission requirements...</div> : compactRecommendation ? <span className={assessmentStyles.recoveryButton}>Loading decision...</span> : display(<ReferralWorkflowPanelLoading />);
-  if (!workflow) return placementOnly ? <section aria-label="Placement follow-through">
-    {error ? <WorkflowNotice tone="error">Placement status could not be loaded. Meet the Client remains available below. <button type="button" onClick={() => void loadWorkflow().catch(() => setError("Placement status could not be loaded."))}>Retry status</button></WorkflowNotice> : <p role="status">Loading placement status…</p>}
+  if (!workflow) return placementOnly ? <section aria-label="Handoff follow-through">
+    {error ? <WorkflowNotice tone="error">Handoff status could not be loaded. Meet the Client remains available below. <button type="button" onClick={() => void loadWorkflow().catch(() => setError("Handoff status could not be loaded."))}>Retry status</button></WorkflowNotice> : <p role="status">Loading handoff status…</p>}
     {children}
   </section> : requirementsOnly ? <WorkflowNotice tone="error">{error || "Admission requirements could not be loaded."} <button type="button" onClick={() => { setLoading(true); void loadWorkflow().catch(() => { setError("Admission requirements could not be loaded."); setLoading(false); }); }}>Retry</button></WorkflowNotice> : compactRecommendation ? <button type="button" className={assessmentStyles.recoveryButton} onClick={() => void loadWorkflow().catch(() => setError("Decision unavailable. Try again."))}>Retry decision</button> : display(<WorkflowNotice tone="error">{error || "Workflow could not be loaded."}</WorkflowNotice>);
 
@@ -556,6 +556,10 @@ export default function ReferralWorkflowPanel({
   };
 
   if (compactRecommendation && recommendationAssessmentId !== workflow.context.assessmentId) return null;
+  // Signed/recorded decisions are reviewed in the chart, not changed through a
+  // disabled earmark. Keep unresolved saves mounted and visible for recovery.
+  if (compactRecommendation && (workflow.context.assessmentSigned || workflow.decision)
+    && !busy && !error && !recommendationDirty.current) return null;
   const compactOutcome = workflow.decision ? (workflow.decision.outcome === "accepted" ? "accept" : "decline")
     : recommendationDirty.current ? recommendationDraft.outcome : workflow.recommendation?.outcome ?? "";
   if (compactRecommendation) return <><div data-quick-recommendation data-outcome={compactOutcome} className={assessmentStyles.quickRecommendation} aria-busy={Boolean(busy)}>

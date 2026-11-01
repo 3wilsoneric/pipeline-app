@@ -195,7 +195,7 @@ test("Decision continues to Placement, where the first handoff review owns the p
   });
   const decisionUrl = `/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=workflow`;
   await page.goto(decisionUrl);
-  const button = page.getByRole("button", { name: "Continue to Placement", exact: true });
+  const button = page.getByRole("button", { name: "Continue to Handoff", exact: true });
   await expect(button).toBeEnabled();
   await button.click();
   await expect(page.getByRole("region", { name: "Email and referral packet", exact: true })).toBeVisible();
@@ -251,6 +251,9 @@ for (const width of [1440, 1280, 834, 390, 320]) test(`guided checks lead to the
   await page.goto(url); await settleHandoff(page);
   const review = page.getByRole("region", { name: "Review client handoff", exact: true });
   await expect(review).toBeVisible();
+  const workingLogo = review.getByRole("img", { name: "Alamo Health Management", exact: true });
+  await expect(workingLogo).toBeVisible();
+  await expect.poll(() => workingLogo.evaluate((node: HTMLImageElement) => node.complete && node.naturalWidth > 0)).toBe(true);
   await expect(page.locator("iframe")).toHaveCount(0);
   await expect(review.getByRole("button", { name: "Preview email", exact: true })).toBeDisabled();
   await page.screenshot({ path: info.outputPath(`guided-start-${width}.png`), animations: "disabled" });
@@ -464,7 +467,7 @@ test("closing Placement saves a changed planned date after a handoff", async ({ 
     await route.fulfill({ response, json: payload });
   });
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
-  const placement = page.getByRole("region", { name: "Placement follow-through" });
+  const placement = page.getByRole("region", { name: "Handoff follow-through" });
   await placement.getByLabel("Planned admission date", { exact: true }).fill("2026-10-19");
   await placement.getByRole("button", { name: "Close workspace", exact: true }).click();
   await expect(page.getByTestId("packet-workspace")).toHaveCount(0);
@@ -605,7 +608,7 @@ test("chart load failure leaves the finish tab and its next action reachable", a
   await page.route(`**/api/referrals/${referral.id}/assessments*`, route => route.fulfill({ status: 503, json: { error: "Synthetic unavailable chart" } }));
   const failure = page.waitForResponse(response => response.url().endsWith(`/api/referrals/${referral.id}/assessments`) && response.status() === 503);
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=chart`); await failure;
-  await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: /Placement/ }).click();
+  await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: /Handoff/ }).click();
   await expect(page.getByRole("heading", { name: "Sign the assessment", exact: true })).toBeVisible();
 });
 

@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { createOperationalReferral } from "./support/operational-api";
 
 async function openWorkingAssessment(page: Page, section = "functional_adl") {
   await page.goto(`/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=interview&assessmentSection=${section}&demo=1`);
@@ -197,6 +198,7 @@ test("profile navigation leaves through the save path and practice help stays in
 });
 
 test("Home distinguishes active-work categories from paper client files", async ({ page }) => {
+  const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: "Synthetic category client", owner: "", tags: [] });
   await page.goto("/");
   const board = page.locator("[data-current-work-board]");
   const colors = await page.evaluate(() => {
@@ -210,9 +212,9 @@ test("Home distinguishes active-work categories from paper client files", async 
     return { warm, paper };
   });
   const category = board.getByRole("button", { name: "Open in progress folder", exact: true });
-  await expect(category).toHaveCSS("background-color", colors.warm);
+  await expect(category).toHaveCSS("background-image", `linear-gradient(120deg, ${colors.paper} 35%, ${colors.warm})`);
   await category.click();
-  const card = page.getByRole("dialog").locator("[data-board-card]").first();
+  const card = page.getByRole("dialog").getByRole("button", { name: `Open ${referral.name}`, exact: true });
   await expect(card).toBeVisible();
   await expect(card).toHaveCSS("background-color", colors.paper);
   await page.screenshot({ path: "outputs/home-working-green.png" });

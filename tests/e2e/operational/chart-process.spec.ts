@@ -34,7 +34,7 @@ test("finished steps are filed into the Chart and remain in the rail", async ({ 
     await expect(pencil.locator("svg")).toHaveAttribute("width", "11");
     // Completed and unfinished steps remain directly available.
     await expect(rail.getByRole("button", { name: "Chart", exact: true })).toBeVisible();
-    await expect(rail.getByRole("button", { name: "Placement", exact: true })).toBeVisible();
+    await expect(rail.getByRole("button", { name: "Handoff", exact: true })).toBeVisible();
     await expect(rail.getByRole("button", { name: "Assessment", exact: true })).toBeVisible();
     await expect(rail.getByRole("button", { name: "Assessment", exact: true })).toHaveAttribute("data-step-state", "done");
     await expect(rail.getByRole("button", { name: "Decision", exact: true })).toBeVisible();
@@ -47,7 +47,7 @@ test("finished steps are filed into the Chart and remain in the rail", async ({ 
     await expect(stages.nth(1)).toHaveAttribute("data-chart-stage", "Decision");
     await expect(stages.nth(1)).toHaveAttribute("data-filed", "true");
     await expect(stages.nth(1)).toContainText("Decision recorded: Accepted");
-    await expect(stages.nth(2)).toHaveAttribute("data-chart-stage", "Placement");
+    await expect(stages.nth(2)).toHaveAttribute("data-chart-stage", "Handoff");
     await expect(stages.nth(2)).not.toHaveAttribute("data-filed", "true");
     await expect(page.locator("[data-chart-standing]")).toHaveCount(0);
     await stages.nth(0).scrollIntoViewIfNeeded();

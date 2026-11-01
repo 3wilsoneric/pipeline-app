@@ -42,7 +42,7 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
       } });
     });
     await page.goto("/");
-    await page.getByRole("button", { name: "Open client profiles" }).click();
+    await page.goto("/?screen=profiles");
     const cabinet = page.getByRole("button", { name: "Open A & A Health Services San Pablo file cabinet", exact: true });
     await expect(cabinet).toContainText("3 clients");
     await cabinet.click();

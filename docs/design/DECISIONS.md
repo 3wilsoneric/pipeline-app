@@ -394,3 +394,23 @@ Use existing motion tokens for the bookmark and confirmation seal; honor reduced
 ## Matching browser and installed-app icons (owner, 2026-10-31, local preview)
 
 Use the sidebar's existing white Pipeline P on its dark green background for the tab and installed desktop icon. The generator reuses the canonical SVG and reads `color-night` and `color-paper` from the design tokens. Versioned PNGs replace the prior icon references in metadata, the manifest and the static cache; installed-app identity and scope remain unchanged. The browser tab uses a larger mark for small-size legibility. App icons retain the maskable safe area. Verified served metadata/assets, sizes, colors and maskable crops; desktop readiness and affected lint pass. Evidence: `.data/ui40-icon-check.json`, `.data/ui40-desktop-readiness.json`. Local only.
+
+## Handoff step name (owner, 2026-11-01)
+
+Rename the workspace destination Placement to Handoff, including its Chart entry, continuation links, page region and actions drawer. The normal journey is Chart → Assessment → Handoff. This is a label change only: existing routes, admission and placement-cancellation terminology, assessment questions, permissions and save/send behavior remain unchanged. Local only.
+
+## Three Home priorities (owner, 2026-11-01, local)
+
+Upcoming assessments, In progress, and Clients in handoff are the leading Home controls, with equal widths and heights on desktop and matching stacked rows on phones. Use the existing teal, blue and green token families, a stage-colored top edge, a count and a quiet open arrow. Each opens its existing modal. Personal pinned and recent clients follow; owner-only application activity stays below the work area.
+
+Home's In progress group includes current intake, assessment and pending-decision work. Clients in handoff includes accepted active work only; closed, denied, cancelled and admitted work remains outside these active groups. This is Home presentation grouping, not a change to stored statuses, next actions, admission rules or permissions. Existing personal schedule scope, Mine/All folder scopes, pins and recovery remain intact. An unavailable source stays explicitly unavailable rather than displaying a zero count. Local only.
+
+## Intake file access and checklist (owner, 2026-11-01, local)
+
+New intake already exposes uploading and uploaded files in its document area, so omit the duplicate Files navigation until the workspace exists. Existing saved-workspace Files access and direct draft file routes remain available. The Document checklist button stays in the upload row, indicates its expanded state with a chevron, and opens or closes the same requirements below it. Enter and Space work as well as clicking. Checklist state only changes visibility; file selection, upload status and intake values remain intact.
+
+Reserve the new draft's save-status line while it is quiet. Blur-triggered saving must not move the next control between pointer-down and click. Keep pending, device-only and failed-save messages visible. Local only.
+
+## Remove Clients from primary navigation (owner, 2026-11-01, local)
+
+Omit Clients from the shared sidebar and phone page menu. Keep the directory route, client records, existing direct links and access rules intact. This removes one navigation item; it does not delete client functionality or data. Local only.

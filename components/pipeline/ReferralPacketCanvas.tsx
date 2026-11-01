@@ -13,6 +13,7 @@ import {
   ArrowRight,
   Check,
   CheckCircle2,
+  ChevronDown,
   CircleAlert,
   FolderOpen,
   GripVertical,
@@ -243,7 +244,7 @@ const savedWorkspaceSteps: ReadonlyArray<WorkspaceStep> = [
   { page: 3, label: "Chart" },
   { page: 2, label: "Assessment" },
   { page: "workflow", label: "Decision" },
-  { page: "email", label: "Placement" },
+  { page: "email", label: "Handoff" },
 ];
 
 const importedWorkspaceSteps: ReadonlyArray<{ page: WorkspaceStage; label: string }> = [
@@ -419,6 +420,8 @@ export default function ReferralPacketCanvas({
   }));
   const [conserved, setConserved] = useState<"yes" | "no" | "">("");
   const [documents, setDocuments] = useState<Record<string, string>>({});
+  const [documentChecklistOpen, setDocumentChecklistOpen] = useState(false);
+  const documentChecklistId = useId();
   const [pendingDocuments, setPendingDocuments] = useState<Record<string, File>>({});
   const [additionalFiles, setAdditionalFiles] = useState<LabeledReferralFile[]>([]);
   const [workspaceFiles, setWorkspaceFiles] = useState<ReferralFile[]>([]);
@@ -1701,7 +1704,7 @@ export default function ReferralPacketCanvas({
 
   const openPage = (page: WorkspaceView, editField?: ReferralChartEditField, assessmentMode?: "review" | null) => {
     entryResolvedRef.current = true;
-    // Kept-mounted steps keep Placement mounted, so a send in progress never blocks moving around.
+    // Kept-mounted steps keep Handoff mounted, so a send in progress never blocks moving around.
     if (emailSendingRef.current && !recordStack) return;
     if (page !== 2) setPreparingReferralId(null);
     setActivePage(page);
@@ -2548,7 +2551,7 @@ export default function ReferralPacketCanvas({
   const readingAssessment = (displayedPage === 2 || displayedPage === 3) && !historicalReadOnly;
   const readingDecision = displayedPage === "workflow" && Boolean(loadedReferral);
   // Kept-mounted steps (docs/design/DECISIONS.md, "Kept-mounted steps"): on wide screens with the
-  // redesign, Chart, Assessment, Decision, and Placement load once and stay mounted; one shows at a
+  // redesign, Chart, Assessment, Decision, and Handoff load once and stay mounted; one shows at a
   // time, as before. Switching shows another without unmounting, so no step has to finish saving first.
   const recordStack = verticalFlow && Boolean(loadedReferral) && !historicalReadOnly && !workspacePresentation.usesSourceProfile && !trainingAssessmentMode && !trainingIntakeMode;
   const stackVisible = recordStack && recordStepPages.has(displayedPage);
@@ -2722,7 +2725,7 @@ export default function ReferralPacketCanvas({
                 disabled={draftRecoveryLoading || emailSending}
               /> : null}
               {editingControlsVisible && !intakeFooterSave ? renderSaveControl() : null}
-              <button
+              {hasReferral || displayedPage === "files" ? <button
                 type="button"
                 onClick={() => void navigatePage("files")}
                 aria-current={displayedPage === "files" ? "page" : undefined}
@@ -2732,7 +2735,7 @@ export default function ReferralPacketCanvas({
               >
                 <FolderOpen size={15} aria-hidden="true" />
                 <span>{workspacePresentation.filesLabel}</span>
-              </button>
+              </button> : null}
               <button
                 type="button"
                 onClick={() => void navigatePage("activity")}
@@ -2773,7 +2776,7 @@ export default function ReferralPacketCanvas({
             ) : null}
             {/* Client notes: beside the questions on the Assessment step; from this button everywhere else. */}
             {designV2 && loadedReferral && (phone || displayedPage !== 2) && !trainingAssessmentMode && !trainingIntakeMode ? <ClientNotesButton key={loadedReferral.id} inline={phone} referralId={loadedReferral.id} readOnly={permissionReadOnly || historicalReadOnly} /> : null}
-            <WorkspaceStageNavigation steps={navigableWorkspaceSteps} activePage={displayedPage === 1 && loadedReferral && !navigableWorkspaceSteps.some((step) => step.page === 1) ? chartPage : displayedPage} onOpen={(page) => void navigatePage(page)} progress={designV2 ? workspaceStepProgress(loadedReferral?.workflowStatus, assessmentSummary) : undefined} details={designV2 ? workspaceStepDetails(loadedReferral, assessmentSummary) : undefined} />
+            <WorkspaceStageNavigation showFiles={hasReferral || displayedPage === "files"} steps={navigableWorkspaceSteps} activePage={displayedPage === 1 && loadedReferral && !navigableWorkspaceSteps.some((step) => step.page === 1) ? chartPage : displayedPage} onOpen={(page) => void navigatePage(page)} progress={designV2 ? workspaceStepProgress(loadedReferral?.workflowStatus, assessmentSummary) : undefined} details={designV2 ? workspaceStepDetails(loadedReferral, assessmentSummary) : undefined} />
             {recordStack && stackVisible && editingControlsVisible ? renderSaveCenter() : null}
             {/* Redesign: no "is editing" pills in the rail (owner, 2026-09-26). Saves still refuse and
                 explain conflicting edits (renderWorkspaceConflicts). */}
@@ -2835,8 +2838,14 @@ export default function ReferralPacketCanvas({
     >
       {historicalReadOnly ? <p className="text-sm text-[#52655d]">Files in this imported chart can be opened and downloaded. Add new files to the current referral.</p> : null}
       {renderPacketReview()}
-      {showChecklist ? <details data-document-checklist-disclosure className="mt-4 border-t border-[#dce4df] pt-3">
-        <summary className="inline-flex min-h-11 cursor-pointer items-center text-[14px] font-semibold text-[#52655d]">Document checklist</summary>
+      {showChecklist ? <>
+        <button type="button" className={intakeFormStyles.checklistToggle}
+          aria-expanded={documentChecklistOpen}
+          aria-controls={`${documentChecklistId}-${collapsible ? "chart" : "intake"}`}
+          onClick={() => setDocumentChecklistOpen((open) => !open)}>
+          Document checklist <ChevronDown size={18} aria-hidden="true" />
+        </button>
+        <div id={`${documentChecklistId}-${collapsible ? "chart" : "intake"}`} hidden={!documentChecklistOpen} className={intakeFormStyles.checklistContent}>
         <ul className="mt-2 grid gap-x-6 sm:grid-cols-2">
           {[...requirements, ...attachments].map((item) => {
             const filename = getRequirementReviewValue(item, documents[item.id], loadedReferral);
@@ -2848,7 +2857,8 @@ export default function ReferralPacketCanvas({
             </li>;
           })}
         </ul>
-      </details> : null}
+        </div>
+      </> : null}
     </ReferralDocumentUpload>
   );
 
@@ -2861,7 +2871,6 @@ export default function ReferralPacketCanvas({
           <button type="button" disabled={permissionReadOnly} onClick={() => void continueCreatedWorkspace(true)}><PipelineIllustration kind="calendar" size={48} /><span><strong>Schedule assessment</strong><small>Choose a date, time and meeting details.</small></span><ArrowRight size={22} aria-hidden="true" /></button>
         </div>
         {saveError ? <p role="alert">{saveError}</p> : null}
-        <p>Neither option starts the interview. Begin interview when you are with the client.</p>
       </section> : null);
 
 
@@ -2880,7 +2889,7 @@ export default function ReferralPacketCanvas({
                   void openAssignedWork().catch((error) => setSaveError(error instanceof Error ? error.message : "The workspace could not be saved.")).finally(() => setEmailFinishing(false));
                 }} className="min-h-12 rounded-md bg-primary px-6 text-[16px] font-semibold text-paper hover:bg-primary-hover focus-visible:outline-2 disabled:opacity-50">{emailFinishing ? "Saving..." : "Close workspace"}</button> : null} />;
   const renderEmailStep = () => (
-            <PacketPage id="packet-email" title="Placement" flush>
+            <PacketPage id="packet-email" title="Handoff" flush>
               <WorkspaceChartFolder>
               {loadedReferral ? <ReferralWorkflowPanel key={`placement-${referralWorkspaceId}`} referral={loadedReferral} placementOnly workspaceActive={displayedPage === "email"}
                 beforeWorkspaceExitRef={placementExitRef}
@@ -3468,12 +3477,13 @@ function WorkspaceChartFolder({ children }: { children: React.ReactNode }) {
   </div>;
 }
 
-function WorkspaceStageNavigation({ steps, activePage, onOpen, progress, details }: {
+function WorkspaceStageNavigation({ steps, activePage, onOpen, progress, details, showFiles = true }: {
   steps: ReadonlyArray<WorkspaceStep>;
   activePage: WorkspaceView;
   onOpen: (page: WorkspaceView) => void;
   progress?: StepProgress;
   details?: StepDetails;
+  showFiles?: boolean;
 }) {
   return (
     <nav data-guide-target="workspace-stage-nav" aria-label="Workspace stages" data-single-step={steps.length === 1 || undefined} className={workspaceFolderStyles.stages}>
@@ -3482,7 +3492,7 @@ function WorkspaceStageNavigation({ steps, activePage, onOpen, progress, details
         if (view !== undefined) onOpen(view);
       }}>
         {steps.map((step) => <option key={step.page} value={step.page}>{step.label}</option>)}
-        <optgroup label="File tools"><option value="files">Files</option><option value="activity">Activity</option></optgroup>
+        <optgroup label="File tools">{showFiles ? <option value="files">Files</option> : null}<option value="activity">Activity</option></optgroup>
       </select>
       {steps.filter((step) => step.page !== "workflow" || !steps.some((entry) => entry.page === 3)).map((step, index) => <div key={step.page} className={workspaceFolderStyles.stageEntry} data-step-state={progress?.[String(step.page)]}>
         <WorkspaceStageButton {...step} number={index + 1} selected={activePage === step.page} onOpen={onOpen} progress={progress?.[String(step.page)]} detail={details?.[String(step.page)]} />
@@ -3576,7 +3586,10 @@ function WorkspaceSaveStatus({ status, error, createdWorkspaceId, referralId, ha
   // Confirmed saves do not need a second visible strip below the folder tabs.
   // Keep pending, device-only, and failed saves visible.
   const quiet = !error && !saving && (presentation.confirmed || status === "No unsaved changes" || /^Draft(?: saved.*)?$/.test(status));
-  return <div data-testid="workspace-save-status" className={quiet ? "sr-only" : workspaceFolderStyles.saveNotice} aria-live="polite" title={error || status}>
+  // Draft fields save on blur. Reserve their status line so it cannot move the
+  // next control between pointer-down and click, especially on phones.
+  return <div data-testid="workspace-save-status" data-quiet={quiet || undefined} className={hasReferral ? quiet ? "sr-only" : workspaceFolderStyles.saveNotice : `${workspaceFolderStyles.saveNotice} ${workspaceFolderStyles.draftSaveNotice}`} aria-live="polite" title={error || status}>
+    <span className={!hasReferral && quiet ? "sr-only" : "contents"}>
     <FeedbackCue value={status} enabled={presentation.confirmed} />
     <Icon size={13} aria-hidden="true" className={`shrink-0 ${presentation.iconClassName}`} />
     <span className={`shrink-0 ${presentation.textClassName}`}>{presentation.label}</span>
@@ -3584,6 +3597,7 @@ function WorkspaceSaveStatus({ status, error, createdWorkspaceId, referralId, ha
     {presentation.label !== status ? <span className="sr-only">{status}</span> : null}
     {error ? <span role="alert" className="min-w-0 max-w-[45ch] text-sm font-medium text-[#93382d]">{error}</span> : null}
     {error && onRetry ? <button type="button" aria-label="Retry saving" onClick={onRetry} disabled={saving} className="shrink-0 text-sm font-bold text-[#0c705f] underline underline-offset-2">Retry</button> : null}
+    </span>
   </div>;
 }
 

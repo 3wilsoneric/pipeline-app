@@ -41,11 +41,11 @@ for (const width of [1440, 834, 390]) {
     expect(referral.name).toContain("Example");
     expect(referral.community).toBe("San Pablo");
     expect(referral.email).toBe("example@example.invalid");
-    if (width < 640) await expect(stagePicker.locator(":scope > option")).toHaveText(["Chart", "Assessment", "Decision", "Placement"]);
+    if (width < 640) await expect(stagePicker.locator(":scope > option")).toHaveText(["Chart", "Assessment", "Decision", "Handoff"]);
     else {
       await expect(stages.locator("button[data-folder-stage]")).toHaveCount(3);
       expect(await stages.getByRole("button").evaluateAll(buttons => buttons.map(button => button.getAttribute("aria-label"))))
-        .toEqual(["Chart", "Decision", "Assessment", "Placement"]);
+        .toEqual(["Chart", "Decision", "Assessment", "Handoff"]);
     }
     await expectStage("Chart");
     await expect(page.getByRole("article", { name: "Referral chart", exact: true })).toContainText("San Pablo");
@@ -146,17 +146,17 @@ for (const width of [1440, 834, 390]) {
     await decision.getByLabel("Reason (optional)", { exact: true }).fill("Synthetic end-to-end example, not a clinical decision.");
     await decision.getByRole("button", { name: "Record decision", exact: true }).click();
     await page.getByRole("alertdialog").getByRole("button", { name: "Record acceptance", exact: true }).click();
-    await expectStage("Placement");
+    await expectStage("Handoff");
     await openStage("Chart");
     await expect(page.getByRole("article", { name: "Referral chart", exact: true })).toBeVisible();
     const recordedDecision = (await (await page.request.get(`/api/referrals/${referralId}/workflow`)).json()).decision;
     expect(recordedDecision.reasonNote).toBe("Synthetic end-to-end example, not a clinical decision.");
-    await openStage("Placement");
-    const placement = page.getByRole("region", { name: "Placement follow-through", exact: true });
+    await openStage("Handoff");
+    const placement = page.getByRole("region", { name: "Handoff follow-through", exact: true });
     await placement.getByLabel("Planned admit date", { exact: true }).fill("2026-10-01");
     let mailRequests = 0;
     page.on("request", (request) => { if (request.url().endsWith("/meet-client-email")) mailRequests++; });
-    await expectStage("Placement");
+    await expectStage("Handoff");
     await expect(page.getByRole("region", { name: "Email and referral packet", exact: true })).toBeVisible();
     await openRecipients(page);
     await page.getByRole("combobox", { name: /^To/ }).fill("Example recipient <example@example.invalid>");
@@ -291,7 +291,7 @@ test("a failed signature or decision stays in place; retry advances only after s
   await page.unroute(decisionRoute);
   await decision.getByRole("button", { name: "Record decision", exact: true }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Record acceptance", exact: true }).click();
-  await expect(stages.getByRole("button", { name: /Placement$/ })).toHaveAttribute("aria-current", "page");
+  await expect(stages.getByRole("button", { name: /Handoff$/ })).toHaveAttribute("aria-current", "page");
   const review = await openRecipients(page);
   await review.getByLabel("Planned admit date", { exact: true }).fill("2026-10-12");
   await review.getByRole("combobox", { name: /^To/ }).fill("Synthetic recipient <recipient@example.invalid>");
@@ -303,12 +303,12 @@ test("a failed signature or decision stays in place; retry advances only after s
     ? route.fulfill({ status: 503, json: { error: "Synthetic date save unavailable" } }) : route.continue());
   await review.getByRole("button", { name: "Preview email", exact: true }).click();
   await expect(review.getByRole("alert")).toContainText("Synthetic date save unavailable");
-  await expect(stages.getByRole("button", { name: /Placement$/ })).toHaveAttribute("aria-current", "page");
+  await expect(stages.getByRole("button", { name: /Handoff$/ })).toHaveAttribute("aria-current", "page");
   await expect(review.getByLabel("Planned admit date", { exact: true })).toHaveValue("2026-10-12");
   await page.unroute(saveRoute);
   await review.getByRole("button", { name: "Preview email", exact: true }).click();
   await expect(page.getByRole("dialog", { name: "Meet the Client email", exact: true })).toBeVisible();
-  await expect(stages.getByRole("button", { name: /Placement$/ })).toHaveAttribute("aria-current", "page");
+  await expect(stages.getByRole("button", { name: /Handoff$/ })).toHaveAttribute("aria-current", "page");
   expect((await read()).meet_client_sent_at).toBeFalsy();
   expect(sends).toBe(0);
 });
@@ -348,8 +348,8 @@ test("iPad WebKit keeps signing and finishing in the same folder", async ({ base
     await decision.getByRole("radio", { name: "Accept", exact: true }).check();
     await decision.getByRole("button", { name: "Record decision", exact: true }).tap();
     await page.getByRole("alertdialog").getByRole("button", { name: /^Record (acceptance|denial)$/, exact: true }).click();
-    await stages.getByRole("button", { name: /Placement$/ }).tap();
-    await expect(stages.getByRole("button", { name: /Placement$/ })).toHaveAttribute("aria-current", "page");
+    await stages.getByRole("button", { name: /Handoff$/ }).tap();
+    await expect(stages.getByRole("button", { name: /Handoff$/ })).toHaveAttribute("aria-current", "page");
     await openRecipients(page);
     await page.getByRole("combobox", { name: /^To/ }).fill("Example recipient <example@example.invalid>");
     await page.getByRole("combobox", { name: /^To/ }).press("Enter");

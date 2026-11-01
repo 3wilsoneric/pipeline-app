@@ -89,7 +89,7 @@ test("week pans horizontally without trapping vertical scroll and restores page 
   expect(Math.abs((await ruler.boundingBox())!.x - (await week.boundingBox())!.x)).toBeLessThan(3);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: testInfo.outputPath("calendar-week-scrolled-ipad.png") });
-  await page.getByRole("button", { name: "Open client profiles" }).click();
+  await page.getByRole("button", { name: "Open referrals" }).click();
   await page.getByRole("button", { name: "Open calendar", exact: true }).click();
   await expect(page.getByRole("button", { name: "week", exact: true })).toHaveAttribute("aria-pressed", "true");
   await expect.poll(() => workspace.evaluate((node) => node.scrollTop)).toBeCloseTo(savedScroll, 0);

@@ -92,7 +92,7 @@ export function AssessmentWorkMode({ preparing, compactPreparation, disabled, ca
         <li aria-current={preparing ? "step" : undefined}><span aria-hidden="true">1</span><button type="button" aria-pressed={preparing} disabled={disabled} onClick={() => onChange(true)}>{preparing ? "Prepare assessment" : "All questions"}</button><ChevronRight size={15} aria-hidden="true" /></li>
         <li aria-current={!preparing ? "step" : undefined}><span aria-hidden="true">2</span><button type="button" aria-pressed={!preparing} disabled={disabled} onClick={() => onChange(false)}>Interview</button></li>
       </ol>
-      {designV2 && !preparing ? null : <p>{preparing ? "All assessment questions. Add or update what you know before, during, or after the interview." : "Focused questions for the conversation. Open All questions to add or update any other detail, then return here."}</p>}
+      {!designV2 ? <p>{preparing ? "All assessment questions. Add or update what you know before, during, or after the interview." : "Focused questions for the conversation. Open All questions to add or update any other detail, then return here."}</p> : null}
     </div>);
   const renderAppointment = () => (preparing && appointment ? <div className={styles.appointment} aria-label="Assessment appointment"><span>Scheduled</span><strong>{appointment}</strong>{scheduleAction ? <div className={styles.editAppointment}>{scheduleAction}</div> : null}</div> : scheduleAction ? <div className={styles.scheduleAction}>{scheduleAction}</div> : null);
   return <section className={styles.workMode} aria-label="Assessment progress" data-phase={preparing ? "preparation" : "interview"} data-compact-preparation={compactPreparation || undefined}>

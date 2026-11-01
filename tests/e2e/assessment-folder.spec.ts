@@ -154,11 +154,11 @@ for (const width of [1440, 1024, 768, 640, 390, 320]) {
     const pages = header.getByRole("navigation", { name: "Workspace stages" });
     if (width < 640) {
       const picker = pages.getByRole("combobox", { name: "Workspace view", exact: true });
-      await expect(picker.locator(":scope > option")).toHaveText(["Chart", "Assessment", "Decision", "Placement"]);
+      await expect(picker.locator(":scope > option")).toHaveText(["Chart", "Assessment", "Decision", "Handoff"]);
       await expect(picker.locator("optgroup option")).toHaveText(["Files", "Activity"]);
       await expect(picker.locator("option:checked")).toHaveText("Assessment");
     } else {
-      expect(await pages.getByRole("button").evaluateAll((buttons) => buttons.map((button) => button.getAttribute("aria-label")))).toEqual(["Chart", "Decision", "Assessment", "Placement"]);
+      expect(await pages.getByRole("button").evaluateAll((buttons) => buttons.map((button) => button.getAttribute("aria-label")))).toEqual(["Chart", "Decision", "Assessment", "Handoff"]);
       await expect(pages.getByRole("button", { name: "Assessment", exact: true })).toHaveAttribute("aria-current", "page");
     }
     if (width < 640) {

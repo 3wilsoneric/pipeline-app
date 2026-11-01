@@ -146,11 +146,11 @@ for (const width of [390, 1440]) {
     await expect(page.getByRole("button", { name: "Pipeline home", exact: true })).toBeVisible();
     const hopper = page.getByRole("region", { name: "Current work", exact: true });
     const seen: string[] = [];
-    for (const [label, stage] of [["In progress", "in_progress"], ["Decision", "decision"]] as const) {
+    for (const [label, stage] of [["In progress", "in_progress"], ["Clients in handoff", "decision"]] as const) {
       const open = hopper.getByRole("button", { name: `Open ${label.toLowerCase()} folder`, exact: true });
       await open.click();
       const dialog = page.getByRole("dialog", { name: `${label} folder`, exact: true });
-      const expected = items.filter(item => (item.board.stage === "received" ? "in_progress" : item.board.stage) === stage);
+      const expected = items.filter(item => (item.board.stage === "decision" && item.outcome_state === "accepted" ? "decision" : "in_progress") === stage);
       await expect(dialog.locator("[data-board-card]")).toHaveCount(expected.length);
       for (const item of expected) {
         await expect(dialog.getByRole("button", { name: `Open ${item.client_name}`, exact: true })).toBeVisible();
@@ -165,7 +165,7 @@ for (const width of [390, 1440]) {
     }
     expect(seen.sort()).toEqual(items.map(item => item.client_name).sort());
     await page.reload();
-    await hopper.getByRole("button", { name: "Open decision folder", exact: true }).click();
+    await hopper.getByRole("button", { name: "Open clients in handoff folder", exact: true }).click();
     await expect(page.getByRole("dialog").getByRole("button", { name: "Open Quinn Patel", exact: true })).toBeVisible();
   });
 }
@@ -173,8 +173,8 @@ for (const width of [390, 1440]) {
 test("supervisors see submitted referrals as review work, not a personal waiting task", async ({ page }) => {
   await mockHopper(page, [], true);
   await page.goto("/");
-  await page.getByRole("button", { name: "Open decision folder", exact: true }).click();
-  const hopper = page.getByRole("dialog", { name: "Decision folder", exact: true });
+  await page.getByRole("button", { name: "Open in progress folder", exact: true }).click();
+  const hopper = page.getByRole("dialog", { name: "In progress folder", exact: true });
   await expect(hopper.getByRole("button", { name: "Open Riley Hart", exact: true })).toContainText("Review the submitted assessment");
   await expect(hopper).not.toContainText("Waiting for supervisor");
 });
@@ -184,11 +184,11 @@ test("the board cannot be removed and its expanded view remains operable and res
   await mockHopper(page);
   await page.goto("/?editHome=1");
   await expect(page.getByRole("button", { name: "Remove Board from Home", exact: true })).toHaveCount(0);
-  const open = page.getByRole("button", { name: "Open decision folder", exact: true });
+  const open = page.getByRole("button", { name: "Open clients in handoff folder", exact: true });
   for (let visit = 0; visit < 2; visit += 1) {
     await open.click();
-    const dialog = page.getByRole("dialog", { name: "Decision folder", exact: true });
-    await expect(dialog.getByRole("button", { name: "Open Riley Hart", exact: true })).toBeVisible();
+    const dialog = page.getByRole("dialog", { name: "Clients in handoff folder", exact: true });
+    await expect(dialog.getByRole("button", { name: "Open Quinn Patel", exact: true })).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(dialog).toHaveCount(0);
     await expect(open).toBeFocused();
@@ -282,7 +282,7 @@ test("a save in another tab refreshes the hopper and supersedes an older pending
     await expect(page.getByRole("button", { name: "Open Updated Client", exact: true })).toBeVisible();
     release();
     await expect(page.getByRole("button", { name: `Open ${referral.name}`, exact: true })).toHaveCount(0);
-    await expect(page.getByRole("dialog", { name: "In progress folder", exact: true }).locator("[data-board-card]")).toHaveCount(5);
+    await expect(page.getByRole("dialog", { name: "In progress folder", exact: true }).locator("[data-board-card]")).toHaveCount(6);
     await expect(editor.getByRole("textbox", { name: "Referrer phone:", exact: true })).toHaveValue("555-0188");
   } finally { release(); await editor.close(); }
 });
@@ -347,7 +347,7 @@ for (const preset of [false, true]) {
     });
     await page.goto("/");
     await expect(page.getByRole("button", { name: "Pipeline home", exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Open decision folder", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Open clients in handoff folder", exact: true })).toBeVisible();
     await expect(page.locator("html")).toHaveAttribute("data-pipeline-keyboard-shortcuts-ready", "true");
     await page.keyboard.press("Control+k");
     const search = page.getByRole("dialog", { name: "Search Pipeline", exact: true });

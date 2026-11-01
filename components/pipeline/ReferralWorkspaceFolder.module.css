@@ -220,6 +220,9 @@
     font-weight: 600;
   }
 
+  .draftSaveNotice { display: flex; width: fit-content; min-height: calc(1lh + 6px); }
+  .draftSaveNotice[data-quiet] { background: transparent; }
+
   .connectedFolder.connectedFolder { margin-top: 0; }
   .connectedFolder > div { border-top: 0; border-radius: 0 var(--radius-folder) var(--radius-folder) var(--radius-folder); }
 

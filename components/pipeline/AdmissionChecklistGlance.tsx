@@ -132,7 +132,7 @@ function summaryText(field: AssessmentToolFieldKey, value: unknown) {
 }
 
 // Chart built by the process (docs/design/DECISIONS.md, "Chart built by the process"; owner, 2026-09-27): the
-// Chart reads in the order of the work — Assessment, Decision, Placement — and each finished step is filed
+// Chart reads in the order of the work — Assessment, Decision, Handoff — and each finished step is filed
 // here with its stamp (what and when), while every step remains reachable in the rail. A step still under way
 // shows its status in one line, with the way into it. All wording is existing.
 export function ChartProcess({ referralId, assessment, record, entry, appointment, onOpenAssessment, onOpenDecision, onOpenFinish }: {
@@ -173,9 +173,9 @@ export function ChartProcess({ referralId, assessment, record, entry, appointmen
         {workflow.decision?.reasonNote ? <div><dt>Decision reason</dt><dd>{workflow.decision.reasonNote}</dd></div> : null}
       </dl> : null}
     </ChartStage>
-    {accepted || packet?.state === "done" ? <ChartStage id={`chart-finish-${referralId}`} title="Placement" filed={referral?.stage === "Accepted / Admitted" || Boolean(referral?.placementCancellation)}
+    {accepted || packet?.state === "done" ? <ChartStage id={`chart-finish-${referralId}`} title="Handoff" filed={referral?.stage === "Accepted / Admitted" || Boolean(referral?.placementCancellation)}
       status={referral?.placementCancellation ? "Did not move in" : referral?.stage === "Accepted / Admitted" ? "Admitted" : packet ? (packet.state === "done" ? `${packet.label} · ${packet.detail}` : packet.label) : undefined}
-      action={onOpenFinish ? <button type="button" onClick={onOpenFinish} className={styles.open}>Open placement<ArrowRight size={16} aria-hidden="true" /></button> : null}>
+      action={onOpenFinish ? <button type="button" onClick={onOpenFinish} className={styles.open}>Open handoff<ArrowRight size={16} aria-hidden="true" /></button> : null}>
       {referral?.admissionDate || referral?.actualAdmissionDate ? <dl className={styles.facts}>
         {referral?.admissionDate ? <div><dt>Planned admission date</dt><dd>{formatProfileDate(referral.admissionDate) ?? referral.admissionDate}</dd></div> : null}
         {referral?.stage === "Accepted / Admitted" && referral.actualAdmissionDate ? <div><dt>Actual admission date</dt><dd>{formatProfileDate(referral.actualAdmissionDate) ?? referral.actualAdmissionDate}</dd></div> : null}

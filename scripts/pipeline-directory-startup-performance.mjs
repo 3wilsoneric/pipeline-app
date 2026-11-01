@@ -77,7 +77,7 @@ try {
       const clientReadsBefore = clientReads;
       const clientStart = performance.now();
       result.stage = "client_navigation";
-      await page.getByRole("button", { name: "Open client profiles", exact: true }).click();
+      await page.goto(new URL("/?screen=profiles", base).href);
       result.stage = "client_actual_card";
       await page.getByRole("button", { name: /^Open profile for / }).first().waitFor();
       const clientsMs = Math.round(performance.now() - clientStart);

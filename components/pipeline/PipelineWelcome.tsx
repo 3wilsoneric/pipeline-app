@@ -138,7 +138,7 @@ export default function PipelineWelcome({
   };
   const briefingModules = briefing ? {
     "recent-work": <ContinueWorkPanel items={briefing.continuity.resume_items} unavailable={briefing.continuity.unavailable} onOpenPacket={onOpenPacket} onResumeDraft={onResumeDraft} />,
-    "current-work": <CurrentWorkSummary briefing={briefing} onOpenPacket={onOpenPacket} onPin={pinWorkspace} />,
+    "current-work": <CurrentWorkSummary briefing={briefing} onOpenPacket={onOpenPacket} onPin={pinWorkspace} onOpenUpcoming={() => setUpcomingOpen(true)} />,
     "new-assignments": null,
     "upcoming-assessments": null,
     "scheduling-queue": <SchedulingQueuePanel briefing={briefing} onOpenPacket={onOpenPacket} />,
@@ -155,14 +155,6 @@ export default function PipelineWelcome({
       <main data-guide-target="home-workspace" data-performance-ready={pipelineSurfaceReady("home", !briefing, error)} className="h-full overflow-y-auto bg-[#f4f6f5] text-[#202320] outline-none">
         <div className="mx-auto w-full max-w-[1380px] px-4 pb-10 pt-4 sm:px-6 sm:pt-5 lg:px-8">
           <HomeSearchAccess visible={searchVisible} searchProps={searchProps} onClose={() => setSearchOpen(false)} />
-          {canViewApplicationActivity ? <ApplicationActivityCard /> : null}
-          {briefing ? <button type="button" className={deckStyles.upcomingRibbon} aria-label="Upcoming assessments" aria-haspopup="dialog"
-            onClick={(event) => { event.currentTarget.focus({ preventScroll: true }); setUpcomingOpen(true); }}>
-            <span>Upcoming assessments</span>
-            {!briefing.unavailable_sections.includes("upcoming") ? <span className={deckStyles.count}>{briefing.upcoming.length}</span> : null}
-            <span className={deckStyles.ribbonDetail}>{briefing.unavailable_sections.includes("upcoming") ? "Unavailable" : "Next 7 days"}</span>
-            <ArrowRight size={18} aria-hidden="true" />
-          </button> : null}
 
           {error ? (
             <div role="alert" className="mt-4 flex items-center justify-between gap-4 border-l-2 border-[#a9473d] bg-[#fff6f4] px-4 py-3 text-[12px] text-[#723d35]">
@@ -195,6 +187,7 @@ export default function PipelineWelcome({
               />
             </div>
           ) : null}
+          {canViewApplicationActivity ? <ApplicationActivityCard /> : null}
           {!briefing && !error ? <HomeSkeleton /> : null}
         </div>
       </main>
@@ -230,17 +223,19 @@ function HomeSearchAccess({ visible, searchProps, onClose }: {
   );
 }
 
-function CurrentWorkSummary({ briefing, onOpenPacket, onPin }: {
+function CurrentWorkSummary({ briefing, onOpenPacket, onPin, onOpenUpcoming }: {
   briefing: HomeBriefingSnapshot;
   onOpenPacket: ComponentProps<typeof PipelineWelcome>["onOpenPacket"];
   onPin: (id: number, pinned: boolean) => Promise<void>;
+  onOpenUpcoming: () => void;
 }) {
   return (
     <section data-guide-target="my-queue" aria-label="Current work" className="bg-white">
       <div id="home-referral-board">
         <ReferralWorkflowTracker key={briefing.viewer.id} briefing={briefing} onOpenPacket={(referral, location) => onOpenPacket(referral, location, undefined, true)} layout="board"
           clientSpace={{ pinnedIds: briefing.continuity.pinned_referral_ids ?? [], recentIds: briefing.continuity.recent_referral_ids ?? [],
-            unavailable: briefing.continuity.unavailable, onPin, onResume: onOpenPacket }} />
+            unavailable: briefing.continuity.unavailable, onPin, onResume: onOpenPacket,
+            upcoming: { count: briefing.upcoming.length, unavailable: briefing.unavailable_sections.includes("upcoming"), onOpen: onOpenUpcoming } }} />
       </div>
     </section>
   );

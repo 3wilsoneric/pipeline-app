@@ -174,13 +174,13 @@ test.describe("Referral home and packet canvas", () => {
     await expect(activeReferrals).toHaveClass(/bg-\[#e7f3ee\]/);
     await expect(activeReferrals).toHaveCSS("background-color", "rgb(244, 162, 97)");
     await expect(activeReferrals).toHaveCSS("border-color", "rgb(244, 162, 97)");
-    const inactiveProfiles = page.getByRole("button", { name: "Open client profiles" });
-    await expect(inactiveProfiles).not.toHaveAttribute("aria-current", "page");
-    expect(await inactiveProfiles.evaluate((node) => getComputedStyle(node).backgroundColor))
+    const inactiveCalendar = page.getByRole("button", { name: "Open calendar" });
+    await expect(inactiveCalendar).not.toHaveAttribute("aria-current", "page");
+    expect(await inactiveCalendar.evaluate((node) => getComputedStyle(node).backgroundColor))
       .not.toBe(await activeReferrals.evaluate((node) => getComputedStyle(node).backgroundColor));
     for (const navItem of [
       activeReferrals,
-      inactiveProfiles,
+      inactiveCalendar,
       page.getByRole("button", { name: "Create new referral" }),
     ]) {
       expect((await navItem.boundingBox())?.width ?? 0).toBeGreaterThanOrEqual(44);
@@ -583,7 +583,7 @@ test.describe("Referral home and packet canvas", () => {
     await page.getByRole("textbox", { name: "NAME", exact: true }).fill("Abandoned unsaved intake");
     await page.waitForTimeout(500);
     const firstDraftId = new URL(page.url()).searchParams.get("draftId");
-    await page.getByRole("button", { name: "Open client profiles", exact: true }).click();
+    await page.getByRole("button", { name: "Open calendar", exact: true }).click();
     await page.getByRole("button", { name: "Create new referral", exact: true }).click();
     const secondDraftId = new URL(page.url()).searchParams.get("draftId");
     expect(secondDraftId).toBeTruthy();
@@ -602,7 +602,7 @@ test.describe("Referral home and packet canvas", () => {
     const referralMainBox = await referralMain.boundingBox();
     expect(referralMainBox?.y).toBe(expectedSurfaceTop);
 
-    await page.getByRole("button", { name: "Open client profiles" }).click();
+    await page.goto("/?screen=profiles");
     const profilesMain = page.getByRole("main", { name: "Client profiles" });
     await expect(profilesMain).toBeVisible();
     expect((await profilesMain.boundingBox())?.y).toBe(expectedSurfaceTop);
@@ -621,8 +621,8 @@ test.describe("Referral home and packet canvas", () => {
     expect(saveBox?.y ?? 0).toBeGreaterThan(firstPageBox?.y ?? 0);
     await expect(savePacket).toBeInViewport();
 
-    await page.getByRole("button", { name: "Workspace files" }).click();
-    const secondPageBox = await page.getByRole("region", { name: "Files", exact: true }).boundingBox();
+    await page.getByRole("button", { name: "Workspace activity" }).click();
+    const secondPageBox = await page.getByRole("region", { name: "Activity", exact: true }).boundingBox();
     expect(Math.abs((firstPageBox?.y ?? 0) - (secondPageBox?.y ?? 0))).toBeLessThan(1);
 
     await page.setViewportSize({ width: 390, height: 844 });
@@ -638,7 +638,7 @@ test.describe("Referral home and packet canvas", () => {
 
   test("keeps rapid header navigation deterministic", async ({ page }) => {
     const destinations = [
-      { name: "Open client profiles", parameter: "screen", value: "profiles", landmark: "Client profiles" },
+      { name: "Open calendar", parameter: "screen", value: "calendar", landmark: "Calendar" },
       { name: "Create new referral", parameter: "screen", value: "packet", landmark: "Workspace stages" },
       { name: "Open referrals", parameter: "view", value: "referrals", landmark: "Referral workspaces" },
     ] as const;
@@ -647,7 +647,7 @@ test.describe("Referral home and packet canvas", () => {
       for (const destination of destinations) {
         await page.getByRole("button", { name: destination.name }).click();
         await expect.poll(() => new URL(page.url()).searchParams.get(destination.parameter)).toBe(destination.value);
-        if (destination.value === "profiles") {
+        if (destination.value === "calendar") {
           await expect(page.getByRole("main", { name: destination.landmark })).toBeVisible();
         } else if (destination.value === "packet") {
           await expect(page.getByRole("navigation", { name: destination.landmark })).toBeVisible();
@@ -660,9 +660,9 @@ test.describe("Referral home and packet canvas", () => {
     await page.keyboard.press("/");
     await expect(page.getByLabel("Search or ask")).toBeVisible();
     await page.keyboard.press("Escape");
-    await page.getByRole("button", { name: "Open client profiles" }).click();
+    await page.getByRole("button", { name: "Open calendar" }).click();
     await expect(page.getByLabel("Search or ask")).toHaveCount(0);
-    await expect(page.getByRole("main", { name: "Client profiles" })).toBeVisible();
+    await expect(page.getByRole("main", { name: "Calendar" })).toBeVisible();
   });
 
   test("keeps assignment history out of the calendar and schedules from the ready queue", async ({ page }) => {
@@ -776,7 +776,7 @@ test.describe("Referral home and packet canvas", () => {
     await expect(page.getByText("Scheduled Client", { exact: true }).first()).toBeVisible();
     await expect(page.locator('button[title^="Scheduled Client - Assessment scheduled"]')).toHaveClass(/bg-\[#eef1ff\]/);
     await expect(page.getByRole("combobox", { name: "Filter calendar by event type" })).toHaveCount(0);
-    await expect(page.getByRole("navigation", { name: "Primary navigation" }).getByRole("button")).toHaveCount(4);
+    await expect(page.getByRole("navigation", { name: "Primary navigation" }).getByRole("button")).toHaveCount(3);
     await expect(page.getByRole("button", { name: "Focus search" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Create new referral" })).toBeVisible();
 
@@ -2214,16 +2214,17 @@ test.describe("Referral home and packet canvas", () => {
     await page.getByRole("button", { name: "Create new referral" }).click();
     await expect(page.getByTestId("packet-workspace")).toHaveAttribute("aria-busy", "false");
     await expect(page.getByRole("button", { name: "Intake" })).toHaveAttribute("aria-current", "page");
-    await page.getByRole("button", { name: "Workspace files" }).click();
-    await expect(page.getByRole("button", { name: "Workspace files" })).toHaveAttribute("aria-current", "page");
+    await expect(page.getByRole("button", { name: "Workspace files" })).toHaveCount(0);
+    await page.getByRole("button", { name: "Workspace activity" }).click();
+    await expect(page.getByRole("button", { name: "Workspace activity" })).toHaveAttribute("aria-current", "page");
+    await expect(page.getByRole("region", { name: "Activity", exact: true })).toBeVisible();
     await expect(page.getByRole("region", { name: "Intake", exact: true })).toHaveCount(0);
-    await expect(page.getByTestId("document-checklist-toggle")).toHaveCount(0);
-    await expect(page.getByRole("button", { name: /Drop files or choose files/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Document checklist", exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Assessment", exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Decision" })).toHaveCount(0);
     await page.getByRole("button", { name: "Intake", exact: true }).click();
     await expect(page.getByRole("region", { name: "Intake", exact: true })).toBeVisible();
-    await page.locator("summary").filter({ hasText: /^Document checklist$/ }).click();
+    await page.getByRole("button", { name: "Document checklist", exact: true }).click();
     await expect(page.getByText("Signed Medication List", { exact: true })).toBeVisible();
     await expect(page.getByText("TB Test-Results", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: /Drop files or choose files/ })).toBeVisible();
@@ -2502,7 +2503,7 @@ test.describe("Referral home and packet canvas", () => {
     await recordDecision.click();
     await expect(page.getByRole("alertdialog")).toContainText("Records acceptance. Nothing is signed or sent.");
     await page.getByRole("alertdialog").getByRole("button", { name: "Record acceptance", exact: true }).click();
-    await expect(page.getByRole("region", { name: "Placement follow-through" }).getByRole("heading", { name: "Meet the Client", exact: true })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Handoff follow-through" }).getByRole("heading", { name: "Meet the Client", exact: true })).toBeVisible();
     const decisionReadback = await page.request.get(`/api/referrals/${referral.id}/decision`);
     expect(decisionReadback.ok()).toBe(true);
     expect((await decisionReadback.json()).decision).toMatchObject({ outcome: "accepted", reasonNote: "Synthetic acceptance decision for the EHR handoff journey." });
@@ -2534,17 +2535,17 @@ test.describe("Referral home and packet canvas", () => {
     } });
     expect(confirmed.ok(), await confirmed.text()).toBeTruthy();
     await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
-    const placement = page.getByRole("region", { name: "Placement follow-through" });
+    const placement = page.getByRole("region", { name: "Handoff follow-through" });
     await expect(placement.getByRole("status").filter({ hasText: "Admitted" })).toBeVisible();
     await placement.getByRole("button", { name: "More actions" }).click();
-    const actions = placement.getByRole("dialog", { name: "Placement actions" });
+    const actions = placement.getByRole("dialog", { name: "Handoff actions" });
     await expect(actions).not.toContainText(/ElderMark|manual entry|Mark pending|Record issue/i);
-    await actions.getByRole("button", { name: "Close placement actions" }).click();
+    await actions.getByRole("button", { name: "Close handoff actions" }).click();
     await page.getByRole("navigation", { name: "Workspace stages", exact: true }).getByRole("button", { name: "Chart", exact: true }).click();
-    const chartPlacement = page.locator(`section[data-chart-stage="Placement"]`);
+    const chartPlacement = page.locator(`section[data-chart-stage="Handoff"]`);
     await expect(chartPlacement).toContainText("Admitted");
     await expect(chartPlacement).toContainText("Actual admission date");
-    await page.getByRole("button", { name: "Placement", exact: true }).click();
+    await page.getByRole("button", { name: "Handoff", exact: true }).click();
 
     const admittedProfile = placement.getByRole("region", { name: "Admitted client profile" });
     await expect(admittedProfile).toBeVisible();
