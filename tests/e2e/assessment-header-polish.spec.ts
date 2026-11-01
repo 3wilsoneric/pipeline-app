@@ -23,7 +23,7 @@ for (const width of [1440, 1024, 834, 768, 640]) {
     await page.goto(url);
     const header = page.getByRole("navigation", { name: "Assessment sections", exact: true });
     const picker = header.getByRole("combobox", { name: "Assessment section", exact: true });
-    const status = header.getByRole("status");
+    const status = header.getByRole("status").filter({ hasText: /recorded$/ });
     await expect(status).toHaveText("1 / 2 recorded");
     await expect(status).toHaveCSS("font-size", "14px");
     await expect(page.getByText("Unanswered", { exact: true })).toHaveCount(0);
@@ -45,9 +45,11 @@ for (const width of [1440, 1024, 834, 768, 640]) {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     if (width >= 760 && width <= 959) {
       const title = (await picker.boundingBox())!;
-      const count = (await status.boundingBox())!;
-      expect(title.width).toBeGreaterThan(300);
-      expect(title.x + title.width).toBeLessThanOrEqual(count.x);
+      const bounds = (await header.boundingBox())!;
+      expect(await picker.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+      // The redesign keeps the recorded count for screen readers and gives the visible picker the header width.
+      expect(title.x).toBeGreaterThanOrEqual(bounds.x);
+      expect(title.x + title.width).toBeLessThanOrEqual(bounds.x + bounds.width);
     }
     await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
     const violations = await page.evaluate(async () => {
@@ -69,7 +71,7 @@ test("review warnings remain distinct from unanswered questions", async ({ page 
   });
   await page.goto(url);
   const header = page.getByRole("navigation", { name: "Assessment sections", exact: true });
-  await expect(header.getByRole("status")).toHaveText("0 / 2 recorded1 to verify");
+  await expect(header.getByRole("status").filter({ hasText: /recorded/ })).toHaveText("0 / 2 recorded1 to verify");
   await expect(page.locator('[data-working-field="current_symptoms"]').getByText("Review", { exact: true })).toBeVisible();
   await expect(page.getByRole("complementary", { name: "Current information", exact: true })).toContainText("Needs verification");
   expect(await header.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);

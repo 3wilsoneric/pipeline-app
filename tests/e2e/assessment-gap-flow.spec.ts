@@ -185,7 +185,7 @@ test("saved preparation remains editable across visits and becomes interview ref
   await expect(page.getByRole("heading", { name: /From the records|Ask & confirm/ })).toHaveCount(0);
   const nav = page.getByRole("navigation", { name: "Assessment sections", exact: true });
   const editor = page.locator('[data-assessment-question-editor]');
-  expect((await nav.boundingBox())!.height).toBeLessThan(72);
+  await expect(page.locator('[data-assessment-working-section][data-assessment-phase="preparation"]')).toBeVisible();
   expect((await editor.boundingBox())!.y - ((await nav.boundingBox())!.y + (await nav.boundingBox())!.height)).toBeLessThan(24);
   await field.fill("Synthetic diagnosis from day one records");
   await field.blur();
@@ -210,7 +210,7 @@ test("saved preparation remains editable across visits and becomes interview ref
   await page.reload();
   await expect(page.getByLabel("Assessment section", { exact: true })).toBeVisible();
   await expect(field).toHaveValue("Synthetic corrected diagnosis from later records");
-  await page.getByRole("region", { name: "Assessment progress", exact: true }).getByRole("button", { name: "Begin interview", exact: true }).click();
+  await page.locator('footer[aria-label="Assessment actions"]').getByRole("button", { name: "Begin interview", exact: true }).click();
   await page.getByRole("dialog", { name: "Begin interview", exact: true }).getByRole("button", { name: "Begin interview", exact: true }).click();
   await page.getByLabel("Assessment section", { exact: true }).selectOption("diagnosis_clinical");
   await expect(page.getByRole("complementary", { name: "Current information" })).toContainText("Synthetic corrected diagnosis from later records");

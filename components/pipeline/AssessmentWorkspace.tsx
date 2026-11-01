@@ -2503,7 +2503,7 @@ export default function AssessmentWorkspace({
   const changeWorkingMode = (prepare: boolean) => {
     // One-page interview: the topic in view (the picker's), not the last paged section, is the one to return to.
     if (prepare && !preparing) interviewReturnRef.current = stackedQuestionsView
-      ? { assessmentId: selectedId, section: spySection, field: null }
+      ? { assessmentId: selectedId, section: spySection, field: questionSectionRef.current === spySection ? phoneQuestionRef.current : null }
       : { assessmentId: selectedId, section: activeSection, field: focusedFieldRef.current?.field ?? phoneQuestionRef.current };
     if (focusedFieldRef.current) commitAnswer(focusedFieldRef.current.field);
     const returning = interviewReturnRef.current;
@@ -2899,7 +2899,8 @@ export default function AssessmentWorkspace({
 
       </div>
 
-      {questionsOnScreen ? <footer aria-label="Assessment actions" data-assessment-chart-review={reviewingChart || undefined} className={`${workingStyles.footer} flex shrink-0 flex-wrap items-center justify-between bg-white ${phoneLayout ? phoneStyles.mobileFooter : "gap-x-3 gap-y-2 px-4 py-2 sm:px-6 lg:px-8"}`}>
+      {/* Keep the pending working-decision save and retry state mounted across workspace stages. */}
+      <footer hidden={!questionsOnScreen} style={questionsOnScreen ? undefined : { display: "none" }} aria-label="Assessment actions" data-assessment-chart-review={reviewingChart || undefined} className={`${workingStyles.footer} flex shrink-0 flex-wrap items-center justify-between bg-white ${phoneLayout ? phoneStyles.mobileFooter : "gap-x-3 gap-y-2 px-4 py-2 sm:px-6 lg:px-8"}`}>
         {!reviewingChart && preparing && phoneLayout ? sectionSteps : null}
         {reviewingChart && error ? <p role="alert" className={workingStyles.reviewError}>{error}</p> : null}
         {recommendationNode ? <section className={workingStyles.earmarkDock} aria-label="Placement recommendation">{recommendationNode}</section> : null}
@@ -2908,7 +2909,7 @@ export default function AssessmentWorkspace({
         {!reviewingChart && !phoneLayout ? sectionSteps : (reviewingChart || selected.signed_at) ? <div>
         {renderPrimaryAssessmentActions()}
         </div> : null}
-      </footer> : null}
+      </footer>
 
     </AssessmentFileSurface>
   </>);

@@ -98,6 +98,9 @@ for (const width of [1440, 1024, 768, 640]) {
     const picker = folder.getByRole("combobox", { name: "Assessment section", exact: true });
     const reference = folder.getByRole("complementary", { name: "Current information" });
     const recorded = reference.locator('[data-split-topic="diagnosis_clinical"]');
+    // Let the requested topic finish opening before testing a separate user scroll.
+    await expect(picker).toHaveValue("diagnosis_clinical");
+    await expect(folder.locator('[data-assessment-group-heading="diagnosis_clinical"]')).toBeInViewport();
     await expect(recorded).toContainText(longNote);
     expect(await recorded.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
     await expect.poll(() => canvas.evaluate((el) => el.scrollHeight - el.clientHeight)).toBeGreaterThan(300);

@@ -196,12 +196,12 @@ test("profile navigation leaves through the save path and practice help stays in
   await expect(assessment).toBeVisible();
 });
 
-test("Home separates warm category controls from paper client files", async ({ page }) => {
+test("Home distinguishes active-work categories from paper client files", async ({ page }) => {
   await page.goto("/");
   const board = page.locator("[data-current-work-board]");
   const colors = await page.evaluate(() => {
     const sample = document.createElement("span");
-    sample.style.backgroundColor = "var(--color-card-warm)";
+    sample.style.backgroundColor = "var(--color-stage-blue-tile)";
     document.body.append(sample);
     const warm = getComputedStyle(sample).backgroundColor;
     sample.style.backgroundColor = "var(--color-paper)";

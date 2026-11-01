@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { createOperationalAssessment, createOperationalReferral, startOperationalAssessment } from "./support/operational-api";
-import { openAssessmentChart, returnToAssessmentQuestions } from "./support/assessment-navigation";
+import { editPreparedAnswer, openAllQuestions, openAssessmentChart, returnToAssessmentQuestions } from "./support/assessment-navigation";
 
 for (const width of [1440, 390]) test(`full questionnaire stays editable during an interview and returns to the same question at ${width}px`, async ({ page }, info) => {
   await page.setViewportSize({ width, height: 900 });
@@ -19,8 +19,8 @@ for (const width of [1440, 390]) test(`full questionnaire stays editable during 
   if (width === 390) {
     await page.getByRole("button", { name: "Choose questionnaire section", exact: true }).click();
     await page.getByRole("dialog", { name: "Questionnaire sections", exact: true }).getByRole("button", { name: /All questions/ }).click();
-  } else await page.getByRole("button", { name: "All questions", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Prepare assessment", exact: true })).toHaveAttribute("aria-pressed", "true");
+  } else await openAllQuestions(page);
+  await expect(page.locator('[data-assessment-working-section][data-assessment-phase="preparation"]')).toBeVisible();
   await expect(symptoms).toHaveValue("Synthetic interview observation");
   await expect.poll(async () => (await read()).current_symptoms).toBe("Synthetic interview observation");
   await page.locator("#assessment-secondary_diagnoses").fill("Synthetic record detail");
@@ -39,7 +39,7 @@ for (const width of [1440, 390]) test(`full questionnaire stays editable during 
     await expect(page.locator("#assessment-referrer_contact")).toBeFocused();
     await page.locator("#assessment-referrer_contact").fill("Synthetic contact from phone search");
   } else {
-    await page.getByRole("button", { name: "Edit Secondary diagnosis", exact: true }).click();
+    await editPreparedAnswer(page, "Secondary diagnosis");
     await expect(page.locator("#assessment-secondary_diagnoses")).toBeFocused();
     await page.locator("#assessment-secondary_diagnoses").fill("Synthetic corrected record detail");
   }

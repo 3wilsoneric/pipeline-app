@@ -64,7 +64,7 @@ test.describe("mobile assessment", () => {
       }
       const field = assessment.getByRole("textbox", { name: "Current symptoms", exact: true });
       await editPreparedAnswer(page, "Current symptoms");
-      await expect(field).toHaveCSS("font-size", phone ? "16px" : "17px");
+      await expect(field).toHaveCSS("font-size", "16px");
       if (size.width >= 960 && !phone) {
         const reference = assessment.getByRole("complementary", { name: "Current information" });
         await expect(reference).toBeVisible();
@@ -232,7 +232,7 @@ test("WebKit iPad retains answers and reference access while editing and rotatin
       expect(await reference.evaluate((element) => element.scrollTop)).toBe(0);
       expect(await editor.evaluate((element) => element.scrollTop)).toBe(0);
       await expect(field).toHaveValue("Synthetic tablet note, retained when rotating.");
-      await expect(field).toHaveCSS("font-size", "17px");
+      await expect(field).toHaveCSS("font-size", "16px");
       expect(await assessment.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
       await page.screenshot({ path: info.outputPath(`reading-webkit-${size.width}.png`) });
     }

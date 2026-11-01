@@ -504,7 +504,9 @@
     .reviewHeading h3 { font-size: 18px; }
     .chartReviewNotice { padding: 4px 16px 8px; font-size: 13px; }
     .chartReview [data-assessment-record] > :is(header, section, footer) { padding-inline: 16px; }
-    .footerUtilities { flex-basis: 100%; justify-content: space-between; gap: 8px; }
+    .footerUtilities { flex-basis: 100%; flex-wrap: wrap; justify-content: space-between; gap: 8px; }
+    .footerUtilities [data-guide-target="assessment-save-status"] { flex: 1 0 100%; }
+    .footerUtilities .returnToInterview { flex-shrink: 0; }
     .sectionSteps { width: 100%; justify-content: space-between; gap: 8px; }
     .sectionSteps [data-assessment-primary-action] { margin-left: auto; }
     .navigation { gap: 6px; padding: 7px 12px; }

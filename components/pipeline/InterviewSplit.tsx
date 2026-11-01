@@ -28,7 +28,7 @@ const subscribeWidth = (changed: () => void) => {
   return () => window.removeEventListener("storage", storage);
 };
 
-type Topic = { key: AssessmentToolSection; label: string; questions: readonly AssessmentInterviewQuestion[] };
+type Topic = { key: AssessmentToolSection; label: string; questions: readonly AssessmentInterviewQuestion[]; referenceQuestions?: readonly AssessmentInterviewQuestion[] };
 
 export default function InterviewSplit({ topics, data, pending, currentTopic, notes, finalized, onEdit }: {
   topics: readonly Topic[];
@@ -95,7 +95,7 @@ export default function InterviewSplit({ topics, data, pending, currentTopic, no
 
   // Only this topic's information that is already filled in (from preparing, intake, or earlier in the interview).
   const topic = topics.find((item) => item.key === currentTopic) ?? topics[0];
-  const answered = topic ? topic.questions.filter((question) => hasAssessmentInterviewValue(data[question.field]) || getAssessmentUnableReason(data, question.field)) : [];
+  const answered = topic ? (topic.referenceQuestions ?? topic.questions).filter((question) => hasAssessmentInterviewValue(data[question.field]) || getAssessmentUnableReason(data, question.field)) : [];
 
   return <aside ref={pane} aria-label="Current information" className={styles.pane} data-interview-split>
     <div ref={text} className={styles.text} data-split-chart>
