@@ -40,7 +40,8 @@ for (const width of [1440, 390]) {
     const allWorkspaces = page.getByRole("button", { name: "Current", exact: true });
     await expect(allWorkspaces).toHaveCSS("background-image", "none");
     await expect(allWorkspaces).toHaveCSS("background-color", "rgb(253, 238, 223)");
-    await expect(page.getByRole("button", { name: "All files", exact: true })).toHaveCSS("color", "rgb(3, 47, 48)");
+    if (width >= 640) await expect(page.getByRole("button", { name: "All files", exact: true })).toHaveCSS("color", "rgb(3, 47, 48)");
+    else await expect(page.getByRole("button", { name: "All files", exact: true })).toHaveCount(0);
     const worklist = page.getByRole("region", { name: "Referral worklist" });
     const august = worklist.getByRole("button", { name: "Open August Example referral workspace", exact: true });
     const september = worklist.getByRole("button", { name: "Open September Example referral workspace", exact: true });
@@ -54,7 +55,7 @@ for (const width of [1440, 390]) {
     await expect(september.locator("[data-workspace-name]")).toHaveCSS("font-weight", "600");
     await expect(worklist.getByRole("button", { name: "Open Imported Example referral workspace", exact: true })).toHaveAttribute("data-earlier-workspace", "true");
     await expect(worklist.getByRole("button", { name: "Open Undated Example referral workspace", exact: true })).toHaveAttribute("data-earlier-workspace", "false");
-    for (const label of ["Current", "All files"]) {
+    for (const label of ["Current", ...(width >= 640 ? ["All files"] : ["Completed", "Admitted"])]) {
       await expect(page.getByRole("button", { name: label, exact: true })).not.toContainText(/\d/);
     }
     if (width < 1280) await page.getByRole("button", { name: "Browse workspaces by month and community" }).click();
@@ -65,16 +66,20 @@ for (const width of [1440, 390]) {
     await expect(month).toHaveAttribute("aria-current", "page");
     await expect(month.locator("span").first()).toHaveCSS("font-weight", width < 1280 ? "900" : "600");
     if (width < 1280) await page.getByRole("button", { name: "Close referral browser" }).click();
-    await page.getByRole("button", { name: "All files", exact: true }).click();
-    await expect(page.getByRole("button", { name: "All files", exact: true })).toHaveAttribute("aria-current", "page");
-    await page.mouse.move(0, 0);
-    await expect(page.getByRole("button", { name: "All files", exact: true })).toHaveCSS("background-image", "none");
-    await expect(page.getByRole("button", { name: "All files", exact: true })).toHaveCSS("background-color", "rgb(253, 238, 223)");
+    if (width >= 640) {
+      await page.getByRole("button", { name: "All files", exact: true }).click();
+      await expect(page.getByRole("button", { name: "All files", exact: true })).toHaveAttribute("aria-current", "page");
+      await page.mouse.move(0, 0);
+      await expect(page.getByRole("button", { name: "All files", exact: true })).toHaveCSS("background-image", "none");
+      await expect(page.getByRole("button", { name: "All files", exact: true })).toHaveCSS("background-color", "rgb(253, 238, 223)");
+    } else {
+      expect(params.get("scope")).toBe("mine");
+    }
     await page.getByRole("button", { name: "Current", exact: true }).click();
     await expect(august).toBeVisible();
     await page.mouse.move(0, 0);
     await expect(allWorkspaces).toHaveCSS("background-color", "rgb(253, 238, 223)");
-    await expect(page.getByRole("button", { name: "All files", exact: true })).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+    if (width >= 640) await expect(page.getByRole("button", { name: "All files", exact: true })).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
     await page.screenshot({ path: testInfo.outputPath(`workspace-emphasis-${width}.png`) });
     await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
     const violations = await page.evaluate(async () => {

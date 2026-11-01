@@ -49,7 +49,7 @@ for (const width of [1440, 390]) {
     await expect(directory.getByText("Workspaces", { exact: true })).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Unfinished referral intake", exact: true })).toHaveCount(0);
     const directoryBox = (await directory.boundingBox())!;
-    const searchBox = (await page.getByLabel("Search all workspaces", { exact: true }).boundingBox())!;
+    const searchBox = (await page.getByLabel(width < 640 ? "Search my workspaces" : "Search all workspaces", { exact: true }).boundingBox())!;
     if (process.env.PIPELINE_DESIGN_V2 === "true") {
       // The redesign wraps the input in a padded search control. Keep that
       // control at the top and the input centered inside it, without treating
@@ -60,7 +60,7 @@ for (const width of [1440, 390]) {
     } else {
       expect(searchBox.y - directoryBox.y).toBeLessThanOrEqual(32);
     }
-    expect(directoryParams.get("scope")).toBe("team");
+    expect(directoryParams.get("scope")).toBe(width < 640 ? "mine" : "team");
     expect(directoryParams.get("carryover")).toBe("true");
     await expect(page.getByRole("tab", { name: "Activity", exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: /Show workspaces as/ })).toHaveCount(0);
@@ -71,21 +71,26 @@ for (const width of [1440, 390]) {
     await expect.poll(() => directoryParams.getAll("community")).toEqual(["San Pablo", "Santa Clarita"]);
     await expect.poll(() => directoryParams.has("cursor")).toBe(false);
     await expect(page.getByText("Page 1", { exact: true })).toBeVisible();
-    await choose(page, "Filter by owner", ["Alex Assessor", "Blair Assessor"]);
-    await expect.poll(() => directoryParams.getAll("owner")).toEqual(["Alex Assessor", "Blair Assessor"]);
+    if (width >= 640) {
+      await choose(page, "Filter by owner", ["Alex Assessor", "Blair Assessor"]);
+      await expect.poll(() => directoryParams.getAll("owner")).toEqual(["Alex Assessor", "Blair Assessor"]);
+    } else {
+      await expect(page.getByRole("button", { name: "Filter by owner", exact: true })).toHaveCount(0);
+    }
     expect(directoryParams.getAll("community")).toEqual(["San Pablo", "Santa Clarita"]);
     await page.getByRole("combobox", { name: "Filter workspaces by county" }).selectOption("Contra Costa County");
     await expect.poll(() => directoryParams.get("county")).toBe("Contra Costa County");
-    expect(directoryParams.getAll("owner")).toHaveLength(2);
+    expect(directoryParams.getAll("owner")).toHaveLength(width < 640 ? 0 : 2);
     const communities = page.getByRole("button", { name: "Filter workspaces by community", exact: true });
     const owners = page.getByRole("button", { name: "Filter by owner", exact: true });
     await expect(communities).toHaveText("2 communities");
-    await expect(owners).toHaveText("2 owners");
+    if (width >= 640) await expect(owners).toHaveText("2 owners");
     await communities.click();
     await page.getByRole("group", { name: "Filter workspaces by community", exact: true }).getByRole("checkbox", { name: "San Pablo", exact: true }).uncheck();
-    await owners.click();
+    if (width >= 640) await owners.click();
+    else await page.keyboard.press("Escape");
     await expect(page.getByRole("group", { name: "Filter workspaces by community", exact: true })).not.toBeVisible();
-    await expect(page.getByRole("checkbox", { name: "Alex Assessor", exact: true })).toBeChecked();
+    if (width >= 640) await expect(page.getByRole("checkbox", { name: "Alex Assessor", exact: true })).toBeChecked();
     await expect.poll(() => directoryParams.getAll("community")).toEqual(["Santa Clarita"]);
     await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
     const violations = await page.evaluate(async () => {
@@ -100,14 +105,19 @@ for (const width of [1440, 390]) {
     await page.getByRole("button", { name: /September 2026/ }).click();
     await expect.poll(() => directoryParams.get("month")).toBe("2026-09");
     expect(directoryParams.getAll("community")).toEqual(["Santa Clarita"]);
-    expect(directoryParams.getAll("owner")).toHaveLength(2);
+    expect(directoryParams.getAll("owner")).toHaveLength(width < 640 ? 0 : 2);
     if (width < 1280) await page.getByRole("button", { name: "Close referral browser" }).click();
     await communities.click();
     await page.getByRole("group", { name: "Filter workspaces by community", exact: true }).getByRole("button", { name: "All communities", exact: true }).click();
     await page.keyboard.press("Escape");
     await expect.poll(() => directoryParams.getAll("community")).toEqual([]);
-    expect(directoryParams.getAll("owner")).toHaveLength(2);
+    expect(directoryParams.getAll("owner")).toHaveLength(width < 640 ? 0 : 2);
     expect(directoryParams.get("month")).toBe("2026-09");
+    if (width < 640) {
+      await expect(page.getByRole("button", { name: "All files", exact: true })).toHaveCount(0);
+      expect(directoryParams.get("scope")).toBe("mine");
+      return;
+    }
     await page.getByRole("button", { name: "All files", exact: true }).click();
     await choose(page, "Filter files by community", ["San Pablo", "Santa Clarita"]);
     await choose(page, "Filter files by owner", ["Alex Assessor", "Blair Assessor"]);
