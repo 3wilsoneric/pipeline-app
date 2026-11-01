@@ -282,7 +282,7 @@ test("a save in another tab refreshes the hopper and supersedes an older pending
     await expect(page.getByRole("button", { name: "Open Updated Client", exact: true })).toBeVisible();
     release();
     await expect(page.getByRole("button", { name: `Open ${referral.name}`, exact: true })).toHaveCount(0);
-    await expect(page.getByRole("dialog", { name: "In progress folder", exact: true }).locator("[data-board-card]")).toHaveCount(5);
+    await expect(page.getByRole("dialog", { name: "In progress folder", exact: true }).locator("[data-board-card]")).toHaveCount(6);
     await expect(editor.getByRole("textbox", { name: "Referrer phone:", exact: true })).toHaveValue("555-0188");
   } finally { release(); await editor.close(); }
 });
