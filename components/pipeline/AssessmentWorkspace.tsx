@@ -2744,7 +2744,7 @@ export default function AssessmentWorkspace({
   // entry); in the signed review it draws the plain chart there instead.
   const stackedChart = chartSlot ? (assessmentReview ? plainStackedChart : createPortal(renderChartReview(), chartSlot)) : null;
   return (<>{stackedChart}
-    {designV2 && referral && !trainingAssessmentMode && workspaceActive && questionsOnScreen ? <ChartPeek key={referral.id} referral={referral} assessment={{ ...selected, ...draft }} source={chartReferenceSource} /> : null}
+    {designV2 && referral && !trainingAssessmentMode && workspaceActive && questionsOnScreen && !phoneInterview ? <ChartPeek key={referral.id} referral={referral} assessment={{ ...selected, ...draft }} source={chartReferenceSource} /> : null}
     <AssessmentFileSurface
       title={workspaceTitle}
       container={contentRef.current}

@@ -88,7 +88,7 @@ test.describe("role-scoped home and reports", () => {
     await expect(page.getByRole("button", { name: "New assignments", exact: true })).toHaveCount(0);
     await expect(page.getByRole("heading", { name: "Board", exact: true })).toHaveCount(0);
     await page.getByRole("button", { name: "Upcoming assessments", exact: true }).click();
-    await expect(page.getByRole("region", { name: "Upcoming assessments" })).toBeVisible();
+    await expect(page.getByRole("dialog", { name: "Upcoming assessments" })).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(page.getByRole("region", { name: "Search", exact: true })).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Continue working", exact: true })).toHaveCount(0);
@@ -121,7 +121,7 @@ test.describe("role-scoped home and reports", () => {
 
     await expect(page.getByRole("region", { name: "Assessments to schedule" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Remove Upcoming assessments from Home" })).toHaveCount(0);
-    await expect(page.getByRole("region", { name: "Upcoming assessments" })).toHaveCount(0);
+    await expect(page.getByRole("dialog", { name: "Upcoming assessments" })).toHaveCount(0);
 
     await page.getByRole("button", { name: "Move Assessments to schedule", exact: true }).press("ArrowUp");
     await page.getByRole("button", { name: "Move Assessments to schedule", exact: true }).press("ArrowUp");
@@ -138,7 +138,7 @@ test.describe("role-scoped home and reports", () => {
 
     await page.reload();
     await expect(page.getByRole("region", { name: "Assessments to schedule" })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Upcoming assessments" })).toHaveCount(0);
+    await expect(page.getByRole("dialog", { name: "Upcoming assessments" })).toHaveCount(0);
     await expect.poll(async () => page.locator("[data-home-module]").evaluateAll((elements) => (
       elements.map((element) => element.getAttribute("data-home-module"))
     ))).toEqual(["current-work", "scheduling-queue", "search", "recent-work"]);
@@ -252,6 +252,13 @@ test.describe("role-scoped home and reports", () => {
   });
 
   test("keeps the assessor home personal and omits supervisor metrics", async ({ page }) => {
+    await page.route("**/api/auth/me", async (route) => {
+      const response = await route.fetch();
+      const payload = await response.json();
+      payload.user.id = "assessor-1";
+      await route.fulfill({ response, json: payload });
+    });
+    await page.route("**/api/calendar/events?**", (route) => route.fulfill({ json: { viewer: { id: "assessor-1" }, events: [] } }));
     await page.route("**/api/me/home-layout", (route) => route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -308,7 +315,7 @@ test.describe("role-scoped home and reports", () => {
     await page.getByRole("button", { name: "Close current work" }).click();
     await expect(page).not.toHaveURL(/work=current/);
     await page.getByRole("button", { name: "Upcoming assessments", exact: true }).click();
-    await expect(page.getByRole("region", { name: "Upcoming assessments" })).toContainText("No assessments are scheduled");
+    await expect(page.getByRole("dialog", { name: "Upcoming assessments" })).toContainText("No assessments scheduled this week.");
     await expect(page.getByRole("region", { name: "Data completion" })).toHaveCount(0);
   });
 

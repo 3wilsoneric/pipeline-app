@@ -14,7 +14,7 @@ test.describe("Responsive and accessible application shell", () => {
     await page.waitForLoadState("networkidle");
     await expect(page.getByRole("region", { name: "Current work", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Upcoming assessments", exact: true }).click();
-    await expect(page.getByRole("region", { name: "Upcoming assessments", exact: true })).toBeVisible();
+    await expect(page.getByRole("dialog", { name: "Upcoming assessments", exact: true })).toBeVisible();
     await page.keyboard.press("Escape");
     await expectNoPageOverflow(page);
     await expectNoSeriousAxeViolations(page);

@@ -165,6 +165,7 @@ test.describe("interview layout", () => {
       await expect(begin).toBeInViewport();
       const notes = page.locator('[data-client-notes] [data-note-heading="notes"] textarea');
       await notes.fill("Synthetic preparation note stays with this client.");
+      await notes.blur();
       await expect.poll(async () => (await (await assessor.get(`/api/referrals/${referral.id}/notes`)).json()).blocks.find((block: { block_key: string }) => block.block_key === "notes")?.body).toBe("Synthetic preparation note stays with this client.");
 
       // A slow ordinary save must not block opening or cancelling the start dialog.

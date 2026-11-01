@@ -212,7 +212,7 @@ test("Home distinguishes active-work categories from paper client files", async 
     return { warm, paper };
   });
   const category = board.getByRole("button", { name: "Open in progress folder", exact: true });
-  await expect(category).toHaveCSS("background-image", `linear-gradient(120deg, ${colors.paper} 35%, ${colors.warm})`);
+  await expect(category).toHaveCSS("background-color", colors.warm);
   await category.click();
   const card = page.getByRole("dialog").getByRole("button", { name: `Open ${referral.name}`, exact: true });
   await expect(card).toBeVisible();

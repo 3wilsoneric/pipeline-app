@@ -207,7 +207,7 @@ test("Mine and Team scope, assessor filters and empty states explain what is sho
 });
 
 // Item 9: one scheduling dialog reached from Chart and Assessment; cancelling books nothing.
-test("Chart and Assessment open the same scheduling dialog, cancel books nothing, and a saved time opens the right workspace", async ({ page }) => {
+test("Chart leads to assessment scheduling, cancel books nothing, and a saved time opens the right workspace", async ({ page }) => {
   const assessor = await activeOperationalAssessor(page.request);
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", {
     name: `Schedule ${randomUUID().replaceAll(/[^a-z]/g, "")}`, owner: assessor.display_name, documentName: "", documentStatus: "Missing", tags: [],
@@ -222,8 +222,9 @@ test("Chart and Assessment open the same scheduling dialog, cancel books nothing
   // Chart surfaces scheduling in the assessment portion of the client record.
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=chart`);
   const contact = page.getByRole("region", { name: "Chart", exact: true });
-  await expect(contact).toContainText("No assessment appointment booked yet.");
-  await contact.getByRole("button", { name: "Schedule interview", exact: true }).click();
+  await expect(contact.getByRole("button", { name: "Schedule interview", exact: true })).toHaveCount(0);
+  await contact.getByRole("button", { name: "Open assessment", exact: true }).click();
+  await page.getByRole("region", { name: "Assessment progress", exact: true }).getByRole("button", { name: "Schedule interview", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Schedule interview", exact: true });
   await expect(dialog).toBeVisible();
 

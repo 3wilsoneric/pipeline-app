@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
-import { openAllQuestions } from "./support/assessment-navigation";
+import { openAllQuestions, waitForAssessmentReady } from "./support/assessment-navigation";
 import { createOperationalAssessment, createOperationalReferral, scheduleOperationalAssessment } from "./support/operational-api";
 
 for (const width of [1440, 390]) test(`assessment preparation and appointment drafts resume without booking at ${width}px`, async ({ page }, info) => {
@@ -13,6 +13,7 @@ for (const width of [1440, 390]) test(`assessment preparation and appointment dr
   page.on("request", request => { if (request.method() === "POST" && /\/(start|schedule)$/.test(new URL(request.url()).pathname)) writes.push(request.url()); });
   await page.goto(`${workspace}&workspaceStage=assessment`);
   await expect(page.locator('[data-assessment-working-section][data-assessment-phase="preparation"]')).toBeVisible();
+  await waitForAssessmentReady(page);
   await page.getByRole("button", { name: "Schedule interview", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Schedule interview", exact: true });
   await dialog.getByLabel("Assessment date and time", { exact: true }).fill("2026-10-12T10:30");
@@ -47,6 +48,7 @@ for (const width of [1440, 390]) test(`assessment preparation and appointment dr
   expect((await read()).started_at).toBeFalsy();
   expect((await read()).assessment_date).toBeFalsy();
   if (width >= 768) await openAllQuestions(page);
+  await waitForAssessmentReady(page);
   await page.getByRole("button", { name: "Schedule interview", exact: true }).click();
   await expect(dialog.getByLabel("Phone number to call", { exact: true })).toHaveValue("555-0100");
   await dialog.getByRole("button", { name: "Schedule interview", exact: true }).click();
@@ -69,6 +71,7 @@ test("opening from Workspaces resumes scheduling; a newer booking supersedes the
   const name = referral.name;
   const assessment = await createOperationalAssessment(page.request, referral.id);
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment`);
+  await waitForAssessmentReady(page);
   await page.getByRole("button", { name: "Schedule interview", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Schedule interview", exact: true });
   await dialog.getByLabel("Assessment date and time", { exact: true }).fill("2026-10-12T10:30");
@@ -127,6 +130,7 @@ test("Workspaces resumes scheduling while the Board opens preparation without bo
   await page.goto("/?view=referrals");
   await page.getByRole("button", { name: `Open ${name} referral workspace`, exact: true }).click();
   await page.getByRole("navigation", { name: "Workspace stages", exact: true }).getByRole("button", { name: "Assessment", exact: true }).click();
+  await waitForAssessmentReady(page);
   await page.getByRole("button", { name: "Schedule interview", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Schedule interview", exact: true });
   await expect(dialog).toBeVisible();
@@ -141,6 +145,7 @@ test("Workspaces resumes scheduling while the Board opens preparation without bo
   await expect(dialog).toHaveCount(0);
   await expect(page.locator('[data-assessment-working-section][data-assessment-phase="preparation"]')).toBeVisible();
   // Choosing the Board's next action does not discard the saved appointment draft.
+  await waitForAssessmentReady(page);
   await page.getByRole("button", { name: "Schedule interview", exact: true }).click();
   await expect(dialog).toBeVisible();
   const current = (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;

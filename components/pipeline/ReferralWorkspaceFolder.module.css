@@ -746,6 +746,8 @@
 
 /* Record utilities belong to the client identity, outside the journey. */
 .actions:empty { display: none; }
+/* A sync-only announcement must not add another row to the record rail. */
+.verticalFlow .actions:has(> .syncStatus:only-child) { position: absolute; width: 0; height: 0; padding: 0; border: 0; }
 .recordTools { display: flex; align-items: center; gap: 2px; flex-shrink: 0; margin-left: auto; }
 .recordTools .utilityTab {
   position: relative;
