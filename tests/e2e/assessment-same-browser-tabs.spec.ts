@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
+import { waitForAssessmentReady } from "./support/assessment-navigation";
 import { createOperationalAssessment, createOperationalReferral } from "./support/operational-api";
 
 test("two tabs on one assessment keep disjoint answers and expose same-answer conflicts", async ({ page }) => {
@@ -15,6 +16,7 @@ test("two tabs on one assessment keep disjoint answers and expose same-answer co
   try {
     await page.goto(url);
     await other.goto(url);
+    await Promise.all([waitForAssessmentReady(page), waitForAssessmentReady(other)]);
     const placementsA = page.locator("#assessment-prior_placements");
     const placementsB = other.locator("#assessment-prior_placements");
     const holdsB = other.getByRole("textbox", { name: "Hospitalization history", exact: true });
@@ -68,6 +70,7 @@ test("a second tab saving cannot erase the first tab's unsaved recovery", async 
   try {
     await page.goto(url);
     await other.goto(url);
+    await Promise.all([waitForAssessmentReady(page), waitForAssessmentReady(other)]);
     const answer = "Unsaved first-tab answer that must survive closing";
     await page.route(`**/api/assessments/${assessment.assessment_id}`, (route) => route.request().method() === "PATCH"
       ? route.fulfill({ status: 503, json: { error: "Synthetic first-tab save outage" } }) : route.continue());
@@ -108,6 +111,7 @@ test("different unsaved answers in two tabs both survive closing the browser pag
   try {
     await page.goto(url);
     await other.goto(url);
+    await Promise.all([waitForAssessmentReady(page), waitForAssessmentReady(other)]);
     await page.route(`**/api/assessments/${assessment.assessment_id}`, (route) => route.request().method() === "PATCH"
       ? route.fulfill({ status: 503, json: { error: "Synthetic first-tab save outage" } }) : route.continue());
     await other.route(`**/api/assessments/${assessment.assessment_id}`, (route) => route.request().method() === "PATCH"
@@ -162,6 +166,7 @@ test("two unsaved answers to the same question remain recoverable", async ({ pag
   try {
     await page.goto(url);
     await other.goto(url);
+    await Promise.all([waitForAssessmentReady(page), waitForAssessmentReady(other)]);
     for (const tab of [page, other]) {
       await tab.route(`**/api/assessments/${assessment.assessment_id}`, (route) => route.request().method() === "PATCH"
         ? route.fulfill({ status: 503, json: { error: "Synthetic save outage" } }) : route.continue());
@@ -237,6 +242,7 @@ test("leaving the assessment from two tabs keeps both unsaved answers", async ({
   try {
     await page.goto(url);
     await other.goto(url);
+    await Promise.all([waitForAssessmentReady(page), waitForAssessmentReady(other)]);
     for (const tab of [page, other]) {
       await tab.route(`**/api/assessments/${assessment.assessment_id}`, (route) => route.request().method() === "PATCH"
         ? route.fulfill({ status: 503, json: { error: "Synthetic save outage" } }) : route.continue());
@@ -283,6 +289,7 @@ test("three competing tab drafts remain available for selection", async ({ page 
   try {
     for (const tab of tabs) {
       await tab.goto(url);
+      await waitForAssessmentReady(tab);
       await tab.route(`**/api/assessments/${assessment.assessment_id}`, (route) => route.request().method() === "PATCH"
         ? route.fulfill({ status: 503, json: { error: "Synthetic save outage" } }) : route.continue());
     }

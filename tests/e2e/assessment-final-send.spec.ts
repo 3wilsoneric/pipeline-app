@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import { activeOperationalAssessor, createOperationalReferral } from "./support/operational-api";
+import { editPreparedAnswer, waitForAssessmentReady } from "./support/assessment-navigation";
 
 test("signed answers remain editable and saved; Add note appears only after the packet is sent", async ({ page }) => {
   const assessor = await activeOperationalAssessor(page.request);
@@ -19,6 +20,7 @@ test("signed answers remain editable and saved; Add note appears only after the 
   const read = async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
   const url = `/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=diagnosis_clinical`;
   await page.goto(url);
+  await waitForAssessmentReady(page);
   const surface = page.locator("[data-assessment-view]");
   await expect(surface.getByRole("button", { name: "Add note", exact: true })).toHaveCount(0);
   const field = surface.getByRole("textbox", { name: "Current symptoms", exact: false });
@@ -28,7 +30,7 @@ test("signed answers remain editable and saved; Add note appears only after the 
   await field.blur();
   await expect.poll(async () => (await read()).current_symptoms).toBe("Synthetic correction after signing, before sending");
   await page.reload();
-  await surface.getByRole("button", { name: "Edit Current symptoms", exact: true }).click();
+  await editPreparedAnswer(page, "Current symptoms");
   await expect(field).toHaveValue("Synthetic correction after signing, before sending");
   const saved = await read();
   expect(saved.audit_events).toEqual(expect.arrayContaining([expect.objectContaining({

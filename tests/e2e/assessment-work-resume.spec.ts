@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import { openAllQuestions } from "./support/assessment-navigation";
 import { createOperationalAssessment, createOperationalReferral, scheduleOperationalAssessment } from "./support/operational-api";
@@ -63,7 +64,9 @@ for (const width of [1440, 390]) test(`assessment preparation and appointment dr
 });
 
 test("opening from Workspaces resumes scheduling; a newer booking supersedes the old draft", async ({ page }) => {
-  const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: "Continuity Example", owner: "", tags: [] });
+  const inputName = `Continuity Example ${randomUUID().replace(/[^a-z]/g, "")}`;
+  const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: inputName, owner: "", tags: [] });
+  const name = referral.name;
   const assessment = await createOperationalAssessment(page.request, referral.id);
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment`);
   await page.getByRole("button", { name: "Schedule interview", exact: true }).click();
@@ -77,7 +80,7 @@ test("opening from Workspaces resumes scheduling; a newer booking supersedes the
     return (await response.json()).state?.lastWorkspace?.location?.assessmentDialog;
   }).toBe("schedule");
   await page.goto("/?view=referrals");
-  await page.getByRole("button", { name: "Open Continuity Example referral workspace", exact: true }).click();
+  await page.getByRole("button", { name: `Open ${name} referral workspace`, exact: true }).click();
   await expect(dialog).toBeVisible();
   await expect(dialog.getByLabel("Assessment address", { exact: true })).toHaveValue("Unbooked draft address");
   const scheduled = await scheduleOperationalAssessment(page.request, assessment);
@@ -117,20 +120,22 @@ test("a phone interview returns to the exact question and uses the prepared answ
 });
 
 test("Workspaces resumes scheduling while the Board opens preparation without booking", async ({ page }) => {
-  const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: "Synthetic Return", owner: "", tags: [] });
+  const inputName = `Synthetic Return ${randomUUID().replace(/[^a-z]/g, "")}`;
+  const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: inputName, owner: "", tags: [] });
+  const name = referral.name;
   const assessment = await createOperationalAssessment(page.request, referral.id);
   await page.goto("/?view=referrals");
-  await page.getByRole("button", { name: "Open Synthetic Return referral workspace", exact: true }).click();
+  await page.getByRole("button", { name: `Open ${name} referral workspace`, exact: true }).click();
   await page.getByRole("navigation", { name: "Workspace stages", exact: true }).getByRole("button", { name: "Assessment", exact: true }).click();
   await page.getByRole("button", { name: "Schedule interview", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Schedule interview", exact: true });
   await expect(dialog).toBeVisible();
   await page.goBack();
-  await page.getByRole("button", { name: "Open Synthetic Return referral workspace", exact: true }).click();
+  await page.getByRole("button", { name: `Open ${name} referral workspace`, exact: true }).click();
   await expect(dialog).toBeVisible();
   await page.goto("/");
   await page.getByRole("button", { name: /Open in progress folder/ }).click();
-  await page.getByRole("dialog").getByRole("button", { name: "Open Synthetic Return", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: `Open ${name}`, exact: true }).click();
   await expect(page).toHaveURL(/workspaceStage=assessment/);
   await expect(page).not.toHaveURL(/workspaceEntry=resume|assessmentDialog=/);
   await expect(dialog).toHaveCount(0);

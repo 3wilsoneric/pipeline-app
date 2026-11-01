@@ -1,7 +1,7 @@
 import { expect, test, type Locator } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { createOperationalReferral, createOperationalAssessment, completeOperationalAssessment, signOperationalAssessment, startOperationalAssessment } from "./support/operational-api";
-import { openAssessmentChart } from "./support/assessment-navigation";
+import { openAssessmentChart, waitForAssessmentReady } from "./support/assessment-navigation";
 import { unifiedProfileFixture } from "./support/pipeline-clinical-fixtures";
 import { clientChartAssessments, clientReferralSections } from "../../lib/pipeline/client-chart-context";
 import type { UnifiedClientProfileResponse } from "../../lib/pipeline/unified-profile-contracts";
@@ -104,6 +104,7 @@ test("current unsigned answers appear without replacing established clinical fac
   const profile = { ...structuredClone(unifiedProfileFixture), pipeline: { ...structuredClone(unifiedProfileFixture.pipeline), referrals: [fullReferral], assessments: [staleAssessment] } } as unknown as UnifiedClientProfileResponse;
   await page.route("**/api/profiles/**", (route) => route.fulfill({ json: profile }));
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=prior_history`);
+  await waitForAssessmentReady(page);
   await page.locator("#assessment-prior_placements").fill(narrative);
   await openAssessmentChart(page);
   const review = page.getByRole("region", { name: "Assessment chart review", exact: true });
@@ -131,6 +132,7 @@ test("chart load failure retains working answers and can retry the full chart", 
   await startOperationalAssessment(page.request, created);
   await page.route("**/api/profiles/**", (route) => route.fulfill({ status: 503, json: { error: "Synthetic outage" } }));
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=prior_history`);
+  await waitForAssessmentReady(page);
   await page.locator("#assessment-prior_placements").fill(narrative);
   await page.locator("#assessment-prior_placements").blur();
   await expect.poll(async () => (await (await page.request.get(`/api/assessments/${created.assessment_id}`)).json()).assessment.prior_placements).toBe(narrative);
@@ -163,6 +165,7 @@ test("recovered edits to signed answers are not presented as signed clinical inf
   await signedRecord.getByRole("button", { name: "Edit Earlier care placements", exact: true }).click();
   await page.route(`**/api/assessments/${created.assessment_id}`, (route) => route.request().method() === "PATCH"
     ? route.fulfill({ status: 503, json: { error: "Synthetic save unavailable" } }) : route.continue());
+  await waitForAssessmentReady(page);
   await page.locator("#assessment-prior_placements").fill(narrative);
   await openAssessmentChart(page);
   const review = page.getByRole("region", { name: "Assessment chart review", exact: true });

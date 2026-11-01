@@ -5,7 +5,7 @@ import { assessmentInterviewSections } from "../../lib/assessment/assessment-int
 import { buildTrainingAssessment } from "../../lib/training/mock-assessment";
 import { createEmptyAssessmentToolData } from "../../lib/assessment/assessment-tool-schema";
 import { createOperationalReferral } from "./support/operational-api";
-import { editPreparedAnswer, openAssessmentChart, returnToAssessmentQuestions } from "./support/assessment-navigation";
+import { editPreparedAnswer, openAssessmentChart, returnToAssessmentQuestions, waitForAssessmentReady } from "./support/assessment-navigation";
 
 test("gap itinerary retains every canonical section, zeros, and source checks", () => {
   const data = buildTrainingAssessment("interview");
@@ -126,6 +126,7 @@ test("one written history saves across visits while earlier timeline events rema
   const { assessment } = await created.json();
   const read = async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=prior_history`);
+  await waitForAssessmentReady(page);
 
   const overview = page.getByRole("textbox", { name: "Hospitalization history", exact: true });
   await expect(overview).toHaveValue("Prior hospitalizations: 0\nPrior 5150 / 5250 holds: Synthetic earlier hold");

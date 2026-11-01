@@ -503,6 +503,8 @@ test("expanded folders retain stage accents and long file labels stay readable",
   const folder = page.getByRole("dialog", { name: "In progress folder", exact: true });
   const file = folder.getByRole("button", { name: "Open Alexandria Montgomery-Rivera", exact: true });
   await expect(file).toContainText("Christopher Montgomery-Williams");
+  await page.evaluate(() => document.fonts.ready);
+  await folder.evaluate(async element => { await Promise.all(element.getAnimations().map(animation => animation.finished.catch(() => undefined))); });
   const clipped = await file.evaluate(element => [...element.querySelectorAll("span:not(.sr-only), strong")].filter(node => node.scrollWidth > node.clientWidth + 1 || node.scrollHeight > node.clientHeight + 1).map(node => node.textContent));
   expect(clipped).toEqual([]);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

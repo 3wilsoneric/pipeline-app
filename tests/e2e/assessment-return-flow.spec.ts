@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import type { AxeResults } from "axe-core";
 import { createOperationalAssessment, createOperationalReferral, scheduleOperationalAssessment, startOperationalAssessment } from "./support/operational-api";
-import { leaveInterviewFullScreen } from "./support/assessment-navigation";
+import { leaveInterviewFullScreen, waitForAssessmentReady } from "./support/assessment-navigation";
 import { isoToOperationalInput } from "../../components/pipeline/pipeline-calendar-model";
 
 for (const width of [1440, 834]) test(`questionnaire section link lands after loading and saves without jumping at ${width}px`, async ({ page }) => {
@@ -196,6 +196,7 @@ for (const width of [1440, 834]) test(`assessment keeps its section and question
   const answer = page.locator("#assessment-family_involvement");
 
   await page.goto(`${workspace}&workspaceStage=assessment&assessmentSection=social_support`);
+  await waitForAssessmentReady(page);
   await answer.focus();
   await expect(answer).toBeFocused();
 

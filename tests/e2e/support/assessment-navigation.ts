@@ -1,5 +1,11 @@
 import { expect, type Page } from "@playwright/test";
 
+// A visible field can still be inside the inert recovery surface. Playwright's
+// fill() does not wait for that ancestor; wait for the same readiness as a user.
+export async function waitForAssessmentReady(page: Page) {
+  await expect(page.getByTestId("packet-workspace")).toHaveAttribute("aria-busy", "false");
+}
+
 export async function editPreparedAnswer(page: Page, label: string) {
   // Preparation keeps recorded fields editable; interview references expose Edit.
   const input = page.getByRole("textbox", { name: label, exact: true });

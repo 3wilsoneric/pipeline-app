@@ -7,7 +7,7 @@ import { referralDocumentAutofillEnabled } from "@/lib/extraction/contracts";
 
 import { usePersonaSwitchSave } from "@/lib/demo/persona-switch-save";
 
-import { createPortal } from "react-dom";
+import { createPortal, flushSync } from "react-dom";
 import { useCallback, useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import {
   AlertTriangle,
@@ -706,7 +706,9 @@ export default function AssessmentWorkspace({
   const jumpToGroup = (section: AssessmentToolSection) => {
     const key = preparing ? preparationGroupForSection(section).key : section;
     pickedTopic.current = { key, until: performance.now() + 1500 };
-    setSpyGroup(key);
+    // On tablets the topic reference sits above the questions. Commit its new
+    // height before measuring the destination, or the selected heading shifts.
+    flushSync(() => setSpyGroup(key));
     // Snaps straight to the chosen section (owner, 2026-09-27: "click and it snaps there").
     document.querySelector(`[data-assessment-group-heading="${key}"]`)?.scrollIntoView({ block: "start" });
   };
@@ -719,7 +721,7 @@ export default function AssessmentWorkspace({
       const heading = document.querySelector(`[data-assessment-group-heading="${key}"]`);
       if (!heading) return;
       pickedTopic.current = { key, until: performance.now() + 1500 };
-      setSpyGroup(key);
+      flushSync(() => setSpyGroup(key));
       heading.scrollIntoView({ block: "start" });
     });
     return () => window.cancelAnimationFrame(frame);
