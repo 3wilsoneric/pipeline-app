@@ -172,7 +172,7 @@ export default function PipelineHeader({ phone = false }: { phone?: boolean }) {
         <div>
           <PipelineActionNav
             active={activeNav}
-            showReports={canAccessReports}
+            showReports={canAccessReports && !phone}
             onNavigate={navigateTo}
           />
         </div>

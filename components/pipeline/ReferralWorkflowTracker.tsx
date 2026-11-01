@@ -14,6 +14,7 @@ import type { PipelineWorkspaceLocation } from "@/lib/pipeline/work-continuity";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import boardStyles from "./ReferralWorkflowTracker.module.css";
 import PipelineIllustration from "./PipelineIllustration";
+import { usePhoneAssessment } from "./use-phone-layout";
 
 type OpenWorkspace = (referral: Pick<Referral, "id" | "name" | "community">, location?: PipelineWorkspaceLocation) => void;
 type ClientSpace = {
@@ -73,10 +74,11 @@ export function ReferralLifecycleBoard({ items, allItems = items, showOwner, onO
   onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">, location?: PipelineWorkspaceLocation) => void;
   clientSpace?: ClientSpace;
 }) {
+  const phone = usePhoneAssessment();
   const [mobileStage, setMobileStage] = useState<ReferralBoardSection>(referralBoardSection(initialStage) ?? "in_progress");
   const [expanded, setExpanded] = useState<{ stage: ReferralBoardSection; origin: HomeDialogOrigin } | null>(null);
   const active = items.filter((item) => item.board.stage !== null && (!clientSpace || item.outcome_state !== "declined"));
-  const allActive = allItems.filter((item) => item.board.stage !== null && (!clientSpace || item.outcome_state !== "declined"));
+  const allActive = (phone ? items : allItems).filter((item) => item.board.stage !== null && (!clientSpace || item.outcome_state !== "declined"));
   // Home groups current work by acceptance; the stored workflow and next action stay authoritative.
   const sectionFor = (item: ReferralWorklistItem): ReferralBoardSection | null => clientSpace
     ? item.board.stage === "decision" && item.outcome_state === "accepted" ? "decision" : "in_progress"
@@ -128,14 +130,14 @@ export function ReferralLifecycleBoard({ items, allItems = items, showOwner, onO
               {stageItems.map((item) => <LifecycleCard key={item.referral_id} item={item} showOwner={showOwner} onOpenPacket={onOpenPacket} />)}
               {stageItems.length === 0 ? <p className="text-center">No referrals here</p> : null}
             </div>}
-            {expanded?.stage === stage.key ? <ExpandedStageFolder title={stage.label} items={stageItems} allItems={allActive.filter((item) => sectionFor(item) === stage.key)} origin={expanded.origin} showOwner={showOwner} onClose={() => setExpanded(null)} onOpenPacket={openFile} /> : null}
+            {expanded?.stage === stage.key ? <ExpandedStageFolder personalOnly={phone} title={stage.label} items={stageItems} allItems={allActive.filter((item) => sectionFor(item) === stage.key)} origin={expanded.origin} showOwner={showOwner && !phone} onClose={() => setExpanded(null)} onOpenPacket={openFile} /> : null}
           </div>;
         })}
         </div>
         {unavailable ? <p role="status" className={boardStyles.emptyRecent}>The Board is temporarily unavailable. Close this view and try again.</p> : null}
         {clientSpace && !unavailable ? <div className={boardStyles.workingClients}>
           {recent.length ? <section aria-label="Recent clients"><h2 className={boardStyles.shelfTitle}>Recent</h2><div className={boardStyles.clientShelf}>
-            {recent.map((item, index) => <ClientFile featured={index === 0} key={item.referral_id} item={item} showOwner={showOwner} onOpenPacket={clientSpace.onResume} resume />)}
+            {recent.map((item, index) => <ClientFile featured={index === 0} key={item.referral_id} item={item} showOwner={showOwner && !phone} onOpenPacket={clientSpace.onResume} resume />)}
           </div></section> : null}
           {clientSpace.unavailable ? <p role="status" className={boardStyles.emptyRecent}>Recent work could not be loaded.</p> : !recent.length ? <p className={boardStyles.emptyRecent}>No recent work yet.</p> : null}
         </div> : null}
@@ -144,7 +146,8 @@ export function ReferralLifecycleBoard({ items, allItems = items, showOwner, onO
   );
 }
 
-function ExpandedStageFolder({ title, items, allItems, origin, showOwner, onClose, onOpenPacket }: {
+function ExpandedStageFolder({ title, items, allItems, origin, showOwner, onClose, onOpenPacket, personalOnly = false }: {
+  personalOnly?: boolean;
   title: string;
   items: ReferralWorklistItem[];
   allItems: ReferralWorklistItem[];
@@ -154,21 +157,21 @@ function ExpandedStageFolder({ title, items, allItems, origin, showOwner, onClos
   onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">, location?: PipelineWorkspaceLocation) => void;
 }) {
   const [scope, setScope] = useState<"all" | "mine">("mine");
-  const visibleItems = scope === "all" ? allItems : items;
+  const visibleItems = !personalOnly && scope === "all" ? allItems : items;
   return <HomeDialog label={`${title} folder`} title={<>
     <span className={boardStyles.expandedLabel}>{title}</span>
     <span className={boardStyles.expandedCount} aria-live="polite">{visibleItems.length} {visibleItems.length === 1 ? "file" : "files"}</span>
   </>} size="browser" className={boardStyles.expandedFolder} expandFrom={origin} onClose={onClose}>
-    <div className={boardStyles.scopeBar}>
+    {!personalOnly ? <div className={boardStyles.scopeBar}>
       <div role="group" aria-label="Folder scope" className={boardStyles.scopeToggle}>
         {(["all", "mine"] as const).map((value) => <button key={value} type="button" aria-pressed={scope === value} onClick={() => setScope(value)}>{value === "all" ? "All" : "Mine"}</button>)}
       </div>
       <p>{scope === "mine" ? "You own or co-own these referrals, or are their designated assessor." : "Everyone’s referrals in this folder."}</p>
-    </div>
+    </div> : null}
     <div className={boardStyles.expandedScroll}>
       {visibleItems.length ? <div data-expanded-folder className={boardStyles.expandedGrid}>
         {visibleItems.map((item) => <ClientFile key={item.referral_id} item={item} showOwner={showOwner} onOpenPacket={onOpenPacket} />)}
-      </div> : <p className={boardStyles.emptyFolder}>{scope === "mine" && allItems.length ? "None assigned to you here. Choose All to see everyone’s referrals." : "No referrals in this folder."}</p>}
+      </div> : <p className={boardStyles.emptyFolder}>{!personalOnly && scope === "mine" && allItems.length ? "None assigned to you here. Choose All to see everyone’s referrals." : "No referrals in this folder."}</p>}
     </div>
   </HomeDialog>;
 }

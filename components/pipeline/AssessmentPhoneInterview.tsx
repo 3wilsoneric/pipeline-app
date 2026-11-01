@@ -1,7 +1,5 @@
 "use client";
 
-import { AssessmentSectionIllustration } from "./PipelineIllustration";
-
 import { useLayoutEffect, useRef, useState } from "react";
 import { BookOpen, ChevronDown, ChevronLeft, ChevronRight, Pencil, X } from "lucide-react";
 import { assessmentInterviewFieldLabel, getAssessmentUnableReason, hasAssessmentInterviewValue } from "@/lib/assessment/assessment-interview-schema";
@@ -153,8 +151,8 @@ export default function AssessmentPhoneInterview(props: Props) {
 
   return <section className={styles.interview} data-phone-interview aria-label={props.preparing ? "Guided questionnaire" : "Guided assessment"}>
     <nav className={styles.toolbar} aria-label="Question navigation">
-      <button type="button" data-guide-target="assessment-section-nav" onClick={(event) => openPanel("sections", event.currentTarget)} aria-haspopup="dialog" aria-label="Choose questionnaire section" title={`Section ${sectionIndex + 1} of ${sections.length}: ${section.label}`}><span><AssessmentSectionIllustration key={section.key} section={section.key} size={32} /><small>{sectionIndex + 1}/{sections.length}</small><strong>{section.label}</strong></span><ChevronDown size={16} aria-hidden="true" /></button>
-      <button type="button" data-guide-target="assessment-recorded" onClick={(event) => openPanel("reference", event.currentTarget)} aria-haspopup="dialog"><BookOpen size={17} aria-hidden="true" /><span>Client info</span></button>
+      <button type="button" data-guide-target="assessment-section-nav" onClick={(event) => openPanel("sections", event.currentTarget)} aria-haspopup="dialog" aria-label="Choose questionnaire section" title={`Section ${sectionIndex + 1} of ${sections.length}: ${section.label}`}><span><small>{sectionIndex + 1}/{sections.length}</small><strong>{section.label}</strong></span><ChevronDown size={16} aria-hidden="true" /></button>
+      <button type="button" data-guide-target="assessment-recorded" onClick={(event) => openPanel("reference", event.currentTarget)} aria-haspopup="dialog" title="Client info"><BookOpen size={20} aria-hidden="true" /><span className="sr-only">Client info</span></button>
     </nav>
     <div className={styles.progress} role="progressbar" aria-label="Recorded in this section" aria-valuemin={0} aria-valuemax={questions.length || 1} aria-valuenow={counts.captured}><span style={{ width: `${counts.captured / (questions.length || 1) * 100}%` }} /></div>
     <div ref={scroller} className={styles.scroller} data-guide-target="assessment-fields" data-phone-question-scroll onTouchStart={(event) => {

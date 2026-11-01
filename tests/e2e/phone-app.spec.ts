@@ -53,8 +53,9 @@ for (const [name, engine] of [["Chromium", chromium], ["WebKit", webkit]] as con
       await expect(answer).toHaveValue("Synthetic phone answer");
       await phone.getByRole("button", { name: /^Open page menu/ }).tap();
       const menu = page.getByRole("dialog", { name: "Pipeline pages" });
-      for (const label of ["Open referrals", "Open calendar", "Open reports", "Create new referral"]) await expect(menu.getByRole("button", { name: label, exact: true })).toBeVisible();
+      for (const label of ["Open referrals", "Open calendar", "Create new referral"]) await expect(menu.getByRole("button", { name: label, exact: true })).toBeVisible();
       await expect(menu.getByRole("button", { name: "Pipeline home", exact: true })).toHaveCount(0);
+      await expect(menu.getByRole("button", { name: "Open reports", exact: true })).toHaveCount(0);
       await expect(menu.getByRole("button", { name: "Open calendar", exact: true }).getByText("Calendar")).toHaveCSS("font-size", "16px");
       await page.screenshot({ path: info.outputPath(`phone-menu-${name}.png`) });
       await menu.getByRole("button", { name: "Open calendar", exact: true }).tap();

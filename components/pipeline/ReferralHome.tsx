@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { Check, Search, X } from "lucide-react";
 
 import { ReferralHomeDirectory } from "@/components/pipeline/ReferralHomeDirectory";
+import { usePhoneAssessment } from "./use-phone-layout";
 import FilePreviewDialog from "@/components/pipeline/ReferralFilePreviewDialog";
 import {
   buildReferralParams,
@@ -66,10 +67,11 @@ type ReferralHomeProps = {
 };
 
 export default function ScopedReferralHome(props: ReferralHomeProps) {
+  const phone = usePhoneAssessment();
   if (props.canViewTeam === undefined) {
     return <div role="status" aria-busy="true" className="px-6 py-5 text-sm text-[#626a66]">Loading workspaces…</div>;
   }
-  const scope = props.canViewTeam ? "team" : "mine";
+  const scope = props.canViewTeam && !phone ? "team" : "mine";
   return <ReferralHome key={scope} {...props} scope={scope} />;
 }
 

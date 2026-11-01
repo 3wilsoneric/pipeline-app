@@ -163,6 +163,15 @@ test("Mine and Team scope, assessor filters and empty states explain what is sho
   await expect(page.locator('button[title^="Their Sample -"]').first()).toBeVisible();
   await expect(page.getByText("Mine Sample", { exact: true })).toHaveCount(0);
 
+  // A phone always shows the assessor's own schedule, without changing the
+  // coordinator's saved desktop choice or exposing another assessor's events.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByRole("group", { name: "Whose schedule", exact: true })).toHaveCount(0);
+  await expect(page.getByText("Their Sample", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Mine Sample", { exact: true }).first()).toBeVisible();
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect(scope.getByRole("button", { name: "Team", exact: true })).toHaveAttribute("aria-pressed", "true");
+
   // An empty filtered result names the scope and offers the matching way out.
   await page.getByRole("combobox", { name: "Filter calendar by community" }).selectOption("San Pablo");
   const empty = page.getByRole("region", { name: "No matching appointments", exact: true });

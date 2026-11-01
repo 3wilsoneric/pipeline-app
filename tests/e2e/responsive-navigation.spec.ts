@@ -16,13 +16,15 @@ test.describe("Responsive application navigation", () => {
   for (const viewport of viewports) {
     test(`keeps navigation complete and unclipped on ${viewport.label}`, async ({ page }) => {
       await page.setViewportSize(viewport);
+      const directoryRequests: string[] = [];
+      page.on("request", request => { if (request.url().includes("/api/referrals/directory?")) directoryRequests.push(request.url()); });
       await mockReferralDirectory(page);
       await page.goto("/?view=referrals");
       await expect(page.getByRole("main", { name: "Referral workspaces" })).toBeVisible();
       const phone = viewport.width < 640;
       if (phone) await page.getByRole("button", { name: /^Open page menu/ }).click();
 
-      for (const name of ["Open referrals", "Open calendar", "Open reports", "Create new referral"]) {
+      for (const name of ["Open referrals", "Open calendar", ...(!phone ? ["Open reports"] : []), "Create new referral"]) {
         await expect(page.getByRole("button", { name })).toBeVisible();
       }
       await expect(page.getByRole("button", { name: "Open client profiles", exact: true })).toHaveCount(0);
@@ -31,7 +33,7 @@ test.describe("Responsive application navigation", () => {
       await expect(active).toHaveAttribute("aria-current", "page");
       await expect(active).toHaveCSS("background-color", "rgb(244, 162, 97)");
       await expect(active).toHaveCSS("color", "rgb(3, 47, 48)");
-      for (const name of ["Open calendar", "Open reports", "Create new referral"]) {
+      for (const name of ["Open calendar", ...(!phone ? ["Open reports"] : []), "Create new referral"]) {
         await expect(page.getByRole("button", { name, exact: true })).toHaveCSS("color", phone ? name === "Create new referral" ? "rgb(8, 92, 96)" : "rgb(3, 47, 48)" : "rgb(207, 229, 230)");
       }
       await expect(page.getByRole("button", { name: "Pipeline home" })).toBeVisible();
@@ -70,13 +72,19 @@ test.describe("Responsive application navigation", () => {
         await expectCommunityRowsAreAdjacent(archive);
       }
 
-      const search = page.locator('[data-guide-target="workspace-search"]');
-      const searchTopBeforeViewChange = await search.evaluate((element) => element.getBoundingClientRect().top);
-      await page.getByRole("button", { name: /^All files/ }).click();
-      await expect(page.getByRole("searchbox", { name: "Search all uploaded files", exact: true })).toBeVisible();
-      // Files has additional filter rows; preserve the search anchor, not empty space.
-      await expect.poll(async () => search.evaluate((element) => element.getBoundingClientRect().top))
-        .toBeCloseTo(searchTopBeforeViewChange, 0);
+      if (phone) {
+        await expect.poll(() => directoryRequests.length ? new URL(directoryRequests.at(-1)!).searchParams.get("scope") : null).toBe("mine");
+        await expect(page.getByRole("button", { name: /^All files/ })).toHaveCount(0);
+        await expect(page.getByRole("navigation", { name: "Workspace views" }).getByRole("button")).toHaveCount(3);
+        await expect(page.getByRole("button", { name: "Open reports", exact: true })).toHaveCount(0);
+      } else {
+        const search = page.locator('[data-guide-target="workspace-search"]');
+        const searchTopBeforeViewChange = await search.evaluate((element) => element.getBoundingClientRect().top);
+        await page.getByRole("button", { name: /^All files/ }).click();
+        await expect(page.getByRole("searchbox", { name: "Search all uploaded files", exact: true })).toBeVisible();
+        await expect.poll(async () => search.evaluate((element) => element.getBoundingClientRect().top))
+          .toBeCloseTo(searchTopBeforeViewChange, 0);
+      }
 
       await expectNoDocumentOverflow(page);
     });

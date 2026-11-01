@@ -25,6 +25,7 @@ import type { PipelineSiteScreen } from "@/lib/pipeline/site-search";
 import { prefetchPipelineWorkspace, cancelPipelineWarmup } from "@/lib/pipeline/client-navigation";
 import { pipelineSurfaceReady } from "@/lib/observability/browser-performance-contract";
 import deckStyles from "./HomeFocusDeck.module.css";
+import { usePhoneAssessment } from "./use-phone-layout";
 
 export default function PipelineWelcome({
   onOpenPacket,
@@ -56,6 +57,7 @@ export default function PipelineWelcome({
   initialBriefing?: HomeBriefingSnapshot | null;
   viewerId?: string;
 }) {
+  const phone = usePhoneAssessment();
   const [briefing, setBriefing] = useState<HomeBriefingSnapshot | null>(initialBriefing ?? null);
   const [error, setError] = useState("");
   const dataGeneration = usePipelineDataGeneration();
@@ -181,7 +183,7 @@ export default function PipelineWelcome({
               />
             </div>
           ) : null}
-          {canViewApplicationActivity ? <ApplicationActivityCard /> : null}
+          {canViewApplicationActivity && !phone ? <ApplicationActivityCard /> : null}
           {!briefing && !error ? <HomeSkeleton /> : null}
         </div>
       </main>

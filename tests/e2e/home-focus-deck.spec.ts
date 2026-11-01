@@ -96,7 +96,7 @@ for (const width of [1440, 390]) {
   });
 }
 
-async function homeFixture(page: Page, moduleIds = ["current-work", "new-assignments", "upcoming-assessments"], filesPerStage = 0, withFinished = false, longLabels = false, scope?: "mixed" | "team-only", upcomingCount = 1) {
+async function homeFixture(page: Page, moduleIds = ["current-work", "new-assignments", "upcoming-assessments"], filesPerStage = 0, withFinished = false, longLabels = false, scope?: "mixed" | "team-only", upcomingCount = 1, includeTeamRecents = false) {
   const acknowledgments: unknown[] = [];
   let layout = { schema: 3, module_ids: moduleIds, locked: true };
   const { viewer } = await (await page.request.get("/api/operations/home")).json();
@@ -171,6 +171,7 @@ async function homeFixture(page: Page, moduleIds = ["current-work", "new-assignm
     payload.continuity = { ...payload.continuity, recent_referral_ids: payload.workflow.board_items.filter((item: { board: { stage: string | null } }) => item.board.stage !== null).map((item: { referral_id: number }) => item.referral_id), unavailable: false, needs_assignment_tracking_initialization: false,
       new_assignments: Array.from({ length: 7 }, (_, index) => ({ event_id: `focus-assignment-${index}`, action: "referral_assigned", actor_id: "coordinator", actor_name: "Example Coordinator", created_at: new Date().toISOString(), workspace: { referral_id: 910510 + index, client_name: `New Client ${index + 1}`, community: "San Pablo", owner: "Example Assessor", workflow_status: "intake_in_progress", workspace_status: "active" }, attention: null })),
     };
+    if (includeTeamRecents) payload.continuity.recent_referral_ids.unshift(940000);
     await route.fulfill({ response, json: payload });
   });
   await page.route("**/api/me/work-continuity", async (route) => {
@@ -182,7 +183,7 @@ async function homeFixture(page: Page, moduleIds = ["current-work", "new-assignm
   return acknowledgments;
 }
 
-for (const width of [1440, 390]) test(`folder All and Mine switch instantly without changing stages at ${width}px`, async ({ page }, info) => {
+for (const width of [1440]) test(`folder All and Mine switch instantly without changing stages at ${width}px`, async ({ page }, info) => {
   await page.setViewportSize({ width, height: 900 });
   await homeFixture(page, undefined, 2, true, false, "mixed");
   await page.goto("/");
@@ -541,7 +542,8 @@ test("expanded folders retain stage accents and long file labels stay readable",
   await page.getByRole("button", { name: "Open in progress folder", exact: true }).click();
   const folder = page.getByRole("dialog", { name: "In progress folder", exact: true });
   const file = folder.getByRole("button", { name: "Open Alexandria Montgomery-Rivera", exact: true });
-  await expect(file).toContainText("Christopher Montgomery-Williams");
+  await expect(file).not.toContainText("Christopher Montgomery-Williams");
+  await expect(file).toContainText("Alexandria Montgomery-Rivera");
   await page.evaluate(() => document.fonts.ready);
   await folder.evaluate(async element => { await Promise.all(element.getAnimations().map(animation => animation.finished.catch(() => undefined))); });
   const clipped = await file.evaluate(element => [...element.querySelectorAll("span:not(.sr-only), strong")].filter(node => node.scrollWidth > node.clientWidth + 1 || node.scrollHeight > node.clientHeight + 1).map(node => node.textContent));
@@ -654,4 +656,29 @@ test("unavailable work counts stay distinct from zero and leave the schedule acc
   }
   await priorities.getByRole("button", { name: "Upcoming assessments", exact: true }).click();
   await expect(page.getByRole("dialog", { name: "Upcoming assessments", exact: true })).toBeVisible();
+});
+
+for (const width of [320, 390]) test(`phone shows only personal work even with team history at ${width}px`, async ({ page }, info) => {
+  await page.setViewportSize({ width, height: 844 });
+  await homeFixture(page, ["search", "recent-work"], 2, true, false, "mixed", 1, true);
+  await page.goto("/");
+  const recent = page.getByRole("region", { name: "Recent clients" });
+  await expect(recent.locator("[data-client-file]")).toHaveCount(6);
+  await expect(recent.getByText("Team Rivera", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Upcoming assessments", exact: true })).toBeVisible();
+  for (const [index, title] of ["In progress", "Clients in handoff"].entries()) {
+    await page.getByRole("button", { name: `Open ${title.toLowerCase()} folder`, exact: true }).click();
+    const folder = page.getByRole("dialog", { name: `${title} folder`, exact: true });
+    await expect(folder.getByRole("group", { name: "Folder scope" })).toHaveCount(0);
+    await expect(folder.locator("[data-board-card]")).toHaveCount(index === 0 ? 7 : 2);
+    await expect(folder.getByText(/Team (Rivera|Brooks|Chen)/)).toHaveCount(0);
+    expect(await folder.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+    await page.keyboard.press("Escape");
+  }
+  await page.screenshot({ path: info.outputPath(`personal-phone-${width}.png`), fullPage: true, animations: "disabled" });
+  // Mobile ignores desktop module preferences without overwriting them.
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect(page.locator('[data-home-module="search"]')).toBeVisible();
+  await page.getByRole("button", { name: "Open in progress folder", exact: true }).click();
+  await expect(page.getByRole("group", { name: "Folder scope" })).toBeVisible();
 });
