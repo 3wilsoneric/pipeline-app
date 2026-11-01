@@ -386,7 +386,7 @@
   @media (min-width: 1024px) {
     .footer[aria-label="Assessment actions"] { min-height: 64px; padding: 10px 24px; column-gap: 8px; box-shadow: none; }
     .footer[aria-label="Assessment actions"] .footerUtilities { gap: 4px; }
-    .footer[aria-label="Assessment actions"] .saveRecovery, .footer[aria-label="Assessment actions"] .footerUtilities > details > summary { min-height: 40px; margin: 0; padding: 0 12px; border-radius: var(--radius-input); color: var(--color-ink-2); font-size: var(--text-label); font-weight: 500; }
+    .footer[aria-label="Assessment actions"] .saveRecovery, .footer[aria-label="Assessment actions"] .footerUtilities > details > summary { min-height: var(--spacing-control); margin: 0; padding: 0 12px; border-radius: var(--radius-input); color: var(--color-ink-2); font-size: var(--text-label); font-weight: 500; }
     .footer[aria-label="Assessment actions"] .saveRecovery:hover, .footer[aria-label="Assessment actions"] .footerUtilities > details > summary:hover, .footer[aria-label="Assessment actions"] .footerUtilities > details[open] > summary { background: var(--color-segment); color: var(--color-ink); }
     .footer[aria-label="Assessment actions"] [data-guide-target="assessment-save-status"] { font-size: var(--text-label); }
     .footer[aria-label="Assessment actions"] [data-assessment-primary-action] > button { min-height: var(--spacing-action); padding: 12px 24px; font-size: var(--text-value); }

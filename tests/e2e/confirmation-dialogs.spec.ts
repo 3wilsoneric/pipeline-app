@@ -36,6 +36,9 @@ for (const scenario of [
         const box = (await dialog.boundingBox())!;
         return Math.max(Math.abs(box.x + box.width / 2 - scenario.width / 2), Math.abs(box.y + box.height / 2 - scenario.height / 2));
       }).toBeLessThan(2);
+      await dialog.evaluate(async element => {
+        await Promise.all(element.getAnimations({ subtree: true }).filter(animation => animation.effect?.getTiming().iterations !== Infinity).map(animation => animation.finished));
+      });
       const box = (await dialog.boundingBox())!;
       expect(box.x).toBeGreaterThanOrEqual(15);
       expect(box.y).toBeGreaterThanOrEqual(15);

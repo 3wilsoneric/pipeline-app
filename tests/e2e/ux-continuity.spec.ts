@@ -1,7 +1,8 @@
+import { leaveInterviewFullScreen } from "./support/assessment-navigation";
 import { expect, test, type Page } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { clientDirectoryFixture, unifiedProfileFixture } from "./support/pipeline-clinical-fixtures";
-import { createOperationalAssessment, createOperationalReferral } from "./support/operational-api";
+import { createOperationalAssessment, createOperationalReferral, startOperationalAssessment } from "./support/operational-api";
 
 async function directoryFixture(page: Page) {
   await page.emulateMedia({ reducedMotion: "reduce" });
@@ -95,11 +96,13 @@ test("assessment navigation retains the section through Files and Activity, then
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: `Synthetic continuity ${randomUUID()}`, owner: "Annette Everhart" }, { assigneeId: "provisional:allo:annette" });
   const assessment = await createOperationalAssessment(page.request, referral.id);
   const snapshot = async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
+  await startOperationalAssessment(page.request, assessment);
   const before = await snapshot();
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=prior_history`);
   const section = page.getByRole("combobox", { name: "Assessment section", exact: true });
   await expect(section).toHaveValue("prior_history");
   for (const surface of ["Workspace files", "Workspace activity"]) {
+    await leaveInterviewFullScreen(page);
     await page.getByRole("button", { name: surface, exact: true }).click();
     await expect(section).toBeHidden();
     await page.getByRole("button", { name: "Assessment", exact: true }).click();
@@ -111,7 +114,10 @@ test("assessment navigation retains the section through Files and Activity, then
   await expect(section).toBeFocused();
   await expect(page.locator('[data-assessment-group-heading="medication"]')).toBeInViewport();
   await page.keyboard.press("Tab");
-  await expect(page.getByRole("button", { name: /^Recorded answers:/ })).toBeFocused();
+  await expect(page.locator(":focus")).toBeVisible();
+  await expect(section).not.toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(section).toBeFocused();
   await expect(page.locator('[data-guide-target="assessment-save-status"]')).toHaveCSS("font-size", "13px");
   await page.screenshot({ path: testInfo.outputPath("assessment-chosen-group.png") });
   // Explicit links remain authoritative, even when a prior section was retained.

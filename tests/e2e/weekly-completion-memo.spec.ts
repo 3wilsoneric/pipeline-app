@@ -87,21 +87,24 @@ for (const width of [1440, 390]) {
   });
 }
 
-test("the Monday prompt is dismissible while the client list remains reachable", async ({ page }) => {
-  await page.clock.setFixedTime(new Date(generatedAt));
-  const { referral } = await setupMemo(page);
-  await page.goto("/");
-  const notice = page.getByRole("status", { name: "Completion memo" });
-  await expect(notice).toBeVisible();
-  await page.getByRole("tab", { name: "Board", exact: true }).click();
-  await page.setViewportSize({ width: 390, height: 844 });
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-  await notice.getByRole("button", { name: "Later" }).click();
-  await page.reload();
-  await expect(notice).toHaveCount(0);
-  await page.getByRole("button", { name: /Open completion memo/ }).click();
-  await expect(page.getByRole("navigation", { name: "Clients in completion memo" }).getByRole("button", { name: new RegExp(referral.name!) })).toBeVisible();
-});
+for (const width of [1440, 390]) {
+  test(`personal completion review stays reachable from Profile at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.clock.setFixedTime(new Date(generatedAt));
+    const { referral } = await setupMemo(page);
+    await page.goto("/");
+    await expect(page.getByRole("status", { name: "Completion memo" })).toHaveCount(0);
+    if (width < 640) await page.getByRole("button", { name: /^Open page menu, current page/ }).click();
+    await page.getByRole("button", { name: /Open profile menu for/ }).click();
+    await page.getByRole("link", { name: "Follow-up review", exact: true }).click();
+    await expect(page).toHaveURL(/screen=completion/);
+    const client = page.getByRole("navigation", { name: "Clients in completion memo" }).getByRole("button", { name: new RegExp(referral.name!) });
+    await expect(client).toBeVisible();
+    await page.reload();
+    await expect(client).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  });
+}
 
 test("a coordinator can filter the client list by assessor", async ({ page }) => {
   const { client, home } = await setupMemo(page, "team");

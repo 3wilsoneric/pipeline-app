@@ -243,6 +243,13 @@ export default function PipelineHeader({ phone = false }: { phone?: boolean }) {
             ) : null}
             </DemoProfileMenu>
             <div className={sidebarStyles.profileUtilities}>
+              <Link href="/?screen=completion" onClick={() => {
+                setIsProfileMenuOpen(false);
+                phoneMenuRef.current?.close();
+              }}>
+                <ListTodo size={20} aria-hidden="true" />
+                <span>Follow-up review</span>
+              </Link>
               <HeaderSessionControls user={user} hideGlobalGuide={hideGlobalGuide} onOpenGuide={() => {
                 setIsProfileMenuOpen(false);
                 phoneMenuRef.current?.close();

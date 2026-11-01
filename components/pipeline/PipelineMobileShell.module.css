@@ -40,8 +40,8 @@
 
 .profileUtilities { padding: 8px; border-top: 1px solid var(--color-paper-rule); }
 .profileUtilities > div { margin: 0; }
-.profileUtilities > button, .profileUtilities > div > button { display: flex; align-items: center; justify-content: flex-start; gap: 12px; width: 100%; min-height: var(--spacing-control); height: auto; margin: 0; padding: 12px; border: 0; border-radius: var(--radius-input); background: transparent; color: var(--color-ink-2); font-size: var(--text-label); }
-.profileUtilities > button:hover, .profileUtilities > div > button:hover { background: var(--color-segment); }
+.profileUtilities > a, .profileUtilities > button, .profileUtilities > div > button { display: flex; align-items: center; justify-content: flex-start; gap: 12px; width: 100%; min-height: var(--spacing-control); height: auto; margin: 0; padding: 12px; border: 0; border-radius: var(--radius-input); background: transparent; color: var(--color-ink-2); font-size: var(--text-label); }
+.profileUtilities > a:hover, .profileUtilities > button:hover, .profileUtilities > div > button:hover { background: var(--color-segment); }
 .profileUtilities > button > span, .profileUtilities > div > button > span { display: inline; }
 .shell .utilities .profileMenu :is(button, a):focus-visible { outline: 2px solid var(--color-focus); outline-offset: -2px; }
 .profileUtilities [role="alert"] { position: static; width: auto; margin-top: 8px; }

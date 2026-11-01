@@ -63,9 +63,9 @@
   .detail, .owner { min-width: 0; overflow-wrap: anywhere; }
   .owner::before { content: "·"; margin-right: 12px; }
   .owner[data-unassigned] { color: var(--color-stage-orange); }
-  .footer { display: flex; flex-wrap: wrap; align-items: center; gap: 3px 14px; margin-top: auto; padding-top: 3px; }
+  .footer { min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 3px 14px; margin-top: auto; padding-top: 3px; }
   .nextStep { display: flex; align-items: center; flex: 1 1 auto; gap: 10px; min-width: 0; color: var(--stage-accent); }
-  .actionText { font-size: var(--text-label); line-height: var(--text-label--line-height); font-weight: 600; overflow-wrap: anywhere; }
+  .actionText { min-width: 0; font-size: var(--text-label); line-height: var(--text-label--line-height); font-weight: 600; overflow-wrap: anywhere; }
   .nextStep svg { flex: none; transition: transform var(--motion-state) var(--ease-open); }
   .docsNeeded { font-size: var(--text-meta); line-height: var(--text-meta--line-height); color: var(--color-stage-orange); }
   .meta { color: var(--color-ink-muted); font-size: var(--text-meta); line-height: var(--text-meta--line-height); }

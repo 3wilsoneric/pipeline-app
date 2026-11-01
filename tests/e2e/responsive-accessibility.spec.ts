@@ -84,7 +84,8 @@ test.describe("Responsive and accessible application shell", () => {
     await expectNoSeriousAxeViolations(page);
 
     await expect(stepNavigation.getByRole("button", { name: "Assessment", exact: true })).toHaveCount(0);
-    if (!compactSteps && await page.locator("html").getAttribute("data-design") === "v2") {
+    if (compactSteps) await stepSelect.selectOption({ label: "Intake" });
+    else if (await page.locator("html").getAttribute("data-design") === "v2") {
       await stepNavigation.getByRole("button", { name: "Intake", exact: true }).click();
       await expect(page.getByRole("textbox", { name: "NAME", exact: true })).not.toHaveValue("");
     }

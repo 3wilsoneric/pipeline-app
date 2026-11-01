@@ -84,6 +84,7 @@ for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]]
         await page.setViewportSize({ width, height: 900 });
         const preparedName = page.getByRole("textbox", { name: "Resident name", exact: true });
         await expect(preparedName).toHaveValue(clientName);
+        await expect(preparedName).toBeVisible();
         expect((await preparedName.boundingBox())!.height).toBeGreaterThanOrEqual(44);
         expect((await page.locator("[data-assessment-primary-action] button").boundingBox())!.height).toBeGreaterThanOrEqual(44);
         const preparation = page.getByTestId("assessment-client-folder");

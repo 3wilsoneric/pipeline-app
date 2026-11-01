@@ -28,20 +28,22 @@ test.describe("Pipeline home", () => {
     await expect(page.getByRole("heading", { name: /Good (morning|afternoon|evening), Playwright\./ })).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Workflow summary" })).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Current work", exact: true })).toBeVisible();
-    await page.getByRole("tab", { name: "New assignments", exact: true }).click();
-    await expect(page.getByRole("region", { name: "Since your last visit" })).toBeVisible();
-    await page.getByRole("tab", { name: "Board", exact: true }).click();
-    await page.getByRole("tab", { name: "Upcoming assessments", exact: true }).click();
-    await expect(page.getByRole("region", { name: "Upcoming assessments" })).toBeVisible();
-    await page.getByRole("tab", { name: "Board", exact: true }).click();
+    await expect(page.getByRole("tab", { name: "New assignments", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Open in progress folder", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Upcoming assessments", exact: true }).click();
+    await expect(page.getByRole("dialog", { name: "Upcoming assessments", exact: true })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("button", { name: "Upcoming assessments", exact: true })).toBeFocused();
     await expect(page.getByRole("region", { name: "Ready to schedule" })).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Data completion" })).toHaveCount(0);
-    await expect(page.getByRole("region", { name: "Recent" })).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "Recent clients", exact: true }).or(page.getByText("No recent work yet.", { exact: true }))).toBeVisible();
     await expect(page.getByRole("button", { name: "Open search" })).toHaveCount(0);
     await expect(page.getByLabel("Search or ask")).toHaveCount(0);
     await page.getByRole("button", { name: "Pipeline home" }).hover();
     await expect(page.getByRole("button", { name: "Pipeline home" })).toBeVisible();
-    await expect(page.getByRole("img", { name: "Alamo Health Management" })).toBeVisible();
+    const mark = page.getByRole("button", { name: "Pipeline home", exact: true }).locator("img");
+    await expect(mark).toHaveAttribute("src", /pipeline-mark\.svg$/);
+    await expect.poll(() => mark.evaluate(image => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
     await expect(page.getByRole("link", { name: "Back to Alamo Platform" })).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Analytics" })).toHaveCount(0);
     await expect(page.getByText("Workspaces", { exact: true })).toBeVisible();
@@ -283,17 +285,18 @@ test.describe("Pipeline home", () => {
       .getByRole("button", { name: /Avery Example/ });
     await expect(clientResult).toBeVisible();
     await clientResult.click();
-    await expect(page.getByRole("heading", { name: "Avery Example", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Avery Example", exact: true, level: 1 })).toBeVisible();
     await expect(page).toHaveURL(/\?screen=profile&clientId=/);
     expect(new URL(page.url()).searchParams.has("view")).toBeFalsy();
 
     await page.getByRole("button", { name: "Pipeline home" }).click();
-    await expect(page.getByRole("region", { name: "Recent" })).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "Recent clients", exact: true }).or(page.getByText("No recent work yet.", { exact: true }))).toBeVisible();
     await expect(page.getByText("Broken recent", { exact: true })).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Current work", exact: true })).toBeVisible();
-    await page.getByRole("tab", { name: "Upcoming assessments", exact: true }).click();
-    await expect(page.getByRole("region", { name: "Upcoming assessments" })).toBeVisible();
-    await page.getByRole("tab", { name: "Board", exact: true }).click();
+    await page.getByRole("button", { name: "Upcoming assessments", exact: true }).click();
+    await expect(page.getByRole("dialog", { name: "Upcoming assessments", exact: true })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("button", { name: "Upcoming assessments", exact: true })).toBeFocused();
   });
 
   test("searches site destinations and the enhanced client directory while typing", async ({ page }) => {
@@ -340,12 +343,11 @@ test.describe("Pipeline home", () => {
     await page.waitForLoadState("networkidle");
     await expect(page.getByRole("heading", { name: /Good (morning|afternoon|evening), Playwright\./ })).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Current work", exact: true })).toBeVisible();
-    await page.getByRole("tab", { name: "New assignments", exact: true }).click();
-    await expect(page.getByRole("region", { name: "Since your last visit" })).toBeVisible();
-    await page.getByRole("tab", { name: "Board", exact: true }).click();
+    await expect(page.getByRole("tab", { name: "New assignments", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Open in progress folder", exact: true })).toBeVisible();
     await expect(page.getByRole("region", { name: "Ready to schedule" })).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Data completion" })).toHaveCount(0);
-    await expect(page.getByRole("region", { name: "Recent" })).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "Recent clients", exact: true }).or(page.getByText("No recent work yet.", { exact: true }))).toBeVisible();
     const welcomePipelinePosition = await page.locator('[data-pipeline-home="true"]').boundingBox();
 
     await page.getByRole("button", { name: "Open referrals" }).click();
@@ -362,13 +364,13 @@ test.describe("Pipeline home", () => {
     await expect(page.getByRole("navigation", { name: "Primary navigation" })).toBeVisible();
     await expect(page.getByRole("dialog", { name: "Search Pipeline" })).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Current work", exact: true })).toBeVisible();
-    await page.getByRole("tab", { name: "New assignments", exact: true }).click();
-    await expect(page.getByRole("region", { name: "Since your last visit" })).toBeVisible();
-    await page.getByRole("tab", { name: "Board", exact: true }).click();
-    await page.getByRole("tab", { name: "Upcoming assessments", exact: true }).click();
-    await expect(page.getByRole("region", { name: "Upcoming assessments" })).toBeVisible();
-    await page.getByRole("tab", { name: "Board", exact: true }).click();
-    await expect(page.getByRole("region", { name: "Recent" })).toHaveCount(0);
+    await expect(page.getByRole("tab", { name: "New assignments", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Open in progress folder", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Upcoming assessments", exact: true }).click();
+    await expect(page.getByRole("dialog", { name: "Upcoming assessments", exact: true })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("button", { name: "Upcoming assessments", exact: true })).toBeFocused();
+    await expect(page.getByRole("region", { name: "Recent clients", exact: true }).or(page.getByText("No recent work yet.", { exact: true }))).toBeVisible();
 
     const queueResponse = await page.request.get("/api/operations/my-queue");
     expect(queueResponse.ok()).toBeTruthy();
@@ -437,37 +439,26 @@ test.describe("Pipeline home", () => {
     await expect.poll(async () => (await page.getByTestId("profiles-workspace").boundingBox())?.width ?? 0).toBeLessThanOrEqual(1800);
     await expect.poll(async () => (await page.getByTestId("profiles-workspace").boundingBox())?.width ?? 0).toBeGreaterThan(1000);
     const activeProfiles = page.getByRole("button", { name: "Open client profiles" });
-    await expect(activeProfiles).toHaveAttribute("aria-pressed", "true");
+    await expect(activeProfiles).toHaveAttribute("aria-current", "page");
     await expect(activeProfiles).toHaveAttribute("data-active", "true");
-    await expect(activeProfiles).toHaveClass(/bg-\[#eef1ff\]/);
-    await expect(activeProfiles).toHaveCSS("background-color", "rgb(238, 241, 255)");
-    await expect(activeProfiles).toHaveCSS("border-color", "rgb(75, 104, 173)");
+    await expect(activeProfiles).toHaveCSS("background-color", "rgb(244, 162, 97)");
+    await expect(activeProfiles).toHaveCSS("border-color", "rgb(244, 162, 97)");
     await page.getByRole("button", { name: /file cabinet$/ }).first().click();
     await expect(page.getByRole("region", { name: /file cabinet$/ }).getByText("1 client", { exact: true })).toBeVisible();
     await expect(page.getByText("Avery Example", { exact: true })).toBeVisible();
 
     await page.getByRole("button", { name: /Avery Example/ }).click();
-    await expect(page.getByRole("heading", { name: "Avery Example", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Avery Example", exact: true, level: 1 })).toBeVisible();
     await expect.poll(async () => (await page.getByTestId("profile-workspace").boundingBox())?.width ?? 0).toBeGreaterThan(1200);
     const medicalChart = page.getByRole("article", { name: "Client medical chart" });
     await expect(medicalChart).toBeVisible();
     const folder = page.getByTestId("client-profile-folder");
-    const folderTab = folder.locator(":scope > strong");
-    const folderBody = folder.locator(":scope > div");
-    await expect(folderTab).toHaveText("Avery Example");
-    await expect(folderTab).toHaveCSS("font-size", "18px");
-    await expect(folderTab.locator(":scope > span")).toHaveCSS("background-image", /linear-gradient/);
-    await expect(folderTab).toHaveCSS("background-color", "rgb(232, 217, 184)");
-    await expect(folderBody).toHaveCSS("background-color", "rgb(232, 217, 184)");
-    await expect(folderBody).toHaveCSS("overflow-y", "visible");
-    await expect(folderBody.locator(":scope > div")).toHaveCSS("overflow-y", "visible");
-    await expect(medicalChart.locator('[data-chart-field="Gender"]')).toHaveCSS("grid-column-start", "span 2");
+    await expect(folder).toHaveAttribute("data-client-profile-sheet", "true");
+    await expect(folder).toHaveCSS("background-image", "none");
+    await expect(folder).toHaveCSS("overflow-y", "visible");
+    await expect(folder.getByRole("article", { name: "Client medical chart" })).toBeVisible();
     await expect(folder.getByRole("button", { name: "Back to profiles" })).toHaveCount(0);
-    const tabBounds = await folderTab.boundingBox();
-    const bodyBounds = await folderBody.boundingBox();
-    expect(tabBounds!.y + tabBounds!.height - bodyBounds!.y).toBe(1);
-    await folderTab.hover();
-    await expect(folderBody).toHaveCSS("border-color", "rgb(188, 167, 126)");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: testInfo.outputPath("client-profile-folder-desktop.png") });
     await expect(medicalChart.getByRole("heading", { name: "Client chart", exact: true })).toBeVisible();
     await expect(medicalChart.getByRole("heading", { name: "Avery Example", exact: true })).toBeVisible();
@@ -520,8 +511,8 @@ test.describe("Pipeline home", () => {
     await expect
       .poll(async () => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth))
       .toBeLessThanOrEqual(1);
-    await expect(folderTab).toBeInViewport();
-    await expect(medicalChart.locator('[data-chart-field="Gender"]')).toHaveCSS("grid-column-start", "span 2");
+    await expect(profileMain.getByRole("heading", { name: "Avery Example", exact: true, level: 1 })).toBeInViewport();
+    await expect(medicalChart.locator('[data-chart-field="Gender"]')).toHaveCSS("grid-column-start", "auto");
     await page.screenshot({ path: testInfo.outputPath("client-profile-folder-mobile.png") });
     await profileMain.evaluate((element) => element.scrollTo({ top: element.scrollHeight }));
     await expect
@@ -572,7 +563,7 @@ test.describe("Pipeline home", () => {
     await expect(alert).not.toContainText("Internal server error");
     serviceAvailable = true;
     await page.getByRole("button", { name: "Retry", exact: true }).click();
-    await expect(page.getByRole("heading", { name: "Avery Example", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Avery Example", exact: true, level: 1 })).toBeVisible();
   });
 
   test("keeps the governed client profile available when Pipeline work storage is unavailable", async ({ page }) => {
@@ -595,7 +586,7 @@ test.describe("Pipeline home", () => {
     const canonicalClientId = (clinicalFixture.client.client as { canonical_client_id: string }).canonical_client_id;
     await page.goto(`/?screen=profile&clientId=${encodeURIComponent(canonicalClientId)}`);
 
-    await expect(page.getByRole("heading", { name: "Avery Example", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Avery Example", exact: true, level: 1 })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Referral history", exact: true })).toHaveCount(0);
     await expect(page.getByRole("heading", { name: "Client files", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Connect a referral" })).toHaveCount(0);

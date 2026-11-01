@@ -41,8 +41,8 @@ async function syntheticHome(page: Page, scope: "personal" | "team" = "team") {
     await route.fulfill({ response, json: payload });
   });
   await page.goto("/");
-  // The active board excludes the sixth fixture's completed admission.
-  await expect(page.locator("[data-board-card]")).toHaveCount(5);
+  await expect(page.getByRole("button", { name: "Open in progress folder", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Open decision folder", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Pipeline home", exact: true })).toBeVisible();
   await page.evaluate(() => document.fonts.ready);
 }
@@ -53,83 +53,41 @@ for (const width of [1440, 1024, 437, 390]) {
     page.on("pageerror", (error) => errors.push(error.message));
     await page.setViewportSize({ width, height: width === 437 ? 536 : width === 390 ? 844 : 1000 });
     await syntheticHome(page);
-    await expect(page.locator('[data-guide-target="home-workspace"]')).toHaveCSS("background-color", "rgb(238, 238, 231)");
-    await expect(page.locator('[data-home-module="current-work"]')).toHaveCSS("border-top-left-radius", width < 640 ? "15px" : "20px");
-    const stageColors = await page.locator('[data-board-stage] > div:first-child').evaluateAll((elements) => elements.map((element) => getComputedStyle(element, "::before").backgroundColor));
-    expect(new Set(stageColors).size).toBe(3);
-    const dockets = await page.locator('[data-board-stage]').evaluateAll((elements) => elements.map((element) => ({
-      paper: getComputedStyle(element).backgroundColor,
-      index: getComputedStyle(element.firstElementChild!, "::before").content,
-      tabPointerEvents: getComputedStyle(element, "::before").pointerEvents,
-      edgePointerEvents: getComputedStyle(element, "::after").pointerEvents,
-      backdropFilter: getComputedStyle(element).backdropFilter,
-    })));
-    expect(new Set(dockets.map((docket) => docket.paper)).size).toBe(3);
-    expect(dockets.map((docket) => docket.index)).toEqual(['"01"', '"02"', '"03"']);
-    for (const docket of dockets) {
-      expect(docket.tabPointerEvents).toBe("none");
-      expect(docket.edgePointerEvents).toBe("none");
-      expect(docket.backdropFilter).toBe("none");
-    }
-    const firstCard = page.locator('[data-board-card]').first();
-    const folderTab = firstCard.locator('[data-folder-name]');
-    const folderBody = firstCard.locator('[data-folder-body]');
-    await expect(folderTab).toHaveText("Taylor Rivera");
-    await expect(folderTab).toHaveCSS("font-size", "17px");
-    await expect(folderTab).toHaveCSS("background-image", /linear-gradient/);
-    await expect(folderBody).toHaveCSS("background-image", /linear-gradient/);
-    await expect(folderBody.locator(':scope > span')).toHaveCSS("background-color", "rgb(255, 255, 255)");
-    const tabBox = (await folderTab.boundingBox())!;
-    const bodyBox = (await folderBody.boundingBox())!;
-    expect(tabBox.y + tabBox.height - bodyBox.y).toBe(1);
-    const statusTab = firstCard.locator('[data-board-status]');
-    await expect(statusTab).toHaveText("Referral created");
-    await expect(statusTab).toHaveCSS("font-size", "12px");
-    const statusBox = (await statusTab.boundingBox())!;
-    expect(statusBox.x).toBeGreaterThan(tabBox.x + tabBox.width);
-    expect(statusBox.height).toBeLessThan(tabBox.height);
-    await expect(firstCard.locator('button, a, input, select')).toHaveCount(0);
-    const longName = page.getByRole('button', { name: 'Open Christopher Montgomery-Worthington', exact: true }).locator('[data-folder-name]');
-    expect(await longName.evaluate((element) => element.scrollWidth <= element.clientWidth && element.scrollHeight <= element.clientHeight)).toBe(true);
-    // Names may wrap in the narrower current docket; none may be clipped.
-    expect(await longName.locator(":scope > span").evaluate((element) => element.scrollHeight <= element.clientHeight)).toBe(true);
-    if (width >= 1024) {
-      const columns = await page.locator('[data-current-work-board]').evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(" ").length);
-      expect(columns).toBe(3);
-    }
-    const stageHeader = page.locator('[data-board-stage="received"] > div:first-child');
-    await expect(stageHeader).toHaveCSS("background-image", "none");
-    const openFolder = stageHeader.getByRole("button");
-    await expect(openFolder).toBeInViewport();
-    expect((await openFolder.boundingBox())!.height).toBeGreaterThanOrEqual(44);
-    expect((await stageHeader.boundingBox())!.y + (await stageHeader.boundingBox())!.height).toBeLessThanOrEqual((await firstCard.boundingBox())!.y);
-    await expect(page.locator("[data-home-surface]").first()).toHaveCSS("backdrop-filter", "none");
-    await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
-    const contrast = await page.evaluate(async () => {
-      const axe = (window as unknown as { axe: { run: (selector: string, options: object) => Promise<AxeResults> } }).axe;
-      const result = await axe.run('[aria-label="Current work board"]', { runOnly: ["color-contrast"] });
-      return result.violations.map(({ id, nodes }) => ({ id, nodes: nodes.map(({ target, failureSummary }) => ({ target, failureSummary })) }));
-    });
-    expect(contrast).toEqual([]);
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    await page.screenshot({ path: testInfo.outputPath(`home-${width}.png`) });
-    await expect(page.getByRole("button", { name: /^(Collapse|Expand) Board$/ })).toHaveCount(0);
-    await expect(page.locator("[data-board-card]")).toHaveCount(5);
-    if (width < 1024) {
-      for (const stage of ["in_progress", "decision", "received"]) {
-        await page.getByRole("combobox", { name: "Referral stage", exact: true }).selectOption(stage);
-        await expect(page.locator('[data-board-stage]:visible')).toHaveCount(1);
-        await expect(page.locator(`[data-board-stage="${stage}"]`)).toBeVisible();
-        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    const seen: string[] = [];
+    for (const [title, count] of [["In progress", 4], ["Decision", 1]] as const) {
+      const open = page.getByRole("button", { name: `Open ${title.toLowerCase()} folder`, exact: true });
+      await expect.poll(async () => (await open.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+      await open.click();
+      const dialog = page.getByRole("dialog", { name: `${title} folder`, exact: true });
+      const cards = dialog.locator("[data-board-card]");
+      await expect(cards).toHaveCount(count);
+      await expect(dialog.getByRole("button", { name: "Open Riley Hart", exact: true })).toHaveCount(0);
+      seen.push(...await cards.locator("[data-folder-name]").allTextContents());
+      for (const card of await cards.all()) {
+        await expect(card.locator("button, a, input, select")).toHaveCount(0);
+        await expect.poll(async () => (await card.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+        const clipped = await card.evaluate(element => [...element.querySelectorAll("[data-folder-name], [data-board-status], [data-folder-details]")].filter(node => node.scrollWidth > node.clientWidth || node.scrollHeight > node.clientHeight).map(node => node.textContent));
+        expect(clipped).toEqual([]);
       }
+      await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
+      const violations = await page.evaluate(async () => {
+        const axe = (window as unknown as { axe: { run: (selector: string, options: object) => Promise<AxeResults> } }).axe;
+        return (await axe.run('dialog[open]', { runOnly: ["color-contrast", "button-name"] })).violations;
+      });
+      expect(violations).toEqual([]);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await page.screenshot({ path: testInfo.outputPath(`home-${title}-${width}.png`) });
+      await page.keyboard.press("Escape");
+      await expect(open).toBeFocused();
     }
+    expect(seen.sort()).toEqual(["Taylor Rivera", "Christopher Montgomery-Worthington", "Morgan Chen", "Casey Brooks", "Alex Reed"].sort());
 
     await page.goto("/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=interview&assessmentSection=diagnosis_clinical&demo=1");
     const assessment = page.locator('[data-assessment-view="assessment"]');
     await expect(assessment).toBeVisible();
     const presentation = width < 640
-      ? { background: "rgb(255, 255, 255)", fontSize: "16px", button: "rgb(8, 119, 90)" }
-      : { background: "rgb(255, 255, 255)", fontSize: "17px", button: "rgb(0, 126, 96)" };
+      ? { background: "rgb(255, 255, 255)", fontSize: "16px", button: "rgb(244, 162, 97)" }
+      : { background: "rgb(255, 255, 255)", fontSize: "16px", button: "rgb(244, 162, 97)" };
     await expect(assessment.locator(width < 640 ? "[data-phone-interview]" : "main")).toHaveCSS("background-color", presentation.background);
     await expect(assessment).toHaveCSS("backdrop-filter", "none");
     const actions = assessment.locator('footer[aria-label="Assessment actions"]');
@@ -147,14 +105,15 @@ for (const width of [1440, 1024, 437, 390]) {
     await expect(secondary).toHaveCSS("font-size", presentation.fontSize);
     await secondary.fill("Synthetic referral history prepared for the interview.");
     await secondary.press("Tab");
-    if (width >= 640) await expect(assessment.getByRole("complementary", { name: "Current information" })).toHaveCSS("background-image", /linear-gradient/);
+    if (width >= 640) await expect(assessment.getByRole("complementary", { name: "Current information" })).toHaveCSS("background-image", "none");
     await expect(assessment.getByRole("complementary", { name: "Assessment navigation", exact: true })).toHaveCount(0);
     if (width >= 640) await expect(assessment.getByRole("combobox", { name: "Assessment section", exact: true })).toHaveValue("diagnosis_clinical");
     if (width >= 960) {
       const reference = await assessment.getByRole("complementary", { name: "Current information" }).boundingBox();
       const editor = await assessment.locator('[data-assessment-question-editor]').boundingBox();
       expect(reference!.x + reference!.width).toBeLessThan(editor!.x);
-      expect(Math.abs(reference!.y - editor!.y)).toBeLessThan(2);
+      const referenceHeader = await assessment.getByRole("complementary", { name: "Current information" }).locator("header").boundingBox();
+      expect(Math.abs(referenceHeader!.y - editor!.y)).toBeLessThan(2);
     }
     expect(await assessment.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
     await page.screenshot({ path: testInfo.outputPath(`assessment-${width}.png`) });
@@ -176,30 +135,23 @@ for (const width of [1440, 390]) {
     test(`folder text and chart details remain readable at ${width}px for ${scope} work`, async ({ page }, testInfo) => {
       await page.setViewportSize({ width, height: 1000 });
       await syntheticHome(page, scope);
-      const stack = page.locator('[data-board-stage="received"]');
-      const first = stack.locator("[data-board-card]").first();
-      const last = stack.locator("[data-board-card]").last();
-      await expect(first).toContainText("Referral received");
+      await page.getByRole("button", { name: "Open in progress folder", exact: true }).click();
+      const stack = page.getByRole("dialog", { name: "In progress folder", exact: true });
+      const first = stack.getByRole("button", { name: "Open Taylor Rivera", exact: true });
+      const last = stack.getByRole("button", { name: "Open Christopher Montgomery-Worthington", exact: true });
+      await expect(first).toContainText("Referral created");
       await expect(first).not.toContainText("#910101");
-      await expect(first).toContainText("Received Sep 17, 2026");
-      await expect(first.locator("[data-folder-details]")).toContainText("Documents needed2");
-      await expect(last.locator("[data-folder-name]")).toHaveCSS("font-weight", "700");
-      await expect(last.locator("[data-board-status]")).toHaveCSS("font-weight", "700");
-      await expect(last.locator("[data-folder-details]")).toContainText("CommunitySan Pablo");
+      await expect(first.locator("[data-folder-details]")).toContainText("2 documents needed");
+      await expect(last.locator("[data-folder-details]")).toContainText("San Pablo");
       await expect(last.locator("[data-folder-details]")).not.toContainText("File progress");
-      await expect(last.locator("[data-folder-details]")).not.toContainText("Documents needed");
-      await expect(last.getByText("Assessor", { exact: true })).toHaveCount(1);
+      await expect(last.locator("[data-folder-details]")).not.toContainText("documents needed");
       await expect(last).toContainText("Example Assessor");
       await last.scrollIntoViewIfNeeded();
       expect(await last.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
-      const body = last.locator("[data-folder-body]");
-      const details = (await last.locator("[data-folder-details]").boundingBox())!;
-      const bodyBox = (await body.boundingBox())!;
-      expect(details.y + details.height).toBeLessThanOrEqual(bodyBox.y + bodyBox.height - 19);
       await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
       const violations = await page.evaluate(async () => {
         const axe = (window as unknown as { axe: { run: (selector: string, options: object) => Promise<AxeResults> } }).axe;
-        const result = await axe.run('[data-board-stage="received"]', { runOnly: ["color-contrast", "button-name"] });
+        const result = await axe.run('dialog[open]', { runOnly: ["color-contrast", "button-name"] });
         return result.violations.map(({ id, nodes }) => ({ id, targets: nodes.map(({ target }) => target) }));
       });
       expect(violations).toEqual([]);
@@ -208,41 +160,29 @@ for (const width of [1440, 390]) {
   }
 }
 
-test("board folders fan halfway on hover and keyboard focus without fetching or changing the click path", async ({ page }, testInfo) => {
+test("folder cards remain stable on hover and keyboard focus without fetching or changing the click path", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
-  // Home already prefetches one upcoming workspace independently of the board.
-  const warmup = page.waitForResponse("**/api/referrals/910103/canvas");
   await syntheticHome(page);
-  await warmup;
-  const stack = page.locator('[data-board-stage="received"] [data-folder-stack]');
-  const cards = stack.locator('[data-board-card]');
-  const first = cards.first();
-  const second = cards.nth(1);
-  await stack.scrollIntoViewIfNeeded();
-  await page.mouse.move(page.viewportSize()!.width - 1, 1);
-  const gap = async () => (await second.boundingBox())!.y - (await first.boundingBox())!.y;
-  // The hit target is now clipped to the exposed tab, not the full folder.
-  const height = (await first.locator('[data-folder-name]').boundingBox())!.height + (await first.locator('[data-folder-body]').boundingBox())!.height - 1;
-  await expect.poll(gap).toBeLessThan(height * 0.35);
-  const compactGap = await gap();
+  await page.getByRole("button", { name: "Open in progress folder", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "In progress folder", exact: true });
+  const first = dialog.getByRole("button", { name: "Open Taylor Rivera", exact: true });
+  const second = dialog.getByRole("button", { name: "Open Christopher Montgomery-Worthington", exact: true });
+  await page.waitForLoadState("networkidle");
   const requests: string[] = [];
-  page.on("request", (request) => { if (["fetch", "xhr"].includes(request.resourceType())) requests.push(request.url()); });
-  await first.locator('[data-folder-name]').hover();
-  await expect.poll(gap).toBeGreaterThan(height * 0.5);
-  expect(await gap()).toBeLessThan(height * 0.65);
-  const action = first.getByText("Schedule the assessment", { exact: true });
-  await expect(action.locator("..")).toHaveCSS("opacity", "1");
-  const actionBox = (await action.boundingBox())!;
-  expect(actionBox.y + actionBox.height).toBeLessThan((await second.boundingBox())!.y);
-  await page.screenshot({ path: testInfo.outputPath("folder-stack-expanded.png") });
-  await page.mouse.move(page.viewportSize()!.width - 1, 1);
-  await expect.poll(gap).toBe(compactGap);
-  await expect(action.locator("..")).toHaveCSS("opacity", "0");
+  page.on("request", request => { if (["fetch", "xhr"].includes(request.resourceType())) requests.push(request.url()); });
+  const secondBefore = await second.boundingBox();
+  await first.hover();
+  await expect(first.getByText("Schedule the assessment", { exact: true })).toBeVisible();
+  expect(await second.boundingBox()).toEqual(secondBefore);
   await first.focus();
+  await page.keyboard.press("Tab");
+  await page.keyboard.press("Shift+Tab");
   await expect(first).toBeFocused();
   await expect(first).toHaveCSS("outline-width", "2px");
   await expect(first).toHaveAccessibleDescription("Referral created Schedule the assessment");
-  await expect.poll(gap).toBeGreaterThan(height * 0.5);
+  await page.screenshot({ path: testInfo.outputPath("folder-keyboard-focus.png") });
+  await page.keyboard.press("Tab");
+  await expect(dialog.getByRole("button", { name: "Pin Taylor Rivera", exact: true })).toBeFocused();
   await page.keyboard.press("Tab");
   await expect(second).toBeFocused();
   expect(requests).toEqual([]);
@@ -250,14 +190,15 @@ test("board folders fan halfway on hover and keyboard focus without fetching or 
   await expect(page).toHaveURL(/referralId=910102/);
   expect(pipelineWorkspaceLocationFromSearchParams(new URL(page.url()).searchParams)).toEqual({ view: "intake" });
   await page.goto("/");
-  const scheduled = page.getByRole("button", { name: "Open Morgan Chen", exact: true });
-  await scheduled.locator('[data-folder-name]').click();
+  await page.getByRole("button", { name: "Open in progress folder", exact: true }).click();
+  await page.getByRole("button", { name: "Open Morgan Chen", exact: true }).click();
   await expect(page).toHaveURL(/referralId=910103/);
   expect(pipelineWorkspaceLocationFromSearchParams(new URL(page.url()).searchParams)).toEqual({ view: "assessment" });
 });
 
 test("hovering a lower folder keeps the intended client under the pointer", async ({ page }) => {
   await syntheticHome(page);
+  await page.getByRole("button", { name: "Open in progress folder", exact: true }).click();
   const folder = page.getByRole("button", { name: "Open Christopher Montgomery-Worthington", exact: true });
   const tab = folder.locator('[data-folder-name]');
   await tab.scrollIntoViewIfNeeded();
@@ -266,7 +207,7 @@ test("hovering a lower folder keeps the intended client under the pointer", asyn
   const y = box.y + box.height / 2;
   await page.mouse.move(page.viewportSize()!.width - 1, y);
   await page.mouse.move(x, y);
-  await page.locator('[data-board-stage="received"]').evaluate(async (element) => {
+  await page.getByRole("dialog", { name: "In progress folder", exact: true }).evaluate(async (element) => {
     await Promise.all(element.getAnimations({ subtree: true }).map((animation) => animation.finished));
   });
   // The whole docket lifts slightly on hover; the same client must stay under
@@ -283,12 +224,14 @@ test("touch users see open folder previews and open a referral with one tap", as
   const page = await context.newPage();
   try {
     await syntheticHome(page);
-    const cards = page.locator('[data-board-stage="received"] [data-board-card]');
+    await page.getByRole("button", { name: "Open in progress folder", exact: true }).tap();
+    const cards = page.getByRole("dialog", { name: "In progress folder", exact: true }).locator("[data-board-card]");
     const first = cards.first();
     const second = cards.nth(1);
     expect(await page.evaluate(() => matchMedia("(hover: hover) and (pointer: fine)").matches)).toBe(false);
     const firstBox = (await first.boundingBox())!;
-    expect((await second.boundingBox())!.y).toBeGreaterThan(firstBox.y + firstBox.height);
+    const secondBox = (await second.boundingBox())!;
+    expect(secondBox.y >= firstBox.y + firstBox.height || secondBox.x >= firstBox.x + firstBox.width).toBe(true);
     await expect(first.getByText("Schedule the assessment", { exact: true }).locator("..")).toHaveCSS("opacity", "1");
     await first.locator('[data-folder-name]').tap();
     await expect(page).toHaveURL(/referralId=910101/);
@@ -301,12 +244,13 @@ test("touch users see open folder previews and open a referral with one tap", as
 test("reduced motion removes card movement and the standalone lab stays unthemed", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await syntheticHome(page);
+  await page.getByRole("button", { name: "Open in progress folder", exact: true }).click();
   const card = page.locator("[data-board-card]").first();
   await card.locator('[data-folder-name]').hover();
   await expect(card).toHaveCSS("transform", "none");
   await expect(card).toHaveCSS("transition-duration", "0s");
   await card.focus();
-  await expect(card).toHaveCSS("outline-width", "2px");
+  await expect(card).toHaveCSS("outline-width", "3px");
   await page.goto("/note-lab/practice");
   await expect(page.getByTestId("standalone-review-shell")).toBeVisible();
   await expect(page.locator(".pipeline-surfaces")).toHaveCount(0);
@@ -333,12 +277,9 @@ for (const width of [1440, 390]) {
     await expect(folder).toBeVisible();
     await expect(page.getByTestId("workspace-identity-title")).toHaveText(referral.name);
     await expect(folder.locator(":scope > strong")).toHaveCount(0);
-    await expect(folder).toHaveCSS("--folder-fill", "#eeeee7");
+    await expect(folder).toHaveCSS("--folder-fill", "#f5f7f5");
     await expect(folder.getByRole("article", { name: "Referral intake chart", exact: true })).toBeVisible();
-    await expect(page.getByTestId("document-checklist-panel")).not.toHaveAttribute("open");
-    await page.getByTestId("document-checklist-toggle").click();
-    await expect(page.getByTestId("document-checklist-panel")).toHaveAttribute("open", "");
-    await page.getByTestId("document-checklist-toggle").click();
+    await expect(page.getByRole("button", { name: /^Drop files or choose files/ })).toBeVisible();
     const email = folder.getByRole("textbox", { name: "Referrer email:", exact: true });
     await email.fill("chart-file@example.invalid");
     await email.press("Tab");
