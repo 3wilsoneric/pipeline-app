@@ -3,13 +3,12 @@ import { openAllQuestions } from "../support/assessment-navigation";
 import { createOperationalAssessment, createOperationalReferral } from "../support/operational-api";
 import { actorApiContext, actorPage, pipelineActors, requireOperationalBaseURL } from "../support/pipeline-actors";
 
-// Interview layout edge cases (docs/design/DECISIONS.md, "Interview layout"): the record rail is tucked away during
-// the interview behind a draggable divider, comes back everywhere else, and the information beside the questions is the
-// filled-in information for the topic being asked.
+// The interview keeps Chart reachable by default, remembers intentional rail resizing,
+// and shows the recorded information for the topic being asked.
 test.describe("interview layout", () => {
   test.skip(process.env.PIPELINE_OPERATIONAL_E2E !== "true" || process.env.PIPELINE_DESIGN_V2 !== "true", "Run with the operational configuration and PIPELINE_DESIGN_V2=true.");
 
-  test("tucks the rail away only during the interview and shows the topic's own information", async ({ browser, baseURL }) => {
+  test("keeps Chart reachable and remembers interview rail resizing while showing the topic's information", async ({ browser, baseURL }) => {
     test.setTimeout(150_000);
     const url = requireOperationalBaseURL(baseURL);
     const coordinator = await actorApiContext("assessmentCoordinator", url);
@@ -32,7 +31,7 @@ test.describe("interview layout", () => {
       const info = page.locator("[data-interview-split]");
       await expect(root).toHaveAttribute("data-interview-focus", "true");
       await expect(info.locator("[data-client-notes]")).toContainText("All notes saved");
-      await expect(rail).toBeHidden();
+      await expect(rail).toBeVisible();
 
       // No All questions / Interview trail in the interview bar; the dropdown lists All questions first, then the
       // sections, and choosing a section snaps straight to it.
@@ -79,6 +78,10 @@ test.describe("interview layout", () => {
       // Dragging the divider reveals the rail and changes its width; keyboard users can do the same.
       const divider = page.getByRole("separator", { name: "Resize workspace rail" });
       await expect(divider).toBeVisible();
+      await expect(divider).toHaveAttribute("aria-valuenow", "188");
+      await divider.focus();
+      await divider.press("Home");
+      await expect(rail).toBeHidden();
       await expect(divider).toHaveAttribute("aria-valuenow", "0");
       await expect(divider).toHaveAttribute("aria-controls", "workspace-record-rail");
       const grip = await divider.boundingBox();
@@ -113,7 +116,7 @@ test.describe("interview layout", () => {
       await divider.press("End");
       await expect(rail).toBeVisible();
 
-      // All questions is the normal page with the rail; Interview tucks it away again.
+      // Preparation uses the normal rail; the interview retains the chosen width.
       await openAllQuestions(page);
       await expect(root).not.toHaveAttribute("data-interview-focus", "true");
       await expect(rail).toBeVisible();
@@ -162,6 +165,7 @@ test.describe("interview layout", () => {
       await expect(begin).toBeInViewport();
       const notes = page.locator('[data-client-notes] [data-note-heading="notes"] textarea');
       await notes.fill("Synthetic preparation note stays with this client.");
+      await notes.blur();
       await expect.poll(async () => (await (await assessor.get(`/api/referrals/${referral.id}/notes`)).json()).blocks.find((block: { block_key: string }) => block.block_key === "notes")?.body).toBe("Synthetic preparation note stays with this client.");
 
       // A slow ordinary save must not block opening or cancelling the start dialog.

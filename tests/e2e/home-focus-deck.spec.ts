@@ -1,5 +1,6 @@
 import { expect, test, webkit, type Page } from "@playwright/test";
 import type { AxeResults } from "axe-core";
+import { calendarToday } from "@/lib/pipeline/assessment-calendar";
 import { getReferralBoardState } from "@/lib/pipeline/referral-flow";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import type { WorkspaceStateProjection } from "@/lib/pipeline/workspace-state";
@@ -86,6 +87,8 @@ for (const width of [1440, 390]) {
     }
     await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
     const violations = await page.evaluate(async () => {
+      await document.fonts.ready;
+      await Promise.all(document.getAnimations().filter(animation => animation.effect?.getComputedTiming().iterations !== Infinity).map(animation => animation.finished.catch(() => undefined)));
       const axe = (window as unknown as { axe: { run: (selector: string, options: object) => Promise<AxeResults> } }).axe;
       return (await axe.run("[data-current-work-board]", { runOnly: ["color-contrast"] })).violations;
     });
@@ -95,9 +98,20 @@ for (const width of [1440, 390]) {
 
 async function homeFixture(page: Page, moduleIds = ["current-work", "new-assignments", "upcoming-assessments"], filesPerStage = 0, withFinished = false, longLabels = false, scope?: "mixed" | "team-only", upcomingCount = 1) {
   const acknowledgments: unknown[] = [];
-  let pinnedIds: number[] = [];
   let layout = { schema: 3, module_ids: moduleIds, locked: true };
   const { viewer } = await (await page.request.get("/api/operations/home")).json();
+  const appointmentDate = calendarToday();
+  const appointments = Array.from({ length: upcomingCount }, (_, index) => ({
+    id: `synthetic-appointment-${index}`, referralId: 910502 + index,
+    clientName: upcomingCount === 1 ? "Jordan Appointment" : `Appointment Client ${["Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot", "Golf", "Hotel", "India", "Juliet"][index] ?? "Additional"}`,
+    community: "San Pablo", owner: viewer.name, ownerId: viewer.id,
+    date: appointmentDate, startsAt: `${appointmentDate}T17:00:00Z`, method: "in_person",
+    kind: "assessment", status: "scheduled", scheduleStatus: "scheduled", title: "Assessment",
+  }));
+  await page.route("**/api/calendar/events?**", async route => {
+    const params = new URL(route.request().url()).searchParams;
+    await route.fulfill({ json: { from: params.get("from"), to: params.get("to"), viewer, events: appointments } });
+  });
   await page.addInitScript(({ key, layout }) => {
     if (!localStorage.getItem(key)) localStorage.setItem(key, JSON.stringify(layout));
   }, { key: `pipeline:home-layout:v1:${encodeURIComponent(viewer.id)}`, layout });
@@ -153,12 +167,8 @@ async function homeFixture(page: Page, moduleIds = ["current-work", "new-assignm
       }
       if (scope === "team-only") Object.assign(payload.workflow, { active_items: [], board_items: [], active_total: 0 });
     }
-    payload.upcoming = [{ id: "synthetic-appointment", referralId: 910502, clientName: "Jordan Appointment", community: "San Pablo", owner: "Example Assessor", date: "2026-09-22", startsAt: "2026-09-22T17:00:00Z", method: "in_person", kind: "assessment", status: "scheduled", title: "Assessment" }];
-    if (upcomingCount > 1) payload.upcoming = Array.from({ length: upcomingCount }, (_, index) => ({
-      ...payload.upcoming[0], id: `synthetic-appointment-${index}`, referralId: 910502 + index,
-      clientName: `Appointment Client ${["Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot", "Golf", "Hotel"][index]}`,
-    }));
-    payload.continuity = { ...payload.continuity, pinned_referral_ids: pinnedIds, recent_referral_ids: payload.workflow.board_items.filter((item: { board: { stage: string | null } }) => item.board.stage !== null).map((item: { referral_id: number }) => item.referral_id), unavailable: false, needs_assignment_tracking_initialization: false,
+    payload.upcoming = appointments.slice(0, 8);
+    payload.continuity = { ...payload.continuity, recent_referral_ids: payload.workflow.board_items.filter((item: { board: { stage: string | null } }) => item.board.stage !== null).map((item: { referral_id: number }) => item.referral_id), unavailable: false, needs_assignment_tracking_initialization: false,
       new_assignments: Array.from({ length: 7 }, (_, index) => ({ event_id: `focus-assignment-${index}`, action: "referral_assigned", actor_id: "coordinator", actor_name: "Example Coordinator", created_at: new Date().toISOString(), workspace: { referral_id: 910510 + index, client_name: `New Client ${index + 1}`, community: "San Pablo", owner: "Example Assessor", workflow_status: "intake_in_progress", workspace_status: "active" }, attention: null })),
     };
     await route.fulfill({ response, json: payload });
@@ -166,9 +176,8 @@ async function homeFixture(page: Page, moduleIds = ["current-work", "new-assignm
   await page.route("**/api/me/work-continuity", async (route) => {
     if (route.request().method() !== "PATCH") return route.continue();
     const body = route.request().postDataJSON();
-    if (body.pinReferral) pinnedIds = [...(body.pinReferral.pinned ? [body.pinReferral.id] : []), ...pinnedIds.filter(id => id !== body.pinReferral.id)];
     if (body.acknowledgeAssignmentIds) acknowledgments.push(body);
-    await route.fulfill({ json: { state: { schema: 1, acknowledgedAssignmentIds: [], pinnedReferralIds: pinnedIds } } });
+    await route.fulfill({ json: { state: { schema: 1, acknowledgedAssignmentIds: [] } } });
   });
   return acknowledgments;
 }
@@ -238,18 +247,23 @@ for (const width of [1440, 834, 390, 320]) test(`Home ribbon opens its accessibl
   const buttons = priorities.locator("button");
   await expect(buttons).toHaveCount(3);
   const boxes = await buttons.evaluateAll(nodes => nodes.map(node => { const {x,y,width,height}=node.getBoundingClientRect(); return {x,y,width,height}; }));
-  expect(Math.max(...boxes.map(box => box.width)) - Math.min(...boxes.map(box => box.width))).toBeLessThan(2);
-  expect(Math.max(...boxes.map(box => box.height)) - Math.min(...boxes.map(box => box.height))).toBeLessThan(2);
-  if (width >= 640) expect(new Set(boxes.map(box => Math.round(box.y))).size).toBe(1);
-  else expect(boxes[2].y).toBeGreaterThan(boxes[1].y);
+  for (const box of boxes.slice(1)) { expect(box.height).toBeGreaterThanOrEqual(48); expect(box.height).toBeLessThanOrEqual(64); }
+  expect(Math.abs(boxes[1].height - boxes[2].height)).toBeLessThan(2);
+  expect(boxes[1].y).toBeCloseTo(boxes[2].y, 0);
+  await expect(priorities.locator('[data-open-folder] svg')).toHaveCount(0);
+  if (width >= 768) { expect(boxes[1].y).toBeLessThan(boxes[0].y + boxes[0].height); expect(boxes[1].width).toBeLessThan(boxes[2].width); }
+  else { expect(boxes[1].y).toBeGreaterThan(boxes[0].y); expect(Math.abs(boxes[1].width - boxes[2].width)).toBeLessThan(2); }
   expect((await priorities.boundingBox())!.y).toBeLessThan((await home.getByRole("region", {name: "Recent clients"}).boundingBox())!.y);
   await priorities.screenshot({ path: info.outputPath(`home-priorities-${width}.png`), animations: "disabled" });
   await upcoming.focus();
   await page.keyboard.press("Enter");
   const schedule = page.getByRole("dialog", { name: "Upcoming assessments", exact: true });
   await expect(schedule).toBeVisible();
+  await expect(schedule).toHaveAttribute("data-origin-motion", "true");
+  await expect(schedule.locator("[data-calendar-day]")).toHaveCount(7);
   await expect(schedule.getByRole("button", { name: /Jordan Appointment/ })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  expect(await schedule.evaluate(node => node.scrollWidth <= node.clientWidth)).toBe(true);
   await schedule.screenshot({ path: info.outputPath(`home-upcoming-${width}.png`), animations: "disabled" });
   await page.keyboard.press("Escape");
   await expect(schedule).toHaveCount(0);
@@ -267,15 +281,15 @@ test("schedule shortcut preserves its assessment destination", async ({ page }) 
   await expect(page).toHaveURL(/workspaceStage=assessment/);
 });
 
-test("schedule modal includes all eight returned appointments with matching count", async ({ page }) => {
-  await homeFixture(page, undefined, 0, false, false, undefined, 8);
+test("weekly schedule includes appointments beyond the Home summary limit", async ({ page }) => {
+  await homeFixture(page, undefined, 0, false, false, undefined, 10);
   await page.goto("/");
   const open = page.getByRole("button", { name: "Upcoming assessments", exact: true });
   await expect(open).toContainText("8");
   await open.click();
   const dialog = page.getByRole("dialog", { name: "Upcoming assessments", exact: true });
-  await expect(dialog.getByRole("button", { name: /Appointment Client/ })).toHaveCount(8);
-  const last = dialog.getByRole("button", { name: /Appointment Client Hotel/ });
+  await expect(dialog.getByRole("button", { name: /Appointment Client/ })).toHaveCount(10);
+  const last = dialog.getByRole("button", { name: /Appointment Client Juliet/ });
   await last.scrollIntoViewIfNeeded();
   await expect(last).toBeInViewport();
   await page.keyboard.press("Escape");
@@ -283,7 +297,8 @@ test("schedule modal includes all eight returned appointments with matching coun
 });
 
 for (const unavailable of [false, true]) test(`Home ribbon distinguishes ${unavailable ? "unavailable" : "empty"} personal schedules`, async ({ page }) => {
-  await homeFixture(page);
+  await homeFixture(page, undefined, 0, false, false, undefined, 0);
+  if (unavailable) await page.route("**/api/calendar/events?**", route => route.fulfill({ status: 503, json: { error: "Unavailable" } }));
   await page.route("**/api/operations/home", async (route) => {
     const response = await route.fetch();
     const payload = await response.json();
@@ -297,8 +312,8 @@ for (const unavailable of [false, true]) test(`Home ribbon distinguishes ${unava
   if (unavailable) await expect(open).not.toContainText("0");
   await open.click();
   const dialog = page.getByRole("dialog", { name: "Upcoming assessments", exact: true });
-  await expect(dialog).toContainText(unavailable ? "Unavailable" : "No assessments are scheduled in the next seven days.");
-  if (unavailable) await expect(dialog).not.toContainText("No assessments are scheduled");
+  await expect(dialog).toContainText(unavailable ? "Upcoming assessments are unavailable." : "No assessments scheduled this week.");
+  if (unavailable) await expect(dialog).not.toContainText("No assessments scheduled");
 });
 
 for (const width of [1440, 390]) test(`Home separates accepted handoffs from pending decisions at ${width}px`, async ({ page }) => {
@@ -332,7 +347,9 @@ for (const width of [1440, 390]) test(`Home separates accepted handoffs from pen
   await expect(page.getByRole("dialog").getByRole("button", { name: "Open Reassessment Client", exact: true })).toHaveAccessibleDescription("Assessment underway Continue assessment");
   await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
   const violations = await page.evaluate(async () => {
-    const axe = (window as unknown as { axe: { run: (selector: string, options: object) => Promise<AxeResults> } }).axe;
+    await document.fonts.ready;
+      await Promise.all(document.getAnimations().filter(animation => animation.effect?.getComputedTiming().iterations !== Infinity).map(animation => animation.finished.catch(() => undefined)));
+      const axe = (window as unknown as { axe: { run: (selector: string, options: object) => Promise<AxeResults> } }).axe;
     return (await axe.run("[data-current-work-board]", { runOnly: ["color-contrast"] })).violations;
   });
   expect(violations).toEqual([]);
@@ -367,7 +384,7 @@ for (const width of [1440, 834, 390, 320]) test(`stage folder expands in place w
   const source = page.locator('[data-board-stage="in_progress"]');
   const open = source.getByRole("button", { name: "Open in progress folder", exact: true });
   await expect(open).toBeVisible();
-  await expect(open).toContainText("View all");
+  await expect(open).toContainText("In progress30 files");
   const hitArea = (await open.boundingBox())!;
   expect(hitArea.height).toBeGreaterThanOrEqual(48);
   expect(hitArea.width).toBeGreaterThan((await source.boundingBox())!.width * .85);
@@ -390,7 +407,7 @@ for (const width of [1440, 834, 390, 320]) test(`stage folder expands in place w
   expect(page.url()).toBe(originalUrl);
   expect(homeReads).toBe(0);
   const bounds = (await dialog.boundingBox())!;
-  expect(bounds.width).toBeGreaterThan(width * .9);
+  expect(bounds.width).toBeCloseTo(width < 640 ? width : Math.min(width - 32, 1120), 0);
   expect(bounds.height).toBeGreaterThan(900);
   const cards = dialog.locator("[data-board-card]");
   const positions = await cards.evaluateAll(elements => elements.map(element => {
@@ -400,11 +417,13 @@ for (const width of [1440, 834, 390, 320]) test(`stage folder expands in place w
   for (let index = 0; index < positions.length; index++) {
     expect(positions[index].margin).toBe("0px");
     const above = positions.slice(0, index).filter(card => Math.abs(card.left - positions[index].left) < 1).at(-1);
-    if (above) expect(positions[index].top).toBeGreaterThan(above.bottom);
+    if (above) expect(positions[index].top).toBeCloseTo(above.bottom, 0);
   }
   await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
   const violations = await page.evaluate(async () => {
-    const axe = (window as unknown as { axe: { run: (selector: string, options: object) => Promise<AxeResults> } }).axe;
+    await document.fonts.ready;
+      await Promise.all(document.getAnimations().filter(animation => animation.effect?.getComputedTiming().iterations !== Infinity).map(animation => animation.finished.catch(() => undefined)));
+      const axe = (window as unknown as { axe: { run: (selector: string, options: object) => Promise<AxeResults> } }).axe;
     return (await axe.run('dialog[open]', { runOnly: ["wcag2a", "wcag2aa", "wcag21aa"] })).violations;
   });
   expect(violations).toEqual([]);
@@ -477,9 +496,11 @@ test("Escape returns from the full list to the same recent clients", async ({ pa
   const recent = page.getByRole("region", { name: "Recent clients" });
   await expect(recent.locator("[data-client-file]")).toHaveCount(6);
   const before = await recent.locator("[data-client-file]").evaluateAll(elements => elements.map(element => element.getAttribute("data-client-file")));
+  expect(before).toEqual(["920000", "920001", "920002", "920100", "920101", "920102"]);
   const open = page.getByRole("button", { name: "Open in progress folder", exact: true });
   await open.click();
   await expect(page.getByRole("dialog")).toBeVisible();
+  await expect(page.getByRole("dialog").getByRole("button", { name: "Open Jordan Rivera", exact: true })).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(open).toBeFocused();
@@ -510,7 +531,7 @@ test("expanded folders retain stage accents and long file labels stay readable",
     const folder = page.getByRole("dialog", { name: `${title} folder`, exact: true });
     await expect(folder).toBeVisible();
     await folder.evaluate(async element => { await Promise.all(element.getAnimations().map(animation => animation.finished.catch(() => undefined))); });
-    colors.add(await folder.locator("h2 svg").evaluate(element => getComputedStyle(element).color));
+    colors.add(await folder.locator("h2").evaluate(element => getComputedStyle(element.parentElement!.parentElement!).backgroundImage));
     await page.screenshot({ path: info.outputPath(`stage-${title.toLowerCase().replaceAll(" ", "-")}.png`), animations: "disabled" });
     await folder.getByRole("button", { name: `Close ${title.toLowerCase()} folder`, exact: true }).click();
     await expect(folder).toHaveCount(0);
@@ -557,61 +578,47 @@ test("iPad folder scrolling does not turn the Home deck", async ({ baseURL }) =>
   } finally { try { await context.close(); } finally { await browser.close(); } }
 });
 
-for (const width of [1440, 390]) test(`personal clients pin first, deduplicate and survive reload at ${width}px`, async ({ page }, info) => {
+for (const width of [1440, 390]) test(`most recent workspace leads five more without pin controls at ${width}px`, async ({ page }, info) => {
   await page.setViewportSize({ width, height: 950 });
   await homeFixture(page, undefined, 4);
   await page.goto("/");
   const recent = page.getByRole("region", { name: "Recent clients" });
-  await expect(recent.locator("[data-client-file]")).toHaveCount(6);
+  const cards = recent.locator("[data-client-file]");
+  await expect(cards).toHaveCount(6);
+  await expect(cards.locator("[data-folder-name]")).toHaveText(["Avery Rivera", "Avery Brooks", "Avery Chen", "Avery Patel", "Jordan Rivera", "Jordan Brooks"]);
+  await expect(cards.first()).toHaveAttribute("data-featured", "true");
+  await expect(recent.locator("[data-client-file][data-featured]")).toHaveCount(1);
+  expect((await cards.first().boundingBox())!.height).toBeGreaterThan((await cards.nth(1).boundingBox())!.height);
+  await expect(page.getByRole("button", { name: /^(Unpin|Pin) / })).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Pinned clients" })).toHaveCount(0);
   await expect(page.locator("[data-folder-stack]")).toHaveCount(0);
   await expect(page.getByRole("combobox", { name: "Referral stage" })).toHaveCount(0);
-  const originalUrl = page.url();
-  await recent.getByRole("button", { name: "Pin Avery Rivera", exact: true }).focus();
-  await page.keyboard.press("Enter");
-  const pinned = page.getByRole("region", { name: "Pinned clients" });
-  await expect(pinned.getByRole("button", { name: "Open Avery Rivera", exact: true })).toBeVisible();
-  await expect(pinned.getByRole("button", { name: "Unpin Avery Rivera", exact: true })).toBeFocused();
-  await expect(recent.getByRole("button", { name: "Open Avery Rivera", exact: true })).toHaveCount(0);
-  expect(page.url()).toBe(originalUrl);
   await page.getByRole("button", { name: "Open in progress folder", exact: true }).click();
   const dialog = page.getByRole("dialog");
-  await dialog.getByRole("button", { name: "Pin Morgan Patel", exact: true }).click();
-  await expect(dialog.getByRole("button", { name: "Unpin Morgan Patel", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(dialog.getByRole("button", { name: /^(Unpin|Pin) / })).toHaveCount(0);
+  await expect(dialog.getByRole("button", { name: "Open Morgan Patel", exact: true })).toBeVisible();
   await page.keyboard.press("Escape");
   await page.reload();
-  await expect(pinned.locator("[data-folder-name]")).toHaveText(["Morgan Patel", "Avery Rivera"]);
+  await expect(cards).toHaveCount(6);
+  await expect(cards.first().locator("[data-folder-name]")).toHaveText("Avery Rivera");
   await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
   const violations = await page.evaluate(async () => {
+    await document.fonts.ready;
+    await Promise.all(document.getAnimations().filter(animation => animation.effect?.getComputedTiming().iterations !== Infinity).map(animation => animation.finished.catch(() => undefined)));
     const axe = (window as unknown as { axe: { run: (selector: string, options: object) => Promise<AxeResults> } }).axe;
     return (await axe.run("[data-current-work-board]", { runOnly: ["wcag2a", "wcag2aa", "wcag21aa"] })).violations;
   });
   expect(violations).toEqual([]);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page.screenshot({ path: info.outputPath(`pinned-recent-${width}.png`), animations: "disabled" });
-  await pinned.getByRole("button", { name: "Unpin Avery Rivera", exact: true }).click();
-  await expect(recent.getByRole("button", { name: "Open Avery Rivera", exact: true })).toBeVisible();
-  await expect(recent.getByRole("button", { name: "Pin Avery Rivera", exact: true })).toBeFocused();
-  await page.reload();
-  await expect(pinned.locator("[data-folder-name]")).toHaveText(["Morgan Patel"]);
+  await page.screenshot({ path: info.outputPath(`recent-six-${width}.png`), fullPage: true, animations: "disabled" });
 });
 
-test("failed pins stay unpinned, explain the failure and can be retried", async ({ page }) => {
+test("a short history shows only real recent workspaces", async ({ page }) => {
   await homeFixture(page);
-  let fail = true;
-  await page.route("**/api/me/work-continuity", async route => {
-    if (route.request().method() === "PATCH" && route.request().postDataJSON().pinReferral && fail) {
-      await route.fulfill({ status: 503, json: { error: "Synthetic storage outage" } });
-    } else await route.fallback();
-  });
   await page.goto("/");
-  await page.getByRole("button", { name: "Pin Avery Board", exact: true }).click();
-  await expect(page.locator("[data-current-work-board]").getByRole("alert")).toContainText("Pin change could not be saved");
-  await expect(page.getByRole("region", { name: "Pinned clients" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Pin Avery Board", exact: true })).toBeEnabled();
-  fail = false;
-  await page.getByRole("button", { name: "Pin Avery Board", exact: true }).click();
-  await expect(page.getByRole("region", { name: "Pinned clients" })).toBeVisible();
-  await expect(page.locator("[data-current-work-board]").getByRole("alert")).toHaveCount(0);
+  const recent = page.getByRole("region", { name: "Recent clients" });
+  await expect(recent.locator("[data-client-file]")).toHaveCount(1);
+  await expect(recent.locator("[data-client-file][data-featured]")).toHaveCount(1);
 });
 
 test("recent Resume honors the user's saved page", async ({ page }) => {

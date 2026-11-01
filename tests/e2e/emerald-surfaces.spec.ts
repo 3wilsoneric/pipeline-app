@@ -69,6 +69,10 @@ for (const width of [1440, 1024, 437, 390]) {
         const clipped = await card.evaluate(element => [...element.querySelectorAll("[data-folder-name], [data-board-status], [data-folder-details]")].filter(node => node.scrollWidth > node.clientWidth || node.scrollHeight > node.clientHeight).map(node => node.textContent));
         expect(clipped).toEqual([]);
       }
+      await dialog.evaluate(async (element) => {
+        await document.fonts.ready;
+        await Promise.all(element.getAnimations({ subtree: true }).map((animation) => animation.finished));
+      });
       await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
       const violations = await page.evaluate(async () => {
         const axe = (window as unknown as { axe: { run: (selector: string, options: object) => Promise<AxeResults> } }).axe;
@@ -148,6 +152,10 @@ for (const width of [1440, 390]) {
       await expect(last).toContainText("Example Assessor");
       await last.scrollIntoViewIfNeeded();
       expect(await last.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+      await stack.evaluate(async (element) => {
+        await document.fonts.ready;
+        await Promise.all(element.getAnimations({ subtree: true }).map((animation) => animation.finished));
+      });
       await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
       const violations = await page.evaluate(async () => {
         const axe = (window as unknown as { axe: { run: (selector: string, options: object) => Promise<AxeResults> } }).axe;
@@ -182,8 +190,7 @@ test("folder cards remain stable on hover and keyboard focus without fetching or
   await expect(first).toHaveAccessibleDescription("Referral created Schedule the assessment");
   await page.screenshot({ path: testInfo.outputPath("folder-keyboard-focus.png") });
   await page.keyboard.press("Tab");
-  await expect(dialog.getByRole("button", { name: "Pin Taylor Rivera", exact: true })).toBeFocused();
-  await page.keyboard.press("Tab");
+  await expect(dialog.getByRole("button", { name: /^Pin / })).toHaveCount(0);
   await expect(second).toBeFocused();
   expect(requests).toEqual([]);
   await page.keyboard.press("Enter");
@@ -229,6 +236,10 @@ test("touch users see open folder previews and open a referral with one tap", as
     const first = cards.first();
     const second = cards.nth(1);
     expect(await page.evaluate(() => matchMedia("(hover: hover) and (pointer: fine)").matches)).toBe(false);
+    // Measure after the folder opening animation reaches its final position.
+    await page.getByRole("dialog", { name: "In progress folder", exact: true }).evaluate(async (element) => {
+      await Promise.all(element.getAnimations({ subtree: true }).map((animation) => animation.finished));
+    });
     const firstBox = (await first.boundingBox())!;
     const secondBox = (await second.boundingBox())!;
     expect(secondBox.y >= firstBox.y + firstBox.height || secondBox.x >= firstBox.x + firstBox.width).toBe(true);

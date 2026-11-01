@@ -130,8 +130,6 @@
   .answerUpdate { position: absolute; inset: 0 -8px; border-radius: 5px; pointer-events: none; }
   :is(.reference, .referenceSheet) .answer + .answer { border-top: 1px solid var(--color-paper-rule); }
   :is(.reference, .referenceSheet) .answerLabel { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-top: 0; color: var(--color-ink-muted); font-size: 14px; font-weight: 600; line-height: 1.45; letter-spacing: .01em; }
-  .answerLabel svg { position: static; opacity: .55; flex-shrink: 0; }
-  .answer:is(:hover, :focus-visible) svg { opacity: 1; }
   :is(.reference, .referenceSheet) .answerValue { display: block; max-width: 54ch; margin-top: 7px; white-space: pre-wrap; overflow-wrap: anywhere; color: #28372f; font-size: 19px; font-weight: 400; line-height: 1.6; letter-spacing: 0; font-variant-numeric: tabular-nums; }
   :is(.reference, .referenceSheet) .answerEntry { display: block; margin: 0; color: inherit; font: inherit; letter-spacing: inherit; }
   :is(.reference, .referenceSheet) .answerEntry:not(:only-child) { position: relative; padding-left: 14px; }
@@ -139,7 +137,6 @@
   :is(.reference, .referenceSheet) .answerEntry + .answerEntry { margin-top: 8px; }
   :is(.reference, .referenceSheet) .answerReason { display: block; margin-top: 8px; overflow-wrap: anywhere; color: #52665f; font-size: 17px; line-height: 1.6; }
   :is(.reference, .referenceSheet) .attention { display: block; margin-top: 9px; padding-left: 8px; border-left: 2px solid #b9893c; color: var(--color-warning); font-size: 12px; font-weight: 600; line-height: 1.5; }
-  .referenceSheet .answerLabel svg { position: static; }
   .referenceSheet > label { border-bottom: 1px solid #d5dfdb; }
   :is(.reference, .referenceSheet) .answer:is([data-answer-control="yes_no"], [data-answer-control="number"], [data-answer-control="rating"], [data-answer-control="date"]) { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, .8fr); align-items: baseline; gap: 0 14px; padding-right: 24px; }
   :is(.reference, .referenceSheet) .answer:is([data-answer-control="yes_no"], [data-answer-control="number"], [data-answer-control="rating"], [data-answer-control="date"]) .answerValue { margin-top: 0; font-size: 18px; font-weight: 600; line-height: 1.5; }
@@ -228,7 +225,6 @@
   .referenceTabs .reference .referenceWidth { min-height: 32px; padding-inline: 8px; border-radius: var(--radius-input); color: var(--color-link); font-size: var(--text-meta); font-weight: 600; }
   .referenceTabs .reference .referenceWidth:hover { background: var(--color-segment); }
   .referenceTabs .reference .answer.answer { display: block; padding: 14px 0; padding-right: 0; }
-  .referenceTabs .reference .answer .answerLabel svg { position: static; }
   .referenceTabs .reference .answer .answerValue { margin-top: 4px; font-size: var(--text-value); font-weight: 400; line-height: 1.5; }
   /* Prepare on one page: each preparation group opens with its name; jumps land below the sticky header. */
   /* The section picker stays in view while the page scrolls, so "n / 5" follows along. */
@@ -320,33 +316,41 @@
   .chartReview { padding: 0 0 32px; background: #fff; }
   .chartReviewToolbar { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 56px; padding-inline: 20px; border-bottom: 1px solid #dde3df; background: #fff; font-size: 14px; color: #54645c; }
   .chartReviewToolbar button { display: flex; align-items: center; gap: 5px; min-height: 44px; color: #286350; font-weight: 600; }
-  .chartReviewToolbar:has(.reviewHeading) { position: relative; flex-wrap: wrap; gap: 14px; padding: 24px clamp(20px, 3vw, 48px); background: var(--color-paper); }
-  .reviewHeading { display: flex; align-items: center; gap: 16px; }
-  .reviewHeading h3 { margin: 0; color: var(--color-ink); font-size: var(--text-title); font-weight: 700; letter-spacing: -.03em; }
-  .reviewHeading p { margin: 6px 0 0; font-size: 16px; line-height: 1.5; }
-  .reviewOverview { padding: 22px clamp(20px, 3vw, 48px); border-bottom: 1px solid var(--color-paper-rule); }
-  .reviewFacts { display: flex; flex-wrap: wrap; gap: 16px 48px; margin: 0; }
-  .reviewFacts dt { font-size: 13px; font-weight: 600; color: var(--color-ink-muted); }
-  .reviewFacts dd { margin: 5px 0 0; font-size: 17px; font-weight: 600; color: var(--color-ink); }
-  .reviewRemaining { margin: 18px 0 0; font-size: 15px; line-height: 1.5; color: #65552d; }
-  .reviewSectionsHeading { margin: 20px 0 6px; font-size: 15px; font-weight: 650; color: var(--color-ink); }
-  .reviewSectionIndex { margin-top: 20px; border-block: 1px solid var(--color-paper-rule); }
-  .reviewSectionIndex > summary { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 16px; min-height: 50px; cursor: pointer; color: var(--color-ink); font-size: 15px; font-weight: 650; }
-  .reviewSectionIndex > summary span { color: var(--color-ink-muted); font-size: 13px; font-weight: 500; }
-  .reviewSectionIndex > summary::after { content: ""; width: 8px; height: 8px; margin-right: 4px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); }
+  .chartReviewToolbar:has(.reviewHeading) { position: relative; flex-wrap: wrap; gap: 12px; padding: 20px clamp(16px, 3vw, 32px); border: 0; background: var(--color-paper); }
+  .reviewHeading { display: flex; align-items: center; gap: 12px; }
+  .reviewHeading > svg { width: 36px; height: 36px; }
+  .reviewHeading h3 { margin: 0; color: var(--color-ink); font-size: var(--text-title); line-height: var(--text-title--line-height); font-weight: 700; }
+  .reviewOverview { margin: 0 clamp(16px, 3vw, 32px); padding: 20px 24px 0; border: 1px solid var(--color-paper-rule); border-top: 3px solid var(--color-stage-blue); border-radius: var(--radius-paper); background: linear-gradient(110deg, var(--color-stage-blue-tile), var(--color-paper) 75%); }
+  .reviewFacts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px 24px; margin: 0; }
+  .reviewFacts dt { font-size: var(--text-label); line-height: var(--text-label--line-height); color: var(--color-ink-muted); }
+  .reviewFacts dd { margin: 4px 0 0; font-size: var(--text-section); line-height: var(--text-section--line-height); font-weight: 600; color: var(--color-ink); }
+  .reviewRemaining { margin: 16px 0; font-size: var(--text-label); line-height: var(--text-label--line-height); color: var(--color-ink-muted); }
+  .reviewSectionIndex { margin-top: 16px; border-top: 1px solid var(--color-paper-rule); }
+  .reviewSectionIndex > summary { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; min-height: var(--spacing-action); cursor: pointer; color: var(--color-ink); font-size: var(--text-value); font-weight: 650; }
+  .reviewSectionIndex > summary span { margin-left: auto; color: var(--color-ink-muted); font-size: var(--text-meta); font-weight: 500; }
+  .reviewSectionIndex > summary::after { content: ""; width: 8px; height: 8px; margin-right: 4px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); transition: transform var(--duration-move) var(--ease-open); }
   .reviewSectionIndex[open] > summary::after { transform: rotate(225deg); }
   .reviewSectionIndex > summary:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
-  .reviewSectionIndex .reviewChecklist { padding-bottom: 12px; }
-  .reviewChecklist { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 32px; padding: 0; margin: 0; list-style: none; }
-  .reviewChecklist li { min-width: 0; border-top: 1px solid var(--color-paper-rule); }
-  .reviewChecklist button { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 4px; width: 100%; min-height: var(--spacing-action); padding: 12px 0; font-size: var(--text-value); text-align: left; color: var(--color-ink); }
+  .reviewSectionIndex .reviewChecklist { padding-bottom: 16px; }
+  .reviewChecklist { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 24px; padding: 0; margin: 0; list-style: none; }
+  .reviewChecklist li { min-width: 0; }
+  .reviewChecklist button { display: grid; gap: 6px; width: 100%; min-height: var(--spacing-action); padding: 12px 8px; border-radius: var(--radius-input); font-size: var(--text-value); text-align: left; color: var(--color-ink); transition: background var(--duration-fade) ease; }
+  .reviewChecklist button > span:first-child { font-weight: 600; }
   .reviewChecklist button > span:last-child { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; font-size: var(--text-meta); color: var(--color-ink-muted); }
-  .reviewChecklist button:disabled { color: #72766e; cursor: default; }
-  .reviewChecklist button:disabled > span:last-child { color: #72766e; }
-  .reviewChecklist button:hover:enabled { text-decoration: underline; }
+  .reviewChecklist button > span:last-child svg { margin-left: auto; }
+  .reviewChecklist progress { appearance: none; width: 100%; height: 4px; border: 0; border-radius: var(--radius-pill); overflow: hidden; background: var(--color-track); color: var(--color-stage-blue); }
+  .reviewChecklist progress::-webkit-progress-bar { background: var(--color-track); }
+  .reviewChecklist progress::-webkit-progress-value { background: var(--color-stage-blue); }
+  .reviewChecklist progress::-moz-progress-bar { background: var(--color-stage-blue); }
+  .reviewChecklist [data-complete] progress { color: var(--color-status-done); }
+  .reviewChecklist [data-complete] progress::-webkit-progress-value { background: var(--color-status-done); }
+  .reviewChecklist [data-complete] progress::-moz-progress-bar { background: var(--color-status-done); }
+  .reviewChecklist button:disabled { cursor: default; }
+  .reviewChecklist button:hover:enabled { background: var(--color-paper); }
   .reviewChecklist button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -2px; }
+  @media (prefers-reduced-motion: reduce) { .reviewChecklist button, .reviewSectionIndex > summary::after { transition: none; } }
   .reviewRecommendation, .signingNote { margin-top: 24px; padding: 0; border: 0; background: transparent; }
-  .signingNote { padding-top: 20px; border-top: 1px solid var(--color-paper-rule); }
+  .signingNote { margin: 16px clamp(16px, 3vw, 32px) 0; padding: 16px 0 0; border-top: 1px solid var(--color-paper-rule); }
   .reviewRecommendation h4, .signingNote h4 { margin: 0 0 6px; font-size: var(--text-section); font-weight: 650; color: var(--color-ink); }
   .reviewRecommendation p, .signingNote p { max-width: 78ch; margin: 0 0 10px; font-size: 14px; line-height: 1.55; color: var(--color-ink-muted); }
   .signingNote p:last-child { margin-bottom: 0; }
@@ -354,16 +358,21 @@
   .reviewRecommendation [data-quick-recommendation] select { min-height: var(--spacing-action); font-size: var(--text-value); }
   .reviewComplete { display: flex; align-items: center; gap: 9px; margin: 20px 0 0; font-size: 15px; color: #286350; }
   .reviewError { flex-basis: 100%; max-height: 22dvh; overflow-y: auto; margin: 0; padding: 10px 12px; border-left: 3px solid #9aa7a0; background: #f7faf9; font-size: 15px; line-height: 1.5; color: #59645e; }
-  .reviewDocument { max-width: 1280px; margin: 24px auto 0; padding: 0 clamp(16px, 3vw, 48px); }
+  .reviewDocument { max-width: 1280px; margin: 24px auto 0; padding: 0 clamp(16px, 3vw, 32px); }
   .reviewDocument [data-assessment-record] { border: 0; border-radius: 0; box-shadow: none; overflow: hidden; }
-  .reviewDocument [data-assessment-record] > section { padding: 28px clamp(20px, 3vw, 36px); }
-  .reviewDocument [data-assessment-record] h3 { font-size: 21px; letter-spacing: -.025em; }
-  .reviewDocument [data-chart-fact] dt { font-size: 15px; line-height: 1.5; }
-  .reviewDocument [data-chart-fact] dd { font-size: 18px; line-height: 1.7; }
+  .reviewDocument [data-assessment-record] > section { padding: 24px 0; }
+  .reviewDocument [data-assessment-record] h3 { color: var(--color-stage-blue); font-size: var(--text-section); line-height: var(--text-section--line-height); }
+  .reviewDocument [data-chart-fact] dt { font-size: var(--text-label); line-height: var(--text-label--line-height); }
+  .reviewDocument [data-chart-fact] dd { font-size: var(--text-value); line-height: 1.7; }
   @media (max-width: 640px) {
     .reviewHeading h3 { font-size: 24px; }
     .reviewHeading p { font-size: 15px; }
-    .reviewFacts { gap: 16px 24px; }
+    .reviewOverview { padding: 16px 16px 0; }
+    .reviewSectionIndex > summary { display: grid; grid-template-columns: minmax(0, 1fr) auto; padding-block: 12px; }
+    .reviewSectionIndex > summary span { grid-column: 1; margin: 0; }
+    .reviewSectionIndex > summary::after { grid-column: 2; grid-row: 1 / 3; }
+    .reviewFacts { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    .reviewFacts dd { font-size: var(--text-value); }
     .reviewChecklist { grid-template-columns: 1fr; }
     .reviewChecklist button { align-items: flex-start; flex-direction: column; gap: 2px; padding-block: 10px; }
     .reviewDocument { padding: 0 10px; margin-top: 16px; }
@@ -471,7 +480,6 @@
     .sectionPicker select { min-height: 44px; }
     .referenceToggle { min-height: 48px; }
     .answer { min-height: 48px; }
-    .answerLabel svg { visibility: visible; }
   }
   @media (max-width: 639px) {
     .workMode { padding: 10px 12px; gap: 10px; }

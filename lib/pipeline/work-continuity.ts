@@ -30,7 +30,6 @@ export type PipelineLastWorkspace = {
 
 export type PipelineWorkContinuityState = {
   schema: 1;
-  pinnedReferralIds?: number[];
   lastWorkspace?: PipelineLastWorkspace;
   recentWorkspaces?: PipelineLastWorkspace[];
   assignmentTrackingStartedAt?: string;
@@ -39,7 +38,6 @@ export type PipelineWorkContinuityState = {
 };
 
 export type PipelineWorkContinuityPatch = {
-  pinReferral?: { id: number; pinned: boolean };
   lastWorkspace?: PipelineLastWorkspace;
   initializeAssignmentTrackingAt?: string;
   acknowledgeAssignmentIds?: string[];
@@ -84,16 +82,11 @@ export function mergePipelineWorkContinuityState(
 ): PipelineWorkContinuityState {
   const lastWorkspace = newerLastWorkspace(current.lastWorkspace, patch.lastWorkspace);
   const recentWorkspaces = mergeRecentWorkspaces(current.recentWorkspaces, patch.lastWorkspace);
-  const pin = patch.pinReferral;
-  const pinnedReferralIds = pin
-    ? [...(pin.pinned ? [pin.id] : []), ...(current.pinnedReferralIds ?? []).filter((id) => id !== pin.id)]
-    : current.pinnedReferralIds;
   const acknowledgedAssignmentIds = patch.acknowledgeAssignmentIds?.length
     ? [...new Set([...patch.acknowledgeAssignmentIds, ...current.acknowledgedAssignmentIds])].slice(0, 1_000)
     : current.acknowledgedAssignmentIds;
   return {
     schema: 1,
-    ...(pinnedReferralIds ? { pinnedReferralIds } : {}),
     ...(lastWorkspace ? { lastWorkspace } : {}),
     ...(recentWorkspaces.length ? { recentWorkspaces } : {}),
     ...(current.assignmentTrackingStartedAt || patch.initializeAssignmentTrackingAt
@@ -224,8 +217,6 @@ function parseSimpleLocation(
 }
 
 function parseContinuityStateFields(candidate: Record<string, unknown>): Omit<PipelineWorkContinuityState, "schema"> | null {
-  const pins = candidate.pinnedReferralIds;
-  if (pins !== undefined && (!Array.isArray(pins) || !pins.every((id) => Number.isSafeInteger(id) && id > 0))) return null;
   const acknowledgedAssignmentIds = parseAssignmentIds(candidate.acknowledgedAssignmentIds, 1_000);
   if (!acknowledgedAssignmentIds) return null;
   const last = parseOptionalLastWorkspaceField(candidate.lastWorkspace);
@@ -233,20 +224,16 @@ function parseContinuityStateFields(candidate: Record<string, unknown>): Omit<Pi
   const tracking = parseOptionalTimestampField("assignmentTrackingStartedAt", candidate.assignmentTrackingStartedAt);
   const acknowledgedThrough = parseOptionalTimestampField("assignmentAcknowledgedThrough", candidate.assignmentAcknowledgedThrough);
   if (!last || !recent || !tracking || !acknowledgedThrough) return null;
-  return { acknowledgedAssignmentIds, ...last, ...recent, ...tracking, ...acknowledgedThrough,
-    ...(Array.isArray(pins) ? { pinnedReferralIds: [...new Set(pins)] as number[] } : {}) };
+  return { acknowledgedAssignmentIds, ...last, ...recent, ...tracking, ...acknowledgedThrough };
 }
 
 function parseContinuityPatchFields(candidate: Record<string, unknown>): PipelineWorkContinuityPatch | null {
-  const pin = candidate.pinReferral === undefined ? undefined : objectRecord(candidate.pinReferral);
-  if (candidate.pinReferral !== undefined && (!pin || !Number.isSafeInteger(pin.id) || Number(pin.id) < 1 || typeof pin.pinned !== "boolean")) return null;
   const last = parseOptionalLastWorkspaceField(candidate.lastWorkspace);
   const tracking = parseOptionalTimestampField("initializeAssignmentTrackingAt", candidate.initializeAssignmentTrackingAt);
   const ids = parseOptionalAssignmentIdsField(candidate.acknowledgeAssignmentIds);
   const acknowledgedThrough = parseOptionalTimestampField("acknowledgeAssignmentsThrough", candidate.acknowledgeAssignmentsThrough);
   if (!last || !tracking || !ids || !acknowledgedThrough) return null;
-  return { ...last, ...tracking, ...ids, ...acknowledgedThrough,
-    ...(pin ? { pinReferral: { id: pin.id as number, pinned: pin.pinned as boolean } } : {}) };
+  return { ...last, ...tracking, ...ids, ...acknowledgedThrough };
 }
 
 function parseOptionalLastWorkspaceField(value: unknown): Pick<PipelineWorkContinuityPatch, "lastWorkspace"> | null {

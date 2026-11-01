@@ -1,0 +1,88 @@
+.tile {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 4px 8px 8px 4px;
+  min-width: 0;
+  color: var(--color-ink-2);
+  text-align: left;
+  border-radius: var(--radius-task);
+}
+.datePage {
+  position: relative;
+  display: grid;
+  flex: 0 0 86px;
+  overflow: hidden;
+  justify-items: center;
+  padding-bottom: 7px;
+  border: 1px solid var(--color-task-edge);
+  border-radius: var(--radius-task);
+  background: var(--color-paper);
+  box-shadow: var(--shadow-file);
+  transition: transform var(--motion-state) var(--ease-open), box-shadow var(--motion-state) var(--ease-open);
+}
+.month { width: 100%; padding: 3px 8px; background: var(--color-primary); color: var(--color-on-fill); text-align: center; font-size: var(--text-meta); font-weight: 700; text-transform: uppercase; letter-spacing: .1em; }
+.datePage strong { padding-top: 3px; font-size: calc(var(--text-title) * 1.35); line-height: 1.2; font-variant-numeric: tabular-nums; }
+.weekday { font-size: var(--text-meta); color: var(--color-ink-muted); }
+.tileLabel { font-size: var(--text-value); font-weight: 650; line-height: 1.4; }
+.tileCount { display: flex; align-items: center; gap: 7px; margin-top: 9px; font-size: var(--text-meta); color: var(--color-ink-muted); font-weight: 400; }
+.tileCount b { color: var(--color-primary); font-size: var(--text-value); }
+.tileCount svg { color: var(--color-primary); flex-shrink: 0; }
+.tile:hover .datePage { transform: translateY(-3px) rotate(-3deg); box-shadow: var(--shadow-file-lift); }
+.tile:active .datePage { transform: translateY(1px); }
+.tile:focus-visible, .navigation button:focus-visible, .notice button:focus-visible, .appointment:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 4px; }
+.dialog { transform-origin: top left; border-radius: var(--radius-sheet); }
+.toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 20px 24px; background: var(--color-card-warm); }
+.range { display: grid; gap: 2px; }
+.range strong { font-size: var(--text-section); color: var(--color-ink); }
+.range span { font-size: var(--text-meta); color: var(--color-ink-muted); }
+.navigation { display: flex; gap: 4px; align-items: center; }
+.navigation button { display: grid; place-items: center; min-width: var(--spacing-control); min-height: var(--spacing-control); padding: 0 10px; border: 1px solid var(--color-control-border); border-radius: var(--radius-input); background: var(--color-paper); font-size: var(--text-label); color: var(--color-ink-2); }
+.navigation button:hover { background: var(--color-primary-soft); }
+.content { min-height: 0; flex: 1; overflow: auto; overscroll-behavior: contain; padding: 0 24px 24px; }
+.notice { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 20px 0; font-size: var(--text-value); color: var(--color-ink-muted); }
+.notice button { min-height: var(--spacing-control); padding: 0 16px; border: 1px solid var(--color-control-border); border-radius: var(--radius-input); }
+.week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); min-height: 100%; animation: weekReveal var(--motion-enter) var(--ease-open) both; }
+.day { min-width: 0; padding: 16px 7px; border-right: 1px solid var(--color-paper-rule); }
+.day:last-child { border: 0; }
+.day[data-today] { background: var(--color-primary-soft); }
+.dayHeading { display: grid; justify-items: center; gap: 6px; margin-bottom: 20px; font-size: var(--text-meta); color: var(--color-ink-muted); }
+.dayHeading time { display: grid; place-items: center; width: var(--spacing-control); height: var(--spacing-control); border-radius: var(--radius-pill); font-size: var(--text-section); color: var(--color-ink-2); }
+.day[data-today] time[aria-current] { background: var(--color-primary); color: var(--color-on-fill); }
+.appointments { display: grid; align-content: start; gap: 12px; }
+.appointment { display: grid; gap: 5px; width: 100%; min-width: 0; padding: 12px 10px; border: 1px solid var(--color-stage-blue-border); border-top: 3px solid var(--color-stage-blue); border-radius: var(--radius-paper); background: var(--color-stage-blue-tile); box-shadow: var(--shadow-card); color: var(--color-ink-2); text-align: left; overflow-wrap: anywhere; transition: transform var(--motion-state) var(--ease-open), box-shadow var(--motion-state) var(--ease-open); }
+.appointment:hover { transform: translateY(-2px); box-shadow: var(--shadow-card-hover); }
+.appointment strong { font-size: var(--text-value); line-height: 1.35; }
+.appointment time { color: var(--color-stage-blue); font-size: var(--text-meta); font-weight: 650; }
+.appointment > span { font-size: var(--text-meta); line-height: 1.4; }
+.method { display: flex; align-items: center; justify-content: space-between; gap: 4px; margin-top: 4px; color: var(--color-ink-muted); }
+.method svg { flex-shrink: 0; color: var(--color-stage-blue); }
+.appointment[data-complete] { background: var(--color-paper); border-color: var(--color-card-border); border-top-color: var(--color-status-done); }
+.openDay { padding-top: 12px; text-align: center; color: var(--color-ink-muted); }
+@keyframes weekReveal { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@media (max-width: 900px) {
+  .week { display: block; }
+  .day { display: grid; grid-template-columns: 54px minmax(0, 1fr); gap: 12px; padding: 12px 10px; border-right: 0; border-bottom: 1px solid var(--color-paper-rule); }
+  .dayHeading { margin: 0; align-content: start; gap: 0; }
+  .appointments { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .openDay { padding-top: 20px; text-align: left; }
+}
+@media (max-width: 639px) {
+  .tile { grid-column: 1 / -1; justify-self: start; gap: 18px; padding-bottom: 12px; }
+  .tileLabel br { display: none; }
+  .tileCount { margin-top: 4px; }
+  .datePage { flex-basis: 76px; }
+  .toolbar { padding: 16px; gap: 12px; flex-wrap: wrap; }
+  .content { padding: 0 8px 16px; }
+  .appointments { grid-template-columns: 1fr; }
+  .dialog { border-radius: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .datePage, .appointment { transition: none; }
+  .tile:hover .datePage, .tile:active .datePage, .appointment:hover { transform: none; }
+  .week { animation: none; }
+}
+@media (forced-colors: active) {
+  .datePage, .appointment { border-color: ButtonText; box-shadow: none; }
+  .day[data-today] { outline: 2px solid Highlight; outline-offset: -2px; }
+}

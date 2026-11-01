@@ -441,16 +441,17 @@ export default function ReferralPacketCanvas({
   const [activePage, setActivePage] = useState<WorkspaceView>(workspacePageForLocation(routedWorkspaceLocation, referral?.id));
   const [assessmentVisitedReferral, setAssessmentVisitedReferral] = useState<number | undefined>();
   // The interview rail can be dragged like the Current information divider; remember its width on this device.
-  const [interviewRailWidth, setInterviewRailWidth] = useState(0);
+  const [interviewRailWidth, setInterviewRailWidth] = useState(defaultInterviewRailWidth);
   useEffect(() => {
     try {
       const saved = window.localStorage.getItem(interviewRailKey);
       if (saved === "shown") setInterviewRailWidth(defaultInterviewRailWidth);
+      else if (saved === "tucked") setInterviewRailWidth(0);
       else if (saved && saved !== "tucked") {
         const width = Number(saved);
         if (Number.isFinite(width) && width >= 0 && width <= maxInterviewRailWidth) setInterviewRailWidth(width);
       }
-    } catch { /* storage unavailable: tucked away by default */ }
+    } catch { /* storage unavailable: keep the Chart step reachable */ }
   }, []);
   const interviewRailShown = interviewRailWidth > 0;
   const commitInterviewRailWidth = (width: number) => {
@@ -477,6 +478,7 @@ export default function ReferralPacketCanvas({
   };
   // Kept-mounted steps: the element the assessment editor draws the Chart into.
   const [chartSlot, setChartSlot] = useState<HTMLElement | null>(null);
+  const [chartReferenceSource, setChartReferenceSource] = useState<HTMLDivElement | null>(null);
 
   const [decisionVisitedReferral, setDecisionVisitedReferral] = useState<number | undefined>();
   const [filesVisitedReferral, setFilesVisitedReferral] = useState<number | undefined>();
@@ -2237,10 +2239,9 @@ export default function ReferralPacketCanvas({
     await openQuestionnaireFromIntake();
   };
 
-  const continueCreatedWorkspace = async (schedule: boolean) => {
+  const continueCreatedWorkspace = async () => {
     try {
       await openQuestionnaireFromIntake();
-      setScheduleRequested(schedule);
       setShowCreationHandoff(false);
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : "Could not open assessment preparation. Please try again.");
@@ -2725,6 +2726,11 @@ export default function ReferralPacketCanvas({
                 disabled={draftRecoveryLoading || emailSending}
               /> : null}
               {editingControlsVisible && !intakeFooterSave ? renderSaveControl() : null}
+            </div>
+  );
+
+  const renderWorkspaceTools = () => (
+            <div className={workspaceFolderStyles.recordTools} role="group" aria-label="Workspace tools">
               {hasReferral || displayedPage === "files" ? <button
                 type="button"
                 onClick={() => void navigatePage("files")}
@@ -2733,7 +2739,7 @@ export default function ReferralPacketCanvas({
                 title="Files"
                 className={workspaceFolderStyles.utilityTab}
               >
-                <FolderOpen size={15} aria-hidden="true" />
+                <FolderOpen size={18} aria-hidden="true" />
                 <span>{workspacePresentation.filesLabel}</span>
               </button> : null}
               <button
@@ -2744,7 +2750,7 @@ export default function ReferralPacketCanvas({
                 title="Activity"
                 className={workspaceFolderStyles.utilityTab}
               >
-                <History size={15} aria-hidden="true" />
+                <History size={18} aria-hidden="true" />
                 <span>Activity</span>
               </button>
               {trashControlVisible ? (
@@ -2774,9 +2780,10 @@ export default function ReferralPacketCanvas({
                 <span>{`Referral #${loadedReferral.id}`}{loadedReferral.community ? ` · ${loadedReferral.community}` : ""}</span>
               </div>
             ) : null}
+            {renderWorkspaceTools()}
             {/* Client notes: beside the questions on the Assessment step; from this button everywhere else. */}
             {designV2 && loadedReferral && (phone || displayedPage !== 2) && !trainingAssessmentMode && !trainingIntakeMode ? <ClientNotesButton key={loadedReferral.id} inline={phone} referralId={loadedReferral.id} readOnly={permissionReadOnly || historicalReadOnly} /> : null}
-            <WorkspaceStageNavigation showFiles={hasReferral || displayedPage === "files"} steps={navigableWorkspaceSteps} activePage={displayedPage === 1 && loadedReferral && !navigableWorkspaceSteps.some((step) => step.page === 1) ? chartPage : displayedPage} onOpen={(page) => void navigatePage(page)} progress={designV2 ? workspaceStepProgress(loadedReferral?.workflowStatus, assessmentSummary) : undefined} details={designV2 ? workspaceStepDetails(loadedReferral, assessmentSummary) : undefined} />
+            <WorkspaceStageNavigation chartReferenceRef={setChartReferenceSource} showFiles={hasReferral || displayedPage === "files"} steps={navigableWorkspaceSteps} activePage={displayedPage === 1 && loadedReferral && !navigableWorkspaceSteps.some((step) => step.page === 1) ? chartPage : displayedPage} onOpen={(page) => void navigatePage(page)} progress={designV2 ? workspaceStepProgress(loadedReferral?.workflowStatus, assessmentSummary) : undefined} details={designV2 ? workspaceStepDetails(loadedReferral, assessmentSummary) : undefined} />
             {recordStack && stackVisible && editingControlsVisible ? renderSaveCenter() : null}
             {/* Redesign: no "is editing" pills in the rail (owner, 2026-09-26). Saves still refuse and
                 explain conflicting edits (renderWorkspaceConflicts). */}
@@ -2863,12 +2870,11 @@ export default function ReferralPacketCanvas({
   );
 
   const renderCreationHandoff = () => (showCreationHandoff && loadedReferral && displayedPage === chartPage ? <section aria-label="Workspace created" className={intakeFormStyles.created}>
-        <div className={intakeFormStyles.createdIdentity}><PipelineIllustration kind="folder" size={72} /><div><h2>Workspace created</h2><p>{loadedReferral.name} is saved in the chart. Choose what to do next.</p></div>
+        <div className={intakeFormStyles.createdIdentity}><PipelineIllustration kind="folder" size={72} /><div><h2>Workspace created</h2><p>{loadedReferral.name}</p></div>
           <button type="button" onClick={() => { setShowCreationHandoff(false); onWorkspaceLocationChange?.({ view: "chart" }); }} aria-label="Dismiss workspace next steps">Dismiss</button>
         </div>
         <div className={intakeFormStyles.createdActions}>
-          <button type="button" disabled={permissionReadOnly} onClick={() => void continueCreatedWorkspace(false)}><PipelineIllustration kind="assessment" size={48} /><span><strong>Assessment prep</strong><small>Fill in what is known before the interview.</small></span><ArrowRight size={22} aria-hidden="true" /></button>
-          <button type="button" disabled={permissionReadOnly} onClick={() => void continueCreatedWorkspace(true)}><PipelineIllustration kind="calendar" size={48} /><span><strong>Schedule assessment</strong><small>Choose a date, time and meeting details.</small></span><ArrowRight size={22} aria-hidden="true" /></button>
+          <button type="button" disabled={permissionReadOnly} onClick={() => void continueCreatedWorkspace()}><PipelineIllustration kind="assessment" size={48} /><span><strong>Assessment prep</strong></span><ArrowRight size={22} aria-hidden="true" /></button>
         </div>
         {saveError ? <p role="alert">{saveError}</p> : null}
       </section> : null);
@@ -2943,6 +2949,7 @@ export default function ReferralPacketCanvas({
                   workspaceTitle={workspaceTitle}
                   {...assessmentChartProps(Boolean(chartSlot))}
                   chartSlot={chartSlot}
+                  chartReferenceSource={!phone && displayedPage === 2 ? chartReferenceSource : null}
                   sectionJumps={!chartSlot || displayedPage === 2}
                   questionsOnScreen={displayedPage === 2}
                   chartDocuments={renderChartDocuments()}
@@ -3037,6 +3044,7 @@ export default function ReferralPacketCanvas({
             <div className={intakeFormStyles.intakeDesk}>
             <aside className={intakeFormStyles.sourceTray}>
               {renderDocumentUpload(false)}
+              {fields.currentMedications.value.trim() ? <details className="mt-4"><summary className="cursor-pointer text-label font-semibold text-ink-muted">Earlier typed medication history</summary><div className="mt-3" data-workspace-field="currentMedications" onFocusCapture={(event) => { focusIntakeCell(event); focusWorkspaceField("currentMedications"); }} onBlur={blurIntakeCell}><MedicationProfileField field={fields.currentMedications} onChange={(value) => updateField("currentMedications", value)} /></div></details> : null}
             </aside>
             <div className={intakeFormStyles.intakePaper}>
             <ClientChartFrame label="Referral intake chart">
@@ -3180,13 +3188,6 @@ export default function ReferralPacketCanvas({
                   </div>
                 </ChartSection> : null}
 
-                <ChartSection title="Medication list" complete={workspaceFiles.some((file) => file.category === "Medication list") ? 1 : 0} total={1}>
-                  <div className="px-5 py-4 sm:px-6">
-                    <p className="text-[13px] text-ink-muted">Attach the medication list in Files. You can add a newer list there later; the handoff packet includes the uploaded files.</p>
-                    <button type="button" className="mt-3 min-h-11 rounded-md border border-primary px-4 text-[13px] font-semibold text-primary" onClick={() => void navigatePage("files")}>Open Files</button>
-                    {fields.currentMedications.value.trim() ? <details className="mt-4"><summary className="cursor-pointer text-[12px] font-semibold text-ink-muted">Earlier typed medication history</summary><div className="mt-3" data-workspace-field="currentMedications" onFocusCapture={() => focusWorkspaceField("currentMedications")}><MedicationProfileField field={fields.currentMedications} onChange={(value) => updateField("currentMedications", value)} /></div></details> : null}
-                  </div>
-                </ChartSection>
               </div>
 
               {loadedReferral || trainingIntakeMode ? <aside aria-label="Intake progress" className={intakeFormStyles.nextStep}>
@@ -3341,7 +3342,7 @@ export default function ReferralPacketCanvas({
           </div>
         ) : null}
         {/* Each step ends by leading into the next one, so the record reads top to bottom (owner, 2026-09-26). */}
-        {verticalFlow && nextWorkspaceStep && displayedPage === chartPage ? <div className={workspaceFolderStyles.stepContinue}>
+        {verticalFlow && !recordStack && nextWorkspaceStep && displayedPage === chartPage ? <div className={workspaceFolderStyles.stepContinue}>
           <button type="button" onClick={() => void navigatePage(nextWorkspaceStep.page)} data-folder-stage={nextWorkspaceStep.page}>
             Next: {nextWorkspaceStep.label}<ArrowRight size={17} aria-hidden="true" />
           </button>
@@ -3477,7 +3478,8 @@ function WorkspaceChartFolder({ children }: { children: React.ReactNode }) {
   </div>;
 }
 
-function WorkspaceStageNavigation({ steps, activePage, onOpen, progress, details, showFiles = true }: {
+function WorkspaceStageNavigation({ chartReferenceRef, steps, activePage, onOpen, progress, details, showFiles = true }: {
+  chartReferenceRef?: (element: HTMLDivElement | null) => void;
   steps: ReadonlyArray<WorkspaceStep>;
   activePage: WorkspaceView;
   onOpen: (page: WorkspaceView) => void;
@@ -3494,7 +3496,7 @@ function WorkspaceStageNavigation({ steps, activePage, onOpen, progress, details
         {steps.map((step) => <option key={step.page} value={step.page}>{step.label}</option>)}
         <optgroup label="File tools">{showFiles ? <option value="files">Files</option> : null}<option value="activity">Activity</option></optgroup>
       </select>
-      {steps.filter((step) => step.page !== "workflow" || !steps.some((entry) => entry.page === 3)).map((step, index) => <div key={step.page} className={workspaceFolderStyles.stageEntry} data-step-state={progress?.[String(step.page)]}>
+      {steps.filter((step) => step.page !== "workflow" || !steps.some((entry) => entry.page === 3)).map((step, index) => <div key={step.page} ref={step.page === 3 ? chartReferenceRef : undefined} className={workspaceFolderStyles.stageEntry} data-step-state={progress?.[String(step.page)]}>
         <WorkspaceStageButton {...step} number={index + 1} selected={activePage === step.page} onOpen={onOpen} progress={progress?.[String(step.page)]} detail={details?.[String(step.page)]} />
         {step.page === 3 && steps.some((entry) => entry.page === "workflow") ? <button type="button" className={workspaceFolderStyles.filedDecision} aria-label="Decision" aria-current={activePage === "workflow" ? "page" : undefined} onClick={() => onOpen("workflow")}>Decision<span>{details?.workflow?.date ? details.workflow.label : null}</span></button> : null}
       </div>)}

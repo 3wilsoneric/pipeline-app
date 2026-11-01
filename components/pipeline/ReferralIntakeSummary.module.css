@@ -1,0 +1,39 @@
+/* The referral record uses the same facts and edit targets at full size and in the chart reference. */
+.chart { container-type: inline-size; border-top: 3px solid var(--color-stage-blue); }
+.chart > header { grid-template-columns: minmax(0, 1fr) auto; align-items: center; background: var(--color-paper); border: 0; }
+.chart > header > div { padding: 8px 20px; border: 0; }
+.chart > header > div:last-child { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px 8px; }
+.chart > header > div:last-child > div { margin: 0; font-size: var(--text-meta); line-height: var(--text-meta--line-height); }
+.chart > header button { font-size: var(--text-label); }
+.chart [data-chart-grid] { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 28px; padding: 0; background: transparent; }
+.chart [data-chart-field] { min-height: 0; padding: 0; grid-column: auto; background: transparent; }
+.chart [data-chart-field] dt { font-size: var(--text-label); line-height: var(--text-label--line-height); }
+.chart [data-chart-field] dd { margin-top: 6px; font-size: var(--text-value); line-height: var(--text-value--line-height); font-weight: 600; }
+.chart [data-chart-field][data-chart-narrative] { grid-column: 1 / -1; }
+.chart [data-chart-field][data-missing] dd { color: var(--color-ink-muted); font-weight: 400; }
+.chart > [data-chart-grid] { padding: 22px 24px 26px; background: linear-gradient(110deg, var(--color-stage-blue-tile), var(--color-paper) 75%); }
+.chart [data-chart-field="Client"] dd { font-size: var(--text-title); line-height: var(--text-title--line-height); font-weight: 700; }
+.chart > section { display: grid; gap: 16px; margin: 0 24px; padding: 24px 0; border-top: 1px solid var(--color-paper-rule); }
+.chart > section > h2 { align-self: start; margin: 0; padding: 0; border: 0; color: var(--color-ink-2); font-size: var(--text-section); line-height: var(--text-section--line-height); }
+.chart [aria-label="Referral summary"] { display: block; }
+.chart [aria-label="Referral summary"] dt { display: none; }
+.chart [aria-label="Referral summary"] dd { margin: 0; font-weight: 400; }
+@container (min-width: 740px) {
+  .chart > section { grid-template-columns: 150px minmax(0, 1fr); gap: 28px; }
+  .chart > section > h2 { font-size: var(--text-value); line-height: var(--text-value--line-height); }
+  .chart > section > [data-chart-grid] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .chart > [data-chart-grid] { grid-template-columns: minmax(0, 2fr) repeat(3, minmax(0, 1fr)); }
+  .chart > section > [aria-label="Referral summary"] { display: block; }
+}
+@container (max-width: 739px) {
+  .chart > [data-chart-grid] > :is([data-chart-field="Client"], [data-chart-field="SSN"]) { grid-column: 1 / -1; }
+}
+@container (max-width: 440px) {
+  .chart > header { grid-template-columns: 1fr; }
+  .chart > header > div:last-child { justify-content: flex-start; padding-top: 0; }
+  .chart > [data-chart-grid] { padding: 16px; }
+  .chart [data-chart-grid] { gap: 18px; }
+  .chart > section { margin-inline: 16px; padding-block: 20px; }
+  .chart > section [data-chart-grid] { grid-template-columns: 1fr; }
+  .chart [data-chart-field="Client"] { grid-column: 1 / -1; }
+}

@@ -5,7 +5,7 @@
 .pane { position: sticky; top: 84px; display: flex; flex-direction: column; align-self: start; min-width: 0; min-height: 0; padding-right: 28px; }
 
 .text { display: flex; flex: 1; flex-direction: column; min-height: 0; padding: 0 8px 0 4px; overflow: hidden; }
-/* Recorded facts read label-first, across the full pane. Only the writing area is ruled. */
+/* Recorded facts read label-first, across the full pane. */
 .text { --rule: var(--text-value--line-height); --chart-rule: color-mix(in srgb, var(--color-link) 12%, var(--color-card-warm)); }
 .page { display: flex; flex-direction: column; min-height: 0; max-height: 100%; gap: 20px; }
 .topic { flex: 0 1 auto; min-height: calc(var(--spacing-control) * 2); padding: 4px; overflow-y: auto; overscroll-behavior: contain; }
@@ -16,7 +16,6 @@
 .text dd > span { display: block; padding: 0 8px; color: var(--color-ink-muted); font-size: var(--text-meta); line-height: var(--text-meta--line-height); }
 .answer { display: flex; align-items: baseline; gap: 12px; width: 100%; min-height: var(--spacing-control); padding: 6px 8px; border: 0; border-radius: var(--radius-input); background: transparent; color: inherit; font: inherit; font-weight: 600; text-align: left; white-space: inherit; cursor: pointer; transition: background var(--duration-fade) ease; }
 .answer > span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
-.answer svg { flex: none; color: var(--color-link); }
 .answer:hover { background: var(--color-card-warm); color: var(--color-link); }
 .answer:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -2px; }
 
@@ -26,13 +25,12 @@
 .notes [data-client-notes] { position: static; max-height: none; min-height: 0; overflow: visible; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
 .notes [data-client-notes] > header { flex-wrap: wrap; gap: 4px 10px; min-height: 32px; padding: 0 0 8px; border: 0; background: transparent; }
 .notes [data-client-notes] > header h3 { flex: 0 0 auto; color: var(--color-ink); font-size: var(--text-label); line-height: var(--text-label--line-height); font-weight: 600; }
-.notes [data-client-notes] > header h3 svg { display: none; }
+.notes [data-client-notes] > header h3 svg { display: block; }
 .notes [data-client-notes] > header [role="status"] { margin-left: auto; font-size: var(--text-meta); line-height: var(--text-meta--line-height); white-space: normal; }
 .notes [data-client-notes] > header button { min-height: var(--spacing-control); padding: 0 8px; }
 .notes [data-client-notes] > div { padding: 0; overflow: visible; }
 .notes [data-client-notes] [data-note-heading] { padding: 0; border: 0; }
-.notes [data-client-notes] [data-note-heading] > p { display: none; }
-.notes [data-client-notes] [data-note-heading] textarea { width: 100%; min-height: calc(var(--rule) * 4); margin: 0; padding: 0 4px; border: 0; border-radius: 0; background: repeating-linear-gradient(to bottom, transparent 0 calc(var(--rule) - 1px), var(--chart-rule) calc(var(--rule) - 1px) var(--rule)) local; box-shadow: none; color: var(--color-ink); font-size: var(--text-value); line-height: var(--rule); }
+.notes [data-client-notes] [data-note-heading] textarea { width: 100%; min-height: var(--spacing-control); margin: 0; padding: 8px 4px; border: 0; border-radius: 0; background: transparent; box-shadow: none; color: var(--color-ink); font-size: var(--text-value); line-height: var(--rule); }
 .notes [data-client-notes] [data-note-heading] textarea:focus { outline: none; }
 
 /* The line between the halves. The hit area is wider than the line. */

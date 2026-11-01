@@ -1,9 +1,10 @@
 "use client";
 
-import { useId, useRef, useState } from "react";
-import { ArrowRight, ChevronDown, Pin } from "lucide-react";
+import { useId, useState } from "react";
+import { ArrowRight, ChevronDown } from "lucide-react";
 
 import HomeDialog, { type HomeDialogOrigin } from "@/components/pipeline/HomeDialog";
+import { AssessmentCalendarTile } from "./HomeAssessmentCalendar";
 import { formatClientIdentityTitle } from "@/lib/pipeline/client-identity-presentation.mjs";
 import { formatProfileDate } from "@/lib/pipeline/client-profile-presentation";
 import { referralBoardSection, referralBoardStages, type ReferralBoardSection, type ReferralBoardStage } from "@/lib/pipeline/referral-flow";
@@ -12,18 +13,14 @@ import type { ReferralWorklistItem } from "@/lib/pipeline/operations-types";
 import type { PipelineWorkspaceLocation } from "@/lib/pipeline/work-continuity";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import boardStyles from "./ReferralWorkflowTracker.module.css";
-import PipelineIllustration, { type PipelineIllustrationKind } from "./PipelineIllustration";
-
-const stagePictures: Record<ReferralBoardSection, PipelineIllustrationKind> = { in_progress: "assessment", decision: "decision" };
+import PipelineIllustration from "./PipelineIllustration";
 
 type OpenWorkspace = (referral: Pick<Referral, "id" | "name" | "community">, location?: PipelineWorkspaceLocation) => void;
 type ClientSpace = {
-  pinnedIds: number[];
   recentIds: number[];
   unavailable: boolean;
-  onPin: (id: number, pinned: boolean) => Promise<void>;
   onResume: OpenWorkspace;
-  upcoming: { count: number; unavailable: boolean; onOpen: () => void };
+  upcoming: { count: number; unavailable: boolean; date: string; onOpen: (origin: HomeDialogOrigin) => void };
 };
 
 export default function ReferralWorkflowTracker({ briefing, onOpenPacket, selectedReferralId, limit, layout = "ribbons", clientSpace }: {
@@ -87,31 +84,9 @@ export function ReferralLifecycleBoard({ items, allItems = items, showOwner, onO
   const stages = referralBoardStages.map((stage) => ({ ...stage,
     label: clientSpace && stage.key === "decision" ? "Clients in handoff" : stage.label,
   }));
-  const [pinBusy, setPinBusy] = useState<number | null>(null);
-  const [pinError, setPinError] = useState("");
-  const boardRef = useRef<HTMLDivElement>(null);
   const byId = new Map(allActive.map((item) => [item.referral_id, item]));
-  const pinnedIds = new Set(clientSpace?.pinnedIds ?? []);
-  const pinned = (clientSpace?.pinnedIds ?? []).flatMap((id) => byId.has(id) ? [byId.get(id)!] : []);
-  const recent = (clientSpace?.recentIds ?? []).filter((id) => !pinnedIds.has(id))
+  const recent = (clientSpace?.recentIds ?? [])
     .flatMap((id) => byId.has(id) ? [byId.get(id)!] : []).slice(0, 6);
-  async function togglePin(id: number) {
-    if (!clientSpace || pinBusy !== null) return;
-    setPinBusy(id);
-    setPinError("");
-    try { await clientSpace.onPin(id, !pinnedIds.has(id)); }
-    catch { setPinError("Pin change could not be saved. Try again."); }
-    finally {
-      setPinBusy(null);
-      requestAnimationFrame(() => {
-        const surface = boardRef.current?.querySelector("dialog[open]") ?? boardRef.current;
-        const nextFocus = surface?.querySelector<HTMLButtonElement>(`[data-client-file="${id}"] [aria-pressed]`)
-          ?? boardRef.current?.querySelector<HTMLButtonElement>("[data-open-folder]");
-        nextFocus?.focus({ preventScroll: true });
-      });
-    }
-  }
-  const pinControls = clientSpace ? { pinnedIds, pinBusy, onPin: togglePin } : undefined;
 
   function openFolder(stage: ReferralBoardSection, element: HTMLElement) {
     setMobileStage(stage);
@@ -134,15 +109,9 @@ export function ReferralLifecycleBoard({ items, allItems = items, showOwner, onO
         </select>
         <ChevronDown size={17} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-ink-muted" aria-hidden="true" />
       </label>}
-      <div ref={boardRef} data-current-work-board className={`${boardStyles.board} ${clientSpace ? boardStyles.clientSpace : "grid items-start gap-6 lg:grid-cols-2"}`}>
-        {pinError ? <p role="alert" className={boardStyles.pinError}>{pinError}</p> : null}
+      <div data-current-work-board className={`${boardStyles.board} ${clientSpace ? boardStyles.clientSpace : "grid items-start gap-6 lg:grid-cols-2"}`}>
         <div className={clientSpace ? boardStyles.categoryLinks : "contents"} data-home-priorities={clientSpace ? true : undefined}>
-        {clientSpace ? <button type="button" className={boardStyles.upcoming} aria-label="Upcoming assessments" aria-haspopup="dialog"
-          onClick={(event) => { event.currentTarget.focus({ preventScroll: true }); clientSpace.upcoming.onOpen(); }}>
-          <span className={boardStyles.stageTitle}>Upcoming assessments</span>
-          <span className={boardStyles.stageCount}>{clientSpace.upcoming.unavailable ? "Unavailable" : clientSpace.upcoming.count.toLocaleString()}</span>
-          <span className={boardStyles.expandAffordance}><ArrowRight size={18} aria-hidden="true" /></span>
-        </button> : null}
+        {clientSpace ? <AssessmentCalendarTile {...clientSpace.upcoming} /> : null}
         {stages.map((stage) => {
           const stageItems = active.filter((item) => sectionFor(item) === stage.key);
           return <div key={stage.key} data-board-stage={stage.key} className={`${boardStyles.docket} ${clientSpace || mobileStage === stage.key ? "block" : "hidden"} min-w-0 lg:block`} onClick={(event) => {
@@ -152,48 +121,41 @@ export function ReferralLifecycleBoard({ items, allItems = items, showOwner, onO
               <h2><button type="button" data-open-folder disabled={unavailable} aria-label={`Open ${stage.label.toLowerCase()} folder`} aria-haspopup="dialog" aria-expanded={expanded?.stage === stage.key} className={boardStyles.openFolder} onClick={(event) => openFolder(stage.key, event.currentTarget)}>
                   <span className={boardStyles.stageIdentity}><span className={boardStyles.stageTitle}>{stage.label}</span>
                   <span className={boardStyles.stageCount}>{unavailable ? "Unavailable" : <>{stageItems.length.toLocaleString()}<span className={clientSpace ? "sr-only" : undefined}> {stageItems.length === 1 ? "file" : "files"}</span></>}</span></span>
-                <span className={boardStyles.expandAffordance}>View all<ArrowRight size={16} aria-hidden="true" /></span>
+                {clientSpace ? null : <span className={boardStyles.expandAffordance}>View all<ArrowRight size={16} aria-hidden="true" /></span>}
               </button></h2>
             </div>
             {clientSpace ? null : <div data-folder-stack className={boardStyles.stack}>
               {stageItems.map((item) => <LifecycleCard key={item.referral_id} item={item} showOwner={showOwner} onOpenPacket={onOpenPacket} />)}
               {stageItems.length === 0 ? <p className="text-center">No referrals here</p> : null}
             </div>}
-            {expanded?.stage === stage.key ? <ExpandedStageFolder title={stage.label} picture={clientSpace && stage.key === "decision" ? "placement" : stagePictures[stage.key]} items={stageItems} allItems={allActive.filter((item) => sectionFor(item) === stage.key)} origin={expanded.origin} showOwner={showOwner} onClose={() => setExpanded(null)} onOpenPacket={openFile} pinControls={pinControls} pinError={pinError} /> : null}
+            {expanded?.stage === stage.key ? <ExpandedStageFolder title={stage.label} items={stageItems} allItems={allActive.filter((item) => sectionFor(item) === stage.key)} origin={expanded.origin} showOwner={showOwner} onClose={() => setExpanded(null)} onOpenPacket={openFile} /> : null}
           </div>;
         })}
         </div>
         {unavailable ? <p role="status" className={boardStyles.emptyRecent}>The Board is temporarily unavailable. Close this view and try again.</p> : null}
         {clientSpace && !unavailable ? <div className={boardStyles.workingClients}>
-          {pinned.length ? <section aria-label="Pinned clients"><h2 className={boardStyles.shelfTitle}>Pinned</h2><div className={boardStyles.clientShelf}>
-            {pinned.map((item, index) => <ClientFile featured={index === 0} key={item.referral_id} item={item} showOwner={showOwner} onOpenPacket={clientSpace.onResume} resume pinControls={pinControls} />)}
-          </div></section> : null}
           {recent.length ? <section aria-label="Recent clients"><h2 className={boardStyles.shelfTitle}>Recent</h2><div className={boardStyles.clientShelf}>
-            {recent.map((item, index) => <ClientFile featured={!pinned.length && index === 0} key={item.referral_id} item={item} showOwner={showOwner} onOpenPacket={clientSpace.onResume} resume pinControls={pinControls} />)}
+            {recent.map((item, index) => <ClientFile featured={index === 0} key={item.referral_id} item={item} showOwner={showOwner} onOpenPacket={clientSpace.onResume} resume />)}
           </div></section> : null}
-          {clientSpace.unavailable ? <p role="status" className={boardStyles.emptyRecent}>Recent work could not be loaded.</p> : !pinned.length && !recent.length ? <p className={boardStyles.emptyRecent}>No recent work yet.</p> : null}
+          {clientSpace.unavailable ? <p role="status" className={boardStyles.emptyRecent}>Recent work could not be loaded.</p> : !recent.length ? <p className={boardStyles.emptyRecent}>No recent work yet.</p> : null}
         </div> : null}
       </div>
     </>
   );
 }
 
-function ExpandedStageFolder({ title, picture, items, allItems, origin, showOwner, onClose, onOpenPacket, pinControls, pinError }: {
+function ExpandedStageFolder({ title, items, allItems, origin, showOwner, onClose, onOpenPacket }: {
   title: string;
-  picture: PipelineIllustrationKind;
   items: ReferralWorklistItem[];
   allItems: ReferralWorklistItem[];
   origin: HomeDialogOrigin;
   showOwner: boolean;
   onClose: () => void;
   onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">, location?: PipelineWorkspaceLocation) => void;
-  pinControls?: PinControls;
-  pinError?: string;
 }) {
   const [scope, setScope] = useState<"all" | "mine">("mine");
   const visibleItems = scope === "all" ? allItems : items;
   return <HomeDialog label={`${title} folder`} title={<>
-    <span className={boardStyles.expandedIcon}><PipelineIllustration kind={picture} size={36} /></span>
     <span className={boardStyles.expandedLabel}>{title}</span>
     <span className={boardStyles.expandedCount} aria-live="polite">{visibleItems.length} {visibleItems.length === 1 ? "file" : "files"}</span>
   </>} size="browser" className={boardStyles.expandedFolder} expandFrom={origin} onClose={onClose}>
@@ -204,24 +166,16 @@ function ExpandedStageFolder({ title, picture, items, allItems, origin, showOwne
       <p>{scope === "mine" ? "You own or co-own these referrals, or are their designated assessor." : "Everyone’s referrals in this folder."}</p>
     </div>
     <div className={boardStyles.expandedScroll}>
-      {pinError ? <p role="alert" className={boardStyles.pinError}>{pinError}</p> : null}
       {visibleItems.length ? <div data-expanded-folder className={boardStyles.expandedGrid}>
-        {visibleItems.map((item) => <ClientFile key={item.referral_id} item={item} showOwner={showOwner} onOpenPacket={onOpenPacket} pinControls={pinControls} />)}
+        {visibleItems.map((item) => <ClientFile key={item.referral_id} item={item} showOwner={showOwner} onOpenPacket={onOpenPacket} />)}
       </div> : <p className={boardStyles.emptyFolder}>{scope === "mine" && allItems.length ? "None assigned to you here. Choose All to see everyone’s referrals." : "No referrals in this folder."}</p>}
     </div>
   </HomeDialog>;
 }
 
-type PinControls = { pinnedIds: Set<number>; pinBusy: number | null; onPin: (id: number) => void };
-function ClientFile({ pinControls, ...props }: Parameters<typeof LifecycleCard>[0] & { pinControls?: PinControls }) {
-  if (!pinControls) return <LifecycleCard {...props} />;
-  const name = formatClientIdentityTitle({ name: props.item.client_name, community: props.item.community });
-  const pinned = pinControls.pinnedIds.has(props.item.referral_id);
+function ClientFile(props: Parameters<typeof LifecycleCard>[0]) {
   return <div className={boardStyles.clientFile} data-client-file={props.item.referral_id} data-featured={props.featured || undefined} data-card-stage={referralBoardSection(props.item.board.stage)}>
     <LifecycleCard {...props} />
-    <button type="button" className={boardStyles.pin} aria-label={`${pinned ? "Unpin" : "Pin"} ${name}`} title={pinned ? "Unpin" : "Pin"}
-      aria-pressed={pinned} aria-busy={pinControls.pinBusy === props.item.referral_id} disabled={pinControls.pinBusy !== null}
-      onClick={() => pinControls.onPin(props.item.referral_id)}><Pin size={17} aria-hidden="true" /></button>
   </div>;
 }
 

@@ -2,7 +2,7 @@
 
 import { intakeAnswerSource, type PriorAnswers } from "@/lib/assessment/assessment-prior-answers";
 import { Fragment, useId, useLayoutEffect, useRef, useState } from "react";
-import { ChevronDown, ChevronRight, Pencil, Play } from "lucide-react";
+import { ChevronDown, ChevronRight, Play } from "lucide-react";
 import { AssessmentSectionIllustration } from "./PipelineIllustration";
 import {
   assessmentInterviewFieldLabel,
@@ -330,7 +330,7 @@ function CapturedAnswer({ question, data, pending, onEdit, signed, assessment, r
   const reason = getAssessmentUnableReason(data, question.field);
   return <button type="button" data-answer-control={question.control} aria-label={(signed ? "Review " : "Edit ") + assessmentInterviewFieldLabel(question.field)} onClick={() => onEdit(question.field)} className={styles.answer}>
     {recorded ? <span key={recorded} aria-hidden="true" className={styles.answerUpdate} /> : null}
-    <span className={styles.answerLabel}>{assessmentInterviewFieldLabel(question.field)}{!signed ? <Pencil size={15} aria-hidden="true" /> : null}</span>
+    <span className={styles.answerLabel}>{assessmentInterviewFieldLabel(question.field)}</span>
     <AssessmentReferenceValue question={question} data={data} />
     {reason ? <span className={styles.answerReason}>{reason}</span> : null}
     <AssessmentAnswerSource assessment={assessment} data={data} field={question.field} />

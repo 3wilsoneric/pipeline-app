@@ -16,13 +16,15 @@ import folderStyles from "./ClientFolder.module.css";
 import AdmissionChecklistGlance, { AssessmentSummaryGlance, ChartProcess, ReferralStandingGlance } from "@/components/pipeline/AdmissionChecklistGlance";
 import { useDesignV2 } from "@/components/design/DesignSwitch";
 
-export default function WorkspaceClientChart({ referral, headerActions, contactActions, assessmentEntry, assessment, practice = false, assessmentOnly = false, onEditReferralField, onEditAssessmentField, onOpenDecision, onOpenAssessment, onOpenFinish }: {
+export default function WorkspaceClientChart({ referral, headerActions, contactActions, assessmentEntry, assessment, reference = false, practice = false, assessmentOnly = false, onEditReferralField, onEditAssessmentField, onOpenDecision, onOpenAssessment, onOpenFinish }: {
   referral: Referral | null;
   headerActions?: ReactNode;
   contactActions?: ReactNode;
   /** Redesign: the recorded-answers count and review link, placed with the Assessment section. */
   assessmentEntry?: ReactNode;
   assessment?: PipelineAssessmentRecord;
+  /** Read-only reference omits workflow controls; all recorded chart data stays available. */
+  reference?: boolean;
   practice?: boolean;
   assessmentOnly?: boolean;
   onEditReferralField?: (field: ReferralChartEditField) => void;
@@ -33,11 +35,12 @@ export default function WorkspaceClientChart({ referral, headerActions, contactA
   onOpenFinish?: () => void;
 }) {
   if (practice || assessmentOnly) return assessment ? <ClientAssessmentRecord assessment={assessment} onEditField={onEditAssessmentField} /> : null;
-  return <WorkspaceClientChartLoader key={referral?.clientId ?? "unlinked"} referral={referral} headerActions={headerActions} contactActions={contactActions} assessmentEntry={assessmentEntry} assessment={assessment} onEditReferralField={onEditReferralField} onEditAssessmentField={onEditAssessmentField} onOpenDecision={onOpenDecision} onOpenAssessment={onOpenAssessment} onOpenFinish={onOpenFinish} />;
+  return <WorkspaceClientChartLoader key={referral?.clientId ?? "unlinked"} referral={referral} reference={reference} headerActions={headerActions} contactActions={contactActions} assessmentEntry={assessmentEntry} assessment={assessment} onEditReferralField={onEditReferralField} onEditAssessmentField={onEditAssessmentField} onOpenDecision={onOpenDecision} onOpenAssessment={onOpenAssessment} onOpenFinish={onOpenFinish} />;
 }
 
-function WorkspaceClientChartLoader({ referral, headerActions, contactActions, assessmentEntry, assessment, onEditReferralField, onEditAssessmentField, onOpenDecision, onOpenAssessment, onOpenFinish }: {
+function WorkspaceClientChartLoader({ referral, reference, headerActions, contactActions, assessmentEntry, assessment, onEditReferralField, onEditAssessmentField, onOpenDecision, onOpenAssessment, onOpenFinish }: {
   referral: Referral | null;
+  reference?: boolean;
   headerActions?: ReactNode;
   contactActions?: ReactNode;
   assessmentEntry?: ReactNode;
@@ -53,16 +56,16 @@ function WorkspaceClientChartLoader({ referral, headerActions, contactActions, a
   const intakeReferral = referral && !isClientChartWorkspace(referral) ? referral : undefined;
   // Keep the intake summary mounted while supporting records load or refresh.
   // Redesign: the appointment sits with "Where this referral stands" instead of under the contacts.
-  const homeChart = designV2 && intakeReferral;
+  const homeChart = !reference && designV2 && intakeReferral;
   const intakeChart = intakeReferral ? <div className={folderStyles.chartSummary}><ReferralIntakeSummary referral={intakeReferral} assessment={assessment} headerActions={headerActions} contactActions={homeChart ? undefined : contactActions} onEditField={onEditReferralField} /></div> : null;
   // Redesign: the Chart is the record's home, so it leads with the admission checklist and leaves
   // this referral's assessment answers to the Assessment tab (docs/design/DECISIONS.md, "Chart as home").
-  const checklist = designV2 && referral && !isClientChartWorkspace(referral) ? <AdmissionChecklistGlance referralId={referral.id} onOpenDecision={onOpenDecision} /> : null;
+  const checklist = !reference && designV2 && referral && !isClientChartWorkspace(referral) ? <AdmissionChecklistGlance referralId={referral.id} onOpenDecision={onOpenDecision} /> : null;
   // It opens with where the referral stands and, once signed, the assessment's key findings.
   // Order follows staff feedback: where it stands, then the admission checklist, then (once signed) the assessment summary.
-  const standing = designV2 && referral && !isClientChartWorkspace(referral) ? <><ReferralStandingGlance referralId={referral.id}>{homeChart ? contactActions : null}</ReferralStandingGlance>{checklist}<AssessmentSummaryGlance assessment={assessment} /></> : null;
+  const standing = !reference && designV2 && referral && !isClientChartWorkspace(referral) ? <><ReferralStandingGlance referralId={referral.id}>{homeChart ? contactActions : null}</ReferralStandingGlance>{checklist}<AssessmentSummaryGlance assessment={assessment} /></> : null;
   // Every recorded answer, closed at the bottom so the Chart holds the full picture (docs/design/DECISIONS.md, "Chart assessment section").
-  const answers = homeChart && assessment ? <>{assessmentEntry}<ClientAssessmentRecord assessment={assessment} onEditField={onEditAssessmentField} collapsible /></> : null;
+  const answers = (homeChart || reference) && assessment ? <>{assessmentEntry}<ClientAssessmentRecord assessment={assessment} onEditField={onEditAssessmentField} collapsible /></> : null;
   // Redesign: the Chart built by the process — Assessment, Decision, Finish & send in order, each filed when done
   // (docs/design/DECISIONS.md, "Chart built by the process"). Replaces "Where this referral stands" and the loose cards.
   const process = homeChart ? <ChartProcess referralId={homeChart.id} assessment={assessment} entry={assessment ? assessmentEntry : undefined}

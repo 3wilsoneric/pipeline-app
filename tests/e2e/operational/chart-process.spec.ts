@@ -29,9 +29,10 @@ test("finished steps are filed into the Chart and remain in the rail", async ({ 
     await progress.click();
     expect(await requirements.getByRole("listitem").count()).toBeGreaterThan(0);
     expect(await requirements.evaluate((node) => Boolean(node.compareDocumentPosition(document.querySelector('article[aria-label="Referral chart"]')!) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
-    const pencil = chart.getByRole("button", { name: "Edit Phone", exact: true });
-    expect((await pencil.boundingBox())!.height).toBeGreaterThanOrEqual(44);
-    await expect(pencil.locator("svg")).toHaveAttribute("width", "11");
+    const phoneValue = chart.getByRole("button", { name: "Edit Phone", exact: true });
+    expect((await phoneValue.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    await expect(phoneValue.locator("svg")).toHaveCount(0);
+    await expect(phoneValue).toHaveAccessibleName("Edit Phone");
     // Completed and unfinished steps remain directly available.
     await expect(rail.getByRole("button", { name: "Chart", exact: true })).toBeVisible();
     await expect(rail.getByRole("button", { name: "Handoff", exact: true })).toBeVisible();

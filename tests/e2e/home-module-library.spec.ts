@@ -90,7 +90,6 @@ for (const width of [1440, 390]) {
       payload.scope = "personal";
       payload.unavailable_sections = [];
       payload.workflow.all_board_items = items;
-      payload.continuity.pinned_referral_ids = [];
       payload.continuity.recent_referral_ids = [];
       payload.workflow.active_items = items;
       payload.workflow.board_items = items;

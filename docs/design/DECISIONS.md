@@ -414,3 +414,89 @@ Reserve the new draft's save-status line while it is quiet. Blur-triggered savin
 ## Remove Clients from primary navigation (owner, 2026-11-01, local)
 
 Omit Clients from the shared sidebar and phone page menu. Keep the directory route, client records, existing direct links and access rules intact. This removes one navigation item; it does not delete client functionality or data. Local only.
+
+## Three recent workspaces and an expanding calendar (owner, 2026-11-01, local)
+
+Recent shows the latest three eligible workspaces from the viewer's existing personal history, excluding separate pins. Older active work remains accessible through In progress and Clients in handoff. Ordering, saved destinations, ownership and storage stay unchanged.
+
+Upcoming assessments becomes a compact date-page object beside the two work categories, superseding its equal-size category card. It expands from that object into a personal weekly schedule and returns there on close. Reuse the existing calendar's Sunday–Saturday week, Pacific time, appointment ownership and destinations. Read the full calendar on opening; the Home summary's eight-item cap must not truncate the week. Previous/next week and Today stay inside the calendar. The summary shows 8+ at its cap rather than claiming an exact total. Keep unavailable distinct from empty, abort stale requests, support Escape/focus return, phones, keyboard access and reduced motion. This is a local iteration; no production deployment for this change.
+
+## Compact Home category controls (owner correction, 2026-11-01, local)
+
+Replace the rejected large illustrated tiles with small blue and green shapes containing only the existing label and count. Size desktop controls to their contents; keep phone controls aligned and allow the longer label to wrap. Do not add artwork, oversized numbers, extra icons or paper layers.
+
+The existing folder expands from the selected control using the movement token and returns to it on close. Inside, use compact client rows instead of a grid of tall cards, preserving names, statuses, community, assessor, missing documents, planned admission, next action and pin access. All/Mine scope, routes and stored data remain unchanged. Honor reduced motion, keyboard focus return and small screens. Local only.
+
+## Pull Chart from the assessment journey (owner, 2026-11-01, local)
+
+Press and hold the actual Chart step in the progress rail, then drag and release to open a movable reference occupying roughly a quarter of a desktop viewport. The owner explicitly rejected an additional opener icon and clarified that this is a hold gesture, not a replacement for the normal click. A normal Chart click retains full-page navigation; Alt+C provides the keyboard alternative. Phones retain a plain Chart control because their compact progress menu has no draggable step.
+
+Reuse the canonical chart and the assessment editor's current draft. The reference is read-only and nonmodal: intake facts, supporting records and current answers remain available while assessment inputs stay active. Omit workflow controls from this reference; they remain on the full Chart. Close it when leaving the assessment or switching clients. Panel position is session-only and never writes client data. Its header supports pointer dragging and arrow-key movement; opening honors reduced motion, and resizing keeps it on-screen. Keep all assessment questions, saving, scheduling, decision and send behavior intact.
+
+One floating reference is the deliberate scope. Revisit panel sizing only if testing with actual chart content demonstrates that the fixed desktop size or phone fallback prevents usable reference reading. No production deployment for this change.
+
+Hold reliability correction (owner bug report, 2026-11-01): keep the actual Chart step visible by default during the interview, while retaining explicitly saved collapsed/resized rail preferences. Pointer movement during the hold must not silently cancel it. Releasing a completed hold without dragging opens the same reference at its default position; a short click still navigates. Escape and pointer cancellation leave the assessment in place. Test the real interview as well as preparation.
+
+## Compact record utilities (owner, 2026-11-01, local)
+
+Files, Activity and Trash move out of the large rows below the journey into a small icon row under the client identity. Hide their repeated visible labels; retain accessible names, tooltips, current-page state and full touch targets. Separate Trash from the reference tools and keep its existing confirmation and permissions. On phones, Files and Activity remain in the existing view picker so the assessment header stays compact. Save/recovery controls keep their existing behavior and position. No new overflow menu, route, data or workflow changes. Local only.
+
+## Consolidate the client path (owner, 2026-11-01, local)
+
+The approved cleanup table makes assessment preparation the single continuation from the workspace-created notice. Booking stays inside preparation and never begins the interview. Chart retains its appointment and recorded-answer information, with one assessment entry instead of separate scheduling, unanswered-review and bottom-next shortcuts. Existing page-by-page and source-profile navigation remains available.
+
+Keep the working decision, signing, and explicit decision confirmation sequence. Shorten repeated review and scheduling instructions; retain nonblocking unanswered status, save failures, signature confirmation, and rescheduling recovery. Handoff's existing administrative drawer uses a small, named control, leaving the email action primary. Cancellation, actual-arrival verification, permissions and confirmations are unchanged. Files and Activity remain reference tools beside the client identity. No question, storage, admission, sending or authorization rule changes.
+
+## Movable Notes and paragraphs (owner, 2026-11-01, local)
+
+The owner requested both a movable Notes panel and rearrangeable paragraphs. The Notes heading is the drag source; pulling it out of preparation or the interview opens the same editable note in a nonmodal window. Drop it onto its original Notes location, use the dock control, or press Escape to return it. Notes already opened from other workspace steps can be moved by the same heading. Enter lifts the embedded note and arrow keys move the window. Keep the window inside the viewport; phones use the available screen height above the keyboard. Position is temporary and never becomes client data.
+
+Use an uncluttered writing surface, one Notes heading and existing save feedback. Blank lines define paragraphs; each paragraph has a drag grip and Move up/Move down controls, also available through the arrow keys. Enter creates a paragraph and Shift+Enter keeps a line within it. Native textareas preserve plain-text input, spelling and selection; do not introduce HTML, topic sections, new note records, or an editor dependency. Preserve the existing separators and text when rendering or reordering. The scope is plain-text paragraphs, not Notion's rich-text/database feature set; revisit that ceiling only if the owner requests formatting or embedded content.
+
+Continue to use the shared client-note controller, authorization, encrypted recovery, save queue and conflict controls. A pending legacy-note consolidation remains explicit until acknowledged: deleting a carried-over paragraph must not restore it merely because the remaining text matches an earlier saved unified note. The encrypted draft carries that intent through an offline reload. Original legacy records remain intact; there is no database migration or API change. Verify pending edits through lift/dock, keyboard and touch ordering, exact persisted text, reload, long legacy notes, offline/lost responses, conflicts and read boundaries. Local only.
+
+## Optional slash blocks and resizable Notes (owner, 2026-11-01, local)
+
+The owner requested Notion-style slash sections and resizing in addition to movable Notes and reorderable paragraphs. Keep free writing first. At the beginning of a paragraph, `/` opens a searchable menu for Heading, Bulleted list, Numbered list, Checklist, Quote and Text. `section` finds Heading. Enter accepts a choice; arrow keys navigate; Escape dismisses only the menu and leaves the typed text. Ordinary URLs and slashes within prose remain literal. Headings start optional author-named sections; no clinical template, prefilled finding, required field or assessment question is introduced. Checklists belong to the note, not the referral's official readiness or admission status.
+
+Formatting uses readable plain-text prefixes inside the existing unified note. The editor displays them as headings, markers and checkboxes; it does not render arbitrary HTML. Merely reading existing notes does not rewrite them. Preserve original content, exact separators, ordering, autosave, encrypted drafts, version conflicts and legacy consolidation. Enter continues list items, an empty item exits the list, Shift+Enter keeps a line, and Backspace at the start removes formatting before merging paragraphs. Full rich-text formatting, embedded media and automatic clinical templates remain outside this change; revisit only on an explicit request.
+
+Floating Notes has a quiet lower-right resize grip with pointer and arrow-key access. Constrain the window to the viewport, cancel an active resize with Escape, retain pending text and keep the phone window fitted above its keyboard. Size is temporary UI state. Existing assessment layout dividers continue to size docked references.
+
+Design evidence: the existing private aggregate from 2026-08-31 analyzed 310 unique historical assessment notes, 240 narrative and 70 structured, with domain labels in 168. This supports optional structure rather than mandatory sections. A fresh read of completed Pipeline notes was attempted but unavailable (database DNS and Azure exec connection failures); do not characterize this aggregate as a review of current assessor notes. No production record was changed. Local preview only.
+
+## Saved headings, full-header drag and quieter Notes saves (owner correction, 2026-11-01, local)
+
+Supersede the six-format slash menu above with section headings and bullet points only. Reuse the existing note-heading names from the assessment topics, Before the interview and Collateral and calls; selecting a saved heading places the cursor in a blank paragraph beneath it. Keep a custom Heading choice. Older checklist, numbered-list and quoted text remains literal and intact. No new clinical answers, assessment requirements or note records are introduced.
+
+The whole Notes header is a drag surface, including its empty space and save status. Close, dock, hide and retry controls keep their normal actions. Retain keyboard movement through the existing Notes button, resizing and the fitted phone layout.
+
+Server autosave waits for a two-second typing pause. Moving among paragraphs, selecting slash commands and reordering paragraphs does not flush a write. Leaving Notes or closing it flushes pending edits; hidden-tab and navigation recovery remain in place. A slow save acknowledgment respects the newer edit's typing timer, while an explicit flush drains the latest text as soon as the in-flight request completes. Encrypted local recovery still records pending edits immediately, and conflicts retain both copies. No database, API or authorization changes. Local preview only.
+
+## Chart and assessment review reading pass (owner, 2026-11-01, local)
+
+Replace the referral chart's bordered spreadsheet cells with an identity band and aligned groups of facts. Retain every field, empty-state label and visible pencil; editing still opens the canonical intake field. Use the same responsive presentation in the full chart and reference window. Long narrative fields span their available row. Assessment, Decision and Handoff remain in that order below the intake record, with compact status/action rows and the existing expandable assessment record. Empty stage bodies no longer create blank space.
+
+Assessment review groups the assessor, formatted date and answer count with its collapsible section index. Section progress uses the actual recorded/visible question counts. A section link opens its first unresolved field in preparation or interview according to the existing field owner; completed sections can still be reopened. Keep the nonblocking missing-answer notice and signing explanation, with the latter after the recorded answers. No questions, completion rules, signatures, decisions, permissions or send behavior change.
+
+The shared chart text renderer displays existing heading prefixes, flat bullet lists and numbered lists, while preserving plain paragraphs and escaping all HTML. Stored answers are never rewritten. This is deliberately a small reading formatter, not a rich-text editor or a full Markdown parser; revisit only if nested formatting is explicitly requested. Local preview only.
+
+## Preview files before adding; one medication upload location (owner, 2026-11-01, local)
+
+The existing file-label dialog previews the first dropped or chosen file and lets staff switch or collapse previews while choosing document types. PDF and supported raster-image previews use temporary browser object URLs, revoked when closed or switched. Plain text is escaped and limited to its first 256 KB for display; original upload bytes remain untouched. Other formats retain the existing upload path with an unavailable-preview message. PDF framing requires a PDF signature and the existing document-preview MIME allowlist; CSP permits blob frames for these local previews without allowing blob scripts or object embeds. No preview uploads, extraction, new dependencies or storage changes. Office/HEIC rendering remains outside this browser-native preview; revisit only if those formats require in-app pre-upload viewing.
+
+Remove the duplicate Medication list section at the bottom of intake. Medication uploads and the document checklist remain in the top file area. Existing typed medication history moves alongside that area with its original field and save-on-blur behavior intact. No medication data, files or checklist requirements are removed. Local only.
+
+## Notes cadence, writing headings and direct chart edits (owner, 2026-11-01, local)
+
+Wait five seconds after the last note change before server autosave. Dirty text shows a quiet Unsaved changes status; Saving appears only while a request is in flight. Retain immediate encrypted local recovery, save-on-leave/close/hidden-tab, serialized writes, lost-acknowledgment recovery and conflict controls. Moving between paragraphs, using slash commands and reordering remain within the same idle window.
+
+Replace assessment-topic slash presets with optional writing headings: Client report, Observations, Staff / case manager report, History & timeline, Medication follow-up, Records to clarify, Placement preferences and Follow-up questions. Keep Bullet points and a custom Heading. These were inferred from a read-only review of 12 production note blocks attributed to Vince, dated September 28–October 30, 2026: short interview notes mixed client statements, observations, case-manager accounts, discrepancies, preferences and unresolved questions. The headings insert no answers and do not reformat existing notes. Keep legacy note keys and consolidation intact. No patient content is included in this design record.
+
+Remove repeated pencils from chart facts and captured assessment answers. The displayed value opens its existing editor; hover and keyboard focus identify the target. Keep the chart's main Edit referral details control, a 44px minimum target, accessible Edit labels, current values as accessible descriptions, and return focus after editing. Preserve formatted narrative display and text selection. Read-only references remain read-only. This changes local interaction and presentation only, with no schema, permission, clinical-content or production changes.
+
+## Recent work replaces pinning (owner, 2026-11-01, local)
+
+Remove client pinning from Home and the expanded work folders. Recent contains the signed-in user's six most recently opened eligible workspaces: the first uses the existing featured resume card, with five compact rows beneath. A shorter history shows only the workspaces actually visited. Older work remains in In progress or Clients in handoff. This supersedes the earlier pinned-first and three-recent decisions.
+
+Keep the existing per-user visit order, saved resume locations, active-work filtering and authorization. Retire pin controls, state fields and pin mutations; previously saved pin preferences are ignored while the rest of the user's continuity record still loads. No client records or workflow rules change. Remove the space reserved for pin buttons; preserve the existing Carelog styling and responsive hierarchy. Local only.

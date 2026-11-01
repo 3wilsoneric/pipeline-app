@@ -46,7 +46,7 @@ test.describe("admission follow-through", () => {
       const placement = page.getByRole("region", { name: "Handoff follow-through" });
       await expect(placement.getByRole("heading", { name: "Meet the Client", exact: true })).toBeVisible();
       await expect(placement.getByRole("button", { name: /Confirm admission/i })).toHaveCount(0);
-      await placement.getByRole("button", { name: "More actions" }).click();
+      await placement.getByRole("button", { name: "Handoff actions" }).click();
       await expect(page.getByRole("region", { name: "Confirm actual admission" })).toHaveCount(0);
 
       const transition = await assessor.post(`${path}/transition`, { data: {
@@ -73,7 +73,7 @@ test.describe("admission follow-through", () => {
       const created = await createOperationalReferral(api, "assessmentCoordinator", { name: `Synthetic verified arrival ${randomUUID()}` });
       const referral = await recordOperationalAcceptance(api, created);
       await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
-      await page.getByRole("button", { name: "More actions" }).click();
+      await page.getByRole("button", { name: "Handoff actions" }).click();
       const confirmation = page.getByRole("region", { name: "Confirm actual admission" });
       await expect(confirmation.getByRole("button", { name: "Record admission" })).toBeDisabled();
       await confirmation.locator('input[type="date"]').fill(calendarToday());

@@ -1,27 +1,26 @@
+import { useId } from "react";
 import type { ClientChartFact, ClientMedicalChartModel } from "@/lib/pipeline/client-medical-chart";
 import ReadableChartText from "@/components/pipeline/ReadableChartText";
-import { Pencil } from "lucide-react";
 import { useDesignV2 } from "@/components/design/DesignSwitch";
 
 export type ChartEditActions = Partial<Record<string, () => void>>;
 
-// The edit control stays visible (not hover-revealed) and names where it goes,
-// because every chart edit opens a canonical editor rather than editing inline.
-function ChartFieldLabel({ label, onEdit, editHint = "Edit" }: { label: string; onEdit?: () => void; editHint?: string }) {
-  const designV2 = useDesignV2();
-  // Redesign: the original label with its always-visible pencil, in the redesign's colors.
-  if (designV2) return onEdit ? <button type="button" aria-label={`Edit ${label}`} aria-description={editHint === "Edit in intake" ? "Opens this field in intake" : undefined} title={`${editHint}: ${label}`} onClick={onEdit} data-chart-edit={label}
-    className="group -my-3 inline-flex min-h-11 max-w-full items-center gap-2 rounded-sm text-left hover:text-link focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus">
-    <span className="min-w-0 group-hover:underline group-focus-visible:underline">{label}</span>
-    <span aria-hidden="true" className="inline-flex shrink-0 items-center text-link"><Pencil size={11} /></span>
-  </button> : label;
-  return onEdit ? <button type="button" aria-label={`Edit ${label}`} aria-description={editHint === "Edit in intake" ? "Opens this field in intake" : undefined} title={`${editHint}: ${label}`} onClick={onEdit} data-chart-edit={label}
-    className="group -my-3 inline-flex min-h-11 max-w-full items-center gap-2 rounded-sm text-left hover:text-[#08735e] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#08735e]">
-    <span className="min-w-0 group-hover:underline group-focus-visible:underline">{label}</span>
-    <span aria-hidden="true" className="inline-flex shrink-0 items-center text-[#0a6a58]">
-      <Pencil size={15} />
-    </span>
-  </button> : label;
+// A value opens its canonical editor; there is no second, icon-only target.
+// Formatted narratives need flow content, so this uses button semantics on a div
+// while keeping native text selection and the chart's dt/dd structure intact.
+function ChartFieldValue({ label, onEdit, editHint = "Edit", children }: {
+  label: string; onEdit?: () => void; editHint?: string; children: React.ReactNode;
+}) {
+  const valueId = useId();
+  if (!onEdit) return <>{children}</>;
+  return <div role="button" tabIndex={0} aria-label={`Edit ${label}`} aria-describedby={valueId}
+    aria-description={editHint === "Edit in intake" ? "Opens this field in intake" : undefined}
+    title={`${editHint}: ${label}`} data-chart-edit={label}
+    className="-my-1 min-h-11 w-fit max-w-full cursor-pointer rounded-input py-1 text-left decoration-paper-rule underline-offset-4 hover:text-link hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-focus"
+    onClick={(event) => { if (event.detail === 0 || window.getSelection()?.isCollapsed !== false) onEdit(); }}
+    onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); event.currentTarget.click(); } }}>
+    <div id={valueId}>{children}</div>
+  </div>;
 }
 
 export default function ClientMedicalChart({
@@ -67,9 +66,9 @@ export default function ClientMedicalChart({
   );
 }
 
-export function ClientChartFrame({ label, children }: { label: string; children: React.ReactNode }) {
+export function ClientChartFrame({ label, children, className = "" }: { label: string; children: React.ReactNode; className?: string }) {
   const designV2 = useDesignV2();
-  return <article aria-label={label} className={designV2 ? "min-w-0 overflow-hidden rounded-paper border border-paper-rule bg-paper" : "min-w-0 overflow-hidden border border-[#d4dcd8] bg-white"}>{children}</article>;
+  return <article aria-label={label} className={`${className} ${designV2 ? "min-w-0 overflow-hidden rounded-paper border border-paper-rule bg-paper" : "min-w-0 overflow-hidden border border-[#d4dcd8] bg-white"}`}>{children}</article>;
 }
 
 export function ClientChartHeader({ title, children, actions, hideTitle = false }: { title: React.ReactNode; children: React.ReactNode; actions?: React.ReactNode; hideTitle?: boolean }) {
@@ -98,9 +97,10 @@ export function ChartHeaderCell({ label, value }: { label: string; value: string
 
 export function ChartBand({ title, detail, children }: { title: string; detail?: React.ReactNode; children: React.ReactNode }) {
   const designV2 = useDesignV2();
+  const headingId = useId();
   return (
-    <section aria-labelledby={`client-chart-${slug(title)}`}>
-      <h2 id={`client-chart-${slug(title)}`} className={designV2 ? "flex flex-wrap items-baseline justify-between gap-2 border-t border-paper-rule px-5 pb-1 pt-6 text-section text-ink sm:px-7" : "flex flex-wrap items-baseline justify-between gap-2 border-y border-[#d9e0dc] bg-[#f5f7f6] px-5 py-3 text-[17px] font-bold text-[#29483d] sm:px-7"}>
+    <section aria-labelledby={headingId}>
+      <h2 id={headingId} className={designV2 ? "flex flex-wrap items-baseline justify-between gap-2 border-t border-paper-rule px-5 pb-1 pt-6 text-section text-ink sm:px-7" : "flex flex-wrap items-baseline justify-between gap-2 border-y border-[#d9e0dc] bg-[#f5f7f6] px-5 py-3 text-[17px] font-bold text-[#29483d] sm:px-7"}>
         {title}
         {detail ? <span className={designV2 ? "text-label font-medium text-ink-muted" : "text-[13px] font-medium text-[#5f6b66]"}>{detail}</span> : null}
       </h2>
@@ -126,7 +126,7 @@ export function ChartGrid({
       : "sm:grid-cols-2 lg:grid-cols-3";
   // The redesign's record rail takes ~240px, so the chart widens to six columns only on wide screens.
   const railLayout = columns === "identity" ? "grid-cols-2 xl:grid-cols-6" : columns === "care" ? "sm:grid-cols-2 xl:grid-cols-3" : layout;
-  return <dl aria-label={ariaLabel} className={designV2 ? `grid gap-x-6 gap-y-px bg-paper ${railLayout}` : `grid gap-px bg-[#e0e5e2] ${layout}`}>{children}</dl>;
+  return <dl data-chart-grid aria-label={ariaLabel} className={designV2 ? `grid gap-x-6 gap-y-px bg-paper ${railLayout}` : `grid gap-px bg-[#e0e5e2] ${layout}`}>{children}</dl>;
 }
 
 function chartCellSpan(fact: ClientChartFact, multiline: boolean) {
@@ -139,10 +139,10 @@ export function ChartCell({ fact, multiline = false, onEdit, editHint }: { fact:
   const missing = fact.value === "Not documented";
   const span = chartCellSpan(fact, multiline);
   return (
-    <div data-chart-field={fact.label} data-missing={designV2 && missing ? true : undefined} className={designV2 ? `min-h-[82px] min-w-0 px-5 py-4 sm:px-6 ${span} ${missing && fact.required ? "bg-warning-soft" : "bg-paper"}` : `min-h-[82px] min-w-0 bg-white px-5 py-4 sm:px-6 ${span} ${missing && fact.required ? "bg-[#fffaf0]" : ""}`}>
-      <dt className={designV2 ? "text-label font-semibold text-ink-muted" : "text-[13px] font-semibold leading-5 text-[#59675f]"}><ChartFieldLabel label={fact.label} onEdit={onEdit} editHint={editHint} /></dt>
+    <div data-chart-field={fact.label} data-chart-narrative={multiline && (fact.value.length > 160 || fact.value.includes("\n")) || undefined} data-missing={designV2 && missing ? true : undefined} className={designV2 ? `min-h-[82px] min-w-0 px-5 py-4 sm:px-6 ${span} ${missing && fact.required ? "bg-warning-soft" : "bg-paper"}` : `min-h-[82px] min-w-0 bg-white px-5 py-4 sm:px-6 ${span} ${missing && fact.required ? "bg-[#fffaf0]" : ""}`}>
+      <dt className={designV2 ? "text-label font-semibold text-ink-muted" : "text-[13px] font-semibold leading-5 text-[#59675f]"}>{fact.label}</dt>
       <dd className={`mt-1.5 max-w-[76ch] whitespace-pre-line [overflow-wrap:anywhere] leading-[1.65] ${fact.label === "Client" ? "text-[24px] font-bold tracking-[-0.025em] sm:text-[27px]" : "text-[16px] font-medium"} ${missing ? fact.required ? (designV2 ? "text-warning" : "text-[#865e20]") : (designV2 ? "text-ink-muted" : "text-[#68716d]") : (designV2 ? "text-ink" : "text-[#18211d]")}`}>
-        {fact.label === "Client" ? <h2 data-testid="client-identity-title">{fact.value}</h2> : <ReadableChartText value={fact.value} />}
+        <ChartFieldValue label={fact.label} onEdit={onEdit} editHint={editHint}>{fact.label === "Client" ? <h2 data-testid="client-identity-title">{fact.value}</h2> : <ReadableChartText value={fact.value} />}</ChartFieldValue>
       </dd>
     </div>
   );
@@ -155,8 +155,8 @@ export function ChartFacts({ facts, className = "", editActions, editHint }: { f
       const value = String(fact.value ?? "").trim();
       const narrative = value.length > 160 || value.includes("\n");
       return <div key={`${index}:${fact.label}`} data-chart-fact={fact.label} className={`min-w-0 ${narrative ? "sm:col-span-2" : ""}`}>
-        <dt className={designV2 ? "text-label font-semibold text-ink-muted" : "text-[13px] font-semibold leading-5 text-[#59675f]"}><ChartFieldLabel label={fact.label} onEdit={fact.onEdit ?? editActions?.[fact.label]} editHint={editHint} /></dt>
-        <dd className={`mt-1.5 max-w-[76ch] whitespace-pre-line [overflow-wrap:anywhere] text-[16px] leading-[1.7] ${value ? (designV2 ? "text-ink" : "text-[#18211d]") : (designV2 ? "text-ink-muted" : "text-[#68716d]")}`}><ReadableChartText value={value || "Not reported"} /></dd>
+        <dt className={designV2 ? "text-label font-semibold text-ink-muted" : "text-[13px] font-semibold leading-5 text-[#59675f]"}>{fact.label}</dt>
+        <dd className={`mt-1.5 max-w-[76ch] whitespace-pre-line [overflow-wrap:anywhere] text-[16px] leading-[1.7] ${value ? (designV2 ? "text-ink" : "text-[#18211d]") : (designV2 ? "text-ink-muted" : "text-[#68716d]")}`}><ChartFieldValue label={fact.label} onEdit={fact.onEdit ?? editActions?.[fact.label]} editHint={editHint}><ReadableChartText value={value || "Not reported"} /></ChartFieldValue></dd>
       </div>;
     })}
   </dl>;
@@ -167,8 +167,4 @@ function formatDate(value: string) {
   return Number.isNaN(parsed.getTime())
     ? value
     : parsed.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" });
-}
-
-function slug(value: string) {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 }

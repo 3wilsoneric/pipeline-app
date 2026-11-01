@@ -20,10 +20,10 @@ function fixture(t, { recovered = null, blocks = [], put, get, recoveryFails = f
       saveOfflineClientNotes: async (principal, referralId, entries) => copies.push(clean({ principal, referralId, entries })),
     },
     "./useLatestNotes": { rememberLatestNote: (...args) => summaries.push(args) },
-  }, { setTimeout: (fn) => { timers.set(++timerId, fn); return timerId; }, clearTimeout: (id) => timers.delete(id) });
+  }, { setTimeout: (fn, delay) => { timers.set(++timerId, { fn, delay }); return timerId; }, clearTimeout: (id) => timers.delete(id) });
   const controller = new owner.ClientNotesController("account-a", 42);
   t.after(() => controller.dispose());
-  return { controller, writes, copies, summaries, retry: () => { for (const [id, fn] of timers) { timers.delete(id); fn(); } } };
+  return { controller, writes, copies, summaries, delays: () => [...timers.values()].map(({ delay }) => delay), retry: () => { for (const [id, { fn }] of [...timers]) { timers.delete(id); fn(); } } };
 }
 
 test("notes recover an encrypted unsaved heading and clear recovery only after acknowledgment", async (t) => {
@@ -165,8 +165,15 @@ test("two views subscribe to one text/version, including edits during a slow sav
   f.controller.subscribe(() => { views[0] = f.controller.snapshot(); });
   const unsubscribe = f.controller.subscribe(() => { views[1] = f.controller.snapshot(); });
   f.controller.change("before", "Initial"); f.controller.flushAll(); await settle();
+  assert.deepEqual(clean(f.controller.state.saving), { before: true }, "only an actual request is saving");
   f.controller.change("before", "Newer"); assert.equal(views[0], views[1]); unsubscribe();
   release(); await settle();
+  assert.equal(views[0].entries.before.body, "Newer");
+  assert.equal(views[0].entries.before.saved, "Initial");
+  assert.deepEqual(clean(f.controller.state.saving), {}, "finished request leaves newer typing pending");
+  assert.equal(f.writes.length, 1, "a slow acknowledgment must not bypass the typing pause");
+  assert.deepEqual(f.delays(), [5000]);
+  f.retry(); await settle();
   assert.equal(views[0].entries.before.saved, "Newer");
   assert.equal(f.writes.length, 2);
 });
@@ -193,4 +200,42 @@ test("reopening clean notes refreshes another screen's newer saved text", async 
   await f.controller.load();
   assert.equal(f.controller.state.entries.before.body, "Saved on another screen");
   assert.equal(f.writes.length, 0);
+});
+
+
+test("notes batch typing into one idle save while preserving the newest recovery copy", async (t) => {
+  const f = fixture(t);
+  await f.controller.load();
+  for (const body of ["First", "First observation", "First observation\n\nSecond"]) f.controller.change("notes", body);
+  await settle();
+  assert.equal(f.writes.length, 0);
+  assert.deepEqual(clean(f.controller.state.saving), {}, "typing is pending, not a network save");
+  assert.deepEqual(f.delays(), [5000], "only the most recent five-second timer remains");
+  assert.equal(f.copies.at(-1).entries.notes.body, "First observation\n\nSecond");
+  assert.deepEqual(clean(f.controller.state.pending), { notes: true });
+  f.retry(); await settle();
+  assert.deepEqual(f.writes.map(({ body }) => body), ["First observation\n\nSecond"]);
+  assert.deepEqual(f.copies.at(-1).entries, {});
+  f.controller.change("notes", "First observation\n\nSecond"); await settle();
+  assert.deepEqual(f.delays(), [], "unchanged rendering must not start another save");
+  f.controller.flushAll(); await settle();
+  assert.equal(f.writes.length, 1);
+});
+
+test("closing during a slow save drains the newest edit without waiting for idle", async (t) => {
+  let release;
+  const f = fixture(t, { put: (value, call) => call === 1
+    ? new Promise((resolve) => { release = () => resolve({ block: { body: value.body, version: 1, updated_at: "2026-09-27" } }); })
+    : { block: { body: value.body, version: 2, updated_at: "2026-09-27" } } });
+  await f.controller.load();
+  f.controller.change("notes", "Initial"); f.controller.flushAll(); await settle();
+  f.controller.change("notes", "Final text before closing");
+  f.controller.flushAll();
+  assert.deepEqual(f.delays(), []);
+  release(); await settle();
+  assert.deepEqual(f.writes.map(({ body, if_match }) => ({ body, if_match })), [
+    { body: "Initial", if_match: 0 }, { body: "Final text before closing", if_match: 1 },
+  ]);
+  assert.equal(f.controller.state.entries.notes.saved, "Final text before closing");
+  assert.deepEqual(f.copies.at(-1).entries, {});
 });

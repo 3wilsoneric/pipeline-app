@@ -7,9 +7,9 @@ const skipBuild = args.has("--skip-build");
 
 const checks = [
   {
-    name: "Personal client pins and assessor-scoped upcoming work",
+    name: "Recent workspaces and assessor-scoped upcoming work",
     command: "node",
-    args: ["--test", "scripts/home-client-pins.test.mjs", "scripts/home-briefing-scope.test.mjs"],
+    args: ["--test", "scripts/home-client-recents.test.mjs", "scripts/home-briefing-scope.test.mjs"],
   },
   {
     name: "Editing presence background lifecycle and late-response isolation",

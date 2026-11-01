@@ -53,6 +53,14 @@
 .filename { overflow-wrap: anywhere; min-width: 0; }
 .filename strong { font-size: var(--text-value); font-weight: 600; line-height: 1.5; }
 .filename small { display: block; margin-top: 6px; font-size: var(--text-label); line-height: 1.5; color: var(--color-ink-muted); }
+.dialog .previewToggle { gap: 6px; padding: 0 8px; margin-left: -8px; color: var(--color-link); font-size: var(--text-label); }
+.previewToggle[aria-expanded="true"] svg { transform: rotate(180deg); }
+.preview { grid-column: 1 / -1; min-width: 0; overflow: hidden; border: 1px solid var(--color-paper-rule); border-radius: var(--radius-input); background: var(--color-card-warm); }
+.preview[hidden] { display: none; }
+.pdfPreview { display: block; width: 100%; height: min(56dvh, 640px); border: 0; background: var(--color-paper); }
+.imagePreview { display: block; width: 100%; height: auto; max-height: 56dvh; object-fit: contain; }
+.textPreview { max-height: 50dvh; overflow: auto; margin: 0; padding: 20px; white-space: pre-wrap; overflow-wrap: anywhere; font-family: inherit; font-size: var(--text-value); line-height: 1.6; }
+.previewMessage { margin: 0; padding: 16px; color: var(--color-ink-muted); font-size: var(--text-label); line-height: 1.5; }
 .row label span { display: block; margin-bottom: 8px; font-size: var(--text-label); font-weight: 600; color: var(--color-ink-muted); }
 .row select { width: 100%; min-height: var(--spacing-action); border: 1px solid var(--color-control-border); border-radius: var(--radius-input); background: var(--color-paper); padding: 12px; color: var(--color-ink); font-size: var(--text-value); }
 .notice { flex: none; margin: 0; padding: 16px 24px; color: var(--color-ink-muted); font-size: var(--text-label); line-height: 1.6; background: var(--color-card-warm); }

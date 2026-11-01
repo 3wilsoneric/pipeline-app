@@ -79,13 +79,12 @@
 .created button { min-height: var(--spacing-control); border-radius: var(--radius-input); }
 .created button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 3px; }
 .createdIdentity > button { align-self: start; font-size: var(--text-label); color: var(--color-link); }
-.createdActions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 24px 0 16px; }
+.createdActions { display: flex; margin-top: 20px; }
 .createdActions button { display: flex; align-items: center; gap: 16px; padding: 20px; border: 1px solid var(--color-card-border); background: var(--color-paper); text-align: left; box-shadow: var(--shadow-file); transition: transform var(--duration-move) var(--ease-open); }
 .createdActions button:hover:enabled { transform: translateY(-2px); border-color: var(--color-control-border); }
 .createdActions button > svg { flex: none; }
 .createdActions button > span { flex: 1; min-width: 0; }
 .createdActions strong { display: block; font-size: var(--text-section); }
-.createdActions small { display: block; margin-top: 4px; color: var(--color-ink-muted); font-size: var(--text-label); line-height: var(--text-label--line-height); }
 .createdActions button:disabled { opacity: .6; }
 @media (prefers-reduced-motion: no-preference) {
   .created { animation: file-open var(--duration-move) var(--ease-open); }
@@ -101,5 +100,5 @@
   .created { padding: 20px 16px; }
   .createdIdentity { flex-wrap: wrap; gap: 12px; }
   .createdIdentity > svg { width: 48px; height: 48px; }
-  .createdActions { grid-template-columns: minmax(0, 1fr); }
+  .createdActions button { width: 100%; }
 }

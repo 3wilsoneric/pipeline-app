@@ -48,6 +48,8 @@ for (const [width, outcome] of [[1440, "accept"], [834, "accept"], [390, "declin
     await expect(bookmark).toHaveCount(0);
     expect((await read()).decision).toBeNull();
     await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
+    await page.evaluate(() => document.fonts.ready);
+    await decision.evaluate(element => Promise.all(element.getAnimations({ subtree: true }).filter(animation => animation.effect?.getComputedTiming().iterations !== Infinity).map(animation => animation.finished.catch(() => {}))));
     const violations = await page.evaluate(async () => (await (window as unknown as { axe: { run: (selector: string, options: object) => Promise<AxeResults> } }).axe.run('[aria-label="Admission decision"]', { runOnly: ["wcag2a", "wcag2aa", "wcag21aa"] })).violations);
     expect(violations).toEqual([]);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

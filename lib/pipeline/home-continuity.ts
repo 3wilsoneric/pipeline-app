@@ -50,7 +50,6 @@ export async function getHomeContinuity(
     ];
 
     return {
-      pinned_referral_ids: (state.pinnedReferralIds ?? []).filter((id) => eligibleIds.has(id)),
       recent_referral_ids: (state.recentWorkspaces?.length ? state.recentWorkspaces : state.lastWorkspace ? [state.lastWorkspace] : [])
         .map((visit) => visit.referralId).filter((id) => eligibleIds.has(id)),
       resume_items: dedupeAndRankResumeItems(candidates).slice(0, 3),

@@ -2507,7 +2507,7 @@ test.describe("Referral home and packet canvas", () => {
     const decisionReadback = await page.request.get(`/api/referrals/${referral.id}/decision`);
     expect(decisionReadback.ok()).toBe(true);
     expect((await decisionReadback.json()).decision).toMatchObject({ outcome: "accepted", reasonNote: "Synthetic acceptance decision for the EHR handoff journey." });
-    await expect(page.getByRole("button", { name: "More actions" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Handoff actions" })).toBeVisible();
     await page.getByRole("button", { name: "Workspace files", exact: true }).click();
     const requirements = page.getByRole("region", { name: "Admission requirements", exact: true });
     await requirements.locator("summary").click();
@@ -2537,7 +2537,7 @@ test.describe("Referral home and packet canvas", () => {
     await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
     const placement = page.getByRole("region", { name: "Handoff follow-through" });
     await expect(placement.getByRole("status").filter({ hasText: "Admitted" })).toBeVisible();
-    await placement.getByRole("button", { name: "More actions" }).click();
+    await placement.getByRole("button", { name: "Handoff actions" }).click();
     const actions = placement.getByRole("dialog", { name: "Handoff actions" });
     await expect(actions).not.toContainText(/ElderMark|manual entry|Mark pending|Record issue/i);
     await actions.getByRole("button", { name: "Close handoff actions" }).click();

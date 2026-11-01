@@ -1,34 +1,8 @@
-  .panelDialog { padding: 12px 20px 24px; }
-  .panelDialog :global(.home-panel-heading) h2 { display: none; }
-  .panelDialog :global(.home-panel-heading) { justify-content: flex-end; height: auto; min-height: var(--spacing-control); }
   .empty { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 280px; padding: 28px 16px; text-align: center; }
   .empty > svg { margin-bottom: 20px; width: 80px; height: 80px; }
   .empty h3 { font-size: var(--text-section); letter-spacing: -.02em; font-weight: 600; color: var(--color-ink); }
   .empty p { max-width: 300px; margin-top: 8px; font-size: var(--text-value); line-height: 1.6; color: var(--color-ink-muted); }
-  .scheduleList { border-top: 1px solid var(--color-paper-rule); }
-  .scheduleRow { display: grid; grid-template-columns: 190px minmax(0, 1fr) auto; align-items: center; gap: 24px; min-height: 104px; width: 100%; padding: 20px 16px; text-align: left; border-bottom: 1px solid var(--color-paper-rule); background: var(--color-paper); transition: background var(--motion-state) ease; }
-  .scheduleRow:hover { background: var(--color-card-warm); }
-  .scheduleRow:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -2px; }
-  .scheduleDate { display: flex; align-items: center; gap: 12px; font-size: var(--text-value); font-weight: 600; line-height: 1.5; color: var(--color-ink-2); font-variant-numeric: tabular-nums; text-wrap: balance; }
-  .scheduleDate > svg { flex: none; width: 40px; height: 40px; }
-  .scheduleClient { min-width: 0; }
-  .scheduleClient strong { display: block; font-size: var(--text-section); font-weight: 650; overflow-wrap: anywhere; }
-  .scheduleClient > span { display: block; margin-top: 4px; font-size: var(--text-value); line-height: 1.5; color: var(--color-ink-muted); }
-  .scheduleAction { display: inline-flex; align-items: center; justify-content: space-between; gap: 16px; min-height: var(--spacing-action); padding: 12px 16px; border: 1px solid var(--color-control-border); border-radius: var(--radius-input); font-size: var(--text-value); font-weight: 600; color: var(--color-ink); background: var(--color-stage-blue-tile); }
-  .scheduleAction svg { flex: none; }
-  .scheduleRow:is(:hover, :focus-visible) .scheduleAction { border-color: var(--color-stage-blue); background: color-mix(in srgb, var(--color-stage-blue) 18%, var(--color-stage-blue-tile)); }
-  .scheduleRow:active .scheduleAction { box-shadow: inset 0 0 0 1px var(--color-night); }
 
-
-
-  @media (max-width: 639px) {
-    .panelDialog { padding: 12px; }
-    .empty { min-height: 235px; }
-    .scheduleRow { grid-template-columns: minmax(0, 1fr); gap: 12px; padding: 20px 12px; }
-    .scheduleDate { grid-column: 1 / -1; font-size: var(--text-label); }
-    .scheduleClient strong { font-size: var(--text-section); }
-    .scheduleAction { justify-content: space-between; margin-top: 4px; padding-inline: 16px; }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .scheduleRow { transition: none; }
-  }
+@media (max-width: 639px) {
+  .empty { min-height: 235px; }
+}

@@ -52,7 +52,8 @@ export function useClientNotes(referralId: number, readOnly: boolean) {
   }, [controller]);
   const status: NotesStatus = state.loadFailed || accountFailed ? "failed" : !state.loaded ? "loading"
     : Object.keys(state.failed).length || Object.keys(state.conflicts).length ? "failed"
-    : Object.keys(state.waiting).length ? "waiting" : Object.keys(state.pending).length ? "saving" : "saved";
+    : Object.keys(state.waiting).length ? "waiting" : Object.keys(state.saving).length ? "saving"
+    : Object.keys(state.pending).length ? "unsaved" : "saved";
   return { ...state, loadFailed: state.loadFailed || accountFailed, status, readOnly,
     reload: () => { if (controller) void controller.load(); else setRetry((value) => value + 1); },
     change: (key: string, body: string) => { if (!readOnly) controller?.change(key, body); },

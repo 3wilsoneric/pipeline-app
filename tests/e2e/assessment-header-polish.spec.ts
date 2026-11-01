@@ -40,6 +40,21 @@ for (const width of [1440, 1024, 834, 768, 640]) {
     await expect(picker).toBeFocused();
     await expect(header.getByLabel("Section 7 of 12", { exact: true })).toBeVisible();
     await expect(status).toHaveText("2 / 3 recorded");
+    if (width === 834) {
+      const settledSections = await picker.evaluate(async (element) => {
+        const values = new Set<string>();
+        for (let frame = 0; frame < 20; frame++) {
+          values.add((element as HTMLSelectElement).value);
+          await new Promise((resolve) => requestAnimationFrame(resolve));
+        }
+        return [...values];
+      });
+      expect(settledSections).toEqual(["prior_history"]);
+      const heading = (await page.locator('[data-assessment-group-heading="prior_history"]').boundingBox())!;
+      await page.mouse.move(heading.x + heading.width / 2, heading.y + heading.height + 40);
+      await page.mouse.wheel(0, -700);
+      await expect(picker).not.toHaveValue("prior_history");
+    }
     await page.screenshot({ path: info.outputPath(`assessment-header-${width}.png`), animations: "disabled" });
     await picker.selectOption("legal_conservatorship");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

@@ -14,5 +14,6 @@ export function pipelineContentSecurityPolicy({ scriptSources, connectSources, s
     + (development ? " ws://localhost:* ws://127.0.0.1:*" : "");
   // Account names, not arbitrary origins: never broaden this to all Azure storage.
   if (/^[a-z0-9]{3,24}$/.test(storageAccount)) connectSources += ` https://${storageAccount}.blob.core.windows.net`;
-  return `default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self' https://login.microsoftonline.com; script-src ${scriptSources}; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src ${connectSources}; frame-src 'self' https://login.microsoftonline.com ${PIPELINE_LOOM_FRAME_ORIGIN};`;
+  // Local PDF previews use short-lived object URLs before the user adds a file.
+  return `default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self' https://login.microsoftonline.com; script-src ${scriptSources}; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src ${connectSources}; frame-src 'self' https://login.microsoftonline.com ${PIPELINE_LOOM_FRAME_ORIGIN} blob:;`;
 }

@@ -2,6 +2,8 @@ import { expect, test, type Page } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { createOperationalAssessment, createOperationalReferral } from "./support/operational-api";
 
+import { waitForAssessmentReady } from "./support/assessment-navigation";
+
 const generatedAt = "2026-10-26T16:00:00.000Z";
 
 async function setupMemo(page: Page, scope: "personal" | "team" = "personal") {
@@ -180,6 +182,7 @@ test("an unconfirmed save stays on the current follow-up answer", async ({ page 
     page.getByRole("navigation", { name: "Clients in completion memo" }).getByRole("button", { name: new RegExp(referral.name!) }).click(),
   ]);
   await expect(page.locator('summary[aria-label="1 follow-up item for Current symptoms"]')).toBeVisible();
+  await waitForAssessmentReady(page);
   const failedSave = page.waitForResponse((response) => response.url().endsWith(`/api/assessments/${assessment.assessment_id}`)
     && response.request().method() === "PATCH" && response.status() === 503);
   const answer = page.getByRole("textbox", { name: "Current symptoms" });

@@ -536,42 +536,8 @@
     .verticalFlow .connectedFolder [data-signature-history] strong { color: var(--color-ink); font-weight: 600; }
     /* The chart review wraps the cards in its own full-bleed surfaces; let the wash show through them. */
     .verticalFlow .connectedFolder section[aria-label="Assessment chart review"], .verticalFlow .connectedFolder main:has(> section[aria-label="Assessment chart review"]) { background: transparent; }
-    .verticalFlow :is(article[aria-label="Referral chart"], section[aria-label="Document checklist"], section[aria-label="Admission requirements"]) { border-color: var(--color-card-border); border-radius: var(--radius-paper); background: var(--color-paper); box-shadow: var(--shadow-card); }
+    .verticalFlow :is(section[aria-label="Document checklist"], section[aria-label="Admission requirements"]) { border-color: var(--color-card-border); border-radius: var(--radius-paper); background: var(--color-paper); box-shadow: var(--shadow-card); }
     .verticalFlow section[data-admission-checklist] { border: 0; background: transparent; box-shadow: none; }
-    /* One medical sheet: ruled fields and section bands, not separated floating cards. */
-    .verticalFlow article[aria-label="Referral chart"] { overflow: hidden; border: 1px solid var(--color-control-border); background: var(--color-paper); box-shadow: none; }
-    .verticalFlow article[aria-label="Referral chart"] > header { border-bottom: 1px solid var(--color-control-border); background: var(--color-sheet); }
-    .verticalFlow article[aria-label="Referral chart"] > header > div { padding: 8px 16px; }
-    .verticalFlow article[aria-label="Referral chart"] > section { margin: 0; }
-    .verticalFlow article[aria-label="Referral chart"] > section > h2 { margin: 0; padding: 10px 16px; border-block: 1px solid var(--color-control-border); background: var(--color-sheet); font-size: var(--text-value); line-height: var(--text-value--line-height); font-weight: 700; }
-    /* Chart: the upload is a button in the Documents row, not a drop box above the page; the whole card still takes drops. */
-    .verticalFlow [data-record-step="3"] section[data-guide-target="workspace-files-upload"] { position: relative; margin: 16px 0 0; }
-    .verticalFlow [data-record-step="3"] section[data-guide-target="workspace-files-upload"] > button[data-guide-target="initial-packet-upload"] { position: absolute; top: 4px; right: 112px; z-index: 1; width: auto; min-height: 44px; gap: 8px; padding: 0 12px; border: 0; border-radius: var(--radius-input); background: transparent; color: var(--color-link); }
-    .verticalFlow [data-record-step="3"] section[data-guide-target="workspace-files-upload"] > button[data-guide-target="initial-packet-upload"]:hover { background: var(--color-primary-soft); }
-    .verticalFlow [data-record-step="3"] section[data-guide-target="workspace-files-upload"] > button[data-guide-target="initial-packet-upload"] > span:first-child { width: auto; height: auto; }
-    .verticalFlow [data-record-step="3"] section[data-guide-target="workspace-files-upload"] > button[data-guide-target="initial-packet-upload"] svg { width: 18px; height: 18px; }
-    .verticalFlow [data-record-step="3"] section[data-guide-target="workspace-files-upload"] > button[data-guide-target="initial-packet-upload"] strong { font-size: var(--text-label); font-weight: 600; }
-    .verticalFlow [data-record-step="3"] section[data-guide-target="workspace-files-upload"] > details > summary { min-height: 52px; border-top: 0; }
-    .verticalFlow [data-record-step="3"] section[data-guide-target="workspace-files-upload"][data-file-drag-active] { outline: 2px dashed var(--color-link); outline-offset: 2px; }
-    /* Fields keep their large edit targets while labels, pencils and spacing become more compact. */
-    .verticalFlow article[aria-label="Referral chart"] dl { gap: 0; background: var(--color-paper); }
-    .verticalFlow article[aria-label="Referral chart"] dl > [data-chart-field] { min-height: 76px; padding: 12px 16px; border-right: 1px solid var(--color-control-border); border-bottom: 1px solid var(--color-control-border); }
-    .verticalFlow article[aria-label="Referral chart"] [data-chart-field] dt { font-size: var(--text-meta); line-height: var(--text-meta--line-height); }
-    .verticalFlow article[aria-label="Referral chart"] [data-chart-field] dd { margin-top: 4px; font-size: var(--text-value); line-height: var(--text-value--line-height); }
-    .verticalFlow article[aria-label="Referral chart"] [data-chart-field="Client"] dd { font-size: var(--text-section); font-weight: 700; }
-    /* One even grid: identity is the name plus three equal columns; contacts use three like the other sections. */
-    @media (min-width: 1280px) {
-      .verticalFlow dl[aria-label="Referral identity"] { grid-template-columns: minmax(0, 2fr) repeat(3, minmax(0, 1fr)); }
-      .verticalFlow dl[aria-label="Referral identity"] > [data-chart-field] { grid-column: auto; }
-      .verticalFlow dl[aria-label="Contact information"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-    }
-    /* Empty fields step back so what is known stands out; the wording is unchanged. */
-    .verticalFlow article[aria-label="Referral chart"] [data-chart-field][data-missing] dd { color: var(--color-ink-muted); font-weight: 400; }
-    /* Pencils stay visible (owner decision) but quiet until the field is hovered or focused. */
-    .verticalFlow article[aria-label="Referral chart"] [data-chart-edit] > span[aria-hidden="true"] { color: var(--color-ink-muted); opacity: 0.55; transition: opacity var(--duration-fade) ease; }
-    .verticalFlow article[aria-label="Referral chart"] [data-chart-field]:is(:hover, :focus-within) [data-chart-edit] > span[aria-hidden="true"] { color: var(--color-link); opacity: 1; }
-    /* The summary card's title already names it; its one cell drops the repeated label (the grid keeps its accessible name). */
-    .verticalFlow dl[aria-label="Referral summary"] dt { display: none; }
     .verticalFlow [data-testid="profile-workspace"] { padding: 0; background: transparent; }
     .verticalFlow [data-testid="profile-workspace"] > div { margin: 0; }
     .verticalFlow [data-testid="profile-workspace"] > div > section { overflow: hidden; border: 1px solid var(--color-card-border); border-radius: var(--radius-paper); background: var(--color-paper); box-shadow: var(--shadow-card); }
@@ -778,9 +744,51 @@
   .verticalFlow .filedDecision::before { content: ""; width: 12px; height: 12px; align-self: start; margin-top: 8px; border-left: 1px solid var(--color-control-border); border-bottom: 1px solid var(--color-control-border); }
 }
 
-.phoneWorkspace .tabRow:has([data-workspace-notes]) .actions { grid-column: 4; }
-.phoneWorkspace .actions .trashTab { width: var(--spacing-control); min-height: var(--spacing-control); padding: 0; justify-content: center; }
-.phoneWorkspace .actions .trashTab span { display: none; }
+/* Record utilities belong to the client identity, outside the journey. */
+.actions:empty { display: none; }
+/* A sync-only announcement must not add another row to the record rail. */
+.verticalFlow .actions:has(> .syncStatus:only-child) { position: absolute; width: 0; height: 0; padding: 0; border: 0; }
+.recordTools { display: flex; align-items: center; gap: 2px; flex-shrink: 0; margin-left: auto; }
+.recordTools .utilityTab {
+  position: relative;
+  width: var(--spacing-control);
+  min-width: var(--spacing-control);
+  height: var(--spacing-control);
+  min-height: var(--spacing-control);
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-input);
+  background: transparent;
+  color: var(--color-ink-muted);
+  box-shadow: none;
+}
+.recordTools .utilityTab > span { display: none; }
+.recordTools .utilityTab svg { width: 18px; height: 18px; }
+.recordTools .utilityTab:hover:not(:disabled),
+.recordTools .utilityTab[aria-current="page"] { background: var(--color-segment); color: var(--color-link); }
+.recordTools .utilityTab[aria-current="page"]::after { content: ""; position: absolute; inset: auto 14px 4px; height: 2px; border-radius: var(--radius-pill); background: currentColor; }
+.recordTools .trashTab { margin-left: 12px; }
+.recordTools .trashTab:hover:not(:disabled) { background: var(--color-danger-soft); color: var(--color-danger); }
+.recordTools .utilityTab:disabled { color: var(--color-ink-muted); cursor: wait; }
+.recordTools .utilityTab:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -2px; }
+@media (max-width: 1250px) {
+  .recordTools { grid-column: 2; grid-row: 1; }
+  .tabRow:has(.recordTools) > .actions { grid-column: 1 / -1; grid-row: auto; }
+}
+@media (min-width: 1024px) {
+  .verticalFlow .recordTools { margin: -6px 0 -4px; padding-left: 0; align-self: flex-start; }
+  .newIntake .recordTools { order: 1; margin: 0; }
+}
+/* On phones these destinations already live in the compact view picker. */
+.phoneWorkspace .recordTools { grid-column: 3; grid-row: 1; }
+.phoneWorkspace .tabRow:has([data-workspace-notes]) .recordTools { grid-column: 4; }
+.phoneWorkspace .recordTools .utilityTab:not(.trashTab) { display: none; }
+.phoneWorkspace .recordTools .trashTab { margin: 0; }
+.phoneWorkspace .recordTools:not(:has(.trashTab)) { display: none; }
+@media (forced-colors: active) {
+  .recordTools .utilityTab[aria-current="page"] { outline: 2px solid Highlight; outline-offset: -4px; }
+}
 @media (max-height: 500px) and (orientation: landscape) {
   .phoneWorkspace .connectedFolder:has([data-phone-interview]) > div { padding: 0; }
 }
