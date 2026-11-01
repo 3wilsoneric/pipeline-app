@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import localFont from "next/font/local";
 import PipelineAuthProvider from "@/components/auth/PipelineAuthProvider";
 import DesktopRuntime from "@/components/desktop/DesktopRuntime";
 import PipelineMaintenanceCover from "@/components/pipeline/PipelineMaintenanceCover";
@@ -8,9 +8,11 @@ import { toPipelinePath } from "@/lib/pipeline/base-path";
 import { getPipelineServerEntryUser } from "@/lib/auth/server-entry";
 import "./globals.css";
 import "./control-polish.css";
+import "./carelog-family.css";
 
-const pipelineSans = Inter({
-  subsets: ["latin"],
+const pipelineSans = localFont({
+  src: "./fonts/ibm-plex-sans-latin-variable.woff2",
+  weight: "100 700",
   variable: "--font-pipeline-sans",
   display: "swap",
   preload: false,
@@ -25,12 +27,12 @@ export const metadata: Metadata = {
   applicationName: "Pipeline",
   icons: {
     icon: [{
-      url: toPipelinePath("/pwa/pipeline-favicon-32-v3.png"),
+      url: toPipelinePath("/pwa/pipeline-favicon-32-v4.png"),
       type: "image/png",
       sizes: "32x32",
     }],
     shortcut: [{
-      url: toPipelinePath("/pwa/pipeline-favicon-32-v3.png"),
+      url: toPipelinePath("/pwa/pipeline-favicon-32-v4.png"),
       type: "image/png",
       sizes: "32x32",
     }],

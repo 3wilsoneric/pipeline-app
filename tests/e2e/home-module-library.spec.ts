@@ -89,6 +89,9 @@ for (const width of [1440, 390]) {
       }] : [];
       payload.scope = "personal";
       payload.unavailable_sections = [];
+      payload.workflow.all_board_items = items;
+      payload.continuity.pinned_referral_ids = [];
+      payload.continuity.recent_referral_ids = [];
       payload.workflow.active_items = items;
       payload.workflow.board_items = items;
       payload.workflow.active_total = items.length;
@@ -97,21 +100,26 @@ for (const width of [1440, 390]) {
     });
     await page.goto("/");
     const work = page.getByRole("region", { name: "Current work", exact: true });
-    await expect(work.getByRole("button", { name: "Open referral received folder" })).toBeVisible();
-    await expect(work.getByText("No referrals here", { exact: true }).first()).toBeVisible();
+    await expect(work.getByRole("button", { name: "Open in progress folder" })).toBeVisible();
+    await expect(work.getByText("No recent work yet.", { exact: true })).toBeVisible();
     assigned = true;
     await page.evaluate(() => window.dispatchEvent(new Event("focus")));
-    const card = work.getByRole("button", { name: "Open Avery Assigned", exact: true });
+    await expect(work.getByRole("button", { name: "Open in progress folder", exact: true })).toContainText("1 file");
+    await work.getByRole("button", { name: "Open in progress folder", exact: true }).click();
+    const card = page.getByRole("dialog", { name: "In progress folder", exact: true }).getByRole("button", { name: "Open Avery Assigned", exact: true });
     await expect(card).toBeVisible();
     await expect.poll(() => moduleOrder(page)).toEqual(["current-work"]);
-    await expect(page.getByRole("tab", { name: "Board", exact: true })).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByRole("button", { name: "Upcoming assessments", exact: true })).toBeVisible();
     await expect(work.getByText(/^(Team referrals|Assigned to you)$/)).toHaveCount(0);
     await expect(work.getByRole("button", { name: /^(Collapse|Expand) Board$/ })).toHaveCount(0);
     await page.goto("/?editHome=1");
+    await work.getByRole("button", { name: "Open in progress folder", exact: true }).click();
     await expect(card).toBeVisible();
+    await page.keyboard.press("Escape");
     await expect(page.getByRole("button", { name: /^(Remove Board from Home|Move Board)$/ })).toHaveCount(0);
     await page.getByRole("button", { name: "Done", exact: true }).click();
     await page.reload();
+    await work.getByRole("button", { name: "Open in progress folder", exact: true }).click();
     await expect(card).toBeVisible();
     await work.screenshot({ path: testInfo.outputPath(`always-open-work-${width}.png`) });
     await card.click();
@@ -124,12 +132,14 @@ test("keeps optional Home modules below the focus deck on a warm responsive canv
   await page.goto("/");
   await expect(page.getByRole("region", { name: "Current work", exact: true })).toBeVisible();
 
-  await expect(page.locator('[data-home-surface="true"]')).toHaveCount(6);
+  await expect(page.locator('[data-home-surface="true"]')).toHaveCount(4);
   const redesigned = await page.locator("html").getAttribute("data-design") === "v2";
   await expect(page.locator('[data-home-module="current-work"]')).toHaveCSS("border-top-width", redesigned ? "0px" : "1px");
-  await expect(page.getByTestId("home-focus-deck").locator("[inert][aria-hidden=true]")).toHaveCount(2);
+  await expect(page.getByRole("region", { name: "Customizable Home", exact: true }).getByRole("tab")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Upcoming assessments", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "New assignments", exact: true })).toHaveCount(0);
   await expect(page.getByTestId("home-module-grid").locator("[data-home-module]")).toHaveCount(3);
-  await expect(page.locator('[data-guide-target="home-workspace"]')).toHaveCSS("background-color", redesigned ? "rgb(244, 245, 247)" : "rgb(238, 238, 231)");
+  await expect(page.locator('[data-guide-target="home-workspace"]')).toHaveCSS("background-color", redesigned ? "rgb(255, 255, 255)" : "rgb(238, 238, 231)");
   await page.screenshot({ path: testInfo.outputPath("home-surfaces-desktop.png"), animations: "disabled", fullPage: true });
 
   await page.setViewportSize({ width: 390, height: 844 });
@@ -156,7 +166,7 @@ test("removes search and recent work, adds a batch once, and keeps canceled sele
   await expect.poll(() => writes.length).toBe(3);
   expect(writes[2].module_ids).toEqual(["current-work", "new-assignments", "upcoming-assessments", "search", "recent-work"]);
   await page.reload();
-  await expect.poll(() => moduleOrder(page)).toEqual(writes[2].module_ids);
+  await expect.poll(() => moduleOrder(page)).toEqual(writes[2].module_ids.filter((id) => id !== "new-assignments" && id !== "upcoming-assessments"));
 });
 
 test("keeps header search usable without the Home search module", async ({ page }) => {
@@ -330,7 +340,7 @@ test("an empty Home can add modules again or restore defaults", async ({ page })
     await expect(page.getByRole("region", { name: "Continue working" })).toBeVisible();
   await page.getByRole("button", { name: "Add module", exact: true }).click();
   await library.getByRole("button", { name: "Restore defaults" }).click();
-  await expect.poll(() => moduleOrder(page)).toEqual(["current-work", ...defaults.filter((id) => id !== "current-work")]);
+  await expect.poll(() => moduleOrder(page)).toEqual(["current-work"]);
 });
 
 test("waits for saved layout before allowing edits and keeps the Board", async ({ page }) => {

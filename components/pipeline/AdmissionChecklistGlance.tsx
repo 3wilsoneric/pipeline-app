@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { ArrowRight, Check, Circle, ClipboardCheck, Minus } from "lucide-react";
+import { ArrowRight, Check, ChevronDown, Circle, Minus } from "lucide-react";
 
 import { fetchPipelineJson, readPipelineJsonCache, usePipelineDataGeneration } from "@/lib/auth/authenticated-fetch";
 import { isRequirementComplete } from "@/lib/pipeline/workflow-records";
@@ -42,25 +42,17 @@ export default function AdmissionChecklistGlance({ referralId, onOpenDecision }:
   if (!workflow || groups.length === 0) return null;
   const items = groups.flatMap((group) => group.items);
   const resolved = resolvedRequirementCount(items);
-  return <section aria-label="Admission requirements" className={styles.glance}>
-    <header className={styles.header}>
-      <div>
-        <h2><ClipboardCheck size={20} aria-hidden="true" />Admission requirements</h2>
-      </div>
-      {onOpenDecision ? <button type="button" onClick={onOpenDecision} className={styles.open}>Open decision<ArrowRight size={16} aria-hidden="true" /></button> : null}
-    </header>
-    <div className={styles.progressSummary}>
-      <progress aria-label="Admission requirements resolved" value={resolved} max={items.length} />
-      <strong>{resolved} / {items.length} resolved</strong>
-    </div>
-    <div className={styles.groups}>
-      {groups.map((group) => <section key={group.label} aria-label={`${group.label} requirements`} className={styles.group}>
-        <div className={styles.groupHead}>
-          <h3>{group.label}</h3>
-          <span>{resolvedRequirementCount(group.items)} / {group.items.length} resolved</span>
-        </div>
-        <ul>
-          {group.items.map((item) => {
+  return <section aria-label="Admission requirements" className={styles.checklist} data-admission-checklist>
+    <details>
+      <summary className={styles.checklistToggle}>
+        <span className="sr-only">Admission requirements: </span>
+        <strong>{resolved}<span> / {items.length}</span></strong>
+        <span className="sr-only"> resolved</span>
+        <ChevronDown size={17} aria-hidden="true" />
+      </summary>
+      <div className={styles.checklistBody}>
+        <ul className={styles.tasks}>
+          {items.map((item) => {
             const complete = isRequirementComplete(item.status);
             return <li key={item.id} data-complete={complete}>
               <span aria-hidden="true" className={styles.mark}>{complete ? <Check size={13} strokeWidth={3} /> : <Circle size={10} />}</span>
@@ -68,8 +60,9 @@ export default function AdmissionChecklistGlance({ referralId, onOpenDecision }:
             </li>;
           })}
         </ul>
-      </section>)}
-    </div>
+        {onOpenDecision ? <button type="button" onClick={onOpenDecision} className={styles.open}>Open decision<ArrowRight size={16} aria-hidden="true" /></button> : null}
+      </div>
+    </details>
   </section>;
 }
 

@@ -18,10 +18,9 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
       }, true);
     });
     await page.goto("/");
-    await page.getByRole("button", { name: "Expand navigation", exact: true }).click();
     const button = page.getByRole("button", { name: "Open calendar", exact: true });
     await expect(button).toBeVisible();
-    await expect(button).toHaveJSProperty("clientWidth", 191);
+    await expect(button).toHaveJSProperty("clientWidth", 83);
     const resting = await button.evaluate((node) => ({ width: node.clientWidth, height: node.clientHeight, background: getComputedStyle(node).backgroundColor }));
     await button.hover();
     await expect(button).not.toHaveCSS("background-color", resting.background);
@@ -34,8 +33,8 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
     for (let sample = 0; sample < 12; sample += 1) {
       await button.hover();
       await page.mouse.down();
-      await expect(button).toHaveCSS("background-image", /linear-gradient/);
-      await expect(button).toHaveCSS("scale", reducedMotion === "reduce" ? "none" : "0.97");
+      await expect(button).toHaveCSS("background-image", "none");
+      await expect(button).toHaveCSS("scale", "none");
       await expect(button).toHaveJSProperty("clientWidth", resting.width);
       await expect(button).toHaveJSProperty("clientHeight", resting.height);
       if (sample === 0) await page.screenshot({ path: testInfo.outputPath(`pressed-${reducedMotion}.png`) });

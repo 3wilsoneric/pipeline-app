@@ -4,12 +4,19 @@ import { buildTrainingAssessment } from "../../lib/training/mock-assessment";
 import type { AxeResults } from "axe-core";
 import { randomUUID } from "node:crypto";
 import { createOperationalReferral } from "./support/operational-api";
-import { editPreparedAnswer } from "./support/assessment-navigation";
+import { editPreparedAnswer, openAllQuestions } from "./support/assessment-navigation";
 
 const practice = "/?view=referrals&screen=packet&trainingAssessment=prepare&demo=1&workspaceStage=assessment&assessmentSection=diagnosis_clinical";
 
 async function beginInterview(page: Page) {
-  await page.getByRole("region", { name: "Assessment progress", exact: true }).getByRole("button", { name: "Interview", exact: true }).click();
+  const interview = page.getByRole("region", { name: "Assessment progress", exact: true }).getByRole("button", { name: "Interview", exact: true });
+  if (await interview.isVisible()) await interview.click();
+  else {
+    // Existing interview deep links remain editable without recording a start.
+    const url = new URL(page.url());
+    url.searchParams.set("assessmentMode", "interview");
+    await page.goto(url.toString());
+  }
   await expect(page.getByRole("dialog", { name: "Begin interview", exact: true })).toHaveCount(0);
 }
 
@@ -139,7 +146,7 @@ test("incomplete preparation opens the interview and returns to all questions wi
   await next.click();
   await expect(page.getByRole("dialog", { name: "Begin interview", exact: true })).toHaveCount(0);
   await expect(picker.locator("option")).toHaveCount(12);
-  await folder.getByRole("button", { name: "All questions", exact: true }).click();
+  await openAllQuestions(page);
   await expect(picker.locator("option")).toHaveCount(5);
   await beginInterview(page);
   await expect(folder.getByLabel("Assessment section", { exact: true }).locator("option")).toHaveCount(12);
@@ -175,9 +182,11 @@ test("preparation persists in the same assessment without starting or signing an
   await beginInterview(page);
   expect((await read()).started_at).toBeNull();
   await folder.getByLabel("Assessment section", { exact: true }).selectOption("diagnosis_clinical");
-  await expect(folder.getByRole("complementary", { name: "Current information" })).toContainText("Synthetic amended history from records");
+  await openAllQuestions(page);
+  await expect(folder.getByRole("textbox", { name: "Secondary diagnosis", exact: true })).toHaveValue("Synthetic amended history from records");
+  await beginInterview(page);
   await page.reload();
-  await expect(folder.getByLabel("Assessment section", { exact: true }).locator("option")).toHaveCount(12);
+  await expect(folder.getByLabel("Assessment section", { exact: true }).locator("option")).toHaveCount(13);
   await expect(folder.getByRole("button", { name: "Begin interview", exact: true })).toBeEnabled();
   expect((await (await page.request.get(`/api/referrals/${referral.id}/assessments`)).json()).assessments).toHaveLength(1);
 });
@@ -225,15 +234,15 @@ test("interview remains editable when the retired start service is unavailable",
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment`);
   await beginInterview(page);
   await page.getByLabel("Assessment section", { exact: true }).selectOption("diagnosis_clinical");
-  await expect(page.getByRole("complementary", { name: "Current information" })).toContainText("Synthetic prepared diagnosis");
+  expect((await read()).secondary_diagnoses).toEqual(["Synthetic prepared diagnosis"]);
   const field = page.locator("#assessment-current_symptoms");
   await field.fill("Synthetic answer while start service is unavailable");
   await field.blur();
   await expect.poll(async () => (await read()).current_symptoms).toBe("Synthetic answer while start service is unavailable");
-  await page.getByRole("button", { name: "All questions", exact: true }).click();
+  await openAllQuestions(page);
   await beginInterview(page);
   await page.reload();
-  await expect(page.getByLabel("Assessment section", { exact: true }).locator("option")).toHaveCount(12);
+  await expect(page.getByLabel("Assessment section", { exact: true }).locator("option")).toHaveCount(13);
   const saved = await read();
   expect(saved.current_symptoms).toBe("Synthetic answer while start service is unavailable");
   expect(saved.started_at).toBeNull();
@@ -267,7 +276,6 @@ test("late recovery restores answers without moving the assessor back to an olde
   await picker.selectOption("medication");
   await expect(picker).toHaveValue("medication");
   release();
-  await expect(page.getByRole("button", { name: "Recorded answers: 1 of 19", exact: true })).toBeVisible();
   await editPreparedAnswer(page, "Medications at intake");
   await expect(page.locator('#assessment-medications_at_intake')).toHaveValue("Synthetic recovered medication note");
   await expect(picker).toHaveValue("medication");

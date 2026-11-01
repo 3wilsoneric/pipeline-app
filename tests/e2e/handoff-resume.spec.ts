@@ -52,7 +52,7 @@ test("signed work opens Decision while unsigned work keeps its questionnaire loc
   const assessment = await createOperationalAssessment(page.request, referral.id);
   const workspace = `/?view=referrals&screen=packet&referralId=${referral.id}`;
   await page.goto(`${workspace}&workspaceStage=assessment&workspaceEntry=resume`);
-  await expect(page.getByRole("region", { name: "Assessment", exact: true })).toBeVisible();
+  await expect(page.locator("#packet-page-2")).toBeVisible();
   await signOperationalAssessment(page.request, assessment);
   await page.goto(`${workspace}&workspaceStage=assessment&workspaceEntry=resume`);
   await expect(page.getByRole("region", { name: "Admission decision", exact: true })).toBeVisible();

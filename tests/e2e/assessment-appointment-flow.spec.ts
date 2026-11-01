@@ -3,15 +3,17 @@ import { randomUUID } from "node:crypto";
 import { createOperationalReferral } from "./support/operational-api";
 
 async function review(page: Page) {
-  const section = page.getByRole("combobox", { name: "Assessment section", exact: true });
-  await section.selectOption((await section.locator("option").last().getAttribute("value"))!);
-  await page.getByRole("navigation", { name: "Assessment section steps" }).getByRole("button", { name: "Open interview" }).click();
   if (page.viewportSize()!.width < 640) {
+    const section = page.getByRole("combobox", { name: "Assessment section", exact: true });
+    await section.selectOption((await section.locator("option").last().getAttribute("value"))!);
+    await page.getByRole("navigation", { name: "Assessment section steps" }).getByRole("button", { name: "Open interview" }).click();
     await page.getByRole("button", { name: "Choose questionnaire section", exact: true }).click();
     await page.getByRole("dialog", { name: "Questionnaire sections" }).getByRole("button", { name: /^Review assessment/ }).click();
   } else {
-    await section.selectOption("provenance_qc");
-    await page.getByRole("navigation", { name: "Assessment section steps" }).getByRole("button", { name: "Review assessment" }).click();
+    // Review is a saved workspace destination; opening it never starts or signs the encounter.
+    const url = new URL(page.url());
+    url.searchParams.set("assessmentMode", "review");
+    await page.goto(url.toString());
   }
 }
 
@@ -34,7 +36,6 @@ for (const width of [1440, 834, 390, 320]) {
     await expect(page.getByRole("button", { name: "Begin assessment", exact: true })).toHaveCount(0);
     await page.screenshot({ path: info.outputPath(`appointment-${width}.png`), animations: "disabled" });
 
-    await page.locator('summary[aria-label="Assessment details"]').click();
     await page.getByRole("button", { name: /^Interview date/ }).click();
     const dateDialog = page.getByRole("dialog", { name: "Interview date", exact: true });
     await dateDialog.locator("#assessment-assessment_date").fill("2026-09-20");
@@ -65,9 +66,9 @@ for (const width of [1440, 834, 390, 320]) {
 
     await review(page);
     await expect(page.getByRole("region", { name: "Assessment chart review" })).toContainText("Synthetic retained answer");
-    await page.getByRole("button", { name: "Sign & continue to decision", exact: true }).click();
+    await page.getByRole("button", { name: "Sign assessment", exact: true }).click();
     await page.getByRole("alertdialog", { name: "Sign this assessment?", exact: true }).getByRole("button", { name: "Sign assessment", exact: true }).click();
-    await expect(page.locator("#admission-workflow")).toBeVisible();
+    await expect(page.getByRole("region", { name: "Admission decision", exact: true })).toBeVisible();
     const signed = await read();
     expect(signed.signed_at).toBeTruthy();
     expect(signed.started_at).toBeNull();
@@ -78,18 +79,28 @@ for (const width of [1440, 834, 390, 320]) {
   });
 }
 
-test("a previously recorded start does not hide rescheduling or overwrite history", async ({ page }) => {
+test("a previously recorded start can be rescheduled from Calendar without overwriting history", async ({ page }) => {
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: `Synthetic Legacy Start ${randomUUID()}`, owner: "" });
   const response = await page.request.post(`/api/referrals/${referral.id}/assessments`, { data: { client_mutation_id: randomUUID(), data: {} } });
   const { assessment } = await response.json();
-  const start = await page.request.post(`/api/assessments/${assessment.assessment_id}/start`, { data: { if_match: assessment.version, client_mutation_id: randomUUID() } });
+  const booked = await page.request.post(`/api/assessments/${assessment.assessment_id}/schedule`, { data: { if_match: assessment.version, client_mutation_id: randomUUID(), schedule: { status: "scheduled", start_at: "2026-08-20T16:00:00.000Z", duration_minutes: 60, method: "phone", location: "Synthetic appointment" } } });
+  expect(booked.status()).toBe(200);
+  const scheduled = (await booked.json()).assessment;
+  const start = await page.request.post(`/api/assessments/${assessment.assessment_id}/start`, { data: { if_match: scheduled.version, client_mutation_id: randomUUID() } });
   expect(start.status()).toBe(200);
   const startedAt = (await start.json()).assessment.started_at;
-  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment`);
-  await page.getByRole("region", { name: "Assessment progress" }).getByRole("button", { name: "Schedule interview", exact: true }).click();
-  const dialog = page.getByRole("dialog", { name: "Schedule interview", exact: true });
-  await dialog.getByLabel("Assessment date and time").fill("2027-09-22T11:00");
-  await dialog.getByRole("button", { name: "Schedule interview", exact: true }).click();
+  // Scheduling is available from the Calendar after the interview starts.
+  await page.goto("/?screen=calendar");
+  await page.getByRole("button", { name: "Show calendar filters" }).click();
+  await page.getByRole("button", { name: "Team", exact: true }).click();
+  const continuing = page.getByRole("region", { name: "Continue working", exact: true });
+  await continuing.locator("summary").click();
+  await continuing.getByRole("button", { name: new RegExp(referral.name!) }).first().click();
+  const drawer = page.getByRole("dialog", { name: "Calendar item", exact: true });
+  await drawer.getByRole("button", { name: "Reschedule", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: referral.name!, exact: true });
+  await dialog.getByLabel("Date and time", { exact: true }).fill("2027-09-22T11:00");
+  await dialog.getByRole("button", { name: "Save new time", exact: true }).click();
   await expect(dialog).toHaveCount(0);
   const saved = (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
   expect(saved.started_at).toBe(startedAt);

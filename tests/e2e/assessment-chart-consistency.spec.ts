@@ -1,7 +1,7 @@
 import { expect, test, type Locator } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { createOperationalReferral, createOperationalAssessment, completeOperationalAssessment, signOperationalAssessment, startOperationalAssessment } from "./support/operational-api";
-import { openAssessmentChart } from "./support/assessment-navigation";
+import { openAssessmentChart, waitForAssessmentReady } from "./support/assessment-navigation";
 import { unifiedProfileFixture } from "./support/pipeline-clinical-fixtures";
 import { clientChartAssessments, clientReferralSections } from "../../lib/pipeline/client-chart-context";
 import type { UnifiedClientProfileResponse } from "../../lib/pipeline/unified-profile-contracts";
@@ -62,13 +62,15 @@ for (const width of [1440, 834, 390]) {
     const review = page.getByRole("region", { name: "Assessment chart review", exact: true });
     await expect(review.getByRole("article", { name: "Referral chart", exact: true })).toBeVisible();
     const record = review.getByRole("article", { name: "Assessment record", exact: true });
+    const reviewDetails = record.locator(":scope > details");
+    if (await reviewDetails.getAttribute("open") === null) await reviewDetails.locator(":scope > summary").click();
     await expect(record).toContainText("Synthetic assessed diagnosis");
     await expect(record).toContainText(narrative);
     const body = await record.innerText();
     const fact = record.locator('[data-chart-fact="Earlier care placements"]');
     const style = await readingStyle(fact);
     expect(style.answer).toBe("16px");
-    expect(style.label).toBe("13px");
+    expect(style.label).toBe("14px");
     expect(parseFloat(style.lineHeight)).toBeGreaterThanOrEqual(25);
     await fact.scrollIntoViewIfNeeded();
     expect(await review.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
@@ -78,7 +80,9 @@ for (const width of [1440, 834, 390]) {
     const workspace = page.getByTestId("profile-workspace");
     await expect(workspace).toBeVisible();
     await expect(page.getByRole("article", { name: "Referral chart", exact: true })).toBeVisible();
-    const workspaceRecord = workspace.getByRole("article", { name: "Assessment record", exact: true });
+    const workspaceRecord = page.getByRole("article", { name: "Assessment record", exact: true });
+    const details = workspaceRecord.locator(":scope > details");
+    if (await details.getAttribute("open") === null) await details.locator(":scope > summary").click();
     await expect(workspaceRecord).toContainText("Synthetic assessed diagnosis");
     await expect(workspaceRecord).toHaveCount(1);
     expect(await workspaceRecord.innerText()).toBe(body);
@@ -100,6 +104,7 @@ test("current unsigned answers appear without replacing established clinical fac
   const profile = { ...structuredClone(unifiedProfileFixture), pipeline: { ...structuredClone(unifiedProfileFixture.pipeline), referrals: [fullReferral], assessments: [staleAssessment] } } as unknown as UnifiedClientProfileResponse;
   await page.route("**/api/profiles/**", (route) => route.fulfill({ json: profile }));
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=prior_history`);
+  await waitForAssessmentReady(page);
   await page.locator("#assessment-prior_placements").fill(narrative);
   await openAssessmentChart(page);
   const review = page.getByRole("region", { name: "Assessment chart review", exact: true });
@@ -127,16 +132,20 @@ test("chart load failure retains working answers and can retry the full chart", 
   await startOperationalAssessment(page.request, created);
   await page.route("**/api/profiles/**", (route) => route.fulfill({ status: 503, json: { error: "Synthetic outage" } }));
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=prior_history`);
+  await waitForAssessmentReady(page);
   await page.locator("#assessment-prior_placements").fill(narrative);
+  await page.locator("#assessment-prior_placements").blur();
+  await expect.poll(async () => (await (await page.request.get(`/api/assessments/${created.assessment_id}`)).json()).assessment.prior_placements).toBe(narrative);
   await openAssessmentChart(page);
   const review = page.getByRole("region", { name: "Assessment chart review", exact: true });
   await expect(review.getByRole("alert")).toContainText("could not be loaded");
   await expect(review.getByRole("article", { name: "Assessment record", exact: true })).toContainText(narrative);
+  await review.getByRole("button", { name: "Retry", exact: true }).focus();
   await page.unroute("**/api/profiles/**");
-  await review.getByRole("button", { name: "Retry", exact: true }).click();
+  await page.keyboard.press("Enter");
   await expect(review.getByRole("article", { name: "Referral chart", exact: true })).toBeVisible();
   await expect(review.getByRole("alert")).toHaveCount(0);
-  await expect(review.getByTestId("profile-workspace")).toBeVisible();
+  await expect(review.getByRole("article", { name: "Referral chart", exact: true })).toContainText(referral.name!);
   await expect(review.getByRole("article", { name: "Assessment record", exact: true })).toContainText(narrative);
 });
 
@@ -150,9 +159,13 @@ test("recovered edits to signed answers are not presented as signed clinical inf
   expect(updated.status()).toBe(200);
   await signOperationalAssessment(page.request, (await updated.json()).assessment);
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=prior_history`);
-  await page.getByRole("button", { name: "Edit Earlier care placements", exact: true }).click();
+  await openAssessmentChart(page);
+  const signedRecord = page.getByRole("article", { name: "Assessment record", exact: true });
+  await signedRecord.locator(":scope > details > summary").click();
+  await signedRecord.getByRole("button", { name: "Edit Earlier care placements", exact: true }).click();
   await page.route(`**/api/assessments/${created.assessment_id}`, (route) => route.request().method() === "PATCH"
     ? route.fulfill({ status: 503, json: { error: "Synthetic save unavailable" } }) : route.continue());
+  await waitForAssessmentReady(page);
   await page.locator("#assessment-prior_placements").fill(narrative);
   await openAssessmentChart(page);
   const review = page.getByRole("region", { name: "Assessment chart review", exact: true });

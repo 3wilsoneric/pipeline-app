@@ -1,0 +1,69 @@
+/* Shared presentation for the local Carelog-family trial. Pipeline owns every
+   workflow, permission, field, save and navigation action beneath these styles. */
+:root {
+  --pipeline-ink: var(--color-ink);
+  --pipeline-body: var(--color-ink-body);
+  --pipeline-green: var(--color-primary);
+  --pipeline-green-hover: var(--color-primary-hover);
+  --pipeline-green-soft: var(--color-primary-soft);
+  --pipeline-rule: var(--color-folder-edge);
+  --pipeline-rule-strong: var(--color-night);
+  --pipeline-surface: var(--color-sheet);
+  --pipeline-surface-edge: var(--color-sheet-border);
+}
+
+.pipeline-surfaces { font-feature-settings: normal; }
+.pipeline-surfaces :is(h1, h2, h3) { color: var(--color-ink); letter-spacing: -.02em; }
+.pipeline-surfaces [data-guide-target="home-workspace"] { background: var(--color-paper); }
+.pipeline-surfaces [data-home-surface] { border: 0; border-radius: 0; box-shadow: none; background: var(--color-paper); }
+.pipeline-surfaces [data-home-module="current-work"] { border: 0; }
+.pipeline-surfaces .home-panel-heading h2 > svg { padding: 0; border: 0; background: none; box-shadow: none; border-radius: 0; }
+
+/* One calm tray for filters and tabs, with a visible edge around the selection. */
+.pipeline-surfaces .pipeline-segmented { gap: 8px; padding: 6px; background: var(--color-segment); border-radius: var(--radius-input); }
+.pipeline-surfaces .pipeline-segmented > button { min-height: 48px; padding-inline: 16px; border: 2px solid transparent; font-size: 15px; }
+.pipeline-surfaces .pipeline-segmented > button:is([aria-pressed="true"], [aria-selected="true"]) { border-color: var(--color-night); box-shadow: none; }
+
+/* Ordinary form fields remain native controls. The active field gets a clear edge. */
+.pipeline-surfaces :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select:not([multiple]), textarea) { accent-color: var(--color-primary); }
+.pipeline-surfaces :is(input, select, textarea):focus-visible { outline: 2px solid var(--color-night); outline-offset: 2px; }
+
+/* Orange is an action, not an admission, signature or delivery status. */
+.pipeline-surfaces :is(button.bg-primary, button.bg-action, button.bg-link) { border: 2px solid var(--color-night); background: var(--color-action); color: var(--color-on-action); min-height: var(--spacing-action); padding-inline: 24px; font-size: var(--text-value); gap: 12px; }
+.pipeline-surfaces :is(button.bg-primary, button.bg-action, button.bg-link):hover:not(:disabled) { background: var(--color-action-hover); }
+.pipeline-surfaces :is(button.bg-primary, button.bg-action, button.bg-link):disabled { background: var(--color-segment); color: var(--color-ink-muted); border-color: var(--color-sheet-border); }
+.pipeline-surfaces :is(.pipeline-command, .pipeline-commands button, .pipeline-segmented > button):not(:disabled, [aria-disabled="true"]):active { scale: none; translate: none; box-shadow: inset 0 0 0 2px currentColor; transition-duration: var(--motion-press); }
+
+@media (forced-colors: active) {
+  .pipeline-surfaces .pipeline-segmented > button:is([aria-pressed="true"], [aria-selected="true"]) { border-color: Highlight; }
+  .pipeline-surfaces :is(button.bg-primary, button.bg-action, button.bg-link) { background: ButtonFace; color: ButtonText; border-color: ButtonText; }
+}
+
+@media print {
+  .pipeline-surfaces { background: white; }
+}
+
+/* Directory rows keep their whole-row click target and the same column order. */
+.pipeline-surfaces [data-guide-target="workspace-directory"] > div > div:has(> [data-guide-target="workspace-search"]) { padding: 0 0 16px; border: 0; border-radius: 0; border-bottom: 1px solid var(--color-paper-rule); box-shadow: none; }
+.pipeline-surfaces [data-guide-target="workspace-directory"] :is(select, [aria-haspopup="listbox"], details > summary) { height: 48px; font-size: 15px; }
+.pipeline-surfaces [aria-label="Workspace navigation"] { border: 0; border-radius: var(--radius-input); background: var(--color-segment); box-shadow: none; }
+.pipeline-surfaces [aria-label="Workspace navigation"] button { min-height: 48px; font-size: 15px; }
+.pipeline-surfaces [aria-label="Workspace navigation"] button[aria-current="page"] { background: white; color: var(--color-ink); box-shadow: inset 3px 0 var(--color-night); }
+.pipeline-surfaces [data-testid="workspace-content-grid"] > section { border-radius: var(--radius-input); box-shadow: none; }
+.pipeline-surfaces [aria-label="Referral worklist"] [data-workspace-name] { font-size: 19px; line-height: 25px; font-weight: 600; }
+.pipeline-surfaces [aria-label="Referral worklist"] [data-workspace-status] > span:first-child { font-size: 15px; line-height: 21px; white-space: normal; }
+.pipeline-surfaces [aria-label="Referral worklist"] [data-workspace-status] > span + span { font-size: 13px; line-height: 19px; white-space: normal; }
+.pipeline-surfaces [data-testid="workspace-chart-thumbnail"] { background: var(--color-sheet); }
+
+/* Carelog feedback: targets stay still; only their art and entering surface move. */
+@keyframes carelog-settle { from { opacity: 0; translate: 0 6px; } to { opacity: 1; translate: none; } }
+@keyframes carelog-confirm { from { opacity: .4; scale: .85; } to { opacity: 1; scale: 1; } }
+@keyframes carelog-check { from { stroke-dashoffset: 24; } to { stroke-dashoffset: 0; } }
+[data-home-dialog][open]:not([data-origin-motion]) { animation: carelog-settle var(--motion-enter) var(--ease-open); }
+[data-home-dialog]::backdrop { animation: pipeline-route-enter var(--motion-enter) var(--ease-open); }
+[data-save-center][data-state="saved"] svg { animation: carelog-confirm var(--motion-confirm) var(--ease-open); }
+[data-save-center][data-state="saved"] svg path { stroke-dasharray: 24; animation: carelog-check var(--motion-confirm) var(--ease-open); }
+.pipeline-surfaces :is(.pipeline-route-enter, .pipeline-step-enter, .pipeline-presentation-enter) { animation-duration: var(--motion-enter); animation-timing-function: var(--ease-open); }
+@media (prefers-reduced-motion: reduce) {
+  [data-home-dialog], [data-home-dialog]::backdrop, [data-save-center] svg, [data-save-center] svg path { animation: none !important; }
+}

@@ -16,12 +16,17 @@ export const activeReferralFlowStates = [
 ] as const;
 
 export const referralBoardStages = [
-  { key: "received", label: "Referral received" },
   { key: "in_progress", label: "In progress" },
   { key: "decision", label: "Decision" },
 ] as const;
 
-export type ReferralBoardStage = (typeof referralBoardStages)[number]["key"];
+export type ReferralBoardSection = (typeof referralBoardStages)[number]["key"];
+// Received remains an individual workflow fact; Home groups it with active work.
+export type ReferralBoardStage = ReferralBoardSection | "received";
+
+export function referralBoardSection(stage: ReferralBoardStage | null): ReferralBoardSection | null {
+  return stage === "received" ? "in_progress" : stage;
+}
 
 export type ReferralBoardState = {
   stage: ReferralBoardStage | null;

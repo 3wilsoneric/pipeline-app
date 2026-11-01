@@ -1,5 +1,5 @@
 import { closeTestBrowser } from "./support/browser-lifecycle";
-import { openAssessmentChart, returnToAssessmentQuestions } from "./support/assessment-navigation";
+import { editPreparedAnswer, openAssessmentChart, returnToAssessmentQuestions } from "./support/assessment-navigation";
 import { expect, test, webkit, type Page } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import type { AxeResults } from "axe-core";
@@ -172,7 +172,7 @@ test("reading pane and questions share page scrolling and section changes return
   const field = page.locator("#assessment-current_symptoms");
   await expect(field).toBeFocused();
   await expect(field).toHaveValue(original!);
-  await expect(field).toHaveCSS("font-size", "17px");
+  await expect(field).toHaveCSS("font-size", "16px");
   expect(await readingPage.evaluate((el) => el.scrollTop)).toBe(0);
   await field.fill(original + "\nFollow-up documented during the interview.");
   await field.press("Tab");
@@ -182,21 +182,18 @@ test("reading pane and questions share page scrolling and section changes return
   await page.screenshot({ path: testInfo.outputPath("reading-desk-1024.png") });
 });
 
-test("sidebar expands on hover and keyboard focus; phone search jumps to captured answers", async ({ page }) => {
+test("sidebar labels stay available without moving content; phone search jumps to captured answers", async ({ page }) => {
   await openPractice(page);
   await page.emulateMedia({ reducedMotion: "reduce" });
   const appMenu = page.getByRole("complementary", { name: "App navigation", exact: true });
-  await page.mouse.move(700, 500);
-  await expect(appMenu).toHaveAttribute("data-sidebar-expanded", "false");
-  await page.getByRole("button", { name: "Pipeline home", exact: true }).hover();
-  await expect(appMenu).toHaveAttribute("data-sidebar-expanded", "true");
-  await page.mouse.move(700, 500);
-  await expect(appMenu).toHaveAttribute("data-sidebar-expanded", "false");
-  await page.getByRole("button", { name: "Expand navigation", exact: true }).focus();
-  await page.keyboard.press("Shift+Tab");
-  await expect(appMenu).toHaveAttribute("data-sidebar-expanded", "true");
-  await page.keyboard.press("Escape");
-  await expect(appMenu).toHaveAttribute("data-sidebar-expanded", "false");
+  const bounds = (await appMenu.boundingBox())!;
+  const home = appMenu.getByRole("button", { name: "Pipeline home", exact: true });
+  await home.hover();
+  await expect(home.getByText("Home", { exact: true })).toBeVisible();
+  await home.focus();
+  await expect(home).toBeFocused();
+  await expect(appMenu.locator("[data-navigation-toggle]")).toHaveCount(0);
+  expect((await appMenu.boundingBox())!.width).toBe(bounds.width);
   await page.setViewportSize({ width: 390, height: 844 });
   const search = page.getByRole("button", { name: "Choose questionnaire section", exact: true });
   await search.click();
@@ -236,7 +233,6 @@ test("browser Back and Forward restore the assessment section without bouncing",
   const section = page.getByRole("combobox", { name: "Assessment section", exact: true });
   await chooseSection(page, "prior_history");
   await expect(page).toHaveURL(/assessmentSection=prior_history/);
-  await page.getByRole("button", { name: "Expand navigation" }).click();
   await page.getByRole("button", { name: "Pipeline home", exact: true }).click();
   await expect(page.locator("[data-assessment-working-section]")).toHaveCount(0);
   await page.goBack();
@@ -299,9 +295,10 @@ test("unfinished view preserves pending source verification and missing reasons"
   await expect(reference.getByRole("button", { name: "Edit Current symptoms", exact: true })).toContainText("Reason missing");
   await expect(page.getByRole("button", { name: "Prepare from records", exact: true })).toHaveCount(0);
   await expect(field.getByRole("button", { name: "Use", exact: true })).toBeVisible();
-  await expect(reference.getByRole("button", { name: "Edit Cognition / orientation", exact: true })).toContainText("Source: Synthetic referral.pdf");
+  await reference.getByRole("button", { name: "Edit Cognition / orientation", exact: true }).click();
+  await expect(field).toContainText("Synthetic referral.pdf");
   await expect(reference.getByRole("button", { name: "Edit Cognition / orientation", exact: true })).toContainText("Needs verification");
-  await expect(page.getByRole("region", { name: "Assessment progress", exact: true }).getByRole("button", { name: "Interview", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator('[data-assessment-working-section][data-assessment-phase="interview"]')).toBeVisible();
   await expect(editor.locator('[data-working-field="current_symptoms"]')).toBeVisible();
   await page.unrouteAll({ behavior: "wait" });
 });
@@ -349,39 +346,30 @@ for (const width of [1440, 390]) {
     await expect(chart).toHaveCount(1);
     await page.goto(root + "&workspaceStage=chart");
     await expect(page.getByRole("article", { name: "Referral chart", exact: true })).toBeVisible();
-    await page.goto(root + "&workspaceStage=assessment&assessmentSection=diagnosis_clinical");
-    const reference = page.getByRole("complementary", { name: "Current information" });
-    if (width < 640) {
-      await page.getByRole("button", { name: "Client info", exact: true }).click();
-      await page.getByRole("button", { name: "Review Secondary diagnosis", exact: true }).click();
-    } else await reference.getByRole("button", { name: "Edit Secondary diagnosis", exact: true }).click();
+    await page.goto(root + "&workspaceStage=assessment&assessmentMode=prepare&assessmentSection=diagnosis_clinical");
+    await expect(page.getByTestId("packet-workspace")).toHaveAttribute("aria-busy", "false");
+    await editPreparedAnswer(page, "Secondary diagnosis");
     const secondary = page.locator("#assessment-secondary_diagnoses");
     await secondary.fill("Final answer before immediate exit");
     await page.getByRole("button", { name: width < 640 ? "Back to previous page" : "Open referrals", exact: true }).click();
     await expect(page.locator("[data-assessment-view]")).toHaveCount(0);
     await expect.poll(async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment.secondary_diagnoses).toEqual(["Final answer before immediate exit"]);
-    await page.goto(root + "&workspaceStage=assessment&assessmentSection=diagnosis_clinical");
-    if (width < 640) {
-      await page.getByRole("button", { name: "Client info", exact: true }).click();
-      await expect(page.getByRole("dialog", { name: "Client information", exact: true })).toContainText("Final answer before immediate exit");
-      await page.getByRole("button", { name: "Review Secondary diagnosis", exact: true }).click();
-    } else {
-      await expect(reference).toContainText("Final answer before immediate exit");
-      await reference.getByRole("button", { name: "Edit Secondary diagnosis", exact: true }).click();
-    }
+    await page.goto(root + "&workspaceStage=assessment&assessmentMode=prepare&assessmentSection=diagnosis_clinical");
+    await expect(secondary).toHaveValue("Final answer before immediate exit");
+    await editPreparedAnswer(page, "Secondary diagnosis");
     await secondary.fill("Final answer before signing");
     await expect(page.getByRole("button", { name: "Sign assessment", exact: true })).toHaveCount(0);
     await openAssessmentChart(page);
-    await expect(page.getByRole("region", { name: "Assessment chart review" })).toContainText("Final answer before signing");
+    await expect(page.getByRole("article", { name: "Assessment record", exact: true })).toContainText("Final answer before signing");
     await returnToAssessmentQuestions(page);
     await expect(secondary).toHaveValue("Final answer before signing");
     if (width < 640) await expect(secondary).toBeInViewport();
-    await openAssessmentChart(page);
-    await page.locator('footer[aria-label="Assessment actions"]').getByRole("button", { name: "Review assessment", exact: true }).click();
+    // The chart is reference-only; review/sign belongs to the assessment.
+    await page.goto(root + "&workspaceStage=assessment&assessmentMode=review");
     await expect(page.getByRole("region", { name: "Assessment chart review" })).toContainText("Final answer before signing");
-    await page.getByRole("button", { name: "Sign & continue to decision", exact: true }).click();
+    await page.getByRole("button", { name: "Sign assessment", exact: true }).click();
     await page.getByRole("alertdialog", { name: "Sign this assessment?", exact: true }).getByRole("button", { name: "Sign assessment", exact: true }).click();
-    await expect(page.locator("#admission-workflow")).toBeVisible();
+    await expect(page.getByRole("region", { name: "Admission decision", exact: true })).toBeVisible();
     await expect(chart).toHaveCount(1);
     const saved = (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
     expect(saved.signed_at).toBeTruthy();

@@ -1,3 +1,4 @@
+import { showTutorialHelp } from "./support/app-navigation";
 import { confirmReferralFileLabels } from "./support/referral-upload";
 import { expect, test } from "@playwright/test";
 import { clientDirectoryFixture } from "./support/pipeline-clinical-fixtures";
@@ -81,7 +82,7 @@ test.describe("Pipeline Learning Center", () => {
     await expect(page).toHaveURL(new URL("/", test.info().project.use.baseURL).toString());
     await page.reload();
     await expect(page.getByRole("region", { name: "Fictional referral tutorial" })).toHaveCount(0);
-    await page.getByRole("button", { name: "Open guided tutorials", exact: true }).click();
+    await (await showTutorialHelp(page)).click();
     await expect(page.getByRole("dialog", { name: "Tutorials", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: /Continue where you stopped/ })).toHaveCount(0);
   });
@@ -90,7 +91,7 @@ test.describe("Pipeline Learning Center", () => {
     for (const route of ["/training", "/training/demo"]) {
       await page.goto(route);
       await expect(page).toHaveURL(new URL("/", test.info().project.use.baseURL).toString());
-      await expect(page.getByRole("button", { name: "Open guided tutorials" })).toBeVisible();
+      await expect(await showTutorialHelp(page)).toBeVisible();
       await expect(page.getByText("Temporarily unavailable while we make improvements.")).toHaveCount(0);
     }
   });
@@ -101,11 +102,11 @@ test.describe("Pipeline Learning Center", () => {
     const name = page.getByTestId("intake-client-folder").locator('[data-workspace-field="name"] input');
     await name.fill("Synthetic Help Draft");
     const currentUrl = page.url();
-    await page.getByRole("button", { name: "Open guided tutorials" }).click();
+    await (await showTutorialHelp(page)).click();
     await page.getByRole("button", { name: "Close tutorials", exact: true }).click();
     await expect(name).toHaveValue("Synthetic Help Draft");
     await expect(page).toHaveURL(currentUrl);
-    await page.getByRole("button", { name: "Open guided tutorials", exact: true }).click();
+    await (await showTutorialHelp(page)).click();
     await page.getByRole("dialog", { name: "Tutorials", exact: true })
       .getByRole("button", { name: "Create a referral & add files", exact: true }).click();
     await expect(page.getByTestId("tutorial-referral-session")).toBeVisible();
@@ -155,16 +156,11 @@ test.describe("Pipeline Learning Center", () => {
       const help = page.getByRole("button", { name: "Open guided tutorials", exact: true });
       const openHelp = async () => {
         await expect(page.locator('[data-pipeline-ready="guided-coach"]')).toBeAttached();
-        if (width < 640 && !await page.getByRole("dialog", { name: "Pipeline pages", exact: true }).isVisible()) {
-          await page.getByRole("button", { name: /^Open page menu/ }).click();
-          await expect(page.getByRole("dialog", { name: "Pipeline pages", exact: true })).toBeVisible();
-        }
-        await help.click();
+        await (await showTutorialHelp(page)).click();
       };
-      if (width < 640) await page.getByRole("button", { name: /^Open page menu/ }).click();
+      await showTutorialHelp(page);
       await expect(help).toBeVisible();
       await expect(help).toHaveAttribute("title", "Tutorials");
-      await page.getByRole("button", { name: /Open profile menu for/ }).click();
       await expect(page.getByRole("dialog", { name: "Profile settings", exact: true }).getByText(/Learning Center/)).toHaveCount(0);
       await page.keyboard.press("Escape");
       await openHelp();
@@ -259,7 +255,7 @@ async function mockTrainingProgress(page: import("@playwright/test").Page) {
 async function startGuide(page: import("@playwright/test").Page, title: string) {
   await page.goto(homeUrl);
   if ((page.viewportSize()?.width ?? 1440) < 640) await page.getByRole("button", { name: /^Open page menu/ }).click();
-  await page.getByRole("button", { name: "Open guided tutorials", exact: true }).click();
+  await (await showTutorialHelp(page)).click();
   await page.getByRole("dialog", { name: "Tutorials", exact: true }).getByRole("button", { name: new RegExp("^" + title) }).click();
 }
 

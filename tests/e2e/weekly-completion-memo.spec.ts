@@ -5,13 +5,18 @@ import { createOperationalAssessment, createOperationalReferral } from "./suppor
 const generatedAt = "2026-10-26T16:00:00.000Z";
 
 async function setupMemo(page: Page, scope: "personal" | "team" = "personal") {
+  const membersResponse = await page.request.get("/api/members?scope=assessors");
+  expect(membersResponse.ok()).toBe(true);
+  const { members } = await membersResponse.json();
+  const assessor = members.find((member: { active: boolean }) => member.active);
+  expect(assessor).toBeTruthy();
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", {
-    name: `Memo test ${randomUUID().slice(0, 8)}`, owner: "Annette Everhart", community: "Turlock",
-  });
+    name: `Memo test ${randomUUID().slice(0, 8)}`, owner: assessor.display_name, community: "Turlock",
+  }, { assigneeId: assessor.principal_id });
   const assessment = await createOperationalAssessment(page.request, referral.id);
   const client = {
     referral_id: referral.id, assessment_id: assessment.assessment_id, client_name: referral.name,
-    community: "Turlock", owner: "Annette Everhart", status: "accepted", assessment_signed: false,
+    community: "Turlock", owner: assessor.display_name, status: "accepted", assessment_signed: false,
     tasks: [
       { id: "assessment:field:current_symptoms", group: "assessment", label: "Answer current symptoms", detail: "This required assessment answer is blank.", action: "Open question", location: { view: "assessment", assessmentMode: "interview", assessmentSection: "diagnosis_clinical", assessmentQuestion: "current_symptoms" } },
       { id: "assessment:field:cognition_orientation", group: "assessment", label: "Answer cognition / orientation", detail: "This required assessment answer is blank.", action: "Open question", location: { view: "assessment", assessmentMode: "interview", assessmentSection: "diagnosis_clinical", assessmentQuestion: "cognition_orientation" } },
@@ -82,21 +87,24 @@ for (const width of [1440, 390]) {
   });
 }
 
-test("the Monday prompt is dismissible while the client list remains reachable", async ({ page }) => {
-  await page.clock.setFixedTime(new Date(generatedAt));
-  const { referral } = await setupMemo(page);
-  await page.goto("/");
-  const notice = page.getByRole("status", { name: "Completion memo" });
-  await expect(notice).toBeVisible();
-  await page.getByRole("tab", { name: "Board", exact: true }).click();
-  await page.setViewportSize({ width: 390, height: 844 });
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-  await notice.getByRole("button", { name: "Later" }).click();
-  await page.reload();
-  await expect(notice).toHaveCount(0);
-  await page.getByRole("button", { name: /Open completion memo/ }).click();
-  await expect(page.getByRole("navigation", { name: "Clients in completion memo" }).getByRole("button", { name: new RegExp(referral.name!) })).toBeVisible();
-});
+for (const width of [1440, 390]) {
+  test(`personal completion review stays reachable from Profile at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.clock.setFixedTime(new Date(generatedAt));
+    const { referral } = await setupMemo(page);
+    await page.goto("/");
+    await expect(page.getByRole("status", { name: "Completion memo" })).toHaveCount(0);
+    if (width < 640) await page.getByRole("button", { name: /^Open page menu, current page/ }).click();
+    await page.getByRole("button", { name: /Open profile menu for/ }).click();
+    await page.getByRole("link", { name: "Follow-up review", exact: true }).click();
+    await expect(page).toHaveURL(/screen=completion/);
+    const client = page.getByRole("navigation", { name: "Clients in completion memo" }).getByRole("button", { name: new RegExp(referral.name!) });
+    await expect(client).toBeVisible();
+    await page.reload();
+    await expect(client).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  });
+}
 
 test("a coordinator can filter the client list by assessor", async ({ page }) => {
   const { client, home } = await setupMemo(page, "team");

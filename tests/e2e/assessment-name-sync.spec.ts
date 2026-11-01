@@ -12,7 +12,10 @@ for (const width of [1440, 390]) {
     await startOperationalAssessment(page.request, assessment);
     const url = `/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=chart`;
     await page.goto(url);
-    await page.getByRole("button", { name: "Edit Resident name", exact: true }).click();
+    const record = page.getByRole("article", { name: "Assessment record", exact: true });
+    await record.locator(":scope > details > summary").click();
+    await record.locator("details summary").filter({ hasText: "Record details" }).click();
+    await record.getByRole("button", { name: "Edit Resident name", exact: true }).click();
     const name = page.locator("#assessment-resident_name");
     await expect(name).toBeVisible();
     await name.fill("Synthetic Corrected");

@@ -14,6 +14,7 @@ import { normalizeReferralSectionVersions } from "@/lib/pipeline/referral-sectio
 import type { Referral } from "@/lib/pipeline/referral-types";
 import ReadableChartText from "@/components/pipeline/ReadableChartText";
 import ReferralHandoffContacts from "./ReferralHandoffContacts";
+import PipelineIllustration from "./PipelineIllustration";
 import type { HandoffRecipients } from "./useHandoffRecipients";
 import MeetClientMessageEditor from "./MeetClientMessageEditor";
 import AdmissionPacketAccessControls from "./AdmissionPacketAccessControls";
@@ -470,7 +471,7 @@ function HandoffOverview({ existingDraft, payload, sent, exampleReviewed, finish
     <div aria-label="Handoff actions" className={styles.taskActions}>{previewButton}</div>
   </section>;
 
-  if (!report?.signed || !email.eligible) return <HandoffPendingTask signed={Boolean(report?.signed)} onOpenAssessment={onOpenAssessment} onOpenDecision={onOpenDecision} />;
+  if (!report?.signed || !email.eligible) return <HandoffPendingTask signed={Boolean(report?.signed)} decisionNeeded={payload.referral.admissionDecision?.outcome !== "accepted"} onOpenAssessment={onOpenAssessment} onOpenDecision={onOpenDecision} />;
 
   return <section aria-label="Handoff readiness" className={styles.reviewLanding}>
     <h3>Ready to prepare the handoff</h3>
@@ -487,17 +488,22 @@ function handoffReviewLabel(complete: boolean, reviewedCount: number, existingDr
   return reviewedCount ? "Continue review" : "Review handoff";
 }
 
-function HandoffPendingTask({ signed, onOpenAssessment, onOpenDecision }: { signed: boolean; onOpenAssessment?: () => void; onOpenDecision?: () => void }) {
+function HandoffPendingTask({ signed, decisionNeeded, onOpenAssessment, onOpenDecision }: { signed: boolean; decisionNeeded: boolean; onOpenAssessment?: () => void; onOpenDecision?: () => void }) {
   const needsAssessment = !signed;
   const onContinue = needsAssessment ? onOpenAssessment : onOpenDecision;
-  return <section className={styles.guidedTask} aria-label="Handoff readiness">
-      <FileText className={styles.taskIcon} size={32} aria-hidden="true" />
-      <h3>{needsAssessment ? "Sign the assessment" : "Record the admission decision"}</h3>
-      <p>{needsAssessment ? "The signed assessment becomes the email summary." : "An accepted decision is required to send this handoff."}</p>
-      <footer aria-label="Handoff actions" className={styles.taskActions}>
-        {onContinue ? <button type="button" className={styles.sendButton} onClick={onContinue}>{needsAssessment ? "Review & sign assessment" : "Open decision"}<ArrowRight size={18} aria-hidden="true" /></button> : null}
-      </footer>
-    </section>;
+  return <section className={styles.pendingTask} aria-label="Handoff readiness">
+    <div className={styles.pendingStep}>
+      <PipelineIllustration kind={needsAssessment ? "assessment" : "decision"} size={72} />
+      <div>
+        <h3>{needsAssessment ? "Sign the assessment" : "Record the admission decision"}</h3>
+        <p>{needsAssessment ? "The signed assessment becomes the email summary." : "An accepted decision is required to send this handoff."}</p>
+      </div>
+    </div>
+    <footer aria-label="Handoff actions" className={styles.pendingActions}>
+      {needsAssessment && decisionNeeded && onOpenDecision ? <button type="button" className={styles.textButton} onClick={onOpenDecision}>Open decision<ArrowRight size={18} aria-hidden="true" /></button> : null}
+      {onContinue ? <button type="button" className={styles.sendButton} onClick={onContinue}>{needsAssessment ? "Review & sign assessment" : "Open decision"}<ArrowRight size={18} aria-hidden="true" /></button> : null}
+    </footer>
+  </section>;
 }
 
 export function HandoffClinicalSummary({ report, showMedicationHistory = true }: { report: AssessmentSummaryReport; showMedicationHistory?: boolean }) {
@@ -679,24 +685,41 @@ function HandoffReviewStep({ payload, draft, confirmed, onConfirmed, selectedFil
   return <div className={styles.composer}>
     <div className={styles.composeScroll}>
       {payload.email.example_only ? <p role="status" className={styles.demoNotice}>Demo only — no email will be sent.</p> : null}
-      <div className={styles.reviewContent}>
-        <label className={styles.admissionDateField}>Planned admit date
-          <input type="date" value={admissionDate} readOnly={!payload.email.can_edit_recipients} disabled={savingDate || admissionDateConflict || !handoffDraftReady(draft)}
-            onChange={(event) => onAdmissionDateChange(event.target.value)} aria-describedby="handoff-admit-date-help" />
-        </label>
-        <p id="handoff-admit-date-help" className={styles.sourceNote}>Required before sending. You can review the email and packet now; the date will be added to the email when saved.</p>
-        {admissionDateError ? <p role="alert" className={styles.notice}>{admissionDateError}</p> : null}
-        {admissionDateConflict ? <button type="button" className={styles.textButton} onClick={onReloadDate}>Reload saved date</button> : null}
+      <div className={styles.composeEnvelope}>
+        <HandoffRecipientReview draft={draft} community={payload.referral.community} editable={payload.email.can_edit_recipients} />
+        <div className={`${styles.reviewContent} ${styles.handoffDate}`}>
+          <label className={styles.admissionDateField}>Planned admit date
+            <input type="date" value={admissionDate} readOnly={!payload.email.can_edit_recipients} disabled={savingDate || admissionDateConflict || !handoffDraftReady(draft)}
+              onChange={(event) => onAdmissionDateChange(event.target.value)} aria-describedby="handoff-admit-date-help" />
+          </label>
+          <p id="handoff-admit-date-help" className={styles.sourceNote}>Required before sending.</p>
+          {admissionDateError ? <p role="alert" className={styles.notice}>{admissionDateError}</p> : null}
+          {admissionDateConflict ? <button type="button" className={styles.textButton} onClick={onReloadDate}>Reload saved date</button> : null}
+        </div>
       </div>
-      <details className={styles.reviewDisclosure}>
-        <summary>Client summary <span>View the signed assessment details</span></summary>
-        <HandoffSummaryReview report={payload.report} onOpenAssessment={onOpenAssessment} />
-      </details>
-      <AdmissionPacketReview email={payload.email} referral={payload.referral} selectedFileIds={selectedFileIds} onSelectedFileIdsChange={onSelectedFileIdsChange} onOpenFiles={onOpenFiles} editable={handoffDraftReady(draft)} />
-      <HandoffRecipientReview draft={draft} community={payload.referral.community} editable={payload.email.can_edit_recipients} confirmed={confirmed} onConfirmed={onConfirmed} />
+      <div className={styles.handoffWorkspace}>
+        <div className={styles.handoffDocument}>
+          <MeetClientMessageEditor workspace summary={payload.report ? { ...payload.report.meetClient, admissionDate } : undefined}
+            preview={payload.email.preview} preparedBy={payload.email.prepared_by ?? ""}
+            attachments={selectedPacketFiles(payload.email, selectedFileIds).map((file) => file.name)}
+            draft={draft} admissionDate={admissionDate} disabled={!payload.email.can_edit_recipients || savingDate} demo={payload.email.example_only} />
+        </div>
+        <aside className={styles.handoffTools}>
+          <AdmissionPacketReview email={payload.email} referral={payload.referral} selectedFileIds={selectedFileIds} onSelectedFileIdsChange={onSelectedFileIdsChange} onOpenFiles={onOpenFiles} editable={handoffDraftReady(draft)} />
+          <details className={styles.reviewDisclosure}>
+            <summary>Client summary <span>View the signed assessment details</span></summary>
+            <HandoffSummaryReview report={payload.report} onOpenAssessment={onOpenAssessment} />
+          </details>
+        </aside>
+      </div>
     </div>
-    <footer className={styles.toolbar}>
-      {onBack ? <button type="button" className={styles.textButton} onClick={onBack}>Back</button> : <span />}
+    <footer className={`${styles.toolbar} ${styles.reviewToolbar}`}>
+      {onBack ? <button type="button" className={styles.textButton} onClick={onBack}>Back</button> : null}
+        <label className={styles.confirmation}>
+          <input type="checkbox" checked={confirmed} onChange={(event) => onConfirmed(event.target.checked)} disabled={!draft?.fields.to.length || !handoffDraftReady(draft)}
+            aria-label="I verified that each recipient is authorized to receive this summary and the packet files." />
+          <span><strong>These recipients are authorized</strong><span>I checked every address. Each person may receive this client’s summary and files.</span></span>
+        </label>
       <button ref={previewButtonRef} type="button" className={styles.sendButton} disabled={!recipientCheckReady || Boolean(packetSelectionIssue(payload.email, selectedFileIds)) || savingDate || admissionDateConflict || Boolean(admissionDate && plannedAdmissionDateError(admissionDate))} onClick={onContinue}>
         {savingDate ? "Saving planned date…" : "Preview email"}<ArrowRight size={18} aria-hidden="true" />
       </button>
@@ -712,18 +735,14 @@ function HandoffSummaryReview({ report, onOpenAssessment }: { report: Assessment
       </div>;
 }
 
-function HandoffRecipientReview({ draft, community, editable, confirmed, onConfirmed }: {
-  draft?: HandoffRecipients; community: string; editable: boolean; confirmed: boolean; onConfirmed: (value: boolean) => void;
+function HandoffRecipientReview({ draft, community, editable }: {
+  draft?: HandoffRecipients; community: string; editable: boolean;
 }) {
-  return <div className={styles.reviewContent}>
-        <h3 className={styles.reviewSectionHeading}>Recipients</h3>
-        <p className={styles.reviewInstruction}>Who should receive this client’s information?</p>
+  return <div className={`${styles.reviewContent} ${styles.envelopeRecipients}`}>
+        <h3 className="sr-only">Recipients</h3>
+        <p className="sr-only">Who should receive this client’s information?</p>
         {draft ? <div data-guide-target="packet-recipients"><ReferralHandoffContacts key={community} composer value={draft} community={community} disabled={!editable} /></div> : <p role="status">Recipient settings are not available yet.</p>}
-        <label className={styles.confirmation}>
-          <input type="checkbox" checked={confirmed} onChange={(event) => onConfirmed(event.target.checked)} disabled={!draft?.fields.to.length || !handoffDraftReady(draft)}
-            aria-label="I verified that each recipient is authorized to receive this summary and the packet files." />
-          <span><strong>These recipients are authorized</strong><span>I checked every address. Each person may receive this client’s summary and files.</span></span>
-        </label>
+
       </div>;
 }
 
@@ -738,14 +757,14 @@ function AdmissionPacketReview({ email, referral, selectedFileIds, onSelectedFil
   const bytes = selected.reduce((total, file) => total + file.byte_size, 0);
   const issue = packetSelectionIssue(email, selectedFileIds);
   return <section data-guide-target="packet-attachments" className={`${styles.attachments} ${styles.packetReview}`} aria-label="Referral packet attachments">
-    <div className={styles.attachmentHeading}><h3>Choose files for the community</h3><span><Paperclip size={15} aria-hidden="true" />{selected.length} selected · {formatBytes(bytes)}</span></div>
-    <p>Only checked files will be included. The client data sheet is always included. Confirm the selected medication list is current and signed; provider forms, face sheets, referral packets, MARs, and other files stay unchecked unless you choose them.</p>
+    <div className={styles.attachmentHeading}><h3>Community files</h3><span><Paperclip size={15} aria-hidden="true" />{selected.length} selected · {formatBytes(bytes)}</span></div>
     <ul className={styles.attachmentList}>{rows.map((file) => {
       const groupedLicForms = isLicForm(file);
       const rowFiles = groupedLicForms ? licForms : [file];
       const selectedCount = rowFiles.filter((item) => selectedFileIds.includes(item.document_id)).length;
       return <li key={groupedLicForms ? "lic-forms" : file.document_id}>
-        <div className="flex items-center gap-3 rounded border border-[var(--color-paper-rule)] bg-[var(--color-sheet)] p-3">
+        <div className={styles.packetFile}>
+          <label className={styles.packetSelect}>
           <input type="checkbox" aria-label={groupedLicForms ? "Include LIC 601, LIC 602, LIC 603 files" : `Include ${file.name}`}
             checked={selectedCount === rowFiles.length} ref={groupedLicForms ? (input) => { if (input) input.indeterminate = selectedCount > 0 && selectedCount < rowFiles.length; } : undefined}
             disabled={file.generated || !editable} onChange={(event) => {
@@ -753,13 +772,14 @@ function AdmissionPacketReview({ email, referral, selectedFileIds, onSelectedFil
               for (const item of rowFiles) { if (event.target.checked) next.add(item.document_id); else next.delete(item.document_id); }
               onSelectedFileIdsChange(files.filter((item) => next.has(item.document_id)).map((item) => item.document_id));
             }} />
-          {groupedLicForms ? <div className="min-w-0 flex-1"><strong>LIC 601, LIC 602, LIC 603</strong><small className="block">{licForms.length} {licForms.length === 1 ? "file" : "files"} available · selected together</small>
-            <ul className="mt-2 grid gap-1">{licForms.map((item) => <li key={item.document_id}>
+          </label>
+          {groupedLicForms ? <div className={styles.packetGroup}><strong>LIC 601, LIC 602, LIC 603</strong><small>{licForms.length} {licForms.length === 1 ? "file" : "files"} available · selected together</small>
+            <ul>{licForms.map((item) => <li key={item.document_id}>
               <a className="block break-all text-[var(--color-link)] underline" href={toPipelinePath(`/api/files/${encodeURIComponent(item.document_id)}/download`)} target="_blank" rel="noopener noreferrer" aria-label={`Open ${item.name}`}>{item.name}</a>
               {!item.ready ? <small className="block">Safety review needed before live delivery</small> : null}
             </li>)}</ul>
           </div> : <a className={styles.attachment} href={toPipelinePath(file.generated ? `/api/referrals/${referral.id}/admission-summary?download=chart` : `/api/files/${encodeURIComponent(file.document_id)}/download`)} target="_blank" rel="noopener noreferrer" aria-label={`Open ${file.name}`}>
-            <FileText size={23} aria-hidden="true" /><span><strong>{file.name}</strong><small>{file.generated ? "Client data sheet · always included" : file.ready ? `${file.category} · ${formatBytes(file.byte_size)}` : "Safety review needed before live delivery"}</small></span>
+            <FileText size={23} aria-hidden="true" /><span><strong>{file.name}</strong><small>{file.generated ? "Client data sheet · always included" : file.ready ? `${file.category} · ${formatBytes(file.byte_size)}` : "Safety review needed before live delivery"}</small>{file.category === "Medication list" && selectedCount > 0 ? <small>Use a current, signed list.</small> : null}</span>
           </a>}
         </div>
       </li>;

@@ -162,7 +162,7 @@
   .queueButton > span:last-child { border-radius: var(--radius-chip); background: var(--color-segment-count); color: var(--color-ink); }
   .filterToggle[aria-expanded="true"] { border-color: var(--color-link); background: var(--color-primary-soft); }
   .viewSwitch, .scopeSwitch { gap: 2px; padding: 3px; border: 0; border-radius: var(--radius-paper); background: var(--color-segment); box-shadow: none; }
-  .viewSwitch button, .scopeSwitch button { min-height: 38px; border: 0; border-radius: var(--radius-input); color: var(--color-ink-2); font-weight: 600; }
+  .viewSwitch button, .scopeSwitch button { min-height: var(--spacing-control); border: 0; border-radius: var(--radius-input); color: var(--color-ink-2); font-weight: 600; }
   .viewSwitch button[aria-pressed="true"], .scopeSwitch button[aria-pressed="true"] { border: 0; background: var(--color-paper); color: var(--color-ink); box-shadow: var(--shadow-card); }
   .filters { border-top-color: var(--color-paper-rule); }
   .statusStrip { color: var(--color-ink-muted); }
@@ -188,9 +188,17 @@
   .dateDetails h2 { color: var(--color-ink); }
   :is(.dateHeading, .monthDate, .listDate, .dateDetails, .dateDetails button, .continuing button, .continuing summary):focus-visible { outline-color: var(--color-focus); }
   .paper [data-calendar-empty] { border-color: var(--color-card-border); border-radius: var(--radius-paper); background: var(--color-sheet); }
+  @media (min-width: 621px) and (max-width: 999px) {
+    .header { padding-block: 8px; }
+  }
   @media (max-width: 620px) {
     .desktop { padding: 8px; }
     .board { border-radius: var(--radius-paper); box-shadow: var(--shadow-card); }
     .header { padding: 10px 12px; }
+    .rangeTitle { font-size: var(--text-value); white-space: nowrap; }
     .paper { padding: 10px; }
   }
+
+.emptyNotice { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; margin-top: 12px; padding: 16px 20px; border: 1px solid var(--color-card-border); border-radius: var(--radius-paper); background: var(--color-sheet); text-align: left; }
+.emptyCopy { flex: 1 1 280px; }
+.emptyActions { display: flex; flex-wrap: wrap; gap: 8px; }

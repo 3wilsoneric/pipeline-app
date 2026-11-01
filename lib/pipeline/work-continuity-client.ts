@@ -14,6 +14,10 @@ export function recordLastPipelineWorkspace(lastWorkspace: PipelineLastWorkspace
   void queuePatch({ lastWorkspace }).catch(() => undefined);
 }
 
+export function setPipelineWorkspacePinned(id: number, pinned: boolean) {
+  return queuePatch({ pinReferral: { id, pinned } });
+}
+
 export async function loadPipelineWorkspaceResumeLocation(referralId: number): Promise<PipelineWorkspaceLocation | undefined> {
   return (await loadLatestWorkspaceVisit(referralId))?.location;
 }

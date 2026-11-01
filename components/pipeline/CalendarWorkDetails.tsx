@@ -66,7 +66,12 @@ export default function CalendarWorkDetails({ referralId, onOpenChart, onDirtyCh
         {requirements.filter((item) => !closedRequirements.has(item.status)).map((item) => <FollowUpEditor key={`${item.id}:${item.version}`} referralId={referralId} item={item} onDirtyChange={(dirty) => {
           if (dirty) dirtyItems.current.add(item.id); else dirtyItems.current.delete(item.id);
           onDirtyChange(dirtyItems.current.size > 0);
-        }} onSaved={(saved) => setRequirements((current) => current?.map((value) => value.id === saved.id ? saved : value) ?? null)} />)}
+        }} onSaved={(saved) => {
+          // A confirmed save is clean before the versioned editor remounts.
+          dirtyItems.current.delete(saved.id);
+          onDirtyChange(dirtyItems.current.size > 0);
+          setRequirements((current) => current?.map((value) => value.id === saved.id ? saved : value) ?? null);
+        }} />)}
         {!requirements.some((item) => !closedRequirements.has(item.status)) ? <p className="text-[#6e7972]">No open requests.</p> : null}
       </>}
     </section>

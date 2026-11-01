@@ -355,7 +355,6 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
         initialBriefing={entryBriefing}
         canAccessReports={reportAccess === true}
         canViewApplicationActivity={activityAccess}
-        onOpenCompletionMemo={() => { void navigate("completion"); }}
         onOpenPacket={(referral, location, action, exact) => navigate("packet", referral, undefined, location, !exact, action)}
         onOpenProfile={(clientId) => navigate("profile", undefined, clientId)}
         onOpenSearchDestination={(destination: PipelineSiteScreen) => navigate(destination)}
@@ -401,11 +400,13 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
       trainingAssessmentMode,
       trainingAssessmentSection: getTrainingAssessmentSection(activeSearchParams),
       trainingIntakeMode,
-      onWorkspaceLocationChange: (location) => {
+      onWorkspaceLocationChange: (location, reflectRoute = true) => {
         if (!stillViewingWorkspace()) return;
-        const params = new URLSearchParams(window.location.search);
-        applyPipelineWorkspaceLocation(params, location);
-        replacePipelineHistory(`/?${params.toString()}`);
+        if (reflectRoute) {
+          const params = new URLSearchParams(window.location.search);
+          applyPipelineWorkspaceLocation(params, location);
+          replacePipelineHistory(`/?${params.toString()}`);
+        }
         const referralId = selectedReferral?.id;
         // Rehearsals use synthetic workspaces and must never become the operator's
         // durable resume destination.
@@ -469,7 +470,6 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
         onSearchTermChange={setSearchTerm}
         onOpenPacket={(referral) => navigate("packet", referral)}
         onOpenProfile={(clientId) => navigate("profile", undefined, clientId)}
-        onResumeDraft={resumeReferralDraft}
         canViewTeam={teamAccess}
       />
     );

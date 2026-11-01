@@ -1,0 +1,27 @@
+.stamp { display: inline-grid; flex: none; place-items: center; width: 52px; height: 52px; border: 2px solid currentColor; border-radius: var(--radius-pill); color: var(--color-status-done); transform: rotate(-8deg); }
+.stamp[data-outcome="declined"] { color: var(--color-danger); }
+.confirmation { width: min(420px, calc(100vw - 32px)); border: 1px solid var(--color-card-border); border-radius: var(--radius-folder); color: var(--color-ink); box-shadow: var(--shadow-popover); }
+.confirmation > div:first-child { padding: 24px 24px 16px; }
+.confirmation h2 { display: flex; align-items: center; gap: 16px; font-size: var(--text-section); line-height: var(--text-section--line-height); }
+.confirmation h2 > span:last-child { min-width: 0; }
+.confirmation p { margin-top: 16px; color: var(--color-ink-muted); font-size: var(--text-label); line-height: var(--text-label--line-height); }
+.actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 12px; padding: 8px 24px 24px; }
+.actions button { min-height: var(--spacing-control); padding: 10px 16px; border-radius: var(--radius-input); font-size: var(--text-label); font-weight: 600; }
+.cancel { border: 1px solid var(--color-control-border); color: var(--color-ink); background: var(--color-paper); }
+.cancel:hover { background: var(--color-card-warm); }
+.primary { border: 2px solid var(--color-night); background: var(--color-action); color: var(--color-on-action); }
+.primary:hover { background: var(--color-action-hover); }
+.destructive { border-color: var(--color-danger); background: var(--color-danger); color: var(--color-on-fill); }
+.destructive:hover { background: color-mix(in srgb, var(--color-danger) 80%, var(--color-night)); }
+.actions button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 3px; }
+.feedback { position: fixed; z-index: 80; top: 24px; left: 50%; display: flex; align-items: center; gap: 16px; max-width: calc(100vw - 32px); padding: 16px 24px; border: 1px solid var(--color-folder-edge); border-radius: var(--radius-folder); background: var(--color-paper); color: var(--color-ink); box-shadow: var(--shadow-popover); transform: translateX(-50%); pointer-events: none; }
+.feedback strong { display: block; font-size: var(--text-section); line-height: var(--text-section--line-height); color: var(--color-status-done); }
+.feedback[data-outcome="declined"] strong { color: var(--color-danger); }
+.feedback div > span { color: var(--color-ink-muted); font-size: var(--text-meta); }
+@media (prefers-reduced-motion: no-preference) {
+  .confirmation .stamp, .feedback .stamp { animation: stamp-in var(--duration-move) var(--ease-open); }
+  .feedback { animation: feedback-arrive var(--duration-feedback) var(--ease-open) both; }
+}
+@keyframes stamp-in { from { transform: rotate(-16deg) scale(1.25); opacity: .2; } to { transform: rotate(-8deg) scale(1); opacity: 1; } }
+@keyframes feedback-arrive { 0% { opacity: 0; transform: translate(-50%, -12px); } 10%, 85% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; transform: translate(-50%, -8px); } }
+@media (max-width: 420px) { .confirmation > div:first-child { padding: 20px 20px 12px; } .actions { padding: 8px 20px 20px; gap: 8px; } .actions button { padding-inline: 12px; } }

@@ -2,12 +2,46 @@ import { expect, test, type Page } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import type { AxeResults } from "axe-core";
 import { createOperationalAssessment, createOperationalReferral, scheduleOperationalAssessment, startOperationalAssessment } from "./support/operational-api";
+import { leaveInterviewFullScreen, waitForAssessmentReady } from "./support/assessment-navigation";
 import { isoToOperationalInput } from "../../components/pipeline/pipeline-calendar-model";
+
+for (const width of [1440, 834]) test(`questionnaire section link lands after loading and saves without jumping at ${width}px`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 1000 });
+  const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: "Synthetic Section Entry", owner: "", tags: [] });
+  const assessment = await createOperationalAssessment(page.request, referral.id);
+  await startOperationalAssessment(page.request, assessment);
+  const route = `/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentMode=interview&assessmentSection=functional_adl`;
+  await page.goto(route);
+  const heading = page.locator('[data-assessment-group-heading="functional_adl"]');
+  const picker = page.getByLabel("Assessment section", { exact: true });
+  await expect(picker).toHaveValue("functional_adl");
+  await expect(heading).toBeInViewport();
+  await expect.poll(async () => {
+    const title = (await heading.boundingBox())!;
+    const navigation = (await page.getByRole("navigation", { name: "Assessment sections", exact: true }).boundingBox())!;
+    return title.y - navigation.y - navigation.height;
+  }).toBeLessThan(56);
+  const answer = page.locator("#assessment-adl_needs");
+  await answer.fill("Synthetic support detail for local questionnaire regression.");
+  await answer.press("Tab");
+  await expect.poll(async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment.adl_needs).toBe("Synthetic support detail for local questionnaire regression.");
+  await expect(answer).toBeInViewport();
+  // A question-specific link takes precedence over the section heading, even after that answer is recorded.
+  await page.goto(`${route}&assessmentQuestion=adl_needs`);
+  await expect(answer).toHaveValue("Synthetic support detail for local questionnaire regression.");
+  await expect(answer).toBeInViewport();
+  await expect(answer).toBeFocused();
+});
 
 async function scheduledWorkspace(page: Page) {
   const suffix = randomUUID().slice(0, 8).replace(/\d/g, (digit) => String.fromCharCode(103 + Number(digit)));
   const name = `Return ${suffix[0].toUpperCase()}${suffix.slice(1)}`;
-  const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name, owner: "Annette Everhart" }, { assigneeId: "provisional:allo:annette" });
+  const membersResponse = await page.request.get("/api/members?scope=assessors");
+  expect(membersResponse.ok()).toBe(true);
+  const { members } = await membersResponse.json();
+  const assessor = members.find((member: { active: boolean }) => member.active);
+  expect(assessor).toBeTruthy();
+  const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name, owner: assessor.display_name }, { assigneeId: assessor.principal_id });
   const created = await createOperationalAssessment(page.request, referral.id);
   const assessment = await scheduleOperationalAssessment(page.request, created);
   const read = async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
@@ -18,13 +52,13 @@ async function scheduledWorkspace(page: Page) {
     const payload = await response.json();
     const current = await read();
     payload.unavailable_sections = [];
-    payload.upcoming = [{ id: `assessment:${current.assessment_id}`, referralId: referral.id, assessmentId: current.assessment_id, clientName: name, community: "San Pablo", owner: "Annette Everhart", date: isoToOperationalInput(current.scheduled_start_at).slice(0, 10), startsAt: current.scheduled_start_at, startedAt: current.started_at, method: "zoom", kind: "assessment", status: current.status, title: "Assessment scheduled" }];
+    payload.upcoming = [{ id: `assessment:${current.assessment_id}`, referralId: referral.id, assessmentId: current.assessment_id, clientName: name, community: "San Pablo", owner: assessor.display_name, date: isoToOperationalInput(current.scheduled_start_at).slice(0, 10), startsAt: current.scheduled_start_at, startedAt: current.started_at, method: "zoom", kind: "assessment", status: current.status, title: "Assessment scheduled" }];
     await route.fulfill({ response, json: payload });
   });
   const home = async () => {
     await page.goto("/");
-    await page.getByRole("tab", { name: "Upcoming assessments", exact: true }).click();
-    return page.getByRole("region", { name: "Upcoming assessments", exact: true }).getByRole("button", { name: new RegExp(name) });
+    await page.getByRole("button", { name: "Upcoming assessments", exact: true }).click();
+    return page.getByRole("dialog", { name: "Upcoming assessments", exact: true }).getByRole("button", { name: new RegExp(name) });
   };
   return { referral, assessment, read, home, name };
 }
@@ -34,7 +68,7 @@ for (const width of [1440, 390]) test(`leave, begin deliberately, and resume the
   const { referral, read, home, name } = await scheduledWorkspace(page);
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment`);
   const progress = page.getByRole("region", { name: "Assessment progress", exact: true });
-  await expect(progress).toContainText("Prepare assessment");
+  await expect(progress).toHaveAttribute("data-phase", "preparation");
   await expect(progress.getByLabel("Assessment appointment", { exact: true })).toContainText(/Scheduled.*(PDT|PST)/);
   await expect(progress.getByRole("button", { name: "Edit assessment appointment" })).toBeVisible();
   await expect(page.locator("#assessment-assessment_date")).toHaveCount(0);
@@ -57,14 +91,14 @@ for (const width of [1440, 390]) test(`leave, begin deliberately, and resume the
   const begin = page.getByRole("dialog", { name: "Begin interview", exact: true });
   await expect(begin).toHaveCount(0);
   expect((await read()).started_at).toBeNull();
-  await progress.getByRole("button", { name: "Begin interview", exact: true }).click();
+  await page.getByRole("button", { name: "Begin interview", exact: true }).click();
   await expect(begin).toBeVisible();
   await begin.getByRole("button", { name: "Keep preparing", exact: true }).click();
   await page.reload();
   await expect(progress).toBeVisible();
   await expect(begin).toHaveCount(0);
   expect((await read()).started_at).toBeNull();
-  await progress.getByRole("button", { name: "Begin interview", exact: true }).click();
+  await page.getByRole("button", { name: "Begin interview", exact: true }).click();
   await begin.getByRole("button", { name: "Begin interview", exact: true }).click();
   await expect(begin).toHaveCount(0);
   const started = await read();
@@ -77,12 +111,14 @@ for (const width of [1440, 390]) test(`leave, begin deliberately, and resume the
     await sections.getByRole("searchbox", { name: "Find a question", exact: true }).fill("Current symptoms");
     await sections.getByRole("button", { name: /^Current symptoms/ }).click();
   } else await picker.selectOption("diagnosis_clinical");
-  await expect(page).toHaveURL(/assessmentSection=diagnosis_clinical/);
+  if (width < 640) await expect(page).toHaveURL(/assessmentSection=diagnosis_clinical/);
+  else await expect(picker).toHaveValue("diagnosis_clinical");
   const answer = page.locator("#assessment-current_symptoms");
-  await answer.fill("Synthetic answer saved before closing");
+  await answer.pressSequentially("Synthetic answer saved before closing");
+  await expect(answer).toHaveValue("Synthetic answer saved before closing");
   await answer.blur();
   await expect.poll(async () => (await read()).current_symptoms).toContain("Synthetic answer saved before closing");
-  await expect(page).toHaveURL(/assessmentQuestion=current_symptoms/);
+  if (width < 640) await expect(page).toHaveURL(/assessmentQuestion=current_symptoms/);
   if (width < 640) {
     await page.getByRole("button", { name: /^Open page menu/ }).click();
     await page.getByRole("dialog", { name: "Pipeline pages", exact: true }).getByRole("button", { name: "Open referrals", exact: true }).click();
@@ -101,7 +137,13 @@ for (const width of [1440, 390]) test(`leave, begin deliberately, and resume the
   }
   else await unfinishedAnswer.focus();
   await expect(unfinishedAnswer).toBeInViewport();
-  await expect(page).toHaveURL(/assessmentQuestion=cognition_orientation/);
+  if (width < 640) await expect(page).toHaveURL(/assessmentQuestion=cognition_orientation/);
+  // Leave through the app checkpoint before unloading. Desktop keeps focus local
+  // while typing and publishes the durable return target when navigating away.
+  if (width < 640) {
+    await page.getByRole("button", { name: /^Open page menu/ }).click();
+    await page.getByRole("dialog", { name: "Pipeline pages", exact: true }).getByRole("button", { name: "Open referrals", exact: true }).click();
+  } else await page.getByRole("button", { name: "Pipeline home", exact: true }).click();
   // The helper below creates a fresh document. Confirm the server bookmark
   // before unloading, then verify the next document reads that durable value.
   await expect.poll(async () => {
@@ -132,7 +174,7 @@ test("a stale preparation card resumes an interview already started elsewhere", 
   await startOperationalAssessment(page.request, assessment);
   const started = await read();
   await entry.click();
-  await expect(page.getByLabel("Assessment section", { exact: true }).locator("option")).toHaveCount(12);
+  await expect(page.getByLabel("Assessment section", { exact: true }).locator('option:not([value="all-questions"])')).toHaveCount(12);
   await expect(page.getByRole("dialog", { name: "Begin interview", exact: true })).toHaveCount(0);
   expect((await read()).started_at).toBe(started.started_at);
 });
@@ -154,24 +196,26 @@ for (const width of [1440, 834]) test(`assessment keeps its section and question
   const answer = page.locator("#assessment-family_involvement");
 
   await page.goto(`${workspace}&workspaceStage=assessment&assessmentSection=social_support`);
+  await waitForAssessmentReady(page);
   await answer.focus();
-  await expect(page).toHaveURL(/assessmentQuestion=family_involvement/);
-  await expect.poll(async () => (await savedPosition())?.assessmentQuestion).toBe("family_involvement");
+  await expect(answer).toBeFocused();
 
   // The sticky header and footer must never cover the question being answered.
   const field = (await answer.boundingBox())!;
-  const header = (await page.getByTestId("workspace-folder-header").boundingBox())!;
+  const header = (await page.getByRole("navigation", { name: "Assessment sections", exact: true }).boundingBox())!;
   const footer = (await page.locator('footer[aria-label="Assessment actions"]').boundingBox())!;
   expect(field.y).toBeGreaterThanOrEqual(header.y + header.height);
   expect(field.y + field.height).toBeLessThanOrEqual(footer.y);
   await page.screenshot({ path: info.outputPath(`continuity-working-${width}.png`), animations: "disabled" });
 
+  await leaveInterviewFullScreen(page);
   for (const away of ["Workspace files", "Workspace activity"]) {
     await page.getByRole("button", { name: away, exact: true }).click();
     await expect(page.locator("[data-assessment-working-section]")).toBeHidden();
     await expect(page.locator("[data-assessment-working-section]").locator("xpath=ancestor::*[@inert][1]")).toHaveAttribute("inert", "");
     // Visiting another page must not discard the assessment position.
     await expect.poll(async () => (await savedPosition())?.assessmentSection).toBe("social_support");
+    await expect.poll(async () => (await savedPosition())?.assessmentQuestion).toBe("family_involvement");
   }
   await page.getByRole("navigation", { name: "Workspace stages", exact: true }).getByRole("button", { name: /Assessment$/ }).click();
   await expect(page).toHaveURL(/assessmentSection=social_support/);

@@ -76,7 +76,7 @@ test("chart drop, updated copy, cancel and reopen preserve files and existing ev
   expect(await inventory()).toHaveLength(1);
   expect(await (await page.request.get(originalFile.downloadUrl)).text()).toBe(original);
   await page.unroute("**/api/uploads/create-url");
-  await page.getByRole("region", { name: "Saving" }).getByRole("button", { name: "Retry", exact: true }).click();
+  await page.getByRole("region", { name: "Saving" }).getByRole("button", { name: "Retry saving", exact: true }).click();
   await expect.poll(async () => (await inventory()).length).toBe(2);
   const newFile = (await inventory()).find((file) => file.name === "new-copy.txt")!;
   expect(newFile.category).toBe("Medication list");

@@ -377,32 +377,15 @@
     .verticalFlow .stageTab:hover:not(:disabled):not([aria-current="page"]) { background: var(--color-segment); transform: none; }
     .verticalFlow .stageTab[aria-current="page"] { border-color: var(--tab-edge); background: var(--tab-fill); color: var(--tab-ink); transform: none; }
     .verticalFlow .stageTab[aria-current="page"]::after { display: none; }
-    .verticalFlow .stageTab[data-step-home="true"] { margin-bottom: 8px; }
-    .verticalFlow .stageTab[data-step-home="true"]::before { content: ""; position: absolute; right: 8px; bottom: -6px; left: 8px; height: 1px; background: var(--color-sheet-border); }
-    .stepMarker { position: relative; display: grid; place-items: center; flex-shrink: 0; width: 22px; height: 22px; border: 2px dashed var(--color-folder-edge); border-radius: 50%; background: var(--color-paper); color: var(--color-paper); }
-    .stageTab[data-step-home="true"] .stepMarker { border: 0; background: transparent; color: var(--tab-ink); }
-    .stageTab[data-step-state="active"] .stepMarker { border-style: solid; border-color: var(--tab-ink); }
-    .stageTab[data-step-state="active"] .stepMarker::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--tab-ink); }
-    .stageTab[data-step-state="done"] .stepMarker { border: 0; background: var(--tab-ink); }
     /* Connector between progress steps. */
-    .stageTab[data-step-state]:not(:last-child) .stepMarker::after { content: ""; position: absolute; top: calc(100% + 2px); left: calc(50% - 1px); width: 2px; height: 22px; background: var(--color-folder-edge); }
-    .stageTab[data-step-state="done"]:not(:last-child) .stepMarker::after { background: var(--tab-ink); }
     .verticalFlow .presence { margin-left: 0; flex-direction: column; align-items: stretch; }
     /* Create referral: a plain filled button, not the current design's green folder tab. */
-    .verticalFlow .createTab.createTab { width: 100%; min-width: 0; min-height: 40px; justify-content: flex-start; gap: 8px; padding: 0 12px; border: 1px solid var(--color-action); border-radius: var(--radius-input); background: var(--color-action); color: var(--color-on-fill); font-size: var(--text-label); font-weight: 600; box-shadow: var(--shadow-card); }
+    .verticalFlow .createTab.createTab { width: 100%; min-width: 0; min-height: 40px; justify-content: flex-start; gap: 8px; padding: 0 12px; border: 2px solid var(--color-night); border-radius: var(--radius-input); background: var(--color-action); color: var(--color-on-action); font-size: var(--text-label); font-weight: 600; box-shadow: var(--shadow-card); }
     .verticalFlow .createTab svg { width: 16px; height: 16px; }
-    .verticalFlow .createTab:hover:not(:disabled) { background: color-mix(in srgb, var(--color-action) 85%, black); }
+    .verticalFlow .createTab:hover:not(:disabled) { background: var(--color-action-hover); }
     .verticalFlow .createTab:active:not(:disabled) { box-shadow: none; }
     .verticalFlow .tabRow .createTab:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
-    /* Steps hang under Chart: smaller markers on one line down from the Chart icon, no divider between. */
-    .verticalFlow .stageTab[data-step-home="true"] { margin-bottom: 0; }
-    .verticalFlow .stageTab[data-step-home="true"]::before { display: none; }
-    .verticalFlow .stageTab[data-step-home="true"] .stepMarker::after { content: ""; position: absolute; top: calc(100% + 3px); left: calc(50% - 1px); width: 2px; height: 18px; background: var(--color-folder-edge); }
-    .verticalFlow .stageTab[data-step-state], .verticalFlow .stageTab + .stageTab[data-step-state] { min-height: 36px; font-size: var(--text-label); }
-    .verticalFlow .stageTab[data-step-state] .stepMarker { width: 14px; height: 14px; margin-inline: 4px; border-width: 1.5px; }
-    .verticalFlow .stageTab[data-step-state="active"] .stepMarker::before { width: 6px; height: 6px; }
-    .verticalFlow .stageTab[data-step-state="done"] .stepMarker svg { width: 9px; height: 9px; }
-    .verticalFlow .stageTab[data-step-state]:not(:last-child) .stepMarker::after { top: calc(100% + 3px); height: 18px; left: calc(50% - 1px); }
+    /* The stages are destinations; completion is a separate mark inside each control. */
     .verticalFlow .presence + .actions { margin-left: 0; }
     .verticalFlow .actions { flex-direction: column; align-items: stretch; gap: 0; margin: 0; padding-top: 8px; border-top: 1px solid var(--color-sheet-border); }
     .verticalFlow .actions > * { width: 100%; min-height: 40px; justify-content: flex-start; padding-inline: 8px; font-size: var(--text-label); text-align: left; }
@@ -446,8 +429,6 @@
     .verticalFlow > .stepContinue > button:hover { border-color: var(--color-ink-muted); box-shadow: var(--shadow-card-hover); }
     .verticalFlow > .stepContinue > button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
     /* A new referral's only step is Intake, and it is the one in progress. */
-    .verticalFlow .stageTab[data-folder-stage="1"][aria-current="page"][data-step-state="todo"] .stepMarker { border-style: solid; border-color: var(--tab-ink); }
-    .verticalFlow .stageTab[data-folder-stage="1"][aria-current="page"][data-step-state="todo"] .stepMarker::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--tab-ink); }
     .verticalFlow .assessmentTools { margin: 0; }
     /* Trash is a row like Files and Activity, in red (owner, 2026-09-26). */
     .verticalFlow .actions > .trashTab { color: var(--color-danger); }
@@ -460,8 +441,6 @@
     /* The merged-changes check has no visible mark in the rail (owner: "don't need that"); screen readers still hear it. */
     .verticalFlow .actions > .syncStatus { position: absolute; width: 1px; min-height: 0; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
     .railMeta { display: flex; flex-direction: column; gap: 8px; margin-top: -8px; padding: 0 8px; color: var(--color-ink-muted); font-size: var(--text-label); line-height: var(--text-label--line-height); overflow-wrap: anywhere; }
-    .railProgress { display: block; height: 4px; overflow: hidden; border-radius: var(--radius-chip); background: var(--color-track); }
-    .railProgress > span { display: block; height: 100%; border-radius: inherit; background: var(--color-status-done); }
     /* Walk the flow: a quiet way to the next step, floating with the rail (the page's own action stays primary). */
     .nextStepBar { display: flex; margin: 2px 0 0; }
     .nextStepBar > button { display: inline-flex; flex: 1; align-items: center; justify-content: space-between; gap: 6px; min-height: 40px; padding: 0 12px; border: 1px solid var(--color-card-border); border-radius: var(--radius-pill); background: var(--color-paper); color: var(--color-ink-2); font-size: var(--text-label); font-weight: 600; box-shadow: var(--shadow-card); transition: box-shadow var(--duration-fade) ease, border-color var(--duration-fade) ease; }
@@ -555,6 +534,7 @@
     /* The chart review wraps the cards in its own full-bleed surfaces; let the wash show through them. */
     .verticalFlow .connectedFolder section[aria-label="Assessment chart review"], .verticalFlow .connectedFolder main:has(> section[aria-label="Assessment chart review"]) { background: transparent; }
     .verticalFlow :is(article[aria-label="Referral chart"], section[aria-label="Document checklist"], section[aria-label="Admission requirements"]) { border-color: var(--color-card-border); border-radius: var(--radius-paper); background: var(--color-paper); box-shadow: var(--shadow-card); }
+    .verticalFlow section[data-admission-checklist] { border: 0; background: transparent; box-shadow: none; }
     /* One medical sheet: ruled fields and section bands, not separated floating cards. */
     .verticalFlow article[aria-label="Referral chart"] { overflow: hidden; border: 1px solid var(--color-control-border); background: var(--color-paper); box-shadow: none; }
     .verticalFlow article[aria-label="Referral chart"] > header { border-bottom: 1px solid var(--color-control-border); background: var(--color-sheet); }
@@ -583,7 +563,7 @@
       .verticalFlow dl[aria-label="Contact information"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     }
     /* Empty fields step back so what is known stands out; the wording is unchanged. */
-    .verticalFlow article[aria-label="Referral chart"] [data-chart-field][data-missing] dd { color: color-mix(in srgb, var(--color-ink-muted) 75%, var(--color-paper)); font-weight: 400; }
+    .verticalFlow article[aria-label="Referral chart"] [data-chart-field][data-missing] dd { color: var(--color-ink-muted); font-weight: 400; }
     /* Pencils stay visible (owner decision) but quiet until the field is hovered or focused. */
     .verticalFlow article[aria-label="Referral chart"] [data-chart-edit] > span[aria-hidden="true"] { color: var(--color-ink-muted); opacity: 0.55; transition: opacity var(--duration-fade) ease; }
     .verticalFlow article[aria-label="Referral chart"] [data-chart-field]:is(:hover, :focus-within) [data-chart-edit] > span[aria-hidden="true"] { color: var(--color-link); opacity: 1; }
@@ -623,4 +603,181 @@
   .interviewRailDivider:hover::after, .interviewRailDivider:focus-visible::after, .interviewRailDivider:active::after { border-color: var(--color-link); }
   .interviewRailDivider:hover svg, .interviewRailDivider:focus-visible svg, .interviewRailDivider:active svg { color: var(--color-link); }
   .interviewRailDivider:focus-visible { outline: none; }
+}
+
+/* Carelog family working surface; the existing stage navigation and scroll owners stay in place. */
+@media (min-width: 1024px) {
+  .verticalFlow .actions > .utilityTab { min-height: 48px; padding: 8px 10px; font-size: 14px; background: var(--color-segment); color: var(--color-ink-2); }
+  .verticalFlow .actions > .utilityTab svg { width: 18px; height: 18px; }
+  .verticalFlow .saveCenter { border: 0; background: transparent; }
+  .verticalFlow .saveCenterSummary { padding: 8px; min-height: 40px; }
+  .verticalFlow > :is(.readingPages, :global(.pipeline-step-enter)) > section { margin-top: 0; padding: 0; border: 0; border-radius: 0; background: var(--color-paper); box-shadow: none; }
+  .verticalFlow > :is(.readingPages, :global(.pipeline-step-enter)) > section::before,
+  .verticalFlow > :is(.readingPages, :global(.pipeline-step-enter)) > section::after { display: none; }
+  .verticalFlow .connectedFolder > div > div { border: 0; border-radius: 0; box-shadow: none; }
+  .verticalFlow .stepContinue > button { border: 2px solid var(--color-night); background: var(--color-action); color: var(--color-on-action); box-shadow: none; }
+  .verticalFlow .stepContinue > button svg { color: inherit; }
+}
+
+.saveCenterSummary { display: flex; align-items: center; gap: 8px; min-height: 40px; margin: 0; color: var(--color-ink-2); font-size: var(--text-label); line-height: var(--text-label--line-height); }
+.saveCenterSummary svg { flex-shrink: 0; }
+.saveCenter[data-state="saved"] .saveCenterSummary svg { color: var(--color-status-done); }
+.saveCenter[data-state="waiting"] .saveCenterSummary { background: var(--color-warning-soft); color: var(--color-warning); }
+.saveCenter[data-state="failed"] .saveCenterSummary { background: var(--color-danger-soft); color: var(--color-danger); }
+
+/* Connected client journey. Location and recorded progress stay independent. */
+.stagePicture, .stageStop, .stageDetail, .stageDate { display: none; }
+.stageSurface, .stageCopy { display: contents; }
+@media (min-width: 1024px) {
+  .verticalFlow > .header { container-type: inline-size; }
+  .verticalFlow .stages { gap: 8px; margin-top: 12px; }
+  .verticalFlow .stageTab, .verticalFlow .stageTab + .stageTab {
+    display: grid;
+    grid-template-columns: 24px minmax(0, 1fr);
+    gap: 8px;
+    min-height: 88px;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: var(--color-ink-2);
+    white-space: normal;
+  }
+  .verticalFlow .stageTab[aria-current="page"],
+  .verticalFlow .stageTab:hover:not(:disabled):not([aria-current="page"]) { border: 0; padding: 0; background: transparent; color: var(--color-ink-2); }
+  .verticalFlow .stageEntry:not(:last-child)::before {
+    content: "";
+    position: absolute;
+    left: 11px;
+    top: 52px;
+    height: calc(100% - 24px);
+    border-left: 2px dashed var(--color-card-border);
+    pointer-events: none;
+  }
+  .verticalFlow .stageEntry[data-step-state="done"]::before { border-left-style: solid; border-color: var(--color-status-done); }
+  .stageStop {
+    display: grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    z-index: 1;
+    align-self: start;
+    margin-top: 24px;
+    border: 1px solid var(--color-status-pending);
+    border-radius: var(--radius-pill);
+    background: var(--color-paper);
+    color: var(--color-status-pending);
+    font-size: var(--text-meta);
+    line-height: 1;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .stageTab[data-step-state="done"] .stageStop { border-color: var(--color-status-done); background: var(--color-status-done-soft); color: var(--color-status-done); }
+  .stageStop svg { animation: journeyCheck var(--motion-confirm) var(--ease-open); }
+  .stageTab[data-step-state="active"] .stageStop { border: 2px solid var(--color-status-in-progress); color: var(--color-status-in-progress); outline: 3px solid var(--color-stage-blue-tile); outline-offset: 2px; }
+  .stageSurface {
+    display: grid;
+    grid-template-columns: 32px minmax(0, 1fr);
+    align-items: center;
+    gap: 8px;
+    align-self: stretch;
+    padding: 12px 6px;
+    border: 1px solid transparent;
+    border-top: 3px solid transparent;
+    border-radius: var(--radius-sheet);
+    transition: background-color var(--motion-state) ease, border-color var(--motion-state) ease;
+  }
+  .stageTab[aria-current="page"] .stageSurface { border-color: var(--color-card-border); border-top-color: var(--tab-ink); background: var(--color-card-warm); }
+  .stagePicture { display: block; transition: transform var(--duration-move) var(--ease-open); }
+  .stagePicture svg { width: 32px; height: 32px; }
+  .stageCopy { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .stageLabel { font-size: var(--text-label); line-height: var(--text-label--line-height); font-weight: 700; }
+  .stageDetail, .stageDate { display: block; color: var(--color-ink-muted); font-size: var(--text-meta); line-height: var(--text-meta--line-height); font-weight: 400; }
+  .stageDate { font-variant-numeric: tabular-nums; }
+  .stageTab[data-step-state="done"] .stageDetail { color: var(--color-status-done); }
+  .stageTab[data-step-state="active"] .stageDetail { color: var(--color-status-in-progress); }
+  .stageTab[data-step-neutral] .stageStop { border-color: var(--color-status-pending); background: var(--color-segment); color: var(--color-status-pending); }
+  .stageTab[data-step-neutral] .stageDetail { color: var(--color-ink-muted); }
+  .verticalFlow .stageTab[data-step-neutral]::before { border-color: var(--color-card-border); }
+  .stageTab:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 3px; border-radius: var(--radius-sheet); }
+  .verticalFlow .actions { gap: 4px; }
+  .verticalFlow .actions > .utilityTab { background: transparent; font-size: var(--text-label); }
+  .verticalFlow .actions > .trashTab { margin-top: 12px; color: var(--color-ink-muted); }
+  .verticalFlow .actions > .trashTab:hover:not(:disabled) { background: var(--color-danger-soft); color: var(--color-danger); }
+}
+@media (min-width: 1280px) {
+  .verticalFlow { grid-template-columns: 224px minmax(0, 1fr); }
+  .verticalFlow .nameLabel { font-size: var(--text-section); line-height: var(--text-section--line-height); }
+  .stageSurface { grid-template-columns: 32px minmax(0, 1fr); gap: 8px; padding: 12px 8px; }
+  .stagePicture svg { width: 32px; height: 32px; }
+  .stageLabel { font-size: var(--text-value); line-height: var(--text-value--line-height); }
+}
+@container (max-width: 220px) {
+  .stageSurface { grid-template-columns: 28px minmax(0, 1fr); gap: 6px; padding: 12px 4px; }
+  .stagePicture svg { width: 28px; height: 28px; }
+  .stageLabel { font-size: var(--text-label); line-height: var(--text-label--line-height); }
+  .saveCenterSummary { white-space: normal; }
+}
+@media (min-width: 1024px) and (hover: hover) and (pointer: fine) {
+  .stageTab:hover .stageSurface { background: var(--color-card-warm); }
+  .stageTab[aria-current="page"]:hover .stageSurface { background: var(--color-card-warm); }
+  .stageTab:hover .stagePicture, .stageTab:focus-visible .stagePicture { transform: translateY(-2px); }
+}
+@keyframes journeyCheck { from { opacity: 0; transform: scale(0.7); } to { opacity: 1; transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) {
+  .stageStop svg { animation: none; }
+  .stageSurface, .stagePicture { transition: none; transform: none; }
+}
+@media (forced-colors: active) {
+  .stageTab[aria-current="page"] .stageSurface { border-color: Highlight; }
+  .stageStop { color: CanvasText; border-color: CanvasText; }
+}
+
+/* A draft has no journey yet: keep its existing destinations in one compact header. */
+@media (min-width: 1024px) {
+  .verticalFlow.newIntake { display: block; max-width: 1240px; padding: 20px 32px 32px; }
+  .newIntake > .header { position: relative; top: auto; container-type: normal; margin: 0 0 20px; padding: 0; }
+  .newIntake .tabRow { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .newIntake .identity { flex: 1 1 240px; width: auto; }
+  .newIntake .nameLabel { padding: 0; font-size: var(--text-title); line-height: var(--text-title--line-height); }
+  .newIntake .stages { margin: 0; }
+  .newIntake .stages[data-single-step] .stageTab { display: flex; width: auto; min-height: var(--spacing-control); padding: 0; }
+  .newIntake .stages[data-single-step] :is(.stageStop, .stagePicture) { display: none; }
+  .newIntake .stages[data-single-step] .stageSurface { display: flex; align-items: center; min-height: var(--spacing-control); padding: 8px 16px; border: 0; border-radius: var(--radius-input); }
+  .newIntake .stages[data-single-step] [aria-current="page"] .stageSurface { background: var(--color-stage-blue-tile); color: var(--color-stage-blue); }
+  .newIntake .actions { flex-direction: row; align-items: center; padding: 0; border: 0; gap: 8px; }
+  .newIntake .actions > .utilityTab { width: auto; min-height: var(--spacing-control); padding: 8px 16px; background: transparent; font-size: var(--text-label); }
+  .newIntake .actions > .utilityTab[aria-current="page"] { background: var(--color-stage-blue-tile); color: var(--color-stage-blue); }
+  .newIntake .intakeFooter { margin: 16px 0 0; padding: 12px 0; border-radius: 0; border-color: var(--color-paper-rule); }
+}
+@media (max-width: 1023px) {
+  .intakeFooter { position: sticky; bottom: 0; z-index: 5; display: flex; justify-content: flex-end; padding: 12px 16px max(12px, env(safe-area-inset-bottom)); border-top: 1px solid var(--color-paper-rule); background: var(--color-paper); }
+  .intakeFooter .createTab.createTab { width: 100%; height: auto; min-height: var(--spacing-action); gap: 8px; padding: 12px 20px; border: 2px solid var(--color-night); border-radius: var(--radius-input); background: var(--color-action); color: var(--color-on-action); font-size: var(--text-value); }
+  .intakeFooter .createTab > span { display: inline; }
+  .intakeFooter .createTab::after { content: none; }
+}
+
+.phoneWorkspace .tabRow:has([data-workspace-notes]) { grid-template-columns: minmax(0, 1fr) minmax(108px, 140px) auto auto; }
+.phoneWorkspace [data-workspace-notes] { grid-column: 3; grid-row: 1; }
+.phoneWorkspace .tabRow:has([data-workspace-notes]) .stages { grid-column: 2; grid-row: 1; }
+
+/* Decision is a chart tool; the journey contains the three working stages. */
+.stageEntry { display: flex; align-items: flex-end; position: relative; min-width: 0; }
+.filedDecision { display: flex; align-items: center; gap: 8px; min-height: var(--spacing-control); padding: 8px; color: var(--color-ink-muted); font-size: var(--text-meta); font-weight: 600; }
+.filedDecision span { font-weight: 400; overflow-wrap: anywhere; }
+.filedDecision:hover, .filedDecision[aria-current="page"] { color: var(--color-link); text-decoration: underline; text-underline-offset: 4px; }
+.filedDecision:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.phoneWorkspace .stageEntry { display: none; }
+@media (min-width: 1024px) {
+  .verticalFlow .stageEntry { display: block; width: 100%; }
+  .verticalFlow .stageEntry > .stageTab { width: 100%; }
+  .verticalFlow .filedDecision { margin: -4px 0 4px 32px; padding: 4px 12px; }
+  .verticalFlow .filedDecision::before { content: ""; width: 12px; height: 12px; align-self: start; margin-top: 8px; border-left: 1px solid var(--color-control-border); border-bottom: 1px solid var(--color-control-border); }
+}
+
+.phoneWorkspace .tabRow:has([data-workspace-notes]) .actions { grid-column: 4; }
+.phoneWorkspace .actions .trashTab { width: var(--spacing-control); min-height: var(--spacing-control); padding: 0; justify-content: center; }
+.phoneWorkspace .actions .trashTab span { display: none; }
+@media (max-height: 500px) and (orientation: landscape) {
+  .phoneWorkspace .connectedFolder:has([data-phone-interview]) > div { padding: 0; }
 }

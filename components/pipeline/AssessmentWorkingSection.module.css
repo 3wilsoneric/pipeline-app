@@ -43,8 +43,8 @@
   .phaseSteps li > span { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border: 1px solid #d3dfd9; border-radius: 50%; font-size: 12px; }
   .phaseSteps li[aria-current="step"] > span { border-color: #146c54; background: #146c54; color: #fff; }
   .workMode p { max-width: 72ch; margin: 0; color: var(--color-ink-muted); font-size: 13px; line-height: 1.45; }
-  .beginAssessment { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; gap: 8px; min-height: 44px; padding: 10px 18px; border: 1px solid var(--color-primary-hover); border-radius: var(--radius-input); background: var(--color-action); color: var(--color-paper); font-size: 15px; font-weight: 600; }
-  .beginAssessment:hover { background: color-mix(in srgb, var(--color-action) 85%, black); }
+  .beginAssessment { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; gap: 8px; min-height: 44px; padding: 10px 18px; border: 2px solid var(--color-night); border-radius: var(--radius-input); background: var(--color-action); color: var(--color-on-action); font-size: 15px; font-weight: 600; }
+  .beginAssessment:hover { background: var(--color-action-hover); }
   .beginAssessment:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 3px; }
   .beginAssessment:disabled { opacity: .6; }
   /* Same secondary button as Chart beside it. */
@@ -161,7 +161,7 @@
   /* Split interview (docs/design/DECISIONS.md, "Split interview"): the Chart as text on the left at the dragged
      width, one line, the questions on the right. */
   @media (min-width: 1024px) {
-    .book[data-split]:not(.preparing) { grid-template-columns: minmax(0, var(--split, 50%)) minmax(min(440px, 60%), 1fr); column-gap: 0; }
+    .book[data-split]:not(.preparing) { grid-template-columns: minmax(min(260px, 42%), var(--split, 38%)) minmax(min(440px, 58%), 1fr); column-gap: 0; }
     .book[data-split]:not(.preparing) .editor { padding-left: 32px; }
   }
   @media (max-width: 1023px) {
@@ -208,7 +208,7 @@
   .navigation[data-with-work-mode] .sectionProgress { font-size: var(--text-label); }
   .navigation[data-with-work-mode] .sectionProgress strong { font-size: var(--text-label); }
   .navigation[data-with-work-mode] .prepActions { gap: 6px; }
-  .navigation[data-with-work-mode] .prepActions :is(button, [role="button"]) { min-height: 36px; padding-inline: 10px; font-size: var(--text-label); }
+  .navigation[data-with-work-mode] .prepActions :is(button, [role="button"]) { min-height: var(--spacing-control); padding-inline: 10px; font-size: var(--text-label); }
   .navigation[data-with-work-mode] .prepActions svg { width: 15px; height: 15px; }
   .navigation[data-with-work-mode] .sectionProgress { order: 2; min-width: 0; max-width: none; margin-left: auto; white-space: nowrap; }
   .navigation[data-with-work-mode] .prepActions { order: 3; }
@@ -235,7 +235,8 @@
   [data-assessment-stacked] .navigation { position: sticky; top: 0; z-index: 4; background: var(--color-paper); box-shadow: 0 1px 0 var(--color-paper-rule); }
   /* Current information stays beside the questions while the page scrolls and follows the current topic. */
   [data-assessment-stacked] .reference { position: sticky; top: 132px; align-self: start; max-height: calc(100dvh - 250px); overflow: auto; }
-  .groupHeading { margin: 36px 0 12px; padding-top: 24px; border-top: 1px solid var(--color-paper-rule); scroll-margin-top: 120px; }
+  /* The page scroller already reserves the sticky questionnaire navigation. */
+  .groupHeading { margin: 36px 0 12px; padding-top: 24px; border-top: 1px solid var(--color-paper-rule); scroll-margin-top: 0; }
   /* The sticky section picker already names the first group; keep its heading for jumps and screen readers only. */
   [data-assessment-question-page] > .groupHeading:first-of-type { height: 1px; margin: 0 0 -1px; padding: 0; overflow: hidden; clip-path: inset(50%); border: 0; white-space: nowrap; }
   .sectionSteps { display: flex; flex: 0 0 auto; align-items: center; gap: 16px; margin-left: auto; }
@@ -250,19 +251,9 @@
   .fullField { grid-column: 1 / -1; }
   .book .editor [data-working-field] label[for] { font-size: 17px; font-weight: 600; line-height: 1.5; color: var(--color-ink); }
   .book .editor [data-working-field] label[for] + span { font-size: 12px; font-weight: 600; color: var(--color-ink-muted); }
-  .book .editor [data-working-field] :is(input:not([type="checkbox"]), select, textarea) { min-height: 48px; font-size: 17px; line-height: 1.6; padding: 10px 14px; border-color: var(--color-control-border); border-radius: var(--radius-input); background: var(--color-paper); box-shadow: none; }
+  .book .editor [data-working-field] :is(input:not([type="checkbox"]), select, textarea) { font-size: 17px; line-height: 1.6; padding: 10px 14px; border-color: var(--color-control-border); border-radius: var(--radius-input); background: var(--color-paper); box-shadow: none; }
   .book .editor [data-working-field] textarea { min-height: 150px; }
-  .book .editor [data-working-field] [role="group"] { height: auto; min-height: 48px; }
-  .book .editor [data-working-field] [role="group"] :is(button, label) { min-height: 48px; font-size: 15px; font-weight: 500; }
-  .book .editor [data-working-field] [role="group"]:has(input[type="checkbox"]) { grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); }
-  /* Single-choice answers are separate pills; the chosen one takes the primary tint. */
-  .book .editor [data-working-field] [role="group"]:not(:has(input[type="checkbox"])) { display: flex; flex-wrap: wrap; gap: 8px; }
-  .book .editor [data-working-field] [role="group"]:not(:has(input[type="checkbox"])) > button { flex: 1 1 0; min-width: 96px; padding: 8px 16px; border: 1px solid var(--color-control-border); border-radius: var(--radius-pill); background: var(--color-paper); color: var(--color-ink-2); transition: background var(--duration-fade) ease, border-color var(--duration-fade) ease; }
-  .book .editor [data-working-field] [role="group"]:not(:has(input[type="checkbox"])) > button:hover:not(:disabled) { border-color: var(--color-ink-muted); background: var(--color-sheet); }
-  .book .editor [data-working-field] [role="group"]:not(:has(input[type="checkbox"])) > button[aria-pressed="true"] { border-color: var(--color-primary); background: var(--color-primary-soft); color: var(--color-primary-hover); font-weight: 600; }
   .book .editor [data-working-field] p { font-size: 14px; line-height: 1.6; }
-  .book .editor [data-guide-target="assessment-answer-help"] { min-height: 44px; }
-  .book .editor [data-guide-target="assessment-answer-help"] > span { font-size: 12px; }
   .recorded { display: block; margin-top: 7px; color: #267354; font-size: 13px; }
   .empty { max-width: 48ch; padding: 20px 0; color: #5c6a63; font-size: 17px; line-height: 1.65; }
   .book :is(button, select):focus-visible, .navigation :is(button, select, input, summary):focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
@@ -281,6 +272,9 @@
   .footer[aria-label="Assessment actions"] { border: 0; border-top: 1px solid var(--color-paper-rule); border-radius: 0; background: #fff; box-shadow: 0 -2px 8px #213d2f06; }
   .footer > div:last-child:not(.footerUtilities) { margin-left: auto; }
   .footerUtilities { position: relative; display: flex; flex: 1 1 160px; align-items: center; gap: 20px; min-width: 0; }
+  @media (max-width: 359px) {
+    .footer .footerUtilities { flex-wrap: wrap; gap: 0; }
+  }
   .footerUtilities .returnToInterview { min-height: 44px; padding: 4px 8px; border: 0; background: transparent; box-shadow: none; color: #0f705a; font-size: 13px; font-weight: 600; line-height: 1.2; }
   .saveRecovery { display: inline-flex; align-items: center; gap: 6px; min-width: 0; min-height: 44px; padding: 6px; margin-left: -6px; border-radius: 5px; color: #52685c; text-align: left; }
   .saveRecovery > svg { flex-shrink: 0; }
@@ -291,27 +285,33 @@
   .footerUtilities [role="group"][aria-label="Assessment details"] { top: auto; right: auto; bottom: calc(100% + 10px); left: 0; width: min(320px, calc(100vw - 48px)); padding: 8px; border-color: #ccd6cf; box-shadow: 0 8px 28px #1c332524, 0 2px 6px #1c332514; }
   .footer :is(button, summary, select):focus-visible { outline: 2px solid var(--color-focus); outline-offset: 3px; }
   .headerTools { display: flex; align-items: flex-end; gap: 8px; min-width: 152px; min-height: 60px; }
-  .quickRecommendation { --decision-fill: #fff; --decision-edge: #c9d3ce; --decision-ink: #314b3e; position: relative; flex: 0 1 152px; min-width: 126px; }
-  .quickRecommendation[data-outcome="accept"] { --decision-fill: #edf6ef; --decision-edge: #a5c6b2; --decision-ink: #245e40; }
-  .quickRecommendation[data-outcome="decline"] { --decision-fill: #fcf0ee; --decision-edge: #d9b5af; --decision-ink: #784b45; }
-  .quickRecommendation[data-outcome="needs_more_information"] { --decision-fill: #fcf7e8; --decision-edge: #d7c693; --decision-ink: #695821; }
-  .quickRecommendation label > span { display: block; margin: 0 0 2px 2px; color: #5e6c64; font-size: 12px; line-height: 14px; font-weight: 600; white-space: nowrap; }
-  .quickRecommendation select { width: 100%; min-height: 44px; border: 1px solid var(--decision-edge); border-radius: 7px; padding: 6px 8px; background: var(--decision-fill); color: var(--decision-ink); font-size: 15px; font-weight: 650; cursor: pointer; }
+  .earmarkDock { display: flex; align-items: center; flex: 0 1 auto; min-width: 200px; min-height: calc(var(--spacing-control) + var(--text-meta--line-height)); }
+  .quickRecommendation { --decision-fill: var(--color-task-peach); --decision-ink: var(--color-ink); position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; color: var(--decision-ink); }
+  .quickRecommendation[data-outcome="accept"] { --decision-fill: var(--color-status-done-soft); --decision-ink: var(--color-status-done); }
+  .quickRecommendation[data-outcome="decline"] { --decision-fill: var(--color-danger-soft); --decision-ink: var(--color-danger); }
+  .quickRecommendation[data-outcome="needs_more_information"] { --decision-fill: var(--color-warning-soft); --decision-ink: var(--color-warning); }
+  .quickRecommendation > svg { flex: none; width: 28px; height: 34px; fill: var(--decision-fill); stroke: var(--decision-ink); }
+  .quickRecommendation label { display: grid; min-width: 0; }
+  .quickRecommendation label > span { color: var(--color-ink-muted); font-size: var(--text-meta); line-height: var(--text-meta--line-height); font-weight: 500; }
+  .quickRecommendation select { width: 164px; min-height: var(--spacing-control); margin: 0; border: 0; border-bottom: 2px solid var(--decision-ink); border-radius: 0; padding: 4px 20px 4px 0; background-color: transparent; color: var(--decision-ink); font-size: var(--text-label); font-weight: 650; cursor: pointer; }
   .quickRecommendation select:disabled { cursor: default; opacity: 1; }
   .quickRecommendation[aria-busy="true"] select { opacity: .65; }
-  .quickRecommendation [role="alert"] { position: absolute; z-index: 30; top: calc(100% + 6px); right: 0; width: min(300px, calc(100vw - 32px)); padding: 12px; border: 1px solid #cbd5cf; border-radius: 7px; background: #fff; box-shadow: 0 5px 18px #193b2920; color: #47594f; font-size: 14px; line-height: 1.5; }
-  .recoveryButton { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 8px 10px; border: 1px solid #c7d5cc; border-radius: 7px; background: #f8fbf9; color: #275540; font-size: 14px; font-weight: 600; white-space: nowrap; }
+  .quickRecommendation [role="alert"] { position: absolute; z-index: 30; bottom: calc(100% + 12px); left: 0; width: min(300px, calc(100vw - 32px)); padding: 12px; border: 1px solid var(--color-danger); border-radius: var(--radius-input); background: var(--color-paper); box-shadow: var(--shadow-popover); color: var(--color-danger); font-size: var(--text-meta); line-height: 1.5; }
+  .recoveryButton { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: var(--spacing-control); padding: 8px 10px; border: 1px solid var(--color-control-border); border-radius: var(--radius-input); background: var(--color-paper); color: var(--color-link); font-size: var(--text-meta); font-weight: 600; }
   .recoveryButton svg { flex-shrink: 0; }
-  .recoveryButton:hover { background: #eaf2ed; border-color: #9eb7a8; }
+  .recoveryButton:hover { border-color: var(--color-link); }
   .headerTools :is(button, select):focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+  .decisionReviewTarget { margin: 20px; scroll-margin-top: 72px; }
+  .decisionReviewTarget:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 6px; }
+  @media (prefers-reduced-motion: no-preference) {
+    .quickRecommendation[data-outcome]:not([data-outcome=""]) > svg { animation: bookmark-saved var(--duration-move) var(--ease-open); }
+  }
+  @keyframes bookmark-saved { from { transform: translateY(-5px) rotate(-12deg); } to { transform: none; } }
   @media (max-width: 639px) {
-    .headerTools { min-height: 44px; }
-    .quickRecommendation { min-width: 0; flex-basis: auto; }
-    .quickRecommendation label { display: flex; align-items: center; gap: 8px; }
-    .quickRecommendation label > span { margin: 0; }
-    .quickRecommendation select { width: 150px; }
-    .quickRecommendation select { font-size: 16px; }
-    .recoveryButton { font-size: 13px; padding-inline: 8px; }
+    .earmarkDock { flex-basis: 100%; min-width: 0; min-height: var(--spacing-control); }
+    .quickRecommendation label { display: flex; align-items: center; gap: 12px; flex: 1; }
+    .quickRecommendation select { flex: 1; width: auto; min-width: 0; font-size: var(--text-value); }
+    .decisionReviewTarget { margin: 16px 12px; }
   }
   @media (forced-colors: active) {
     .quickRecommendation select, .recoveryButton { border-color: ButtonText; background: Canvas; color: ButtonText; }
@@ -319,8 +319,9 @@
   .chartReview { padding: 0 0 32px; background: #fff; }
   .chartReviewToolbar { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 56px; padding-inline: 20px; border-bottom: 1px solid #dde3df; background: #fff; font-size: 14px; color: #54645c; }
   .chartReviewToolbar button { display: flex; align-items: center; gap: 5px; min-height: 44px; color: #286350; font-weight: 600; }
-  .chartReviewToolbar:has(.reviewHeading) { position: relative; flex-wrap: wrap; gap: 14px; padding: 24px clamp(20px, 3vw, 48px); background: linear-gradient(110deg, #f4f8f5, #fff); }
-  .reviewHeading h3 { margin: 0; color: var(--color-ink); font-size: 28px; font-weight: 700; letter-spacing: -.03em; }
+  .chartReviewToolbar:has(.reviewHeading) { position: relative; flex-wrap: wrap; gap: 14px; padding: 24px clamp(20px, 3vw, 48px); background: var(--color-paper); }
+  .reviewHeading { display: flex; align-items: center; gap: 16px; }
+  .reviewHeading h3 { margin: 0; color: var(--color-ink); font-size: var(--text-title); font-weight: 700; letter-spacing: -.03em; }
   .reviewHeading p { margin: 6px 0 0; font-size: 16px; line-height: 1.5; }
   .reviewOverview { padding: 22px clamp(20px, 3vw, 48px); border-bottom: 1px solid var(--color-paper-rule); }
   .reviewFacts { display: flex; flex-wrap: wrap; gap: 16px 48px; margin: 0; }
@@ -337,21 +338,23 @@
   .reviewSectionIndex .reviewChecklist { padding-bottom: 12px; }
   .reviewChecklist { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 32px; padding: 0; margin: 0; list-style: none; }
   .reviewChecklist li { min-width: 0; border-top: 1px solid var(--color-paper-rule); }
-  .reviewChecklist button { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 48px; padding: 9px 0; font-size: 15px; text-align: left; color: #355c4e; }
-  .reviewChecklist button > span:last-child { display: flex; align-items: center; gap: 5px; white-space: nowrap; font-size: 13px; color: var(--color-ink-muted); }
+  .reviewChecklist button { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 4px; width: 100%; min-height: var(--spacing-action); padding: 12px 0; font-size: var(--text-value); text-align: left; color: var(--color-ink); }
+  .reviewChecklist button > span:last-child { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; font-size: var(--text-meta); color: var(--color-ink-muted); }
   .reviewChecklist button:disabled { color: #72766e; cursor: default; }
   .reviewChecklist button:disabled > span:last-child { color: #72766e; }
   .reviewChecklist button:hover:enabled { text-decoration: underline; }
   .reviewChecklist button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -2px; }
-  .reviewRecommendation, .signingNote { margin-top: 22px; padding: 16px 18px; border: 1px solid #d9e2dc; border-radius: 6px; background: #f8fbf9; }
-  .reviewRecommendation h4, .signingNote h4 { margin: 0 0 6px; font-size: 16px; font-weight: 650; color: var(--color-ink); }
+  .reviewRecommendation, .signingNote { margin-top: 24px; padding: 0; border: 0; background: transparent; }
+  .signingNote { padding-top: 20px; border-top: 1px solid var(--color-paper-rule); }
+  .reviewRecommendation h4, .signingNote h4 { margin: 0 0 6px; font-size: var(--text-section); font-weight: 650; color: var(--color-ink); }
   .reviewRecommendation p, .signingNote p { max-width: 78ch; margin: 0 0 10px; font-size: 14px; line-height: 1.55; color: var(--color-ink-muted); }
   .signingNote p:last-child { margin-bottom: 0; }
-  .reviewRecommendation [data-quick-recommendation] { min-height: 44px; }
+  .reviewRecommendation [data-quick-recommendation] { min-height: var(--spacing-action); max-width: 480px; }
+  .reviewRecommendation [data-quick-recommendation] select { min-height: var(--spacing-action); font-size: var(--text-value); }
   .reviewComplete { display: flex; align-items: center; gap: 9px; margin: 20px 0 0; font-size: 15px; color: #286350; }
   .reviewError { flex-basis: 100%; max-height: 22dvh; overflow-y: auto; margin: 0; padding: 10px 12px; border-left: 3px solid #9aa7a0; background: #f7faf9; font-size: 15px; line-height: 1.5; color: #59645e; }
   .reviewDocument { max-width: 1280px; margin: 24px auto 0; padding: 0 clamp(16px, 3vw, 48px); }
-  .reviewDocument [data-assessment-record] { border-color: #d6dfd9; border-radius: 6px; box-shadow: 0 2px 8px #233e3310; overflow: hidden; }
+  .reviewDocument [data-assessment-record] { border: 0; border-radius: 0; box-shadow: none; overflow: hidden; }
   .reviewDocument [data-assessment-record] > section { padding: 28px clamp(20px, 3vw, 36px); }
   .reviewDocument [data-assessment-record] h3 { font-size: 21px; letter-spacing: -.025em; }
   .reviewDocument [data-chart-fact] dt { font-size: 15px; line-height: 1.5; }
@@ -377,20 +380,20 @@
   .chartReview [data-assessment-record] > section > h3 { margin-bottom: 12px; }
   .chartReview [data-assessment-record] > section > dl { row-gap: 14px; }
   .chartReview [data-assessment-record] dd { margin-top: 3px; line-height: 1.6; }
-  .footer [data-assessment-primary-action] > button, .phonePreparationSteps [data-assessment-primary-action] > button { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; height: auto; padding: 10px 20px; border: 1px solid var(--color-primary-hover); border-radius: var(--radius-input); background: var(--color-action); color: var(--color-paper); font-size: 15px; font-weight: 600; }
+  .footer [data-assessment-primary-action] > button, .phonePreparationSteps [data-assessment-primary-action] > button { display: flex; align-items: center; justify-content: center; gap: 12px; min-height: var(--spacing-action); height: auto; padding: 12px 24px; border: 2px solid var(--color-night); border-radius: var(--radius-input); background: var(--color-action); color: var(--color-on-action); font-size: var(--text-value); font-weight: 600; }
   /* Bottom bar, wide screens (owner, 2026-09-26: "this area needs some work"): even padding, the main action a
      size that sits inside the bar, and the save status and Details as matching quiet controls. */
   @media (min-width: 1024px) {
     .footer[aria-label="Assessment actions"] { min-height: 64px; padding: 10px 24px; column-gap: 8px; box-shadow: none; }
     .footer[aria-label="Assessment actions"] .footerUtilities { gap: 4px; }
-    .footer[aria-label="Assessment actions"] .saveRecovery, .footer[aria-label="Assessment actions"] .footerUtilities > details > summary { min-height: 40px; margin: 0; padding: 0 12px; border-radius: var(--radius-input); color: var(--color-ink-2); font-size: var(--text-label); font-weight: 500; }
+    .footer[aria-label="Assessment actions"] .saveRecovery, .footer[aria-label="Assessment actions"] .footerUtilities > details > summary { min-height: var(--spacing-control); margin: 0; padding: 0 12px; border-radius: var(--radius-input); color: var(--color-ink-2); font-size: var(--text-label); font-weight: 500; }
     .footer[aria-label="Assessment actions"] .saveRecovery:hover, .footer[aria-label="Assessment actions"] .footerUtilities > details > summary:hover, .footer[aria-label="Assessment actions"] .footerUtilities > details[open] > summary { background: var(--color-segment); color: var(--color-ink); }
     .footer[aria-label="Assessment actions"] [data-guide-target="assessment-save-status"] { font-size: var(--text-label); }
-    .footer[aria-label="Assessment actions"] [data-assessment-primary-action] > button { min-height: 44px; padding: 0 20px; font-size: var(--text-value); }
+    .footer[aria-label="Assessment actions"] [data-assessment-primary-action] > button { min-height: var(--spacing-action); padding: 12px 24px; font-size: var(--text-value); }
   }
   .phonePreparationSteps { flex-shrink: 0; padding: 8px 12px; border-top: 1px solid var(--color-paper-rule); background: #fff; }
   .phonePreparationSteps :is(button, select):focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
-  .footer [data-assessment-primary-action] > button:not(:disabled):hover { background: color-mix(in srgb, var(--color-action) 85%, black); }
+  .footer [data-assessment-primary-action] > button:not(:disabled):hover { background: var(--color-action-hover); }
   .footer [data-assessment-primary-action] > button:disabled { opacity: .5; cursor: not-allowed; }
   .footer [data-guide-target="assessment-save-status"] { justify-content: flex-start; font-size: 13px; line-height: 1.4; }
   .footer [data-guide-target="assessment-save-status"] > span { overflow-wrap: anywhere; }
@@ -450,7 +453,6 @@
     .reference:has(.referenceContent[data-expanded="true"]) { flex-basis: 55%; }
     .referenceToggle[aria-expanded="true"] svg { transform: rotate(180deg); }
     .editor { flex: 1; }
-    .book .editor [data-working-field] [role="group"]:has(input[type="checkbox"]) { grid-template-columns: minmax(0, 1fr); }
   }
 
   @media (min-width: 640px) and (max-width: 759px) {
@@ -493,16 +495,18 @@
     .preparing .questionPage { flex: 1 0 auto; overflow: visible; padding: 20px 16px; }
     .preparing .navigation { min-height: 44px; flex-wrap: wrap; gap: 4px; padding: 0 0 6px; }
     .preparing .sectionPicker { flex-basis: 100%; }
-    .preparing .sectionPicker select { width: 100%; font-size: 22px; }
+    .preparing .sectionPicker select { flex: 1; width: 0; min-width: 0; min-height: var(--spacing-control); font-size: var(--text-value); text-overflow: ellipsis; }
     .preparing .sectionProgress { display: flex; align-items: center; gap: 12px; width: 100%; max-width: none; padding-inline: 10px; font-size: 12px; }
     .preparing .sectionProgress strong { font-size: 14px; }
-    .preparing .progressTrack { flex: 1; margin: 0; }
+    .preparing .progressTrack { flex: none; margin: 0; }
     .preparing .sectionProgress small { display: inline; margin-left: 8px; }
     .chartReviewToolbar:has(.reviewHeading) { gap: 4px; padding: 8px 16px; }
     .reviewHeading h3 { font-size: 18px; }
     .chartReviewNotice { padding: 4px 16px 8px; font-size: 13px; }
     .chartReview [data-assessment-record] > :is(header, section, footer) { padding-inline: 16px; }
-    .footerUtilities { flex-basis: 100%; justify-content: space-between; gap: 8px; }
+    .footerUtilities { flex-basis: 100%; flex-wrap: wrap; justify-content: space-between; gap: 8px; }
+    .footerUtilities [data-guide-target="assessment-save-status"] { flex: 1 0 100%; }
+    .footerUtilities .returnToInterview { flex-shrink: 0; }
     .sectionSteps { width: 100%; justify-content: space-between; gap: 8px; }
     .sectionSteps [data-assessment-primary-action] { margin-left: auto; }
     .navigation { gap: 6px; padding: 7px 12px; }
@@ -555,11 +559,7 @@
     .readingPage { padding: 4px 18px 18px; }
   }
 
-  /* Question status: dashed until recorded, filled once recorded (visual only; the Recorded text stays). */
-  .questionRow { display: grid; grid-template-columns: 22px minmax(0, 1fr); column-gap: 14px; align-items: start; }
-  .questionStatus { width: 20px; height: 20px; margin-top: 4px; border: 2px dashed var(--color-folder-edge); border-radius: 50%; }
-  .questionStatus[data-status="captured"] { border: 0; background: var(--color-status-done) radial-gradient(circle, var(--color-paper) 0 3px, transparent 3.5px); }
-  .questionStatus:is([data-status="verify"], [data-status="reason"]) { border-style: solid; border-color: var(--color-warning); }
+  .questionRow { min-width: 0; }
   .book:not(.preparing) .fields > .questionRow + .questionRow { padding-top: 22px; border-top: 1px dashed var(--color-paper-rule); }
   /* Scheduling entry inside the chart's contact and coordination band. */
   .chartScheduling { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 20px 18px; }
@@ -570,3 +570,65 @@
 
 /* Give the PRN writing prompt the full preparation width in both designs. */
 .preparing .fields > div:has([data-working-field="prn_patterns"]) { grid-column: 1 / -1; }
+
+/* Assessment is a reading-and-writing page, distinct from intake's registration grid. */
+.book .editor { background: var(--color-paper); }
+.book .questionPage { padding: 32px 40px 48px; }
+.book .groupHeading { display: flex; align-items: center; gap: 16px; padding: 20px 16px; margin-block: 32px 24px; border-top: 3px solid var(--color-stage-rose-border); background: var(--color-card-warm); color: var(--color-ink); font-size: var(--text-title); line-height: 1.3; }
+.book .fields { gap: 24px; }
+.book .editor [data-working-field] label[for] { margin-bottom: 8px; font-size: var(--text-section); font-weight: 600; line-height: 1.5; }
+.book .editor [data-working-field] :is(input:not([type="checkbox"]), textarea, select) { padding: 14px 16px; font-size: var(--text-value); line-height: 1.75; background: var(--color-paper); }
+.book .editor [data-working-field] :is(input:not([type="checkbox"]), select) { min-height: var(--spacing-action); }
+.book .editor [data-working-field] textarea { min-height: calc(3 * var(--spacing-control)); }
+.book .editor [data-working-field] :is(input, textarea)::placeholder { color: var(--color-ink-muted); opacity: 1; }
+.book .editor [data-working-field] :is(input, select, textarea):focus-visible { outline: 2px solid var(--color-stage-rose); outline-offset: 3px; }
+.book .editor [data-working-field] p { font-size: var(--text-label); line-height: 1.6; color: var(--color-ink-muted); }
+.book:not(.preparing) .fields > .questionRow + .questionRow { padding-top: 24px; border-top-style: solid; }
+.book .reference { background: var(--color-card-warm); }
+.book .referenceHeader { border-top: 3px solid var(--color-stage-rose-border); background: var(--color-stage-rose-tile); }
+.book .referenceContent { background: var(--color-card-warm); }
+.book.preparing .questionPage > * { max-width: 820px; }
+.sectionPicture { display: block; flex: none; }
+.navigation[data-with-work-mode] .sectionPicker select { min-height: var(--spacing-control); box-shadow: none; }
+@keyframes sectionPictureIn { from { opacity: .4; transform: translateY(5px) rotate(-6deg); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: no-preference) {
+  .sectionPicture { animation: sectionPictureIn var(--duration-move) var(--ease-open) both; }
+}
+@media (max-width: 767px) {
+  .book .questionPage { padding: 24px 20px 32px; }
+  .book .groupHeading { font-size: var(--text-section); }
+}
+
+/* Phone section paging is secondary to the interview or signed-record action. */
+.phonePreparationSteps { margin: 0; width: 100%; border-top: 0; padding: 8px 0; }
+.phonePreparationSteps[data-secondary] [data-assessment-primary-action] > button { min-height: var(--spacing-control); padding: 8px 12px; border: 1px solid var(--color-control-border); background: var(--color-paper); color: var(--color-ink); box-shadow: none; font-size: var(--text-label); }
+.phonePreparationSteps[data-secondary] [data-assessment-primary-action] > button:hover:not(:disabled) { background: var(--color-sheet); }
+
+/* Preparation is a desk; the interview gives the working question the foreground. */
+.withNotebook, .withNotebook[data-notebook-open] { grid-template-columns: minmax(0, 1fr) minmax(260px, 31%); gap: 24px; }
+.preparationReference { position: sticky; top: 84px; display: grid; align-content: start; gap: 20px; min-width: 0; max-height: calc(100dvh - 180px); overflow: auto; padding: 16px; background: var(--color-card-warm); border-radius: var(--radius-paper); }
+.preparationReference [data-client-notes] { position: static; width: 100%; max-height: none; box-shadow: none; }
+.book.preparing .questionPage { padding: 24px; }
+.book .groupHeading { margin-block: 32px 20px; padding: 16px 0 8px; border: 0; background: transparent; }
+.book .groupHeading svg { width: 40px; height: 40px; }
+.book .groupHeading:first-child { margin-top: 0; }
+.book:not(.preparing) .fields > .questionRow + .questionRow { border-top: 0; padding-top: 28px; }
+.book .questionRow { position: relative; border-radius: var(--radius-input); }
+.book .questionRow:focus-within { background: var(--color-card-warm); box-shadow: 12px 0 var(--color-card-warm), -12px 0 var(--color-card-warm); }
+.book.preparing .questionRow[data-answer-state="captured"] input { font-weight: 600; }
+.book .questionRow[data-answer-state="captured"] textarea { font-weight: 400; }
+.book .editor [data-working-field] :is(input, select, textarea):focus-visible { outline-color: var(--color-manila); }
+@media (min-width: 1024px) {
+  .book[data-assessment-phase="interview"] .questionPage { padding-top: 20px; }
+  .book[data-assessment-phase="interview"] .groupHeading { font-size: var(--text-title); }
+}
+@media (max-width: 1100px) {
+  .withNotebook, .withNotebook[data-notebook-open] { grid-template-columns: minmax(0, 1fr); }
+  .preparationReference { position: static; max-height: none; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .book[data-assessment-phase="interview"] > .editor { animation: interview-focus var(--duration-move) var(--ease-open); }
+  .book[data-assessment-phase="preparation"] > .editor { animation: preparation-open var(--duration-move) var(--ease-open); }
+}
+@keyframes interview-focus { from { opacity: .5; transform: translateX(10px); } to { opacity: 1; transform: none; } }
+@keyframes preparation-open { from { opacity: .5; transform: translateY(8px); } to { opacity: 1; transform: none; } }

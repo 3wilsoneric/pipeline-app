@@ -5,39 +5,34 @@
 .pane { position: sticky; top: 84px; display: flex; flex-direction: column; align-self: start; min-width: 0; min-height: 0; padding-right: 28px; }
 
 .text { display: flex; flex: 1; flex-direction: column; min-height: 0; padding: 0 8px 0 4px; overflow: hidden; }
-/* Like a clinical progress-notes form (owner, 2026-09-27: "a bit more medical chart"): a boxed sheet with a narrow
-   label column, a vertical rule, answers in the right column on tight blue-green ruling; the notes continue in the
-   same columns below. The section is named by the picker above, not repeated here. */
-.text { --rule: 26px; --chart-rule: color-mix(in srgb, var(--color-link) 14%, var(--color-paper)); --chart-edge: color-mix(in srgb, var(--color-link) 32%, var(--color-card-border)); }
-/* The sheet is only as tall as its content; when the answers run long they scroll inside it and the notes stay in
-   view below them (owner, 2026-09-27: "what if a section has a lot of answers with text and notes"). Each part
-   carries its own ruling so text and lines scroll together. */
-.page { display: flex; flex-direction: column; min-height: 0; max-height: 100%; border: 1px solid var(--chart-edge); border-top-width: 3px; background: var(--color-paper); }
-.page > :is(.topic, .notes) { background: repeating-linear-gradient(to bottom, transparent 0 calc(var(--rule) - 1px), var(--chart-rule) calc(var(--rule) - 1px) var(--rule)) local; }
-.topic { flex: 0 1 auto; min-height: calc(var(--rule) * 2); overflow-y: auto; overscroll-behavior: contain; }
-.page:has(textarea:focus) { border-color: var(--color-link); }
-.topic dl { display: grid; grid-template-columns: fit-content(40%) minmax(0, 1fr); margin: 0; }
-.topic dl > div { display: contents; }
-.topic dl > div[data-long] > dt { grid-column: 1 / -1; border-right: 0; }
-.topic dl > div[data-long] > dd { grid-column: 1 / -1; padding-left: 10px; }
-.text dt { padding: 0 12px 0 10px; border-right: 1px solid var(--chart-edge); color: var(--color-ink-muted); font-size: var(--text-meta); line-height: var(--rule); font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; overflow-wrap: anywhere; }
-.text dd { margin: 0; padding: 0 10px 0 12px; color: var(--color-ink); font-size: var(--text-value); line-height: var(--rule); white-space: pre-line; overflow-wrap: anywhere; }
-.text dd > span { display: block; color: var(--color-ink-muted); font-size: var(--text-meta); line-height: var(--rule); }
+/* Recorded facts read label-first, across the full pane. Only the writing area is ruled. */
+.text { --rule: var(--text-value--line-height); --chart-rule: color-mix(in srgb, var(--color-link) 12%, var(--color-card-warm)); }
+.page { display: flex; flex-direction: column; min-height: 0; max-height: 100%; gap: 20px; }
+.topic { flex: 0 1 auto; min-height: calc(var(--spacing-control) * 2); padding: 4px; overflow-y: auto; overscroll-behavior: contain; }
+.topic dl { display: grid; gap: 14px; margin: 0; }
+.topic dl > div { min-width: 0; }
+.text dt { padding: 0 8px; color: var(--color-ink-muted); font-size: var(--text-label); line-height: var(--text-label--line-height); font-weight: 500; overflow-wrap: anywhere; }
+.text dd { margin: 0; color: var(--color-ink); font-size: var(--text-value); line-height: var(--text-value--line-height); white-space: pre-line; overflow-wrap: anywhere; }
+.text dd > span { display: block; padding: 0 8px; color: var(--color-ink-muted); font-size: var(--text-meta); line-height: var(--text-meta--line-height); }
+.answer { display: flex; align-items: baseline; gap: 12px; width: 100%; min-height: var(--spacing-control); padding: 6px 8px; border: 0; border-radius: var(--radius-input); background: transparent; color: inherit; font: inherit; font-weight: 600; text-align: left; white-space: inherit; cursor: pointer; transition: background var(--duration-fade) ease; }
+.answer > span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.answer svg { flex: none; color: var(--color-link); }
+.answer:hover { background: var(--color-card-warm); color: var(--color-link); }
+.answer:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -2px; }
 
-/* The topic's notes continue the form below what is known (owner, 2026-09-27: "as if you are notating it below"):
-   "Notes" in the label column with the save status beside it, then the writing in the answer column, no box. */
-.notes { flex: 0 0 auto; max-height: 55%; overflow-y: auto; overscroll-behavior: contain; border-top: 1px solid var(--chart-edge); }
+/* Shared notes stay available below the facts, with independent scrolling and visible save feedback. */
+.notes { flex: 0 0 auto; max-height: 55%; padding: 12px; overflow-y: auto; overscroll-behavior: contain; border-radius: var(--radius-paper); background: var(--color-card-warm); }
+.notes:focus-visible, .notes:has(textarea:focus-visible) { outline: 2px solid var(--color-focus); outline-offset: -2px; }
 .notes [data-client-notes] { position: static; max-height: none; min-height: 0; overflow: visible; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
-.notes [data-client-notes] > header { gap: 10px; min-height: var(--rule); height: var(--rule); padding: 0 10px 0 0; border: 0; background: transparent; }
-.notes [data-client-notes] > header h3 { flex: 0 0 auto; padding: 0 10px; color: var(--color-ink-muted); font-size: var(--text-meta); line-height: var(--rule); font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+.notes [data-client-notes] > header { flex-wrap: wrap; gap: 4px 10px; min-height: 32px; padding: 0 0 8px; border: 0; background: transparent; }
+.notes [data-client-notes] > header h3 { flex: 0 0 auto; color: var(--color-ink); font-size: var(--text-label); line-height: var(--text-label--line-height); font-weight: 600; }
 .notes [data-client-notes] > header h3 svg { display: none; }
-.notes [data-client-notes] > header :is(span, button) { font-size: var(--text-meta); line-height: var(--rule); }
-.notes [data-client-notes] > header [role="status"] { margin-left: auto; }
-.notes [data-client-notes] > header button { min-height: 0; height: var(--rule); padding: 0 4px; }
+.notes [data-client-notes] > header [role="status"] { margin-left: auto; font-size: var(--text-meta); line-height: var(--text-meta--line-height); white-space: normal; }
+.notes [data-client-notes] > header button { min-height: var(--spacing-control); padding: 0 8px; }
 .notes [data-client-notes] > div { padding: 0; overflow: visible; }
 .notes [data-client-notes] [data-note-heading] { padding: 0; border: 0; }
 .notes [data-client-notes] [data-note-heading] > p { display: none; }
-.notes [data-client-notes] [data-note-heading] textarea { width: 100%; min-height: calc(var(--rule) * 4); margin: 0; padding: 0 10px; border: 0; border-radius: 0; background: transparent; box-shadow: none; color: var(--color-ink); font-size: var(--text-value); line-height: var(--rule); }
+.notes [data-client-notes] [data-note-heading] textarea { width: 100%; min-height: calc(var(--rule) * 4); margin: 0; padding: 0 4px; border: 0; border-radius: 0; background: repeating-linear-gradient(to bottom, transparent 0 calc(var(--rule) - 1px), var(--chart-rule) calc(var(--rule) - 1px) var(--rule)) local; box-shadow: none; color: var(--color-ink); font-size: var(--text-value); line-height: var(--rule); }
 .notes [data-client-notes] [data-note-heading] textarea:focus { outline: none; }
 
 /* The line between the halves. The hit area is wider than the line. */
@@ -52,7 +47,9 @@
   .notes { max-height: none; }
   .divider { display: none; }
 }
-@media (prefers-reduced-motion: reduce) { .divider::before { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .divider::before, .answer { transition: none; } }
 @media (forced-colors: active) { .divider::before { background: CanvasText; } .topic[data-current]::before { background: Highlight; } }
 
 .empty { margin: 0; padding: 0 10px; color: var(--color-ink-muted); font-size: var(--text-value); line-height: var(--rule); }
+
+.attention { display: block; color: var(--color-warning); font-size: var(--text-meta); line-height: var(--text-meta--line-height); font-weight: 600; }

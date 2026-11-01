@@ -7,38 +7,68 @@
  * namespace, so they live on :root and are used as bg-(image:--folder-body).
  */
 
+/* Carelog family preview: tokens from CareConnector 5e549b6, 2026-10-30.
+ * Workflow status families retain their existing meanings. Orange identifies an action only. */
 @theme static {
+  --color-night: #032f30;
+  --color-rail-text: #cfe5e6;
+  --color-rail-hover: #124343;
+  --color-rail-rule: #345756;
+  --color-card-warm: #f8f7f3;
+  /* Carelog task tile: warm action end, crisp edge, soft raised base. */
+  --color-task-edge: #354b46;
+  --color-task-peach: #fff3e3;
+  --color-task-apricot: #f8c38f;
+  --color-task-base: #d8ddd8;
+  --color-ink-body: #404040;
+  --color-on-action: #031716;
+  --color-action-hover: #e9853f;
+  --color-action-soft: #fdeedf;
+  --color-action-edge: #b95a1b;
+  --color-slate: #486d80;
+  /* Carelog object illustrations: identity colors, never clinical status. */
+  --color-picture-ink: #20333f;
+  --color-picture-blue: #69a9d5;
+  --color-picture-blue-soft: #e0eff9;
+  --color-picture-violet: #a192d1;
+  --color-picture-violet-soft: #eeebf8;
+  --color-picture-clay: #e9a780;
+  --color-picture-clay-soft: #fbece3;
+  --color-picture-ochre: #ddb76b;
+  --color-picture-ochre-soft: #f7eed9;
+  --color-picture-leaf: #8eb48b;
+  --color-picture-leaf-soft: #e7f0e4;
   /* Text */
-  --color-ink: #0f1115;
-  --color-ink-2: #353a43;
-  --color-ink-muted: #5d6470;
+  --color-ink: #031716;
+  --color-ink-2: #032f30;
+  --color-ink-muted: #595959;
 
   /* Surfaces: page ground, sheet, paper (principle 3). Neutral since the modern pass (DECISIONS.md). */
-  --color-sheet: #fbfbfc;
-  --color-sheet-border: #e6e8ec;
-  --color-control-border: #d9dce2;
+  --color-sheet: #f5f7f5;
+  --color-sheet-border: #d3dfd8;
+  --color-control-border: #65756e;
   --color-paper: #ffffff;
-  --color-paper-rule: #eceef1;
-  --color-track: #eceef1;
+  --color-paper-rule: #d3dfd8;
+  --color-track: #e0e9e4;
   /* Manila: the folder color for record pages with no step color. */
   --color-manila: #a8864a;
-  --color-folder-edge: #d3d7de;
-  --color-folder: #f0f2f5;
-  --color-column: #f1f3f6;
-  --color-page: #f4f5f7;
-  --color-segment: #eceef2;
-  --color-segment-count: #dde0e6;
-  --color-card-border: #e4e7eb;
+  --color-folder-edge: #bac9c0;
+  --color-folder: #f5f7f5;
+  --color-column: #f5f7f5;
+  --color-page: #ffffff;
+  --color-segment: #f2f3ef;
+  --color-segment-count: #dce8e3;
+  --color-card-border: #d3dfd8;
   --color-count: #ffffff;
 
   /* Brand and primary action: the one filled button per screen, and focus rings */
-  --color-primary: #0f7d62;
-  --color-primary-hover: #0b664f;
-  --color-primary-soft: #ecf7f2;
-  --color-focus: #2563eb;
-  --color-link: #0f6e56;
+  --color-primary: #0a7075;
+  --color-primary-hover: #085c60;
+  --color-primary-soft: #e8f5f5;
+  --color-focus: #032f30;
+  --color-link: #085c60;
   /* Filled action buttons and the text on them. */
-  --color-action: #1d5241;
+  --color-action: #f4a261;
   --color-on-fill: #ffffff;
 
   /* Stage families (principle 1). Current board and record mappings: DECISIONS.md. */
@@ -80,58 +110,79 @@
   --color-danger-soft: #fef4f2;
 
   /* Radius steps down as surfaces nest (principle 9) */
-  --radius-sheet: 12px;
-  --radius-folder: 10px;
-  --radius-paper: 8px;
-  --radius-input: 6px;
+  --radius-task: 8px;
+  --radius-sheet: 10px;
+  --radius-folder: 16px;
+  --radius-paper: 4px;
+  --radius-input: 4px;
   --radius-chip: 4px;
   --radius-pill: 999px;
 
   /* Shadows only on things that sit above other things */
+  --shadow-task: 0 4px 0 var(--color-task-base);
+  --shadow-decision-pressed: 0 1px 0 var(--outcome);
   --shadow-sheet: none;
-  --shadow-card: 0 1px 1px rgb(16 24 40 / 0.04);
-  --shadow-card-hover: 0 2px 8px rgb(16 24 40 / 0.08);
-  --shadow-folder: 0 1px 2px rgb(16 24 40 / 0.06);
-  --shadow-folder-lift: 0 10px 24px rgb(16 24 40 / 0.14);
-  --shadow-popover: 0 10px 30px rgb(16 24 40 / 0.14), 0 0 0 1px rgb(16 24 40 / 0.04);
+  --shadow-card: 0 2px 0 rgb(3 47 48 / 12%);
+  --shadow-card-hover: 0 2px 0 rgb(3 47 48 / 24%);
+  --shadow-file: 2px 3px 0 var(--color-segment), 2px 3px 0 1px var(--color-card-border);
+  --shadow-file-lift: 2px 5px 0 var(--color-segment), 2px 5px 0 1px var(--color-folder-edge);
+  --shadow-choice: 0 4px 0 currentColor;
+  --shadow-choice-raised: 0 8px 0 currentColor;
+  --shadow-folder: none;
+  --shadow-folder-lift: none;
+  --shadow-popover: 0 10px 24px rgb(17 17 17 / 12%);
 
   /* Five type roles (principle 5). Entered values: font-bold; empty: font-normal text-ink-muted. */
-  --text-title: 22px;
-  --text-title--line-height: 28px;
-  --text-title--font-weight: 600;
-  --text-section: 17px;
-  --text-section--line-height: 24px;
-  --text-section--font-weight: 600;
-  --text-label: 13px;
-  --text-label--line-height: 18px;
+  --text-title: 26px;
+  --text-title--line-height: 32px;
+  --text-title--font-weight: 700;
+  --text-section: 19px;
+  --text-section--line-height: 26px;
+  --text-section--font-weight: 650;
+  --text-label: 14px;
+  --text-label--line-height: 20px;
   --text-label--font-weight: 600;
-  --text-value: 14px;
-  --text-value--line-height: 20px;
-  --text-meta: 12px;
-  --text-meta--line-height: 16px;
+  --text-value: 16px;
+  --text-value--line-height: 24px;
+  --text-meta: 13px;
+  --text-meta--line-height: 19px;
+
+  /* Carelog-sized controls. Main actions get more room than supporting tools. */
+  --spacing-control: 48px;
+  --spacing-action: 56px;
 
   /* One motion language (principle 10) */
   --ease-open: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 :root {
+  --surface-task: linear-gradient(100deg, var(--color-paper) 0%, var(--color-paper) 48%, var(--color-task-peach) 66%, var(--color-task-apricot) 84%, var(--color-action) 100%);
+  --motion-press: 60ms;
+  --motion-state: 120ms;
+  --motion-enter: 160ms;
+  --motion-confirm: 180ms;
   --duration-move: 260ms;
   --duration-fade: 200ms;
+  --duration-feedback: 2400ms;
 
-  --page-ground: #f4f5f7;
-  --folder-tab: #f0f2f5;
-  --folder-body: #eceef2;
-  --stage-manila-column: #efe2cb;
-  --stage-violet-column: #e2d5ed;
-  --stage-green-column: #dcefe2;
-  --stage-blue-column: #dfe3fa;
-  --stage-orange-column: #fbe4d5;
+  --page-ground: #ffffff;
+  --folder-tab: #f5f7f5;
+  --folder-body: #ffffff;
+  --stage-manila-column: #f8f7f3;
+  --stage-violet-column: #f8f7f3;
+  --stage-green-column: #f8f7f3;
+  --stage-blue-column: #f8f7f3;
+  --stage-orange-column: #f8f7f3;
   --stage-rose-column: #faf0f2;
   --stage-amber-column: #fbf5ea;
 }
 
 @media (prefers-reduced-motion: reduce) {
   :root {
+    --motion-press: 0ms;
+    --motion-state: 0ms;
+    --motion-enter: 0ms;
+    --motion-confirm: 0ms;
     --duration-move: 0ms;
     --duration-fade: 0ms;
   }

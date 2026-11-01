@@ -94,7 +94,6 @@ test.describe("shared workspace editing", () => {
       await phone.fill("555-0197");
       await phone.blur();
       await expect.poll(async () => (await (await owner.get(`/api/referrals/${referral.id}`)).json()).referral.phone).toBe("555-0197");
-      await page.getByTestId("document-checklist-toggle").click();
       const canvas = createCanvas(160, 60);
       canvas.getContext("2d").fillRect(0, 0, 160, 60);
       await page.getByLabel("Choose referral documents").setInputFiles({ name: "shared-synthetic.png", mimeType: "image/png", buffer: canvas.toBuffer("image/png") });

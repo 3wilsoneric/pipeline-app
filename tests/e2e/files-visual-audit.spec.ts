@@ -77,7 +77,7 @@ test('Files page browser audit: previews, repeated upload, X, confirmation, fail
   await dialog.getByRole('button',{name:'Delete file',exact:true}).click();
   await expect.poll(async()=> (await listFiles()).length).toBe(0);
   await expect(list).toHaveCount(0);
-  await page.getByText('Document checklist',{exact:true}).click();
+  await expect(page.getByRole('region',{name:'Document checklist',exact:true})).toBeVisible();
   console.log('CHECKLIST_AFTER_DELETE',await page.getByRole('region',{name:'Document checklist',exact:true}).innerText());
   const activity=(await (await page.request.get(`/api/referrals/${referral.id}/activity`)).json()).events;
   console.log('DOCUMENT_AUDIT_ACTIONS',activity.filter((e: {action:string})=>e.action.startsWith('document_')).map((e: {action:string})=>e.action));

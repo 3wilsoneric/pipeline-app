@@ -1,13 +1,14 @@
 import { expect, test, type Page } from "@playwright/test";
 import { createCanvas } from "@napi-rs/canvas";
 import { randomUUID } from "node:crypto";
-import { createOperationalReferral } from "./support/operational-api";
+import { activeOperationalAssessor, createOperationalReferral } from "./support/operational-api";
 import { confirmReferralFileLabels } from "./support/referral-upload";
 
 async function openWorkspace(page: Page) {
+  const assessor = await activeOperationalAssessor(page.request);
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", {
-    name: `Synthetic Files ${randomUUID()}`, owner: "Annette Everhart", documentName: "", documentStatus: "Missing", phone: "555-0101",
-  }, { assigneeId: "provisional:allo:annette" });
+    name: `Synthetic Files ${randomUUID()}`, owner: assessor.display_name, documentName: "", documentStatus: "Missing", phone: "555-0101",
+  }, { assigneeId: assessor.principal_id });
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=files`);
   return referral;
 }

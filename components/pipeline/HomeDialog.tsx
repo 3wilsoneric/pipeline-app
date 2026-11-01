@@ -39,7 +39,7 @@ export default function HomeDialog({ label, title, description, size = "default"
       animationRef.current = dialog.animate([
         { transform: originTransform(dialog, expandFrom) },
         { transform: "none" },
-      ], { duration: 260, easing: "cubic-bezier(.2,.85,.25,1)" });
+      ], { duration: parseFloat(getComputedStyle(dialog).getPropertyValue("--motion-confirm")) || 0, easing: getComputedStyle(dialog).getPropertyValue("--ease-open").trim() || "ease-out" });
     }
     return () => {
       animationRef.current?.cancel();
@@ -58,7 +58,7 @@ export default function HomeDialog({ label, title, description, size = "default"
     const animation = dialog.animate([
       { transform: currentTransform },
       { transform: originTransform(dialog, expandFrom) },
-    ], { duration: 180, easing: "cubic-bezier(.4,0,.6,1)", fill: "forwards" });
+    ], { duration: parseFloat(getComputedStyle(dialog).getPropertyValue("--motion-state")) || 0, easing: getComputedStyle(dialog).getPropertyValue("--ease-open").trim() || "ease-out", fill: "forwards" });
     animationRef.current = animation;
     void animation.finished.then(onClose, () => undefined);
   }
@@ -66,6 +66,8 @@ export default function HomeDialog({ label, title, description, size = "default"
   return (
     <dialog
       ref={dialogRef}
+      data-home-dialog
+      data-origin-motion={expandFrom ? "true" : undefined}
       role={role}
       aria-label={label}
       aria-describedby={description ? descriptionId : undefined}

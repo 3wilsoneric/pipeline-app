@@ -8,6 +8,7 @@ async function library(page: Page) {
   await expect(page.locator('[data-pipeline-ready="guided-coach"]')).toBeAttached();
   const more = page.getByRole("button", { name: /^Open page menu/ });
   if (await more.isVisible()) await more.click();
+  await page.getByRole("button", { name: /^Open profile menu for/ }).click();
   await page.getByRole("button", { name: "Open guided tutorials" }).click();
   return page.getByRole("dialog", { name: "Tutorials", exact: true });
 }
@@ -277,8 +278,8 @@ test("hidden phone board card points to its stage selector", async ({ page }) =>
   await expect(page.getByRole("button", { name: /^Open page menu/ })).toBeVisible();
   // The guide's highlight effect confirms its server-rendered controls hydrated.
   await expect(page.locator('[data-guide-target="home-board-card"]')).toHaveAttribute("data-tutorial-highlight", "true");
-  await page.getByRole("combobox", { name: "Referral stage", exact: true }).selectOption("received");
-  await expect(page.getByRole("combobox", { name: "Referral stage", exact: true })).toHaveValue("received");
+  await page.getByRole("combobox", { name: "Referral stage", exact: true }).selectOption("decision");
+  await expect(page.getByRole("combobox", { name: "Referral stage", exact: true })).toHaveValue("decision");
   await expect(page.locator('[data-guide-target="home-board-card"]')).toBeHidden();
   await page.getByRole("button", { name: "Show me where", exact: true }).click();
   await expect(page.getByRole("combobox", { name: "Referral stage", exact: true })).toBeFocused();
@@ -460,10 +461,15 @@ test("an unnamed supervisor cannot see or dispatch the Reports tutorial", async 
   await expect(page.getByTestId("guided-coach-panel")).toHaveCount(0);
 });
 
-test("Escape closes the menu without navigating", async ({ page }) => {
-  await page.goto("/");
-  const panel = await library(page);
-  await page.keyboard.press("Escape");
-  await expect(panel).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Open guided tutorials" })).toBeFocused();
-});
+for (const width of [1440, 390]) {
+  test(`Escape closes the menu and restores visible navigation focus at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/");
+    const url = page.url();
+    const panel = await library(page);
+    await page.keyboard.press("Escape");
+    await expect(panel).toHaveCount(0);
+    await expect(page).toHaveURL(url);
+    await expect(page.getByRole("button", { name: width < 640 ? /^Open page menu/ : /^Open profile menu for/ })).toBeFocused();
+  });
+}

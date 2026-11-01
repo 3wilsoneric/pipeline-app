@@ -201,11 +201,8 @@ function disclosureState(open: boolean) {
 }
 
 export function decisionConfirmationMessage(outcome: AdmissionDecision["outcome"], updating: boolean) {
-  const action = updating ? "Replace" : "Record";
-  const effect = outcome === "declined"
-    ? "This closes the referral and writes the decision to its activity history."
-    : "This records acceptance. Assessment answers stay editable until you sign. Signing and packet sending are separate actions.";
-  return `${action} the ${outcome} admission decision? ${effect}`;
+  if (outcome === "declined") return updating ? "Replaces the decision and closes this referral. Nothing is sent." : "Closes this referral. Nothing is sent.";
+  return updating ? "Replaces acceptance. Nothing is signed or sent." : "Records acceptance. Nothing is signed or sent.";
 }
 
 export type DecisionActionState = {

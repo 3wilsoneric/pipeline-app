@@ -289,3 +289,108 @@ Steps: build the switch; merge with the switch off, with production pixel-identi
 ## Delivery
 
 Nothing is deployed without the owner's explicit go-ahead.
+
+## Home shortcuts and Decision status (owner, 2026-10-31, local preview)
+
+- Replace the Board / Upcoming assessments / New assignments switch with the always-visible board. Upcoming assessments is a compact count button opening the schedule in a modal, not an inline agenda. New assignments opens its existing list in a separate modal. Existing Home module preferences still apply.
+- In the Decision column, accepted status is green, denied status is red, and pending review is yellow. Keep the recorded status words. This explicitly supersedes the earlier neutral-denial color restriction for these status chips only; stage colors and actions retain their existing meanings.
+
+
+## Home personal schedule ribbon (owner, 2026-10-31)
+
+Supersedes the Home modal shortcut row: remove the visible Board title, New assignments, and the completion memo ribbon from Home. A short Upcoming assessments ribbon now opens the existing schedule dialog. Its count and appointments are scoped to the signed-in assigned assessor, including supervisor accounts. Unavailable schedules remain explicitly unavailable. The current-work board stays directly below; the completion review route remains intact. Saved Home module IDs remain readable, but retired assignments and the duplicate schedule module cannot be added through Arrange Home. No deployment is authorized for this local preview.
+
+## Intake width and progress (owner, 2026-10-31)
+
+The local intake form fills the same content width as its document upload area. Its header is a compact section heading and one recorded-details progress indicator. Remove the repeated completion block at the bottom of a new intake; retain the existing Create referral action. Existing-referral intake retains Done or its assessment continuation action. Wide desktop fields share rows; smaller screens keep readable two-column or single-column forms. Field wording, collected data, completion calculations, and save behavior are unchanged.
+
+## Screen audit cleanup (owner, 2026-10-31, local)
+
+Approved after the screen-by-screen audit. A single Intake destination is a compact navigation row; the multi-step rail retains recorded progress and dates but drops the redundant selection arrow. Create referral uses its full label at the end of the phone intake. Assessment fields have one visible recorded check; phone section navigation is secondary to the interview or signed-assessment continuation. Phone Notes sits beside the client identity so it cannot cover answers or footer actions.
+
+Meet the Client gives the working message a full column on laptop widths, using the existing stacked tools layout below it. Large desktops retain the tools alongside. The existing recipient-authorization checkbox stays beside Preview email, with all existing validation. Home file requirements are supporting text above the existing Open Files action, with the same destination. Expanded cards have a readable minimum width and a distinct paper surface. Calendar empty messaging is compact. Chart gaps, metadata, file targets, contrast, and accepted-status color follow the existing tokens. No questionnaire wording, clinical data, permissions, save rules, or sending rules change. No deployment authorized.
+
+
+## Working files and transitions (owner, 2026-10-31, local preview)
+
+The owner approved a connected Carelog pass, meaningful motion, and compact Home files that can show several clients without oversized cards. This supersedes the previous Home card density: retain name, community, assessor, next action, missing-document count and planned admission date; leave detailed chronology and notes in the record. A small stage tab and paper edge replace the milestone strip and full-width button. Decision words retain their green/red/yellow outcome colors.
+
+Intake has a source-file tray beside the form when there is enough width. Creation opens the existing saved-workspace choices, with preparation first. Preparation puts the existing source summary/files beside answers and notes. Meet the Client puts To/Cc and the admission date above the letter; packet files sit alongside only when both remain readable. Warm neutral materials, colored typography and illustrated objects replace filled green panels. Existing copy, questions, collection requirements and send rules remain authoritative. Entry, lifted files and reordered email sections use the existing motion tokens, with reduced-motion support.
+
+The local review also repairs assessment continuity: desktop focus records its exact question without rewriting the route during typing, and the mounted interview restores that target when returning from Files or Activity. This uses the existing per-user, per-referral continuity owner. It does not change answer storage or make step navigation wait for saves. No deployment is authorized.
+
+
+## Decision and Placement hierarchy (owner, 2026-10-31, local preview)
+
+The owner rejected a gray background as the main redesign and asked for visual outcome controls and less copy. Decision now uses three tactile outcome tiles with green, red and amber symbols, native radio semantics, raised selected edges and short selection motion. On wide screens the reason sits beside the choices, with the record action beneath; narrow screens retain readable choices and labels. The duplicate page title, client sidebar, empty-recommendation paragraph and visible tile subtitles are removed. Outcome descriptions and action guidance remain accessible; permission restrictions, errors, actual recommendations, differing-recommendation warnings and confirmation dialogs remain visible when relevant. Assessment access and secondary tools stay in one row.
+
+Placement drops the redundant heading and duplicated decision action. The canonical handoff readiness component presents the next assessment or decision action, with secondary decision access while both remain outstanding. The ready composer retains its recorded status and More actions control. No clinical wording, decision semantics, signing, sending, data or permissions change. All changes remain local.
+
+## Decision note and confirmation (owner, 2026-10-31, local preview)
+
+The reason belongs beneath the three outcome choices at their combined width, superseding the side-by-side arrangement above. It uses the warm paper surface with a small focus lift and outcome-colored underline. The owner requested shorter confirmation copy: acceptance records the decision without signing or sending; denial closes the referral without sending. Keep the confirmation and Cancel action. Show a brief stamped receipt only after a confirmed successful save, without delaying the existing navigation to Placement or moving keyboard focus. Reduced motion retains the feedback without animation. No production deployment authorized.
+
+
+## Workspaces finishing pass (owner, 2026-10-31, local preview)
+
+Keep the existing Workspaces directory, sidebar views, month browser and click paths. The owner requested a small color and copy cleanup, explicitly rejecting large new category tabs. Use a warm page background, gently alternating paper rows, wider status space and small semantic status tints. Keep the canonical status words: accepted/admitted green, denied red, uncertain admission amber, assessment blue. Shorten search placeholders and row metadata to community/county; the full record and search coverage remain unchanged. No workflow, data, permissions or deployment changes.
+
+The owner rejected the subsequent dark-header/solid-badge color pass and requested the prior softer version with crisper lines and better text fit. Retain soft status tints and the original directory layout; refine existing boundaries and column sizing, without additional copy or navigation.
+
+The owner then rejected the gray-on-gray result and requested a closer Carelog pass with verified label fit. Supersedes alternate-row shading and boxed status badges: use compact warm rows on paper and semantic status text. Client names lead directly, with no initials or avatar marks (owner correction). Unknown names retain the canonical placeholder. Preserve the original directory navigation, fields and click paths. Long client/owner names and filter selections wrap; filters move to another row before their labels crowd the control. Motion is limited to the existing open arrow on hover/focus, with reduced-motion support. Local only.
+
+## Remove the intake-resume banner (owner, 2026-10-31, local)
+
+Remove the pictured “Continue intake” banner from the Workspaces landing page. Home does not render that banner. Saved intake drafts, autosave, direct draft recovery and the existing Recent work module remain intact. No deployment authorized.
+
+## Home personal client space (owner, 2026-10-31, local preview)
+
+The owner approved combining newly received clients into In progress, then rejected two expanded stage columns. Home now puts personal pinned clients first, followed by up to six recently opened active clients, with no duplicates. In progress and Decision are compact count buttons opening the existing full lists and All/Mine controls. Those lists also offer pinning; every client remains reachable. Individual received/preparation/assessment/decision status, original next actions and destinations are retained. No new initial avatars or stage tabs.
+
+Pins use the existing per-user, versioned work-continuity store and survive reopening the app. Only authorized active workspaces appear; admission/closure removes a client from this Home space without altering the referral or erasing its history. Pin errors remain visible and retryable. Personal cards Resume the last visited page; a named action in a full list opens that stated destination. Pinning never opens or changes a clinical record. Six recent cards keep Home compact; the full category lists remain the overflow path. Revisit that limit only if staff need more immediate recent shortcuts. Phone layout stacks the same cards and keeps both category buttons accessible. No deployment authorized.
+
+## Intake spacing and the later journey (owner, 2026-10-31, local preview)
+
+New intake uses a single work area instead of a workspace rail plus a separate document column. Intake, Files and Activity remain available in a compact page header on desktop. File uploads and the document checklist share one row above the form; the repeated New Referral file heading is removed. The form uses aligned, 48-pixel controls and tighter label spacing, with four identity fields across only on wide screens. Phone fields remain stacked. Existing copy, fields, uploads and save behavior stay intact.
+
+The intake recorded-details meter remains visible. Creating a referral restores the full Chart → Assessment → Decision → Placement journey, including its existing progress states; the compact header applies only before a referral exists. Verified locally with draft reopen/reload, creation, file labeling/queue/removal, and desktop/phone Chromium and WebKit layouts. The encrypted-recovery suite passes all nine applicable cases; its legacy session-storage case is excluded by the suite for this server configuration. No deployment authorized.
+
+
+## Compact Chart checklist and steady file drop (owner, 2026-10-31, local preview)
+
+Remove the Chart checklist's category headings. Its default view is one expandable completed/total fraction; opening it exposes the same requirements and recorded completion states. Keep the editable requirements and their canonical calculations intact. The native disclosure supports keyboard operation and reduced motion.
+
+File drag feedback uses the existing blue tokens and a small paper-stack treatment. Dragging over Documents highlights the target without opening it or moving the page; dropping still opens the existing labeling flow. Cancel restores upload-control focus, and ending a drag clears the highlight. File validation, categories, upload limits, read-only access and retry behavior remain unchanged. No deployment authorized.
+
+
+## Readable interview reference and shorter handoff guidance (owner, 2026-10-31, local)
+
+Supersedes the split interview's ruled two-column fact grid. Recorded facts use sentence-case labels above full-width editable answers, with no grid or uppercase labels that break into narrow stacks. Shared Notes retains a warm writing area and light ruling beneath the facts, independent scrolling, visible save/error feedback and the existing resizable split. Keep all question wording, answers, edit/review permissions and note persistence intact.
+
+The owner requested phasing out instructional copy like the handoff's date and attachment paragraphs. Keep the short “Required before sending.” date hint, rename the file heading “Community files,” and remove the repeated description of checkbox behavior/defaults. The generated data sheet still identifies itself as always included; a selected medication list gets the short local reminder “Use a current, signed list.” Validation, file selection defaults, recipient authorization, warnings and send rules remain unchanged. Local preview only.
+
+## Carelog task emphasis on Home and Workspaces (owner reference, 2026-10-31, local)
+
+Use the owner's current Carelog Today and Groups screenshots as the visual reference. Home keeps its personal pins/recent order and compact category buttons. The first pin, or the first recent client when no pins exist, uses Carelog's outlined task tile, a single existing workflow illustration, a warm gradient at Resume and a small raised base. The remaining clients use compact joined rows; this replaces the equal-size three-column personal cards. This is visual prominence, not a new urgency ranking. All existing status words, document counts, owners, destinations and pin behavior remain intact. Expanded category lists retain their card layout.
+
+The app rail uses simple outline destination icons and orange for its selected destination; the white P remains the Home mark. Workspaces keeps its existing filters and month/community navigation, with a warm column header and connected paper rows instead of disconnected gray cards. These choices supersede the earlier local selected-rail styling and warm individual directory rows. Phone targets, long labels, focus, reduced motion and existing access rules remain required. No added top bar, new copy, workflow changes or deployment.
+
+## Compact decision controls (owner screenshot feedback, 2026-10-31, local)
+
+Replace the square decision cards with compact, tactile controls. Each combines the existing outcome symbol and label; a stamped circle, pressed surface and corner check communicate selection together. The radio remains native and the entire control is its target. The reason still spans all three choices below them. No copy, permissions, confirmation, persistence or navigation changes. Motion follows the existing tokens and reduced-motion preference; forced colors retain a selection outline. This is a local visual iteration. The owner's subsequent question about removing Decision as a separate workflow step is a proposal under discussion, not an implemented navigation change.
+
+
+## A working decision carried into review (owner, 2026-10-31, local preview)
+
+The owner approved removing Decision as a separate primary journey step and earmarking Accept or Deny before the assessment is finished. The normal rail is Chart → Assessment → Placement. Decision remains a subordinate Chart action; its existing route, permissions, decision changes, history and administrative controls remain accessible. Training without a Chart retains its existing step sequence.
+
+Preparation and the unsigned assessment share a compact bookmark using the existing saved recommendation. Its semantic color follows the choice. Accept, Deny and Under review remain available; an early Deny does not close the referral. Saving, failure and retry remain visible. The bookmark persists across reopening and cannot be silently abandoned during an unresolved save when leaving the workspace.
+
+Signing opens the decision confirmation within assessment review. A matching saved recommendation from the current assessment becomes a compact confirmation with a seal, Change and Record acceptance/denial. That deliberate click replaces the duplicate confirmation dialog only in this exact case. A changed choice, no choice, or a recommendation belonging to an older assessment retains the full choice and confirmation path. An accepted save opens Meet the Client; a denied save offers Done. Signing, decision recording and sending remain separate operations. No assessment questions, eligibility rules, clinical data model or authorization rules changed.
+
+Use existing motion tokens for the bookmark and confirmation seal; honor reduced motion. Reserve the bookmark's footer space before its data arrives. Reveal the signed confirmation in the center of the visible area so sticky headers cannot obscure the next action. Local preview only; no deployment authorized.
+
+
+## Matching browser and installed-app icons (owner, 2026-10-31, local preview)
+
+Use the sidebar's existing white Pipeline P on its dark green background for the tab and installed desktop icon. The generator reuses the canonical SVG and reads `color-night` and `color-paper` from the design tokens. Versioned PNGs replace the prior icon references in metadata, the manifest and the static cache; installed-app identity and scope remain unchanged. The browser tab uses a larger mark for small-size legibility. App icons retain the maskable safe area. Verified served metadata/assets, sizes, colors and maskable crops; desktop readiness and affected lint pass. Evidence: `.data/ui40-icon-check.json`, `.data/ui40-desktop-readiness.json`. Local only.

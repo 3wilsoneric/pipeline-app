@@ -155,8 +155,9 @@ test.describe("field exit saves and single uploads", () => {
         await route.continue();
       });
       await first.fill("Synthetic first answer");
-      if (redesign) await expect.poll(() => writes.length).toBe(1);
-      else { await page.waitForTimeout(900); expect(writes).toEqual([]); }
+      // Exercise blur before the redesign's 900 ms idle autosave fires.
+      await page.waitForTimeout(redesign ? 100 : 900);
+      expect(writes).toEqual([]);
       await second.fill("Synthetic second answer still being typed");
       await expect.poll(() => writes.length).toBe(1);
       expect(writes[0].patch.data).toEqual({ hospitalization_history: "Synthetic first answer" });
@@ -224,7 +225,6 @@ test.describe("field exit saves and single uploads", () => {
       const input = page.getByLabel("Choose referral documents");
       await expect(page.getByRole("combobox", { name: "Assessor", exact: true })).toHaveValue("assessor-a");
       await expect(page.getByTestId("packet-workspace")).toHaveAttribute("aria-busy", "false");
-      await page.getByTestId("document-checklist-toggle").click();
       await input.setInputFiles(file);
       await confirmReferralFileLabels(page);
       await expect.poll(() => interrupted, { timeout: 20_000 }).toBe(true);
@@ -241,7 +241,6 @@ test.describe("field exit saves and single uploads", () => {
       await page.reload();
       await expect(page.getByRole("combobox", { name: "Assessor", exact: true })).toHaveValue("assessor-a");
       await expect(page.getByTestId("packet-workspace")).toHaveAttribute("aria-busy", "false");
-      await page.getByTestId("document-checklist-toggle").click();
       await input.setInputFiles(file);
       await confirmReferralFileLabels(page);
       await expect.poll(() => reservations.length).toBe(2);
@@ -283,7 +282,6 @@ test.describe("field exit saves and single uploads", () => {
       drawing.fillStyle = "white"; drawing.fillRect(0, 0, 240, 100);
       drawing.fillStyle = "black"; drawing.font = "18px sans-serif"; drawing.fillText("Synthetic intake", 12, 50);
       const packet = { name: "initial-synthetic.png", mimeType: "image/png", buffer: canvas.toBuffer("image/png") };
-      await page.getByTestId("document-checklist-toggle").click();
       await page.getByTestId("referral-documents-input").setInputFiles(packet);
       await confirmReferralFileLabels(page, {}, "face_sheet");
       const creation = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname === "/api/referrals" && response.ok());

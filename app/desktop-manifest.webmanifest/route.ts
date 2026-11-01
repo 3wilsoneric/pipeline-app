@@ -20,28 +20,28 @@ const manifest: MetadataRoute.Manifest = {
   categories: ["business", "medical", "productivity"],
   icons: [
     {
-      src: toPipelinePath("/pwa/pipeline-app-icon-192-v11.png"),
+      src: toPipelinePath("/pwa/pipeline-app-icon-192-v12.png"),
       sizes: "192x192",
       type: "image/png",
     },
     {
-      src: toPipelinePath("/pwa/pipeline-app-icon-512-v11.png"),
+      src: toPipelinePath("/pwa/pipeline-app-icon-512-v12.png"),
       sizes: "512x512",
       type: "image/png",
     },
     {
-      src: toPipelinePath("/pwa/pipeline-app-icon-1024-v11.png"),
+      src: toPipelinePath("/pwa/pipeline-app-icon-1024-v12.png"),
       sizes: "1024x1024",
       type: "image/png",
     },
     {
-      src: toPipelinePath("/pwa/pipeline-app-icon-512-v11.png"),
+      src: toPipelinePath("/pwa/pipeline-app-icon-512-v12.png"),
       sizes: "512x512",
       type: "image/png",
       purpose: "maskable",
     },
     {
-      src: toPipelinePath("/pwa/pipeline-app-icon-1024-v11.png"),
+      src: toPipelinePath("/pwa/pipeline-app-icon-1024-v12.png"),
       sizes: "1024x1024",
       type: "image/png",
       purpose: "maskable",

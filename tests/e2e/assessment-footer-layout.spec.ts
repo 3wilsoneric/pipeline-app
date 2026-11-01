@@ -7,40 +7,27 @@ import { createOperationalAssessment, createOperationalReferral, startOperationa
 test.use({ serviceWorkers: "block" });
 
 for (const width of [1440, 1024, 834, 640, 390, 320]) {
-  test(`assessment footer keeps navigation separate from details at ${width}px`, async ({ page }, info) => {
+  test(`assessment actions and working decision remain reachable at ${width}px`, async ({ page }, info) => {
     await page.setViewportSize({ width, height: 900 });
     const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: "Synthetic Footer", owner: "", tags: [] });
-    await createOperationalAssessment(page.request, referral.id);
-    await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=identity`);
+    const assessment = await createOperationalAssessment(page.request, referral.id);
+    await startOperationalAssessment(page.request, assessment);
+    await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentMode=interview&assessmentSection=identity`);
     const footer = page.locator('footer[aria-label="Assessment actions"]');
-    const details = footer.locator('summary[aria-label="Assessment details"]');
-    await expect(footer).toBeVisible();
-    await expect(footer.locator('[data-guide-target="assessment-save-status"]')).toContainText("All changes saved");
-    await expect(footer.getByRole("combobox", { name: "Working decision", exact: true })).toHaveCount(0);
-    const header = page.getByTestId("workspace-folder-header");
-    // The recommendation belongs to the deliberate review, not to every question.
-    await expect(header.getByRole("combobox", { name: "Working decision", exact: true })).toHaveCount(0);
-    await expect(header.getByRole("button", { name: /Excel|recovery|Workspaces|More workspace actions/ })).toHaveCount(0);
-    await expect(header.getByRole("button", { name: "Move workspace to trash" })).toBeVisible();
-    const saveStatus = footer.locator('[data-guide-target="assessment-save-status"]');
-    await expect(saveStatus).toBeVisible();
+    const bookmark = footer.getByRole("combobox", { name: "Working decision", exact: true });
+    await expect(bookmark).toBeEnabled();
     await expect(footer.getByRole("button", { name: /Excel|backup|recovery/i })).toHaveCount(0);
-    const identity = header.getByTestId("workspace-identity-title");
-    await expect(identity.locator("+ nav")).toHaveAttribute("aria-label", "Workspace stages");
-    if (width === 1440) {
-      const identityBounds = (await identity.boundingBox())!;
-      const stagesBounds = (await identity.locator("+ nav").boundingBox())!;
-      expect(stagesBounds.x).toBeLessThanOrEqual(identityBounds.x + identityBounds.width + 1);
-      expect(stagesBounds.x + stagesBounds.width).toBeLessThanOrEqual(width);
-      expect(Math.abs(identityBounds.y + identityBounds.height - stagesBounds.y - stagesBounds.height)).toBeLessThan(10);
-    }
-    const statusBounds = (await saveStatus.boundingBox())!;
-    expect(statusBounds.x).toBeGreaterThanOrEqual(0);
-    expect(statusBounds.x + statusBounds.width).toBeLessThanOrEqual(width);
-    for (const button of await header.getByRole("button").all()) {
-      if (!await button.isVisible()) continue;
-      const buttonBounds = (await button.boundingBox())!;
-      expect(buttonBounds.x + buttonBounds.width).toBeLessThanOrEqual(width);
+    // The bookmark is now deliberately available before review; it must not displace the actual question controls.
+    const actions = width < 640 ? page.getByRole("navigation", { name: "Question steps", exact: true }) : page.getByRole("navigation", { name: "Assessment section steps", exact: true });
+    await expect(actions).toBeInViewport();
+    expect((await actions.boundingBox())!.height).toBeLessThanOrEqual(width >= 640 ? 80 : 64);
+    for (const control of [bookmark, ...await actions.getByRole("button").all()]) {
+      if (!await control.isVisible()) continue;
+      const bounds = (await control.boundingBox())!;
+      expect(bounds.x).toBeGreaterThanOrEqual(0);
+      expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
+      expect(bounds.height).toBeGreaterThanOrEqual(44);
+      await expect(control).toBeInViewport();
     }
     if (width === 1440 || width === 390) {
       await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
@@ -50,45 +37,16 @@ for (const width of [1440, 1024, 834, 640, 390, 320]) {
       });
       expect(violations).toEqual([]);
     }
-    await footer.scrollIntoViewIfNeeded();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    const bounds = await footer.boundingBox();
-    expect(bounds!.height).toBeLessThanOrEqual(width >= 640 ? 80 : 64);
-
-    const steps = page.getByRole("navigation", { name: "Assessment section steps" });
-      await expect(steps.getByRole("button", { name: "Previous section", exact: true })).toBeDisabled();
-      await expect(steps.locator('[aria-label="Section 1 of 5"]')).toHaveText("1 of 5");
-      await steps.getByRole("button", { name: "Next section", exact: true }).click();
-      await expect(steps.locator('[aria-label="Section 2 of 5"]')).toHaveText("2 of 5");
-      // Desktop section change lands on the new section heading so keyboard
-      // progression continues into that section's questions.
-      if (width >= 640) await expect(page.locator("[data-assessment-section-heading]")).toBeFocused();
-      await steps.getByRole("button", { name: "Previous section", exact: true }).click();
-      await expect(steps.locator('[aria-label="Section 1 of 5"]')).toBeVisible();
-    if (width >= 640) {
-      const navBounds = await steps.boundingBox();
-      const detailsBounds = await details.boundingBox();
-      expect(detailsBounds!.x + detailsBounds!.width).toBeLessThanOrEqual(navBounds!.x);
-    } else {
-      await expect(steps).toBeInViewport();
-      await expect(page.getByRole("navigation", { name: "Question steps" })).toHaveCount(0);
-    }
-    await footer.scrollIntoViewIfNeeded();
     await page.screenshot({ path: info.outputPath(`assessment-footer-${width}.png`), animations: "disabled" });
-    await details.click();
-    const menu = footer.getByRole("group", { name: "Assessment details", exact: true });
-    await expect(menu.getByRole("combobox", { name: "Working decision", exact: true })).toHaveCount(0);
-    await expect(menu.getByRole("button", { name: /^Interview date/ })).toBeVisible();
-    await expect(menu.getByRole("button", { name: "Schedule interview", exact: true })).toHaveCount(0);
-    for (const button of await menu.getByRole("button").all()) expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
-    const menuBounds = await menu.boundingBox();
-    expect(menuBounds!.x).toBeGreaterThanOrEqual(0);
-    expect(menuBounds!.x + menuBounds!.width).toBeLessThanOrEqual(width);
-    expect(menuBounds!.y).toBeGreaterThanOrEqual(0);
-    await page.screenshot({ path: info.outputPath(`assessment-details-${width}.png`), animations: "disabled" });
+    const date = page.getByRole("button", { name: /^Interview date/ });
+    await date.click();
+    const dialog = page.getByRole("dialog", { name: "Interview date", exact: true });
+    await expect(dialog.locator("#assessment-assessment_date")).toBeVisible();
+    for (const button of await dialog.getByRole("button").all()) expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
     await page.keyboard.press("Escape");
-    await expect(menu).toBeHidden();
-    await expect(details).toBeFocused();
+    await expect(dialog).toBeHidden();
+    await expect(date).toBeFocused();
   });
 }
 
@@ -112,9 +70,8 @@ test("loading the decision cannot move assessment navigation during a press", as
   try {
     await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentMode=interview&assessmentSection=diagnosis_clinical`);
     await page.locator("#assessment-current_symptoms").fill("Synthetic stable navigation observation");
-    // Interviewing never loads the decision panel; the recommendation waits for review.
-    await expect(page.getByRole("combobox", { name: "Working decision", exact: true })).toHaveCount(0);
-    expect(decisionChunkPending).toBe(false);
+    // The early bookmark loads with the interview; its reserved space keeps review navigation stable.
+    await expect.poll(() => decisionChunkPending).toBe(true);
     // Use the real exit/save path while the answer is dirty, not a forced document unload.
     await page.getByRole("button", { name: "Choose questionnaire section", exact: true }).click();
     await page.getByRole("dialog", { name: "Questionnaire sections", exact: true }).getByRole("button", { name: /^Review assessment/ }).click();
@@ -158,7 +115,7 @@ test("recommendation remains available in review after starting and saves withou
   await expect(recommendation).toHaveValue("needs_more_information");
 });
 
-test("iPad WebKit keeps the details menu reachable without covering navigation", async ({ baseURL }) => {
+test("iPad WebKit keeps date and interview controls reachable", async ({ baseURL }) => {
   const browser = await webkit.launch();
   try {
     const page = await browser.newPage({ baseURL, viewport: { width: 834, height: 1194 }, hasTouch: true, isMobile: true });
@@ -166,22 +123,27 @@ test("iPad WebKit keeps the details menu reachable without covering navigation",
     await createOperationalAssessment(page.request, referral.id);
     await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment`);
     const footer = page.locator('footer[aria-label="Assessment actions"]');
-    const details = footer.locator('summary[aria-label="Assessment details"]');
-    await details.tap();
-    const menu = footer.getByRole("group", { name: "Assessment details", exact: true });
-    await expect(menu).toBeVisible();
-    const bounds = (await menu.boundingBox())!;
-    expect(bounds.y + bounds.height).toBeLessThanOrEqual((await footer.boundingBox())!.y + 1);
+    const date = page.getByRole("button", { name: /^Interview date/ });
+    await date.tap();
+    const dialog = page.getByRole("dialog", { name: "Interview date", exact: true });
+    await expect(dialog).toBeVisible();
+    const bounds = (await dialog.boundingBox())!;
+    expect(bounds.x).toBeGreaterThanOrEqual(0);
+    expect(bounds.x + bounds.width).toBeLessThanOrEqual(834);
+    expect(bounds.y).toBeGreaterThanOrEqual(0);
+    expect(bounds.y + bounds.height).toBeLessThanOrEqual(1194);
     await page.keyboard.press("Escape");
-    const beginButton = page.getByRole("region", { name: "Assessment progress", exact: true }).getByRole("button", { name: "Begin interview", exact: true });
+    await expect(date).toBeFocused();
+    const beginButton = footer.getByRole("button", { name: "Begin interview", exact: true });
     await beginButton.tap();
     const begin = page.getByRole("dialog", { name: "Begin interview", exact: true });
     await expect(begin).toBeVisible();
     await begin.getByRole("button", { name: "Keep preparing", exact: true }).tap();
     await expect(begin).toBeHidden();
     await expect(beginButton).toBeFocused();
-    await footer.getByRole("button", { name: "Next section", exact: true }).tap();
-    await expect(footer.locator('[aria-label="Section 2 of 5"]')).toBeVisible();
+    await beginButton.tap();
+    await begin.getByRole("button", { name: "Begin interview", exact: true }).tap();
+    await expect(footer.getByRole("button", { name: "Review assessment", exact: true })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   } finally { await closeTestBrowser(browser); }
 });

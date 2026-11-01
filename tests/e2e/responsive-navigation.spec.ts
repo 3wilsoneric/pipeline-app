@@ -21,24 +21,18 @@ test.describe("Responsive application navigation", () => {
       await expect(page.getByRole("main", { name: "Referral workspaces" })).toBeVisible();
       const phone = viewport.width < 640;
       if (phone) await page.getByRole("button", { name: /^Open page menu/ }).click();
-      else await page.getByRole("button", { name: "Expand navigation", exact: true }).click();
 
       for (const name of ["Open referrals", "Open calendar", "Open client profiles", "Open reports", "Create new referral"]) {
         await expect(page.getByRole("button", { name })).toBeVisible();
       }
-      const redesigned = await page.locator("html").getAttribute("data-design") === "v2";
-      for (const [name, color] of [
-        ["Open referrals", "rgb(12, 112, 95)"],
-        ["Open calendar", "rgb(23, 107, 120)"],
-        ["Open client profiles", "rgb(75, 104, 173)"],
-        ["Open reports", "rgb(89, 101, 45)"],
-        ["Create new referral", "rgb(169, 71, 61)"],
-      ]) {
-        await expect(page.getByRole("button", { name, exact: true })).toHaveCSS("color", redesigned ? (name === "Open referrals" || name === "Create new referral" ? "rgb(15, 110, 86)" : phone ? "rgb(53, 58, 67)" : "rgb(93, 100, 112)") : color);
+      // Carelog uses the action accent to identify the selected destination.
+      const active = page.getByRole("button", { name: "Open referrals", exact: true });
+      await expect(active).toHaveAttribute("aria-current", "page");
+      await expect(active).toHaveCSS("background-color", "rgb(244, 162, 97)");
+      await expect(active).toHaveCSS("color", "rgb(3, 47, 48)");
+      for (const name of ["Open calendar", "Open client profiles", "Open reports", "Create new referral"]) {
+        await expect(page.getByRole("button", { name, exact: true })).toHaveCSS("color", phone ? name === "Create new referral" ? "rgb(8, 92, 96)" : "rgb(3, 47, 48)" : "rgb(207, 229, 230)");
       }
-      await expect(page.getByRole("button", { name: "Open referrals", exact: true })).toHaveCSS("background-color", redesigned ? "rgb(236, 247, 242)" : "rgb(231, 243, 238)");
-      await expect(page.getByRole("complementary", { name: "Workspace navigation", exact: true })).toHaveCSS("border-top-left-radius", redesigned ? "10px" : "12px");
-      await expect(page.locator('[data-guide-target="workspace-search"]')).toHaveCSS("border-top-left-radius", redesigned ? "6px" : "5px");
       await expect(page.getByRole("button", { name: "Pipeline home" })).toBeVisible();
       await expect(page.getByRole("button", { name: /Open profile menu/ })).toBeVisible();
       await expectNoDocumentOverflow(page);
@@ -47,13 +41,14 @@ test.describe("Responsive application navigation", () => {
       await expectVisibleNavigationLabelsAreContained(page);
       await expect(page.getByRole("button", { name: "Open guide launcher" })).toHaveCount(0);
       await expect(page.getByRole("button", { name: "Resume guided tutorial" })).toHaveCount(0);
-      if (viewport.width >= 360) {
-        await expect(page.getByRole("button", { name: "Open guided tutorials" })).toBeVisible();
-      }
+      await page.getByRole("button", { name: /Open profile menu/ }).click();
+      const profile = page.getByRole("dialog", { name: "Profile settings", exact: true });
+      await expect(profile.getByRole("button", { name: "Open guided tutorials" })).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(profile).toBeHidden();
 
       await expect(page.getByTestId("primary-navigation").getByText("Workspaces", { exact: true })).toBeVisible();
       if (phone) await page.getByRole("button", { name: "Close page menu", exact: true }).click();
-      else await page.getByRole("button", { name: "Collapse navigation", exact: true }).click();
 
       if (viewport.width < 1280) {
         await page.getByRole("button", { name: "Browse workspaces by month and community" }).click();

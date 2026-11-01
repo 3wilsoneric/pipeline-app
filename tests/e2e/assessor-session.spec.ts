@@ -12,10 +12,13 @@ test("God mode opens another account with its real permissions", async ({ page }
   await expect(picker.getByText(/Andrew Dominici|Lily Florian|Lorena Renaud|Marta/, { exact: false })).toHaveCount(0);
   await picker.getByRole("button", { name: /Jazmine Saldana Account setup pending/ }).click();
 
+  await page.getByRole("button", { name: "Open profile menu for Jazmine Saldana" }).click();
   await expect(page.getByRole("button", { name: "Exit God mode for Jazmine Saldana" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Open profile menu for Jazmine Saldana" })).toBeVisible();
+  await page.keyboard.press("Escape");
   await page.setViewportSize({ width: 320, height: 568 });
   await page.getByRole("button", { name: /^Open page menu/ }).click();
+  await page.getByRole("button", { name: "Open profile menu for Jazmine Saldana" }).click();
   await expect(page.getByRole("button", { name: "Exit God mode for Jazmine Saldana" })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBe(true);
 

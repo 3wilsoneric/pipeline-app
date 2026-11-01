@@ -25,6 +25,16 @@ export type OperationalAssessment = {
   version: number;
 };
 
+export async function activeOperationalAssessor(context: APIRequestContext) {
+  const response = await context.get("/api/members?scope=assessors");
+  expect(response.ok()).toBe(true);
+  const { members } = await response.json();
+  const assessor = members.find((member: { active: boolean }) => member.active) as
+    { principal_id: string; display_name: string } | undefined;
+  if (!assessor) throw new Error("An active assessor is required for this workflow fixture.");
+  return assessor;
+}
+
 export async function createOperationalReferral(
   context: APIRequestContext,
   actorKey: PipelineActorKey | PipelineActor = "assessmentCoordinator",

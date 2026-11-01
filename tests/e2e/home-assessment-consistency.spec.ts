@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 
-import { isUpcomingAssessmentAppointment } from "../../lib/pipeline/assessment-calendar";
+import { calendarDate, isUpcomingAssessmentAppointment } from "../../lib/pipeline/assessment-calendar";
 import type { PipelineCalendarResponse } from "../../lib/pipeline/calendar-types";
 import type { HomeBriefingSnapshot } from "../../lib/pipeline/home-briefing-types";
 import { createOperationalAssessment, createOperationalReferral, scheduleOperationalAssessment } from "./support/operational-api";
@@ -22,15 +22,15 @@ test("Home only lists appointments within their scheduled window", () => {
   expect(isUpcomingAssessmentAppointment({ ...event, scheduleStatus: "cancelled" }, now)).toBe(false);
 });
 
-test("intake edits and appointment changes agree across Home, Board, and Calendar", async ({ page }) => {
+test("intake and appointment changes agree across Board and Calendar while Home stays personal", async ({ page }) => {
   const token = randomUUID().slice(0, 8).replace(/[0-9]/g, (digit) => String.fromCharCode(103 + Number(digit)));
   const suffix = `${token[0].toUpperCase()}${token.slice(1)}`;
   const originalName = `Initial ${suffix}`;
   const updatedName = `Updated ${suffix}`;
+  const assessor = { id: "provisional:allo:annette", name: "Annette Everhart" };
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", {
-    name: originalName,
-    owner: "Annette Everhart",
-  }, { assigneeId: "provisional:allo:annette" });
+    name: originalName, owner: assessor.name,
+  }, { assigneeId: assessor.id });
   const created = await createOperationalAssessment(page.request, referral.id);
   const scheduled = await scheduleOperationalAssessment(page.request, created);
   const home = async () => {
@@ -42,10 +42,9 @@ test("intake edits and appointment changes agree across Home, Board, and Calenda
   const findBoard = (snapshot: HomeBriefingSnapshot) => snapshot.workflow.all_board_items?.filter((item) => item.referral_id === referral.id) ?? [];
 
   const before = await home();
-  expect(findUpcoming(before)).toHaveLength(1);
-  expect(findUpcoming(before)[0].clientName).toBe(originalName);
+  expect(findUpcoming(before)).toHaveLength(0);
   expect(findBoard(before)).toHaveLength(1);
-  const appointmentDate = findUpcoming(before)[0].date;
+  const appointmentDate = calendarDate((await (await page.request.get(`/api/assessments/${scheduled.assessment_id}`)).json()).assessment.scheduled_start_at)!;
   const calendar = async (date = appointmentDate) => {
     const response = await page.request.get(`/api/calendar/events?from=${date}&to=${date}`);
     expect(response.ok()).toBe(true);
@@ -63,7 +62,7 @@ test("intake edits and appointment changes agree across Home, Board, and Calenda
   const renamed = (await renamedResponse.json()).referral as typeof referral;
   expect(renamed.name).toBe(updatedName);
   const afterRename = await home();
-  expect(findUpcoming(afterRename).map((event) => event.clientName)).toEqual([updatedName]);
+  expect(findUpcoming(afterRename)).toHaveLength(0);
   expect(findBoard(afterRename).map((item) => item.client_name)).toEqual([updatedName]);
   expect((await calendar()).events.filter((event) => event.referralId === referral.id).map((event) => event.clientName)).toContain(updatedName);
 
@@ -87,9 +86,8 @@ test("intake edits and appointment changes agree across Home, Board, and Calenda
   expect(movedResponse.ok(), movedBody).toBe(true);
   const movedAppointment = JSON.parse(movedBody).assessment;
   const afterMove = await home();
-  expect(findUpcoming(afterMove)).toHaveLength(1);
-  expect(findUpcoming(afterMove)[0].startsAt).toBe(movedStart);
-  const movedDate = findUpcoming(afterMove)[0].date;
+  expect(findUpcoming(afterMove)).toHaveLength(0);
+  const movedDate = calendarDate(movedStart)!;
   expect((await calendar()).events.filter((event) => event.referralId === referral.id)).toHaveLength(0);
   expect((await calendar(movedDate)).events.filter((event) => event.referralId === referral.id)).toHaveLength(1);
 

@@ -17,7 +17,7 @@
 .clientIdentity strong { overflow-wrap: anywhere; font-size: clamp(17px, 1.45vw, 21px); line-height: 1.25; font-weight: 650; }
 .clientIdentity span { color: var(--color-ink-muted); font-size: var(--text-meta); }
 .clientStatus { color: var(--color-stage-amber); font-size: var(--text-meta); font-weight: 600; }
-.client[data-status="admitted"] .clientStatus { color: var(--color-stage-green); }
+.client:is([data-status="admitted"], [data-status="accepted"]) .clientStatus { color: var(--color-status-done); }
 .clientCount { color: var(--color-ink); font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .clientCount small { color: var(--color-ink-muted); font-size: var(--text-meta); font-weight: 500; }
 .clientChevron { color: var(--color-ink-muted); transition: transform 200ms ease; }

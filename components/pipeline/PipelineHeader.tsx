@@ -4,7 +4,6 @@ import { canEditWorkspace } from "@/lib/pipeline/referral-ownership";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, ArrowRight, CircleHelp, FlaskConical, ListTodo, LogOut, MoreHorizontal, Settings, Trash2, UserRound, X } from "lucide-react";
 
@@ -26,7 +25,7 @@ import sidebarStyles from "@/components/pipeline/PipelineMobileShell.module.css"
 import PipelinePhoneNotifications from "@/components/pipeline/PipelinePhoneNotifications";
 import { applyPipelineWorkspaceLocation } from "@/lib/pipeline/work-continuity";
 
-export default function PipelineHeader({ onDestinationChange, phone = false }: { onDestinationChange: () => void; phone?: boolean }) {
+export default function PipelineHeader({ phone = false }: { phone?: boolean }) {
   const phoneMenuRef = useRef<HTMLDialogElement>(null);
   const auth = usePipelineAuth();
   const [user, setUser] = useState<PipelineCurrentUser | null>(auth.initialUser);
@@ -41,7 +40,14 @@ export default function PipelineHeader({ onDestinationChange, phone = false }: {
   const activeNav = searchOpen ? null : getActiveNavTarget(activeSearchParams, pathname);
   const canAccessReports = canAccessOperationsReports(user);
   useWorkspacePresenceHeartbeat(Boolean(user));
-  useEffect(() => { phoneMenuRef.current?.close(); onDestinationChange(); }, [pathname, locationSearch, onDestinationChange]);
+  useEffect(() => {
+    const closeMenu = () => phoneMenuRef.current?.close();
+    closeMenu();
+    // Assessment position updates replace query parameters without leaving the
+    // page. Only navigation (handled below) and browser history close this menu.
+    window.addEventListener("popstate", closeMenu);
+    return () => window.removeEventListener("popstate", closeMenu);
+  }, [pathname]);
 
   useEffect(() => {
     let cancelled = false;
@@ -68,7 +74,10 @@ export default function PipelineHeader({ onDestinationChange, phone = false }: {
       }
     };
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setIsProfileMenuOpen(false);
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      setIsProfileMenuOpen(false);
+      profileMenuRef.current?.querySelector<HTMLButtonElement>('[data-guide-target="profile-menu"]')?.focus();
     };
 
     document.addEventListener("pointerdown", closeOnOutsideClick);
@@ -148,17 +157,15 @@ export default function PipelineHeader({ onDestinationChange, phone = false }: {
             navigateTo("home");
           }}
           aria-label="Pipeline home"
+          aria-current={pathname === "/" && activeSearchParams.size === 0 ? "page" : undefined}
           title="Pipeline — Alamo Health Management"
           data-pipeline-home="true"
           data-guide-target="pipeline-home"
           data-platform-page-active="pipeline"
           className={`${sidebarStyles.home} min-w-11`}
         >
-          <PipelineLogoMark size={32} />
-          <span className={sidebarStyles.brandDivider} data-brand-divider aria-hidden="true" />
-          <span className={sidebarStyles.brandAlamo}>
-            <Image src={toPipelinePath("/brand/alamo-health-management.png")} alt="Alamo Health Management" width={774} height={206} loading="eager" unoptimized draggable={false} className={sidebarStyles.brandAlamoImage} />
-          </span>
+          <PipelineLogoMark size={42} className={sidebarStyles.homeMark} />
+          <span className={sidebarStyles.homeLabel}>Home</span>
         </button>
       </div>
       <div id="pipeline-primary-navigation" data-testid="primary-navigation-dock" className={sidebarStyles.destinations}>
@@ -172,7 +179,6 @@ export default function PipelineHeader({ onDestinationChange, phone = false }: {
       </div>
 
       <div className={sidebarStyles.utilities}>
-        <HeaderSessionControls user={user} hideGlobalGuide={hideGlobalGuide} />
         <div ref={profileMenuRef} className="relative">
           <button
             type="button"
@@ -185,9 +191,11 @@ export default function PipelineHeader({ onDestinationChange, phone = false }: {
             onClick={() => setIsProfileMenuOpen((open) => !open)}
             className={profileAppearance.buttonClass}
           >
-            <UserRound size={18} strokeWidth={1.8} className="shrink-0 text-[#0f8b73]" />
+            <span aria-hidden="true" className={sidebarStyles.profileMark}>
+              <UserRound size={24} strokeWidth={1.8} />
+              <span title="Online" className={profilePresenceIndicatorClass(Boolean(user))} />
+            </span>
             <span className="hidden truncate text-[12px] font-black uppercase tracking-[0.1em] xl:inline">{signedInName}</span>
-            <span aria-hidden="true" title="Online" className={profilePresenceIndicatorClass(Boolean(user))} />
           </button>
 
           <div
@@ -234,6 +242,20 @@ export default function PipelineHeader({ onDestinationChange, phone = false }: {
               </button>
             ) : null}
             </DemoProfileMenu>
+            <div className={sidebarStyles.profileUtilities}>
+              <Link href="/?screen=completion" onClick={() => {
+                setIsProfileMenuOpen(false);
+                phoneMenuRef.current?.close();
+              }}>
+                <ListTodo size={20} aria-hidden="true" />
+                <span>Follow-up review</span>
+              </Link>
+              <HeaderSessionControls user={user} hideGlobalGuide={hideGlobalGuide} onOpenGuide={() => {
+                setIsProfileMenuOpen(false);
+                phoneMenuRef.current?.close();
+                dispatchOperatorGuide({ type: "open-library" });
+              }} />
+            </div>
           </div>
         </div>
       </div>
@@ -270,7 +292,7 @@ export default function PipelineHeader({ onDestinationChange, phone = false }: {
   </header>;
 }
 
-function HeaderSessionControls({ user, hideGlobalGuide }: { user: PipelineCurrentUser | null; hideGlobalGuide: boolean }) {
+function HeaderSessionControls({ user, hideGlobalGuide, onOpenGuide }: { user: PipelineCurrentUser | null; hideGlobalGuide: boolean; onOpenGuide: () => void }) {
   return <>
     {user?.demoPersona ? <DemoAssessmentLabButton className="flex items-center text-[#08745f]" ><FlaskConical size={18} aria-hidden="true" /><span>Assessment lab</span></DemoAssessmentLabButton> : null}
     {user?.demoPersona ? <DemoPersonaSwitch persona={user.demoPersona} /> : <ActiveAssessorSessionPill user={user} />}
@@ -280,7 +302,7 @@ function HeaderSessionControls({ user, hideGlobalGuide }: { user: PipelineCurren
         aria-label="Open guided tutorials"
         title="Tutorials"
         data-guide-target="guided-help"
-        onClick={() => dispatchOperatorGuide({ type: "open-library" })}
+        onClick={onOpenGuide}
         className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-[#0f8b73] outline-none hover:bg-[#eff8f5] focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2"
       >
         <CircleHelp size={18} strokeWidth={1.8} aria-hidden="true" />
@@ -304,7 +326,6 @@ function DemoProfileMenu({ user, signedInName, onSelect, onTrash, children }: {
       <div className="mt-1 text-[12px] text-[#68736d]">{user.demoPersona === "supervisor" ? "Supervisor" : "Assessor"}</div>
     </div>
     <div className="p-1 text-[14px] text-[#28372f]">
-      <DemoAssessmentLabButton className="block w-full rounded px-3 py-3 text-left hover:bg-[#f0f6f3] focus-visible:outline-[#0f8b73] sm:hidden" />
       <Link href="/settings" onClick={onSelect} className="block rounded px-3 py-3 hover:bg-[#f0f6f3] focus-visible:outline-[#0f8b73]">Settings</Link>
       <button type="button" onClick={onTrash} className="block w-full rounded px-3 py-3 text-left hover:bg-[#f0f6f3] focus-visible:outline-[#0f8b73]">Trash</button>
     </div>
@@ -367,7 +388,7 @@ function useWorkspacePresenceHeartbeat(enabled: boolean) {
 }
 
 function profilePresenceIndicatorClass(online: boolean) {
-  const base = "absolute bottom-2 left-[27px] h-2.5 w-2.5 rounded-full border-2 border-white max-sm:bottom-0.5 max-sm:left-auto max-sm:right-0.5";
+  const base = "absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-pill border-2 border-paper";
   return `${base} ${online ? "bg-[#20a464]" : "opacity-0"}`;
 }
 

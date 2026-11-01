@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { loadTypeScriptModule } from "./ts-module-loader.mjs";
 
-const { getReferralBoardState: board, referralBoardStages } = loadTypeScriptModule(process.cwd(), "lib/pipeline/referral-flow.ts");
+const { getReferralBoardState: board, referralBoardStages, referralBoardSection } = loadTypeScriptModule(process.cwd(), "lib/pipeline/referral-flow.ts");
 const { createEmptyAssessmentToolData } = loadTypeScriptModule(process.cwd(), "lib/assessment/assessment-tool-schema.ts");
 const referral = {
   id: 1, name: "Synthetic Client", community: "Turlock", date: "2026-09-21", dob: "", source: "Referral packet",
@@ -17,8 +17,16 @@ const signed = { assessmentExists: true, assessmentComplete: true, assessmentSig
 const admitted = { ...referral, stage: "Accepted / Admitted", workflowStatus: "admitted" };
 const sent = "2026-09-21T12:00:00Z";
 
-test("the board has three folders; awaiting admit is a decision detail", () => {
-  assert.deepEqual(Array.from(referralBoardStages, stage => stage.key), ["received", "in_progress", "decision"]);
+test("the board has two folders and preserves received as a client status and intake destination", () => {
+  assert.deepEqual(Array.from(referralBoardStages, stage => stage.key), ["in_progress", "decision"]);
+  const received = board(referral);
+  assert.equal(referralBoardSection(received.stage), "in_progress");
+  assert.equal(received.detail, "Referral received");
+  assert.equal(received.next_action, "Add referral information");
+  assert.equal(received.location.view, "intake");
+  assert.equal(referralBoardSection("in_progress"), "in_progress");
+  assert.equal(referralBoardSection("decision"), "decision");
+  assert.equal(referralBoardSection(null), null);
   const ready = board(referral, { ...signed, decision: accepted });
   assert.equal(ready.stage, "decision");
   assert.equal(ready.detail, "Awaiting admit");

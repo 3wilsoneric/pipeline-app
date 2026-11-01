@@ -1,0 +1,31 @@
+.picture {
+  --picture-fill: var(--color-picture-ochre);
+  --picture-soft: var(--color-picture-ochre-soft);
+  display: block;
+  flex-shrink: 0;
+  overflow: visible;
+}
+.picture[data-pipeline-picture="calendar"], .picture[data-pipeline-picture="assessment"] { --picture-fill: var(--color-picture-blue); --picture-soft: var(--color-picture-blue-soft); }
+.picture[data-pipeline-picture="client"], .picture[data-pipeline-picture="decision"] { --picture-fill: var(--color-picture-violet); --picture-soft: var(--color-picture-violet-soft); }
+.picture[data-pipeline-picture="intake"] { --picture-fill: var(--color-picture-clay); --picture-soft: var(--color-picture-clay-soft); }
+.picture[data-pipeline-picture="report"], .picture[data-pipeline-picture="assignment"], .picture[data-pipeline-picture="placement"] { --picture-fill: var(--color-picture-leaf); --picture-soft: var(--color-picture-leaf-soft); }
+.picture:is([data-pipeline-picture="conversation"], [data-pipeline-picture="recovery"], [data-pipeline-picture="home"]) { --picture-fill: var(--color-picture-leaf); --picture-soft: var(--color-picture-leaf-soft); }
+.picture:is([data-pipeline-picture="daily-living"], [data-pipeline-picture="health"], [data-pipeline-picture="history"]) { --picture-fill: var(--color-picture-blue); --picture-soft: var(--color-picture-blue-soft); }
+.picture:is([data-pipeline-picture="medication"], [data-pipeline-picture="safety"]) { --picture-fill: var(--color-picture-violet); --picture-soft: var(--color-picture-violet-soft); }
+.picture[data-pipeline-picture="connections"] { --picture-fill: var(--color-picture-clay); --picture-soft: var(--color-picture-clay-soft); }
+.moving { transform-box: fill-box; transform-origin: center; transition: transform var(--motion-state) var(--ease-open); }
+:global(button:is([data-active="true"], [aria-selected="true"], [aria-expanded="true"])) > .picture .moving { transform: translateY(-2px); }
+:global(button:focus-visible) .picture .moving { transform: translateY(-2px); }
+@media (hover: hover) and (pointer: fine) {
+  :global(button:hover) > .picture .moving { transform: translateY(-3px); }
+  :global(button:hover) > .picture[data-pipeline-picture="assessment"] .moving { transform: rotate(-8deg); }
+  :global(button:hover) > .picture[data-pipeline-picture="folder"] .moving { transform: translate(2px, -2px); }
+}
+:global(button:active) > .picture .moving { transform: translateY(1px); transition-duration: var(--motion-press); }
+@media (prefers-reduced-motion: reduce) {
+  .picture .moving { transform: none !important; transition: none; }
+}
+@media (forced-colors: active) {
+  .picture { --picture-fill: Canvas; --picture-soft: Canvas; stroke: CanvasText; }
+  .picture [fill] { fill: Canvas; }
+}

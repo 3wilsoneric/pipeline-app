@@ -19,21 +19,25 @@ for (const width of [1440, 1024, 834, 640, 390, 320]) {
     await page.goto(url);
     const phone = width < 640;
     const reference = phone ? page.getByRole("dialog", { name: "Client information", exact: true }) : page.getByRole("complementary", { name: "Current information", exact: true });
+    const readingSurface = phone ? reference : reference.locator("[data-split-chart]");
     const openReference = async () => {
       if (phone) await page.getByRole("button", { name: "Client info", exact: true }).click();
-      else if (width < 960) await reference.getByRole("button", { name: "Current information", exact: true }).click();
+      else {
+        const expand = reference.getByRole("button", { name: "Current information", exact: true });
+        if (await expand.isVisible()) await expand.click();
+      }
     };
     await openReference();
     const recorded = reference.getByRole("button", { name: `${phone ? "Review" : "Edit"} Earlier care placements`, exact: true });
     const text = recorded.getByText(note, { exact: true });
     await expect(text).toBeVisible();
-    await expect(text).toHaveCSS("font-size", "19px");
+    await expect(text).toHaveCSS("font-size", phone ? "19px" : "16px");
     await expect(text).toHaveCSS("font-family", await page.locator("body").evaluate((el) => getComputedStyle(el).fontFamily));
-    await expect(text).toHaveCSS("white-space", "pre-wrap");
+    await expect(text).toHaveCSS("white-space", phone ? "pre-wrap" : "pre-line");
     await expect(reference.getByRole("button", { name: `${phone ? "Review" : "Edit"} Hospitalization history`, exact: true })).toContainText("Prior hospitalizations: 0");
-    expect(await reference.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+    expect(await readingSurface.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    if (!phone) await expect(reference.locator("[data-assessment-reference-page]")).toHaveCSS("animation-name", "none");
+    if (!phone) await expect(reference.locator("[data-split-chart], [data-assessment-reference-page]")).toHaveCSS("animation-name", "none");
     await page.screenshot({ path: info.outputPath(`reading-page-${width}.png`), animations: "disabled" });
 
     await recorded.click();
@@ -51,7 +55,7 @@ for (const width of [1440, 1024, 834, 640, 390, 320]) {
     await page.reload();
     await openReference();
     await expect(recorded).toContainText("Synthetic interview clarification retained.");
-    expect(await reference.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+    expect(await readingSurface.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
   });
 }
 

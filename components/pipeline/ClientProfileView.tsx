@@ -1282,7 +1282,7 @@ function ProfileSkeleton({ onBack }: { onBack: () => void }) {
 }
 
 function BackButton({ onClick }: { onClick: () => void }) {
-  return <button type="button" onClick={onClick} className="flex h-8 items-center gap-2 text-[12px] font-black text-[#0f8b73] hover:text-[#0a6a58]"><ArrowLeft size={15} /> Back to profiles</button>;
+  return <button type="button" onClick={onClick} className="inline-flex min-h-11 items-center gap-2 text-label font-semibold text-link hover:underline focus-visible:outline-2 focus-visible:outline-focus"><ArrowLeft size={15} /> Back to profiles</button>;
 }
 
 function ProfileSection({ title, detail, children }: { title: string; detail?: string; children: React.ReactNode }) {

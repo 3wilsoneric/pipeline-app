@@ -1,5 +1,11 @@
 import { expect, type Page } from "@playwright/test";
 
+// A visible field can still be inside the inert recovery surface. Playwright's
+// fill() does not wait for that ancestor; wait for the same readiness as a user.
+export async function waitForAssessmentReady(page: Page) {
+  await expect(page.getByTestId("packet-workspace")).toHaveAttribute("aria-busy", "false");
+}
+
 export async function editPreparedAnswer(page: Page, label: string) {
   // Preparation keeps recorded fields editable; interview references expose Edit.
   const input = page.getByRole("textbox", { name: label, exact: true });
@@ -43,14 +49,6 @@ export async function leaveInterviewFullScreen(page: Page) {
   // It turns on just after a layout change (such as a resize), so give it a moment to appear.
   const on = await page.locator("html[data-interview-focus]").waitFor({ state: "attached", timeout: 1_500 }).then(() => true, () => false);
   if (!on) return;
-  // Back restores the previous pointer position, which can leave the app's
-  // hover preview over the record rail. Move out as a person would before
-  // opening the rail; do not force a click through another control.
-  const preview = page.locator('[aria-label="App navigation"][data-sidebar-pinned="false"][data-sidebar-expanded="true"]');
-  if (await preview.count()) {
-    await page.mouse.move((page.viewportSize()?.width ?? 1440) - 1, 1);
-    await expect(preview).toHaveCount(0);
-  }
   const divider = page.getByRole("separator", { name: "Resize workspace rail", exact: true });
   await expect(divider).toBeVisible();
   if (await divider.getAttribute("aria-valuenow") === "0") await divider.press("Enter");

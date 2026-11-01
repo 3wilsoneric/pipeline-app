@@ -23,8 +23,8 @@ for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]]
         // area; assert reachability, not the retired fixed vertical offset.
         await name.scrollIntoViewIfNeeded();
         await expect(name).toBeInViewport();
-        await expect(name).toHaveCSS("font-size", size.width < 640 ? "16px" : "14px");
-        await expect(page.getByTestId("document-checklist-panel")).not.toHaveAttribute("open");
+        await expect(name).toHaveCSS("font-size", "16px");
+        await expect(page.getByRole("dialog", { name: "Document checklist", exact: true })).toBeHidden();
         const controls = [...await header.getByRole("button").all(), ...await page.locator(size.width < 640 ? "[data-phone-header] > div" : '[data-testid="primary-navigation-dock"]').getByRole("button").all()];
         for (const control of controls) {
           const box = (await control.boundingBox())!;
@@ -69,12 +69,13 @@ for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]]
         window.visualViewport!.dispatchEvent(new Event("resize"));
       });
       await email.blur();
+      await expect(email).toHaveValue("touch-layout@example.invalid");
       await expect(page.getByRole("button", { name: /^Open page menu/ })).toBeVisible();
       await expect(name).toHaveValue(clientName);
-      await header.getByRole("button", { name: "Create referral", exact: true }).tap();
+      await page.getByRole("button", { name: "Create referral", exact: true }).tap();
       await expect(page).toHaveURL(/referralId=\d+/);
       const savedReferralId = new URL(page.url()).searchParams.get("referralId");
-      await expect(header.getByRole("button", { name: "Create referral", exact: true })).toHaveCount(0);
+      await expect(page.getByRole("button", { name: "Create referral", exact: true })).toHaveCount(0);
       await page.getByRole("region", { name: "Workspace created", exact: true }).getByRole("button", { name: "Dismiss workspace next steps", exact: true }).tap();
       await header.getByLabel("Workspace view", { exact: true }).selectOption({ label: "Assessment" });
       await expect(page.locator('[data-assessment-phase="preparation"]')).toBeVisible();
@@ -83,6 +84,7 @@ for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]]
         await page.setViewportSize({ width, height: 900 });
         const preparedName = page.getByRole("textbox", { name: "Resident name", exact: true });
         await expect(preparedName).toHaveValue(clientName);
+        await expect(preparedName).toBeVisible();
         expect((await preparedName.boundingBox())!.height).toBeGreaterThanOrEqual(44);
         expect((await page.locator("[data-assessment-primary-action] button").boundingBox())!.height).toBeGreaterThanOrEqual(44);
         const preparation = page.getByTestId("assessment-client-folder");

@@ -51,37 +51,36 @@ test("board folders show document work without an overall completion percentage"
   await homeFixture(page);
   await page.goto("/");
   const card = page.locator("[data-board-card]").first();
-  await expect(card).toContainText(/Documents needed\s*1/);
+  await expect(card).toContainText(/1 document needed/);
   await expect(card).not.toContainText("File progress");
   await expect(card).not.toContainText(/\d+% complete/);
   await card.screenshot({ path: testInfo.outputPath("board-card.png"), animations: "disabled" });
 });
 
 for (const width of [1440, 390]) {
-  test(`redesign received and decision columns stay neutral and readable at ${width}px`, async ({ page }, info) => {
-    test.skip(process.env.PIPELINE_DESIGN_V2 !== "true", "Redesign colors only");
+  test(`two board sections include received referrals and preserve status at ${width}px`, async ({ page }, info) => {
     await page.setViewportSize({ width, height: 950 });
     await homeFixture(page, undefined, 2);
     await page.goto("/");
-    await expect(page.locator("html")).toHaveAttribute("data-design", "v2");
-    for (const stage of ["received", "decision", "in_progress"]) {
-      if (width < 1024) await page.getByRole("combobox", { name: "Referral stage", exact: true }).selectOption(stage);
+    await expect(page.locator("[data-board-stage]")).toHaveCount(2);
+    await expect(page.getByRole("button", { name: "Open referral received folder", exact: true })).toHaveCount(0);
+    for (const stage of ["in_progress", "decision"]) {
       const column = page.locator(`[data-board-stage="${stage}"]`);
       await expect(column).toBeVisible();
-      const palette = stage === "received"
-        ? { background: "rgb(239, 226, 203)", border: "rgb(221, 200, 166)", ink: "rgb(114, 89, 46)" }
-        : stage === "decision"
-          ? { background: "rgb(226, 213, 237)", border: "rgb(205, 185, 223)", ink: "rgb(101, 81, 124)" }
-          : { background: "rgb(223, 227, 250)", border: "rgb(213, 222, 250)", ink: "rgb(47, 84, 200)" };
-      await expect(column).toHaveCSS("background-color", palette.background);
-      await expect(column).toHaveCSS("border-top-color", palette.border);
-      await expect(column.locator("[data-board-card]").first()).toHaveCSS("background-color", "rgb(255, 255, 255)");
-      await expect(column.locator("[data-board-status]").first()).toHaveCSS("color", palette.ink);
-      await page.screenshot({ path: info.outputPath(`neutral-board-${width}-${stage}.png`), animations: "disabled" });
+      const count = stage === "in_progress" ? 4 : 2;
+      await expect(column.locator("[data-board-card]")).toHaveCount(0);
+      await expect(column.locator("[data-open-folder]")).toContainText(`${count} files`);
+      await expect(column.locator("[data-open-folder]")).toHaveCSS("border-top-color", "rgb(101, 117, 110)");
+      await expect(column.locator("[data-open-folder]")).toHaveCSS("background-color", stage === "in_progress" ? "rgb(237, 241, 252)" : "rgb(242, 237, 247)");
+      if (stage === "in_progress") {
+        await expect(page.getByRole("region", { name: "Recent clients" }).getByRole("button", { name: "Open Avery Rivera", exact: true })).toHaveAccessibleDescription("Referral received Resume");
+        await expect(page.getByRole("region", { name: "Recent clients" }).getByRole("button", { name: "Open Jordan Rivera", exact: true })).toHaveAccessibleDescription("Assessment underway Resume");
+      }
+      await page.screenshot({ path: info.outputPath(`two-section-board-${width}-${stage}.png`), animations: "disabled" });
       await column.locator("[data-open-folder]").click();
       const folder = page.getByRole("dialog");
       await expect(folder).toBeVisible();
-      await expect(folder.locator("[data-board-card]")).toHaveCount(2);
+      await expect(folder.locator("[data-board-card]")).toHaveCount(count);
       await page.keyboard.press("Escape");
       await expect(folder).toHaveCount(0);
     }
@@ -94,8 +93,9 @@ for (const width of [1440, 390]) {
   });
 }
 
-async function homeFixture(page: Page, moduleIds = ["current-work", "new-assignments", "upcoming-assessments"], filesPerStage = 0, withFinished = false, longLabels = false, scope?: "mixed" | "team-only") {
+async function homeFixture(page: Page, moduleIds = ["current-work", "new-assignments", "upcoming-assessments"], filesPerStage = 0, withFinished = false, longLabels = false, scope?: "mixed" | "team-only", upcomingCount = 1) {
   const acknowledgments: unknown[] = [];
+  let pinnedIds: number[] = [];
   let layout = { schema: 3, module_ids: moduleIds, locked: true };
   const { viewer } = await (await page.request.get("/api/operations/home")).json();
   await page.addInitScript(({ key, layout }) => {
@@ -153,7 +153,11 @@ async function homeFixture(page: Page, moduleIds = ["current-work", "new-assignm
       if (scope === "team-only") Object.assign(payload.workflow, { active_items: [], board_items: [], active_total: 0 });
     }
     payload.upcoming = [{ id: "synthetic-appointment", referralId: 910502, clientName: "Jordan Appointment", community: "San Pablo", owner: "Example Assessor", date: "2026-09-22", startsAt: "2026-09-22T17:00:00Z", method: "in_person", kind: "assessment", status: "scheduled", title: "Assessment" }];
-    payload.continuity = { ...payload.continuity, unavailable: false, needs_assignment_tracking_initialization: false,
+    if (upcomingCount > 1) payload.upcoming = Array.from({ length: upcomingCount }, (_, index) => ({
+      ...payload.upcoming[0], id: `synthetic-appointment-${index}`, referralId: 910502 + index,
+      clientName: `Appointment Client ${["Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot", "Golf", "Hotel"][index]}`,
+    }));
+    payload.continuity = { ...payload.continuity, pinned_referral_ids: pinnedIds, recent_referral_ids: payload.workflow.board_items.filter((item: { board: { stage: string | null } }) => item.board.stage !== null).map((item: { referral_id: number }) => item.referral_id), unavailable: false, needs_assignment_tracking_initialization: false,
       new_assignments: Array.from({ length: 7 }, (_, index) => ({ event_id: `focus-assignment-${index}`, action: "referral_assigned", actor_id: "coordinator", actor_name: "Example Coordinator", created_at: new Date().toISOString(), workspace: { referral_id: 910510 + index, client_name: `New Client ${index + 1}`, community: "San Pablo", owner: "Example Assessor", workflow_status: "intake_in_progress", workspace_status: "active" }, attention: null })),
     };
     await route.fulfill({ response, json: payload });
@@ -161,8 +165,9 @@ async function homeFixture(page: Page, moduleIds = ["current-work", "new-assignm
   await page.route("**/api/me/work-continuity", async (route) => {
     if (route.request().method() !== "PATCH") return route.continue();
     const body = route.request().postDataJSON();
+    if (body.pinReferral) pinnedIds = [...(body.pinReferral.pinned ? [body.pinReferral.id] : []), ...pinnedIds.filter(id => id !== body.pinReferral.id)];
     if (body.acknowledgeAssignmentIds) acknowledgments.push(body);
-    await route.fulfill({ json: { state: { schema: 1, acknowledgedAssignmentIds: [] } } });
+    await route.fulfill({ json: { state: { schema: 1, acknowledgedAssignmentIds: [], pinnedReferralIds: pinnedIds } } });
   });
   return acknowledgments;
 }
@@ -171,22 +176,23 @@ for (const width of [1440, 390]) test(`folder All and Mine switch instantly with
   await page.setViewportSize({ width, height: 900 });
   await homeFixture(page, undefined, 2, true, false, "mixed");
   await page.goto("/");
-  for (const [index, title] of ["Referral received", "In progress", "Decision"].entries()) {
-    if (width < 1024) await page.getByRole("combobox", { name: "Referral stage", exact: true }).selectOption(["received", "in_progress", "decision", "decision"][index]);
+  for (const [index, title] of ["In progress", "Decision"].entries()) {
     const opener = page.getByRole("button", { name: `Open ${title.toLowerCase()} folder`, exact: true });
     await opener.click();
     const folder = page.getByRole("dialog", { name: `${title} folder`, exact: true });
     const toggle = folder.getByRole("group", { name: "Folder scope" });
     await expect(toggle.getByRole("button", { name: "Mine", exact: true })).toHaveAttribute("aria-pressed", "true");
     await folder.evaluate(async element => { await Promise.all(element.getAnimations().map(animation => animation.finished.catch(() => undefined))); });
-    const mineCount = await folder.locator("[data-board-card]").count();
+    const mineCount = index === 0 ? 4 : 5;
+    const extra = index === 0 ? 2 : 1;
+    await expect(folder.locator("[data-board-card]")).toHaveCount(mineCount);
     // All data is already present. Even a disconnected browser can switch scopes.
     await page.context().setOffline(true);
     await toggle.getByRole("button", { name: "All", exact: true }).click();
-    await expect(folder.locator("[data-board-card]")).toHaveCount(mineCount + 1);
-    await expect(folder.getByRole("button", { name: `Open Team ${["Rivera", "Brooks", "Chen"][index]}`, exact: true })).toBeVisible();
-    if (index === 2) await expect(folder.getByRole("button", { name: "Open Team Patel", exact: true })).toHaveCount(0);
-    await expect(folder.locator("h2")).toContainText(`${mineCount + 1} files`);
+    await expect(folder.locator("[data-board-card]")).toHaveCount(mineCount + extra);
+    await expect(folder.getByRole("button", { name: `Open Team ${["Rivera", "Chen"][index]}`, exact: true })).toBeVisible();
+    if (index === 1) await expect(folder.getByRole("button", { name: "Open Team Patel", exact: true })).toHaveCount(0);
+    await expect(folder.locator("h2")).toContainText(`${mineCount + extra} files`);
     expect(await folder.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
     const box = await toggle.getByRole("button", { name: "All", exact: true }).boundingBox();
     expect(box!.height).toBeGreaterThanOrEqual(44);
@@ -204,7 +210,7 @@ for (const width of [1440, 390]) test(`folder All and Mine switch instantly with
 test("All is reachable when Mine is empty without pulling admitted referrals back into Decision", async ({ page }) => {
   await homeFixture(page, undefined, 0, false, false, "team-only");
   await page.goto("/");
-  for (const title of ["Referral received", "Decision"]) {
+  for (const title of ["In progress", "Decision"]) {
     await page.getByRole("button", { name: `Open ${title.toLowerCase()} folder`, exact: true }).click();
     const folder = page.getByRole("dialog", { name: `${title} folder`, exact: true });
     await expect(folder).toContainText("None assigned to you here.");
@@ -214,199 +220,154 @@ test("All is reachable when Mine is empty without pulling admitted referrals bac
   }
 });
 
-for (const width of [1440, 834, 390, 320]) test(`focus deck keeps the foreground legible and backgrounds inert at ${width}px`, async ({ page }, info) => {
+for (const width of [1440, 834, 390, 320]) test(`Home ribbon opens its accessible schedule without retired Home items at ${width}px`, async ({ page }, info) => {
   await page.setViewportSize({ width, height: 900 });
   const acknowledged = await homeFixture(page);
   await page.goto("/");
-  const deck = page.getByTestId("home-focus-deck");
-  const tabs = deck.getByRole("tab");
-  await expect(tabs).toHaveText(["BoardBoard1", "Upcoming assessmentsUpcoming1", "New assignmentsNew7"]);
-  await expect(deck.getByRole("button", { name: /^(Previous|Next) Home panel$/ })).toHaveCount(0);
-  await expect(deck.getByRole("tabpanel", { name: "Board", exact: true })).toBeVisible();
-  await expect(deck.getByRole("button", { name: "Open Avery Board" })).toBeVisible();
-  await expect(deck.locator('[data-position]:not([data-position="front"])[inert][aria-hidden="true"]')).toHaveCount(2);
-  await expect(deck.getByRole("region", { name: "Upcoming assessments", exact: true })).toHaveCount(0);
-  await deck.screenshot({ path: info.outputPath(`home-board-${width}.png`), animations: "disabled" });
-  await tabs.nth(1).click();
-  await expect(deck.getByRole("tabpanel", { name: "Upcoming assessments", exact: true })).toBeVisible();
-  await expect(deck.getByRole("button", { name: /Jordan Appointment/ })).toBeVisible();
-  if (width < 640) {
-    const appointment = deck.getByRole("button", { name: /Jordan Appointment/ });
-    const name = appointment.locator("strong");
-    const action = appointment.getByText("Prepare assessment", { exact: true });
-    expect((await name.boundingBox())!.width).toBeGreaterThan(200);
-    expect((await action.boundingBox())!.y).toBeGreaterThan((await name.boundingBox())!.y + (await name.boundingBox())!.height);
-    // The deck scales into place; measure its settled touch target, not an animation frame.
-    await expect.poll(async () => (await action.boundingBox())!.height).toBeGreaterThanOrEqual(44);
-  }
-  await deck.screenshot({ path: info.outputPath(`home-upcoming-${width}.png`), animations: "disabled" });
-  await tabs.nth(2).click();
-  await expect(deck.getByRole("region", { name: "Since your last visit" })).toBeVisible();
-  await deck.getByRole("button", { name: "Show 1 more assignments" }).click();
-  await tabs.nth(0).click();
-  await tabs.nth(2).click();
-  await expect(deck.getByRole("button", { name: /New Client 7/ })).toBeVisible();
-  expect(acknowledged).toEqual([]);
-  const scrollWidths = await page.locator('[data-guide-target="home-workspace"]').evaluate((element) => ({ scroll: element.scrollWidth, client: element.clientWidth }));
-  expect(scrollWidths.scroll).toBeLessThanOrEqual(scrollWidths.client);
+  const home = page.locator('main');
+  await expect(home.getByRole("tab")).toHaveCount(0);
+  await expect(home.getByRole("heading", { name: "Board", exact: true })).toHaveCount(0);
+  await expect(home.getByRole("button", { name: "New assignments", exact: true })).toHaveCount(0);
+  await expect(home.getByText(/(?:Team|My) follow-up/)).toHaveCount(0);
+  await expect(home.getByRole("button", { name: "Open Avery Board" })).toBeVisible();
+  const upcoming = home.getByRole("button", { name: "Upcoming assessments", exact: true });
+  await expect(upcoming).toContainText("1");
+  expect((await upcoming.boundingBox())!.height).toBeGreaterThanOrEqual(48);
+  await upcoming.focus();
+  await page.keyboard.press("Enter");
+  const schedule = page.getByRole("dialog", { name: "Upcoming assessments", exact: true });
+  await expect(schedule).toBeVisible();
+  await expect(schedule.getByRole("button", { name: /Jordan Appointment/ })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await deck.screenshot({ path: info.outputPath(`home-assignments-${width}.png`), animations: "disabled" });
-  await deck.getByRole("button", { name: /New Client 1/ }).click();
-  await expect(page).toHaveURL(/referralId=910510/);
-  await expect.poll(() => acknowledged).toEqual([{ acknowledgeAssignmentIds: ["focus-assignment-0"] }]);
+  await schedule.screenshot({ path: info.outputPath(`home-upcoming-${width}.png`), animations: "disabled" });
+  await page.keyboard.press("Escape");
+  await expect(schedule).toHaveCount(0);
+  await expect(upcoming).toBeFocused();
+  await expect(home.getByRole("button", { name: "Open Avery Board" })).toBeVisible();
+  expect(acknowledged).toEqual([]);
 });
 
-test("keyboard controls wrap, keep focus, and appointments keep their assessment destination", async ({ page }) => {
+test("schedule shortcut preserves its assessment destination", async ({ page }) => {
   await homeFixture(page);
   await page.goto("/");
-  const tabs = page.getByRole("tablist", { name: "Home panels" });
-  await tabs.getByRole("tab", { name: "Board", exact: true }).focus();
-  await page.keyboard.press("ArrowLeft");
-  await expect(tabs.getByRole("tab", { name: "New assignments", exact: true })).toBeFocused();
-  await page.keyboard.press("ArrowRight");
-  await expect(tabs.getByRole("tab", { name: "Board", exact: true })).toHaveAttribute("aria-selected", "true");
-  await page.keyboard.press("End");
-  await expect(tabs.getByRole("tab", { name: "New assignments", exact: true })).toBeFocused();
-  await page.keyboard.press("Home");
-  await page.keyboard.press("ArrowRight");
-  await expect(tabs.getByRole("tab", { name: "Upcoming assessments", exact: true })).toHaveAttribute("aria-selected", "true");
-  await page.getByRole("button", { name: /Jordan Appointment/ }).click();
+  await page.getByRole("button", { name: "Upcoming assessments", exact: true }).click();
+  await page.getByRole("dialog", { name: "Upcoming assessments", exact: true }).getByRole("button", { name: /Jordan Appointment/ }).click();
   await expect(page).toHaveURL(/referralId=910502/);
   await expect(page).toHaveURL(/workspaceStage=assessment/);
 });
 
-for (const { width, count } of [{ width: 1440, count: 5 }, { width: 1440, count: 10 }, { width: 834, count: 10 }, { width: 390, count: 10 }]) {
-  test(`straight deck contains ${count} files per stage at ${width}px without clipping or nested scrolling`, async ({ page }, info) => {
-    await page.setViewportSize({ width, height: 900 });
-    await homeFixture(page, undefined, count);
-    await page.goto("/");
-    const deck = page.getByTestId("home-focus-deck");
-    const stage = page.getByTestId("home-focus-stage");
-    const board = deck.getByRole("tabpanel", { name: "Board", exact: true });
-    const received = board.locator('[data-board-stage="received"]');
-    const folders = received.locator("[data-board-card]");
-    await expect(folders).toHaveCount(count);
-    await expect(board.locator("[data-board-card]")).toHaveCount(count * 3);
-    await expect(board).toHaveCSS("position", "relative");
-    await expect(board).toHaveCSS("overflow-y", "visible");
-    await expect(stage).toHaveCSS("overflow-y", "visible");
-    const panels = await deck.locator("[data-position]").evaluateAll((elements) => elements.map((element) => {
-      const bounds = element.getBoundingClientRect();
-      const matrix = new DOMMatrixReadOnly(getComputedStyle(element).transform);
-      return { x: bounds.x + bounds.width / 2, y: bounds.y, width: bounds.width, rotation: matrix.m12, skew: matrix.m21, offset: matrix.m41 };
-    }));
-    for (const background of panels.slice(1)) {
-      expect(background.rotation).toBe(0);
-      expect(background.skew).toBe(0);
-      expect(background.offset).toBe(0);
-      expect(Math.abs(background.x - panels[0].x)).toBeLessThan(1);
-      expect(background.y).toBeLessThan(panels[0].y);
-      expect(background.width).toBeLessThan(panels[0].width);
-    }
-    const collapsed = (await received.boundingBox())!.height;
-    if (width >= 1024) {
-      expect(collapsed).toBeLessThan(350 + count * 110);
-      await folders.first().locator("[data-folder-name]").hover();
-      await expect(folders.first()).toHaveCSS("height", "174px");
-      await expect.poll(async () => (await received.boundingBox())!.height).toBeGreaterThan(collapsed + 70);
-      await page.screenshot({ path: info.outputPath(`stack-${count}-${width}.png`), animations: "disabled" });
-      await page.getByRole("tab", { name: "Board", exact: true }).hover();
-      await folders.first().focus();
-      await expect(folders.first()).toHaveCSS("height", "174px");
-    }
-    for (const key of width >= 1024 ? ["received", "in_progress", "decision"] : ["received"]) {
-      const last = board.locator(`[data-board-stage="${key}"] [data-board-card]`).last();
-      await last.scrollIntoViewIfNeeded();
-      await expect(last).toBeInViewport();
-      const bounds = (await last.boundingBox())!;
-      const container = (await board.boundingBox())!;
-      expect(bounds.y + bounds.height).toBeLessThanOrEqual(container.y + container.height);
-    }
-    await page.screenshot({ path: info.outputPath(`stack-end-${count}-${width}.png`), animations: "disabled" });
-    expect(Math.abs((await stage.boundingBox())!.height - (await board.boundingBox())!.height)).toBeLessThan(1);
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    await page.getByRole("tab", { name: "Upcoming assessments", exact: true }).click();
-    await expect.poll(async () => (await stage.boundingBox())!.height).toBeLessThan(700);
-    await page.getByRole("tab", { name: "Board", exact: true }).click();
-    if (width < 1024) {
-      await board.getByLabel("Referral stage").selectOption("in_progress");
-      const last = board.getByRole("button", { name: "Open Jordan Ellis", exact: true });
-      await last.scrollIntoViewIfNeeded();
-      await expect(last).toBeInViewport();
-      await page.screenshot({ path: info.outputPath(`stack-bottom-${width}.png`) });
-      await last.click();
-      await expect(page).toHaveURL(/referralId=920109/);
-    } else {
-      await expect(folders).toHaveCount(count);
-    }
-  });
-}
+test("schedule modal includes all eight returned appointments with matching count", async ({ page }) => {
+  await homeFixture(page, undefined, 0, false, false, undefined, 8);
+  await page.goto("/");
+  const open = page.getByRole("button", { name: "Upcoming assessments", exact: true });
+  await expect(open).toContainText("8");
+  await open.click();
+  const dialog = page.getByRole("dialog", { name: "Upcoming assessments", exact: true });
+  await expect(dialog.getByRole("button", { name: /Appointment Client/ })).toHaveCount(8);
+  const last = dialog.getByRole("button", { name: /Appointment Client Hotel/ });
+  await last.scrollIntoViewIfNeeded();
+  await expect(last).toBeInViewport();
+  await page.keyboard.press("Escape");
+  await expect(open).toBeFocused();
+});
 
-test("horizontal gestures turn the deck, vertical and cancelled gestures do not, and reduced motion settles immediately", async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 850 });
+for (const unavailable of [false, true]) test(`Home ribbon distinguishes ${unavailable ? "unavailable" : "empty"} personal schedules`, async ({ page }) => {
   await homeFixture(page);
+  await page.route("**/api/operations/home", async (route) => {
+    const response = await route.fetch();
+    const payload = await response.json();
+    payload.upcoming = [];
+    payload.unavailable_sections = unavailable ? ["upcoming"] : [];
+    await route.fulfill({ response, json: payload });
+  });
   await page.goto("/");
-  const stage = page.getByTestId("home-focus-stage");
-  await expect(page.getByRole("tab", { name: "Board", exact: true })).toHaveAttribute("aria-selected", "true");
-  const bounds = (await stage.boundingBox())!;
-  await page.mouse.move(bounds.x + bounds.width * .75, bounds.y + 12);
-  await page.mouse.down();
-  await page.mouse.move(bounds.x + bounds.width * .25, bounds.y + 12, { steps: 8 });
-  await page.mouse.up();
-  await expect(page.getByRole("tab", { name: "Upcoming assessments", exact: true })).toHaveAttribute("aria-selected", "true");
-  await stage.dispatchEvent("pointerdown", { pointerId: 3, isPrimary: true, pointerType: "touch", button: 0, clientX: 150, clientY: 200 });
-  await stage.dispatchEvent("pointermove", { pointerId: 3, clientX: 160, clientY: 270 });
-  await stage.dispatchEvent("pointerup", { pointerId: 3, clientX: 250, clientY: 300 });
-  await expect(page.getByRole("tab", { name: "Upcoming assessments", exact: true })).toHaveAttribute("aria-selected", "true");
-  await stage.dispatchEvent("pointerdown", { pointerId: 4, isPrimary: true, pointerType: "touch", button: 0, clientX: 150, clientY: 200 });
-  await stage.dispatchEvent("pointercancel", { pointerId: 4, clientX: 250, clientY: 200 });
-  await expect(page.getByRole("tab", { name: "Upcoming assessments", exact: true })).toHaveAttribute("aria-selected", "true");
-  await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.getByRole("tab", { name: "New assignments", exact: true }).click();
-  await expect(page.getByRole("tabpanel", { name: "New assignments", exact: true })).toHaveCSS("transition-duration", "0s");
+  const open = page.getByRole("button", { name: "Upcoming assessments", exact: true });
+  await expect(open).toContainText(unavailable ? "Unavailable" : "0");
+  if (unavailable) await expect(open).not.toContainText("0");
+  await open.click();
+  const dialog = page.getByRole("dialog", { name: "Upcoming assessments", exact: true });
+  await expect(dialog).toContainText(unavailable ? "Unavailable" : "No assessments are scheduled in the next seven days.");
+  if (unavailable) await expect(dialog).not.toContainText("No assessments are scheduled");
 });
 
-test("existing Home customization remains intact and never removes the board", async ({ page }) => {
-  await homeFixture(page, ["current-work", "upcoming-assessments"]);
+for (const width of [1440, 390]) test(`Decision status distinguishes accepted denied and under review at ${width}px`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 950 });
+  await homeFixture(page, undefined, 1, true);
   await page.goto("/");
-  await expect(page.getByRole("tablist", { name: "Home panels" }).getByRole("tab")).toHaveCount(2);
+  await page.getByRole("button", { name: "Open decision folder", exact: true }).click();
+  for (const [name, status, token] of [
+    ["Accepted Client", "Accept", "--color-status-done"],
+    ["Denied Client", "Denied", "--color-danger"],
+    ["Morgan Rivera", "Under review", "--color-warning"],
+  ]) {
+    const card = page.getByRole("dialog").getByRole("button", { name: `Open ${name}`, exact: true });
+    await expect(card.locator("[data-board-status]")).toHaveText(status);
+    const expected = await card.evaluate((element, token) => {
+      const probe = document.createElement("span");
+      probe.style.color = `var(${token})`;
+      element.append(probe);
+      const color = getComputedStyle(probe).color;
+      probe.remove();
+      return color;
+    }, token);
+    await expect(card.locator("[data-board-status]")).toHaveCSS("color", expected);
+  }
+  await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
+  const violations = await page.evaluate(async () => {
+    const axe = (window as unknown as { axe: { run: (selector: string, options: object) => Promise<AxeResults> } }).axe;
+    return (await axe.run("[data-current-work-board]", { runOnly: ["color-contrast"] })).violations;
+  });
+  expect(violations).toEqual([]);
+});
+
+test("Home customization preserves the ribbon and cannot restore retired modules", async ({ page }) => {
+  await homeFixture(page, ["current-work", "search", "new-assignments", "upcoming-assessments"]);
   await page.goto("/?editHome=1");
-  await expect(page.getByTestId("home-focus-deck")).toHaveCount(0);
-  await page.getByRole("button", { name: "Remove Upcoming assessments from Home" }).click();
+  await expect(page.getByRole("button", { name: "Upcoming assessments", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Remove Upcoming assessments from Home" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Remove New assignments from Home" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Remove Search from Home" }).click();
+  await page.getByRole("button", { name: "Add module", exact: true }).click();
+  const library = page.getByRole("dialog", { name: "Home module library", exact: true });
+  await expect(library).toBeVisible();
+  await expect(library.getByRole("heading", { name: "New assignments", exact: true })).toHaveCount(0);
+  await expect(library.getByRole("heading", { name: "Upcoming assessments", exact: true })).toHaveCount(0);
+  await expect(library.getByRole("checkbox", { name: "Search", exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "Done", exact: true }).click();
-  await expect(page.getByRole("tab", { name: "Board", exact: true })).toBeVisible();
-  await expect(page.getByRole("tablist", { name: "Home panels" }).getByRole("tab")).toHaveCount(1);
-  await expect(page.getByRole("button", { name: "Next Home panel" })).toHaveCount(0);
   await page.reload();
-  await expect(page.getByRole("tablist", { name: "Home panels" }).getByRole("tab")).toHaveCount(1);
+  await expect(page.getByRole("region", { name: "Current work", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Upcoming assessments", exact: true })).toHaveCount(1);
+  await expect(page.locator('[data-home-module="search"]')).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "New assignments", exact: true })).toHaveCount(0);
 });
 
-for (const width of [1440, 834, 390, 320]) test(`stage folder expands in place with all ten files at ${width}px`, async ({ page }, info) => {
+for (const width of [1440, 834, 390, 320]) test(`stage folder expands in place with all twenty combined files at ${width}px`, async ({ page }, info) => {
   await page.setViewportSize({ width, height: 950 });
   await homeFixture(page, undefined, 10);
   await page.goto("/");
-  const source = page.locator('[data-board-stage="received"]');
-  const open = source.getByRole("button", { name: "Open referral received folder", exact: true });
+  const source = page.locator('[data-board-stage="in_progress"]');
+  const open = source.getByRole("button", { name: "Open in progress folder", exact: true });
   await expect(open).toBeVisible();
   await expect(open).toContainText("View all");
   const hitArea = (await open.boundingBox())!;
-  expect(hitArea.height).toBeGreaterThanOrEqual(72);
+  expect(hitArea.height).toBeGreaterThanOrEqual(48);
   expect(hitArea.width).toBeGreaterThan((await source.boundingBox())!.width * .85);
   if (width === 1440) {
-    await page.getByRole("tab", { name: "Board", exact: true }).hover();
+    await page.getByRole("button", { name: "Upcoming assessments", exact: true }).hover();
     const before = (await source.boundingBox())!;
     await open.hover();
-    await expect.poll(async () => (await source.boundingBox())!.width).toBeGreaterThan(before.width);
+    expect((await source.boundingBox())!.width).toBe(before.width);
   }
   const originalUrl = page.url();
   let homeReads = 0;
   page.on("request", request => { if (request.url().endsWith("/api/operations/home")) homeReads++; });
   await open.click({ position: { x: hitArea.width - 12, y: hitArea.height / 2 } });
-  const dialog = page.getByRole("dialog", { name: "Referral received folder", exact: true });
+  const dialog = page.getByRole("dialog", { name: "In progress folder", exact: true });
   await expect(dialog).toBeVisible();
   await dialog.evaluate(async element => { await Promise.all(element.getAnimations().map(animation => animation.finished.catch(() => undefined))); });
-  await expect(dialog.getByRole("heading", { name: /^Referral received 10 files$/i })).toBeVisible();
-  await expect(dialog.locator("[data-board-card]")).toHaveCount(10);
+  await expect(dialog.getByRole("heading", { name: /^In progress 20 files$/i })).toBeVisible();
+  await expect(dialog.locator("[data-board-card]")).toHaveCount(20);
   await expect(dialog.getByRole("combobox")).toHaveCount(0);
   expect(page.url()).toBe(originalUrl);
   expect(homeReads).toBe(0);
@@ -436,7 +397,7 @@ for (const width of [1440, 834, 390, 320]) test(`stage folder expands in place w
   await page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
   await expect(open).toBeFocused();
-  await expect(page.getByRole("tab", { name: "Board", exact: true })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("region", { name: "Current work", exact: true })).toBeVisible();
   await open.click();
   await dialog.getByRole("button", { name: "Open Avery Ellis", exact: true }).click();
   await expect(dialog).toHaveCount(0);
@@ -446,20 +407,16 @@ for (const width of [1440, 834, 390, 320]) test(`stage folder expands in place w
 test("decision tabs use distinct colors and admitted files leave the board", async ({ page }, info) => {
   await homeFixture(page, undefined, 1, true);
   await page.goto("/");
-  const accepted = page.locator('[data-board-stage="decision"]').getByRole("button", { name: "Open Accepted Client", exact: true });
-  await expect(accepted).toContainText("Signed medication list, TB test result, Signed admission agreement");
-  const action = accepted.getByText("Signed medication list, TB test result, Signed admission agreement");
-  expect(await action.evaluate((element) => element.scrollHeight <= element.clientHeight + 1)).toBe(true);
-  await expect(page.locator('[data-board-stage="decision"]').getByRole("button", { name: "Open Denied Client", exact: true })).toBeVisible();
+  await expect(page.locator('[data-board-stage]')).toHaveCount(2);
   await expect(page.getByRole("button", { name: "Open Admitted Client", exact: true })).toHaveCount(0);
-  await expect(page.locator('[data-board-stage="decision"]').getByRole("button", { name: "Open Awaiting Client", exact: true })).toContainText("Awaiting admit");
-  await expect(page.locator('[data-board-stage]')).toHaveCount(3);
-  await expect(page.getByRole("button", { name: "Open awaiting admit folder", exact: true })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Open finished referrals folder", exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "Open decision folder", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Decision folder", exact: true });
+  const accepted = dialog.getByRole("button", { name: "Open Accepted Client", exact: true });
+  await expect(accepted).toHaveAccessibleDescription("Accept Open Files");
+  await expect(accepted.locator('[title="Signed medication list, TB test result, Signed admission agreement"]')).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Open Admitted Client", exact: true })).toHaveCount(0);
   await expect(dialog.locator("[data-board-status]")).toHaveText(["Under review", "Accept", "Denied", "Awaiting admit"]);
-  const colors = await dialog.locator("[data-board-status]").evaluateAll(tabs => tabs.map(tab => getComputedStyle(tab).backgroundColor));
+  const colors = await dialog.locator("[data-board-status]").evaluateAll(tabs => tabs.map(tab => getComputedStyle(tab).color));
   expect(new Set(colors).size).toBe(3);
   await dialog.screenshot({ path: info.outputPath("decision-tabs.png"), animations: "disabled" });
 });
@@ -475,7 +432,8 @@ test("Board action opens its named file tab even when the last visit was Chart",
     } } });
   });
   await page.goto("/");
-  await page.getByRole("button", { name: "Open Accepted Client", exact: true }).click();
+  await page.getByRole("button", { name: "Open decision folder", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Open Accepted Client", exact: true }).click();
   await expect(page).toHaveURL(/referralId=930001/);
   await expect(page).toHaveURL(/workspaceView=files/);
   await expect(page).not.toHaveURL(/workspaceEntry=resume/);
@@ -495,22 +453,19 @@ test("folder expansion respects reduced motion and empty stages", async ({ page 
   await expect(open).toBeFocused();
 });
 
-test("Escape closes only the expanded folder inside the existing board view", async ({ page }) => {
+test("Escape returns from the full list to the same recent clients", async ({ page }) => {
   await homeFixture(page, undefined, 3);
   await page.goto("/");
-  await page.getByRole("button", { name: "Open current work", exact: true }).click();
-  const board = page.getByRole("dialog", { name: "Current work", exact: true });
-  await expect(board).toBeVisible();
-  const open = board.getByRole("button", { name: "Open referral received folder", exact: true });
+  const recent = page.getByRole("region", { name: "Recent clients" });
+  await expect(recent.locator("[data-client-file]")).toHaveCount(6);
+  const before = await recent.locator("[data-client-file]").evaluateAll(elements => elements.map(element => element.getAttribute("data-client-file")));
+  const open = page.getByRole("button", { name: "Open in progress folder", exact: true });
   await open.click();
-  const folder = page.getByRole("dialog", { name: "Referral received folder", exact: true });
-  await expect(folder).toBeVisible();
+  await expect(page.getByRole("dialog")).toBeVisible();
   await page.keyboard.press("Escape");
-  await expect(folder).toHaveCount(0);
-  await expect(board).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(open).toBeFocused();
-  await page.keyboard.press("Escape");
-  await expect(board).toHaveCount(0);
+  expect(await recent.locator("[data-client-file]").evaluateAll(elements => elements.map(element => element.getAttribute("data-client-file")))).toEqual(before);
 });
 
 test("an expanded stage stays visible when the window becomes narrow", async ({ page }) => {
@@ -524,7 +479,7 @@ test("an expanded stage stays visible when the window becomes narrow", async ({ 
   await expect(folder.getByRole("button", { name: "Open Jordan Chen", exact: true })).toBeVisible();
   await folder.getByRole("button", { name: "Close in progress folder", exact: true }).click();
   await expect(folder).toHaveCount(0);
-  await expect(page.getByLabel("Referral stage")).toHaveValue("in_progress");
+  await expect(page.getByLabel("Referral stage")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Open in progress folder", exact: true })).toBeFocused();
 });
 
@@ -532,7 +487,7 @@ test("expanded folders retain stage accents and long file labels stay readable",
   await homeFixture(page, undefined, 3, true, true);
   await page.goto("/");
   const colors = new Set<string>();
-  for (const title of ["Referral received", "In progress", "Decision"]) {
+  for (const title of ["In progress", "Decision"]) {
     await page.getByRole("button", { name: `Open ${title.toLowerCase()} folder`, exact: true }).click();
     const folder = page.getByRole("dialog", { name: `${title} folder`, exact: true });
     await expect(folder).toBeVisible();
@@ -542,19 +497,20 @@ test("expanded folders retain stage accents and long file labels stay readable",
     await folder.getByRole("button", { name: `Close ${title.toLowerCase()} folder`, exact: true }).click();
     await expect(folder).toHaveCount(0);
   }
-  expect(colors.size).toBe(3);
+  expect(colors.size).toBe(2);
   await page.setViewportSize({ width: 320, height: 844 });
-  await page.getByLabel("Referral stage").selectOption("received");
-  await page.getByRole("button", { name: "Open referral received folder", exact: true }).click();
-  const folder = page.getByRole("dialog", { name: "Referral received folder", exact: true });
+  await page.getByRole("button", { name: "Open in progress folder", exact: true }).click();
+  const folder = page.getByRole("dialog", { name: "In progress folder", exact: true });
   const file = folder.getByRole("button", { name: "Open Alexandria Montgomery-Rivera", exact: true });
   await expect(file).toContainText("Christopher Montgomery-Williams");
-  const clipped = await file.evaluate(element => [...element.querySelectorAll("span, strong")].filter(node => node.scrollWidth > node.clientWidth + 1 || node.scrollHeight > node.clientHeight + 1).map(node => node.textContent));
+  await page.evaluate(() => document.fonts.ready);
+  await folder.evaluate(async element => { await Promise.all(element.getAnimations().map(animation => animation.finished.catch(() => undefined))); });
+  const clipped = await file.evaluate(element => [...element.querySelectorAll("span:not(.sr-only), strong")].filter(node => node.scrollWidth > node.clientWidth + 1 || node.scrollHeight > node.clientHeight + 1).map(node => node.textContent));
   expect(clipped).toEqual([]);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: info.outputPath("long-labels-phone.png"), animations: "disabled" });
   await page.emulateMedia({ forcedColors: "active" });
-  await expect(folder.getByRole("button", { name: "Close referral received folder", exact: true })).toBeVisible();
+  await expect(folder.getByRole("button", { name: "Close in progress folder", exact: true })).toBeVisible();
   await page.screenshot({ path: info.outputPath("folder-high-contrast.png"), animations: "disabled" });
 });
 
@@ -565,20 +521,92 @@ test("iPad folder scrolling does not turn the Home deck", async ({ baseURL }) =>
     const page = await context.newPage();
     await homeFixture(page, undefined, 10);
     await page.goto("/");
-    const open = page.getByRole("button", { name: "Open referral received folder", exact: true });
+    const open = page.getByRole("button", { name: "Open in progress folder", exact: true });
     await open.tap();
-    const dialog = page.getByRole("dialog", { name: "Referral received folder", exact: true });
+    const dialog = page.getByRole("dialog", { name: "In progress folder", exact: true });
     await expect(dialog).toBeVisible();
-    await expect(dialog.locator("[data-board-card]")).toHaveCount(10);
+    await expect(dialog.locator("[data-board-card]")).toHaveCount(20);
     const grid = dialog.locator("[data-expanded-folder]");
     await grid.dispatchEvent("pointerdown", { pointerId: 8, isPrimary: true, pointerType: "touch", button: 0, clientX: 200, clientY: 300 });
     await grid.dispatchEvent("pointermove", { pointerId: 8, clientX: 80, clientY: 304 });
     await grid.dispatchEvent("pointerup", { pointerId: 8, clientX: 80, clientY: 304 });
     await dialog.locator("[data-board-card]").last().scrollIntoViewIfNeeded();
     await expect(dialog.locator("[data-board-card]").last()).toBeInViewport();
-    await dialog.getByRole("button", { name: "Close referral received folder", exact: true }).tap();
+    await dialog.getByRole("button", { name: "Close in progress folder", exact: true }).tap();
     await expect(dialog).toHaveCount(0);
-    await expect(page.getByRole("tab", { name: "Board", exact: true })).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByRole("region", { name: "Current work", exact: true })).toBeVisible();
     await expect(open).toBeFocused();
   } finally { try { await context.close(); } finally { await browser.close(); } }
+});
+
+for (const width of [1440, 390]) test(`personal clients pin first, deduplicate and survive reload at ${width}px`, async ({ page }, info) => {
+  await page.setViewportSize({ width, height: 950 });
+  await homeFixture(page, undefined, 4);
+  await page.goto("/");
+  const recent = page.getByRole("region", { name: "Recent clients" });
+  await expect(recent.locator("[data-client-file]")).toHaveCount(6);
+  await expect(page.locator("[data-folder-stack]")).toHaveCount(0);
+  await expect(page.getByRole("combobox", { name: "Referral stage" })).toHaveCount(0);
+  const originalUrl = page.url();
+  await recent.getByRole("button", { name: "Pin Avery Rivera", exact: true }).focus();
+  await page.keyboard.press("Enter");
+  const pinned = page.getByRole("region", { name: "Pinned clients" });
+  await expect(pinned.getByRole("button", { name: "Open Avery Rivera", exact: true })).toBeVisible();
+  await expect(pinned.getByRole("button", { name: "Unpin Avery Rivera", exact: true })).toBeFocused();
+  await expect(recent.getByRole("button", { name: "Open Avery Rivera", exact: true })).toHaveCount(0);
+  expect(page.url()).toBe(originalUrl);
+  await page.getByRole("button", { name: "Open decision folder", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("button", { name: "Pin Morgan Patel", exact: true }).click();
+  await expect(dialog.getByRole("button", { name: "Unpin Morgan Patel", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await page.keyboard.press("Escape");
+  await page.reload();
+  await expect(pinned.locator("[data-folder-name]")).toHaveText(["Morgan Patel", "Avery Rivera"]);
+  await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
+  const violations = await page.evaluate(async () => {
+    const axe = (window as unknown as { axe: { run: (selector: string, options: object) => Promise<AxeResults> } }).axe;
+    return (await axe.run("[data-current-work-board]", { runOnly: ["wcag2a", "wcag2aa", "wcag21aa"] })).violations;
+  });
+  expect(violations).toEqual([]);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: info.outputPath(`pinned-recent-${width}.png`), animations: "disabled" });
+  await pinned.getByRole("button", { name: "Unpin Avery Rivera", exact: true }).click();
+  await expect(recent.getByRole("button", { name: "Open Avery Rivera", exact: true })).toBeVisible();
+  await expect(recent.getByRole("button", { name: "Pin Avery Rivera", exact: true })).toBeFocused();
+  await page.reload();
+  await expect(pinned.locator("[data-folder-name]")).toHaveText(["Morgan Patel"]);
+});
+
+test("failed pins stay unpinned, explain the failure and can be retried", async ({ page }) => {
+  await homeFixture(page);
+  let fail = true;
+  await page.route("**/api/me/work-continuity", async route => {
+    if (route.request().method() === "PATCH" && route.request().postDataJSON().pinReferral && fail) {
+      await route.fulfill({ status: 503, json: { error: "Synthetic storage outage" } });
+    } else await route.fallback();
+  });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Pin Avery Board", exact: true }).click();
+  await expect(page.locator("[data-current-work-board]").getByRole("alert")).toContainText("Pin change could not be saved");
+  await expect(page.getByRole("region", { name: "Pinned clients" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Pin Avery Board", exact: true })).toBeEnabled();
+  fail = false;
+  await page.getByRole("button", { name: "Pin Avery Board", exact: true }).click();
+  await expect(page.getByRole("region", { name: "Pinned clients" })).toBeVisible();
+  await expect(page.locator("[data-current-work-board]").getByRole("alert")).toHaveCount(0);
+});
+
+test("recent Resume honors the user's saved page", async ({ page }) => {
+  await homeFixture(page);
+  await page.route("**/api/me/work-continuity", async route => {
+    if (route.request().method() !== "GET") return route.fallback();
+    await route.fulfill({ json: { state: { schema: 1, acknowledgedAssignmentIds: [],
+      recentWorkspaces: [{ referralId: 910501, location: { view: "files" }, visitedAt: new Date().toISOString() }],
+    } } });
+  });
+  await page.goto("/");
+  await page.getByRole("region", { name: "Recent clients" }).getByRole("button", { name: "Open Avery Board", exact: true }).click();
+  await expect(page).toHaveURL(/referralId=910501/);
+  await expect(page).toHaveURL(/workspaceView=files/);
+  await expect(page).toHaveURL(/workspaceEntry=resume/);
 });

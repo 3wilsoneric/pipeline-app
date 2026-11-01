@@ -28,7 +28,7 @@ for (const phone of [false, true]) test(`${phone ? "iPhone WebKit" : "desktop"}:
     await page.goto(`/?view=referrals&screen=packet&draftId=${randomUUID()}`);
     const name = `Attachments A${randomUUID().replace(/[^a-f]/g, "")}`;
     await page.getByRole("textbox", { name: "NAME", exact: true }).fill(name);
-    await page.getByTestId("document-checklist-toggle").click();
+    await expect(page.getByRole("region", { name: "Document checklist", exact: true })).toBeVisible();
     await page.getByTestId("referral-documents-input").setInputFiles(files);
     await confirmReferralFileLabels(page);
     await expect(page.getByRole("region", { name: "Reading intake files" })).toHaveCount(0);

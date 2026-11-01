@@ -213,7 +213,7 @@ test("reopening navigation does not re-encrypt an unchanged queued file", async 
       return original(...args);
     } });
   });
-  await page.getByTestId("document-checklist-toggle").click();
+  await expect(page.getByRole("button", { name: "Drop files or choose files", exact: true })).toBeVisible();
   await page.getByTestId("referral-documents-input").setInputFiles({
     name: "queued-recovery.txt", mimeType: "text/plain", buffer: Buffer.alloc(256 * 1024, 65),
   });

@@ -38,7 +38,7 @@ for (const width of [1440, 834, 390]) {
       await footer.getByRole("button", { name: "Review assessment", exact: true }).click();
     }
     await expect(page.getByRole("heading", { name: "Review assessment", exact: true })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Assessment chart review" })).toContainText("Next: admission decision, then the client handoff.");
+    await expect(footer.getByRole("button", { name: "Sign assessment", exact: true })).toBeEnabled();
     await expect(page.getByRole("article", { name: "Assessment record", exact: true })).toBeVisible();
     await expect(page.getByRole("article", { name: "Referral chart", exact: true })).toHaveCount(0);
     expect((await readAssessment()).signed_at).toBeNull();
@@ -51,7 +51,7 @@ for (const width of [1440, 834, 390]) {
       await page.getByLabel("Assessment section", { exact: true }).selectOption("provenance_qc");
       await footer.getByRole("button", { name: "Review assessment", exact: true }).click();
     }
-    const sign = footer.getByRole("button", { name: "Sign & continue to decision", exact: true });
+    const sign = footer.getByRole("button", { name: "Sign assessment", exact: true });
     await expect(sign).toBeEnabled();
     await expect(page.getByRole("region", { name: "Assessment chart review" })).toContainText("Synthetic assessment answer retained through review");
     await page.screenshot({ path: info.outputPath(`assessment-review-${width}.png`) });
@@ -118,7 +118,7 @@ for (const width of [1440, 834, 390]) {
     await openStage(page, "Chart", width);
     await expect(page.getByRole("article", { name: "Referral chart", exact: true })).toBeVisible();
     await expect(footer.locator('[data-guide-target="assessment-sign"]')).toHaveCount(0);
-    await expect(footer.getByRole("button", { name: "Review assessment", exact: true })).toHaveCount(0);
+    await expect(footer.getByRole("button", { name: "Review assessment", exact: true })).toBeHidden();
     await page.reload();
     await openStage(page, "Assessment", width);
     if (width >= 640) await expect(page.getByRole("button", { name: "Next: Decision", exact: true })).toHaveCount(0);

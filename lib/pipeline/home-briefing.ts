@@ -4,6 +4,7 @@ import type { PipelineUser } from "@/lib/auth/pipeline-auth";
 import { isUpcomingAssessmentAppointment } from "@/lib/pipeline/assessment-calendar";
 import { getAssessmentCalendar } from "@/lib/pipeline/calendar-store";
 import type { HomeBriefingSnapshot } from "@/lib/pipeline/home-briefing-types";
+import { isAssignedToUser } from "@/lib/pipeline/referral-ownership";
 import { getHomeContinuity } from "@/lib/pipeline/home-continuity";
 import type { HomeWorkflowSummary } from "@/lib/pipeline/operations-types";
 import { getHomeWorkflowSummary } from "@/lib/pipeline/operations-snapshot";
@@ -26,7 +27,7 @@ export async function getHomeBriefing(user: PipelineUser): Promise<HomeBriefingS
   if (workflowResult.status === "rejected") unavailableSections.push("current_work", "workflow");
   if (calendarResult.status === "rejected") unavailableSections.push("upcoming");
   const upcoming = calendar.events
-    .filter((event) => isUpcomingAssessmentAppointment(event, now))
+    .filter((event) => isAssignedToUser(event, user) && isUpcomingAssessmentAppointment(event, now))
     .sort((left, right) => (left.startsAt ?? left.date).localeCompare(right.startsAt ?? right.date))
     .slice(0, 8);
   const generatedAt = new Date().toISOString();

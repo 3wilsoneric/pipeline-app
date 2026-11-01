@@ -457,3 +457,8 @@
     animation-duration: 0s !important;
   }
 }
+
+/* Directory previews show facts, not an unfilled grid cell. */
+.previewSummary.previewSummary { background: var(--color-paper); }
+.previewSummary > span { border-bottom: 1px solid var(--color-paper-rule); }
+.previewSummary > span > span:first-child { color: var(--color-ink-muted); font-size: var(--text-meta); line-height: var(--text-meta--line-height); }

@@ -1,3 +1,4 @@
+import { showTutorialHelp } from "./support/app-navigation";
 import { expect, test, type Page } from "@playwright/test";
 import { editPreparedAnswer } from "./support/assessment-navigation";
 
@@ -78,7 +79,7 @@ test("referral intake practice saves locally without creating or updating a live
 test("Help scheduling records a synthetic appointment and opens the same practice assessment", async ({ page }) => {
   const writes = watchWorkflowWrites(page);
   await page.goto("/");
-  await page.getByRole("button", { name: "Open guided tutorials", exact: true }).click();
+  await (await showTutorialHelp(page)).click();
   await page.getByRole("dialog", { name: "Tutorials" }).getByRole("button", { name: "Schedule an appointment", exact: true }).click();
   const coach = page.getByRole("complementary", { name: "Tutorial steps", exact: true });
   const schedule = page.getByRole("dialog", { name: "Schedule interview", exact: true });

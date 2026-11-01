@@ -70,7 +70,8 @@ test("intake uses its own referral data, while the same connected Client chart k
   }
   for (const label of residentFields) await expect(intake.locator(`[data-chart-field="${label}"]`)).toHaveCount(0);
   await expect(page.getByText("Recorded stays", { exact: true })).toHaveCount(0);
-  await expect(page.getByRole("heading", { name: "Client files", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Workspace files", exact: true }).click();
+  await expect(page.getByRole("region", { name: "Document checklist" })).toBeVisible();
 
   await page.goto(`/?screen=profile&clientId=pipeline:${before.clientId}`);
   const client = page.getByRole("article", { name: "Client medical chart", exact: true });

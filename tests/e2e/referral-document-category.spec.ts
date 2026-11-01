@@ -6,7 +6,6 @@ test("a spreadsheet is labeled as a document without an assessment workbook impo
   await createOperationalAssessment(page.request, referral.id);
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=intake&workspaceField=name`);
   await expect(page.locator('[data-performance-ready="packet"]')).toBeVisible();
-  await page.getByTestId("document-checklist-toggle").click();
   await page.getByTestId("referral-documents-input").setInputFiles({
     name: "assessment-working-copy.xlsx",
     mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

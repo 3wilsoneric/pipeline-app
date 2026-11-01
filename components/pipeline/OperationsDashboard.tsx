@@ -474,7 +474,7 @@ function MetricGrid({ metrics }: { metrics: OperationsReportMetric[] }) {
 
 function ReportSkeleton() {
   return (
-    <div aria-label="Loading report" aria-busy="true" className="animate-pulse divide-y divide-[#e8ebe9]">
+    <div role="status" aria-label="Loading report" aria-busy="true" className="animate-pulse divide-y divide-[#e8ebe9]">
       {Array.from({ length: 6 }, (_, index) => <div key={index} className="h-11 bg-white px-4 py-3"><div className="h-3 w-1/3 bg-[#edf0ee]" /></div>)}
     </div>
   );

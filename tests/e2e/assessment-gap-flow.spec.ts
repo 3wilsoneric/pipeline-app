@@ -5,7 +5,7 @@ import { assessmentInterviewSections } from "../../lib/assessment/assessment-int
 import { buildTrainingAssessment } from "../../lib/training/mock-assessment";
 import { createEmptyAssessmentToolData } from "../../lib/assessment/assessment-tool-schema";
 import { createOperationalReferral } from "./support/operational-api";
-import { editPreparedAnswer, openAssessmentChart, returnToAssessmentQuestions } from "./support/assessment-navigation";
+import { editPreparedAnswer, openAssessmentChart, returnToAssessmentQuestions, waitForAssessmentReady } from "./support/assessment-navigation";
 
 test("gap itinerary retains every canonical section, zeros, and source checks", () => {
   const data = buildTrainingAssessment("interview");
@@ -126,6 +126,7 @@ test("one written history saves across visits while earlier timeline events rema
   const { assessment } = await created.json();
   const read = async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=prior_history`);
+  await waitForAssessmentReady(page);
 
   const overview = page.getByRole("textbox", { name: "Hospitalization history", exact: true });
   await expect(overview).toHaveValue("Prior hospitalizations: 0\nPrior 5150 / 5250 holds: Synthetic earlier hold");
@@ -185,7 +186,7 @@ test("saved preparation remains editable across visits and becomes interview ref
   await expect(page.getByRole("heading", { name: /From the records|Ask & confirm/ })).toHaveCount(0);
   const nav = page.getByRole("navigation", { name: "Assessment sections", exact: true });
   const editor = page.locator('[data-assessment-question-editor]');
-  expect((await nav.boundingBox())!.height).toBeLessThan(72);
+  await expect(page.locator('[data-assessment-working-section][data-assessment-phase="preparation"]')).toBeVisible();
   expect((await editor.boundingBox())!.y - ((await nav.boundingBox())!.y + (await nav.boundingBox())!.height)).toBeLessThan(24);
   await field.fill("Synthetic diagnosis from day one records");
   await field.blur();
@@ -210,7 +211,7 @@ test("saved preparation remains editable across visits and becomes interview ref
   await page.reload();
   await expect(page.getByLabel("Assessment section", { exact: true })).toBeVisible();
   await expect(field).toHaveValue("Synthetic corrected diagnosis from later records");
-  await page.getByRole("region", { name: "Assessment progress", exact: true }).getByRole("button", { name: "Begin interview", exact: true }).click();
+  await page.locator('footer[aria-label="Assessment actions"]').getByRole("button", { name: "Begin interview", exact: true }).click();
   await page.getByRole("dialog", { name: "Begin interview", exact: true }).getByRole("button", { name: "Begin interview", exact: true }).click();
   await page.getByLabel("Assessment section", { exact: true }).selectOption("diagnosis_clinical");
   await expect(page.getByRole("complementary", { name: "Current information" })).toContainText("Synthetic corrected diagnosis from later records");

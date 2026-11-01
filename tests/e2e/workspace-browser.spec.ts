@@ -125,7 +125,7 @@ test("directory failures remain retryable instead of showing a false empty state
   await expect(directory.getByText("No workspaces match this search", { exact: true })).toBeVisible();
 });
 
-test("personal Board keeps all active files and excludes completed outcomes", async ({ page }, testInfo) => {
+test("personal folders keep all active files and exclude completed outcomes", async ({ page }, testInfo) => {
   await page.route("**/api/operations/home", async (route) => {
     const response = await route.fetch();
     const payload = await response.json();
@@ -140,13 +140,12 @@ test("personal Board keeps all active files and excludes completed outcomes", as
   });
   await page.goto("/");
   const board = page.getByRole("region", { name: "Current work board" });
-  await expect(board.getByRole("button", { name: /^Open Avery Active/ })).toHaveCount(7);
   await expect(board.getByRole("button", { name: "Open Blair Finished" })).toBeHidden();
-  await board.getByRole("button", { name: "Open referral received folder", exact: true }).click();
-  const folder = page.getByRole("dialog", { name: "Referral received folder", exact: true });
+  await board.getByRole("button", { name: "Open in progress folder", exact: true }).click();
+  const folder = page.getByRole("dialog", { name: "In progress folder", exact: true });
   await expect(folder.locator("[data-board-card]")).toHaveCount(7);
   await expect(folder.getByRole("button", { name: /Blair Finished/ })).toHaveCount(0);
   await page.keyboard.press("Escape");
-  await expect(page.getByRole("tab", { name: "Board", exact: true })).toHaveAttribute("aria-selected", "true");
+  await expect(board.getByRole("button", { name: "Open in progress folder", exact: true })).toBeFocused();
   await page.screenshot({ path: testInfo.outputPath("personal-board.png") });
 });

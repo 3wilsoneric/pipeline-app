@@ -55,7 +55,7 @@ test.describe("mobile assessment", () => {
       } else await expect(assessment.getByRole("button", { name: "Next section", exact: true })).toBeInViewport();
       expect(await assessment.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-      const controls = [page.getByRole("button", { name: phone ? /^Open page menu/ : "Expand navigation" }), back, ...(phone ? [assessment.getByRole("button", { name: "Choose questionnaire section" }), assessment.getByRole("button", { name: "Client info" })] : [assessment.getByLabel("Assessment section", { exact: true })])];
+      const controls = [page.getByRole("button", { name: phone ? /^Open page menu/ : "Pipeline home" }), back, ...(phone ? [assessment.getByRole("button", { name: "Choose questionnaire section" }), assessment.getByRole("button", { name: "Client info" })] : [assessment.getByLabel("Assessment section", { exact: true })])];
       if (!phone && size.width < 960) controls.push(assessment.getByRole("button", { name: /^Current information/ }));
       for (const control of controls) {
         const box = (await control.boundingBox())!;
@@ -64,7 +64,7 @@ test.describe("mobile assessment", () => {
       }
       const field = assessment.getByRole("textbox", { name: "Current symptoms", exact: true });
       await editPreparedAnswer(page, "Current symptoms");
-      await expect(field).toHaveCSS("font-size", phone ? "16px" : "17px");
+      await expect(field).toHaveCSS("font-size", "16px");
       if (size.width >= 960 && !phone) {
         const reference = assessment.getByRole("complementary", { name: "Current information" });
         await expect(reference).toBeVisible();
@@ -73,10 +73,9 @@ test.describe("mobile assessment", () => {
       await page.screenshot({ path: info.outputPath(`assessment-${size.width}x${size.height}.png`) });
     }
     await page.setViewportSize({ width: 768, height: 844 });
-    await page.getByRole("button", { name: "Expand navigation" }).tap();
     await expect(page.getByRole("button", { name: "Open referrals", exact: true })).toBeInViewport();
     await page.keyboard.press("Escape");
-    await expect(page.getByRole("button", { name: "Expand navigation" })).toHaveAttribute("aria-expanded", "false");
+    await expect(page.getByRole("button", { name: "Open referrals", exact: true })).toBeInViewport();
     const reference = assessment.getByRole("complementary", { name: "Current information" });
     await reference.getByRole("button", { name: /^Current information/ }).tap();
     await reference.getByRole("button", { name: "Edit Current symptoms", exact: true }).tap();
@@ -233,7 +232,7 @@ test("WebKit iPad retains answers and reference access while editing and rotatin
       expect(await reference.evaluate((element) => element.scrollTop)).toBe(0);
       expect(await editor.evaluate((element) => element.scrollTop)).toBe(0);
       await expect(field).toHaveValue("Synthetic tablet note, retained when rotating.");
-      await expect(field).toHaveCSS("font-size", "17px");
+      await expect(field).toHaveCSS("font-size", "16px");
       expect(await assessment.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
       await page.screenshot({ path: info.outputPath(`reading-webkit-${size.width}.png`) });
     }

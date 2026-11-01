@@ -1,6 +1,6 @@
 import { chromium, webkit, expect, test } from "@playwright/test";
 import { randomUUID } from "node:crypto";
-import { createOperationalReferral, createOperationalAssessment } from "./support/operational-api";
+import { createOperationalReferral, createOperationalAssessment, startOperationalAssessment } from "./support/operational-api";
 
 for (const [name, engine] of [["Chromium", chromium], ["WebKit", webkit]] as const) {
   test(`${name} phone pages, dates, saving and exact-question resume`, async ({ baseURL }, info) => {
@@ -11,12 +11,17 @@ for (const [name, engine] of [["Chromium", chromium], ["WebKit", webkit]] as con
       const errors: string[] = [];
       page.on("pageerror", (error) => errors.push(error.message));
       const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: `Phone ${randomUUID()}`, owner: "Annette Everhart", tags: [], documentName: "", documentStatus: "Missing" }, { assigneeId: "provisional:allo:annette" });
-      await createOperationalAssessment(page.request, referral.id);
+      const assessment = await createOperationalAssessment(page.request, referral.id);
       await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=identity`);
+      await page.getByRole("button", { name: "Schedule interview", exact: true }).tap();
+      await expect(page.getByRole("dialog", { name: "Schedule interview", exact: true })).toBeVisible();
+      await page.getByRole("button", { name: "Close schedule", exact: true }).tap();
+      await startOperationalAssessment(page.request, assessment);
+      await page.reload();
+      await page.getByRole("region", { name: "Assessment progress", exact: true }).getByRole("button", { name: "Interview", exact: true }).tap();
       const phone = page.locator("[data-phone-header]");
       const pocket = page.locator("[data-phone-interview]");
       await expect(phone).toBeVisible();
-      await page.getByRole("region", { name: "Assessment progress", exact: true }).getByRole("button", { name: "Interview", exact: true }).tap();
       await expect(pocket).toBeVisible();
       expect((await page.locator(".pipeline-surfaces main").first().boundingBox())!.x).toBe(0);
       const choose = async (label: string) => {
@@ -25,7 +30,6 @@ for (const [name, engine] of [["Chromium", chromium], ["WebKit", webkit]] as con
         await sheet.getByRole("searchbox", { name: "Find a question" }).fill(label);
         await sheet.getByRole("button", { name: new RegExp(`^${label}`) }).tap();
       };
-      await page.locator('summary[aria-label="Assessment details"]').tap();
       await page.getByRole("button", { name: /^Interview date/ }).tap();
       const interviewDate = page.getByRole("dialog", { name: "Interview date", exact: true });
       const date = interviewDate.getByLabel("Date assessment performed", { exact: true });
@@ -50,7 +54,7 @@ for (const [name, engine] of [["Chromium", chromium], ["WebKit", webkit]] as con
       await phone.getByRole("button", { name: /^Open page menu/ }).tap();
       const menu = page.getByRole("dialog", { name: "Pipeline pages" });
       for (const label of ["Open referrals", "Open calendar", "Open client profiles", "Open reports", "Create new referral"]) await expect(menu.getByRole("button", { name: label, exact: true })).toBeVisible();
-      await expect.poll(() => menu.getByAltText("Alamo Health Management").evaluate((image) => (image as HTMLImageElement).naturalWidth)).toBe(774);
+      await expect(menu.getByRole("button", { name: "Pipeline home", exact: true })).toHaveCount(0);
       await expect(menu.getByRole("button", { name: "Open calendar", exact: true }).getByText("Calendar")).toHaveCSS("font-size", "16px");
       await page.screenshot({ path: info.outputPath(`phone-menu-${name}.png`) });
       await menu.getByRole("button", { name: "Open calendar", exact: true }).tap();
@@ -62,17 +66,13 @@ for (const [name, engine] of [["Chromium", chromium], ["WebKit", webkit]] as con
       await expect(notifications).toBeVisible();
       await notifications.getByRole("button", { name: "Close notifications" }).tap();
       await expect(answer).toHaveValue("Synthetic phone answer");
-      await page.getByRole("region", { name: "Assessment progress", exact: true }).getByRole("button", { name: "Schedule interview", exact: true }).tap();
-      await expect(page.getByRole("dialog", { name: "Schedule interview", exact: true })).toBeVisible();
-      await page.getByRole("button", { name: "Close schedule", exact: true }).tap();
-      await expect(answer).toHaveValue("Synthetic phone answer");
+      await expect(page.getByRole("button", { name: "Schedule interview", exact: true })).toHaveCount(0);
       await pocket.getByRole("button", { name: "Client info" }).tap();
       const reference = page.getByRole("dialog", { name: "Client information", exact: true });
       await reference.getByLabel("Reference information").selectOption("all");
       await expect(reference).toContainText("Synthetic phone answer");
       await reference.getByRole("button", { name: "Close information panel" }).tap();
       // Encounter dates live in Details, not the clinical reference pane.
-      await page.locator('summary[aria-label="Assessment details"]').tap();
       await page.getByRole("button", { name: /^Interview date/ }).tap();
       await expect(interviewDate.getByLabel("Date assessment performed", { exact: true })).toHaveValue("2026-09-19");
       await interviewDate.getByRole("button", { name: "Close interview date", exact: true }).tap();

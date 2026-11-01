@@ -1,3 +1,4 @@
+import { leaveInterviewFullScreen, openAssessmentChart } from "./support/assessment-navigation";
 import { confirmReferralFileLabels } from "./support/referral-upload";
 import { randomUUID } from "node:crypto";
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
@@ -80,11 +81,13 @@ test("assessment can return to Intake, add documents and resume the same saved i
   } });
   expect(scheduled.status(), await scheduled.text()).toBe(200);
   await page.goto(`/?screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=prior_history`);
-  await page.getByRole("region", { name: "Assessment progress", exact: true }).getByRole("button", { name: "Interview", exact: true }).click();
+  await page.locator('footer[aria-label="Assessment actions"]').getByRole("button", { name: "Begin interview", exact: true }).click();
+  await page.getByRole("dialog", { name: "Begin interview", exact: true }).getByRole("button", { name: "Begin interview", exact: true }).click();
   const chart = page.locator('[data-assessment-view="assessment"]');
   const stages = page.getByRole("navigation", { name: "Workspace stages", exact: true });
   for (const width of [320, 390, 768, 1024, 1440]) {
     await page.setViewportSize({ width, height: 900 });
+    if (width >= 1024) await leaveInterviewFullScreen(page);
     const control = width < 640 ? stages.getByLabel("Workspace view", { exact: true }) : stages.getByRole("button", { name: "Chart", exact: true });
     await expect(control).toBeVisible();
     const bounds = (await control.boundingBox())!;
@@ -96,7 +99,7 @@ test("assessment can return to Intake, add documents and resume the same saved i
   await chart.getByRole("combobox", { name: "Assessment section", exact: true }).selectOption("prior_history");
   const answer = chart.getByRole("textbox", { name: "Hospitalization history", exact: true });
   await answer.fill("Synthetic answer kept while updating intake and adding a document.");
-  await stages.getByRole("button", { name: "Chart", exact: true }).click();
+  await openAssessmentChart(page);
   await page.getByRole("button", { name: "Edit referral details", exact: true }).click();
   await expect(chart).toBeHidden();
   const intake = page.getByTestId("intake-client-folder");
@@ -142,28 +145,36 @@ for (const width of [390, 1440]) {
     await page.goto("/");
     await expect(page.getByRole("button", { name: "Pipeline home", exact: true })).toBeVisible();
     const hopper = page.getByRole("region", { name: "Current work", exact: true });
-    await expect(hopper.locator("[data-board-card]")).toHaveCount(7);
-    for (const item of items) {
-      if (width < 1024) await hopper.getByRole("combobox", { name: "Referral stage", exact: true }).selectOption(item.board.stage!);
-      await expect(hopper.getByRole("button", { name: `Open ${item.client_name}`, exact: true })).toBeVisible();
+    const seen: string[] = [];
+    for (const [label, stage] of [["In progress", "in_progress"], ["Decision", "decision"]] as const) {
+      const open = hopper.getByRole("button", { name: `Open ${label.toLowerCase()} folder`, exact: true });
+      await open.click();
+      const dialog = page.getByRole("dialog", { name: `${label} folder`, exact: true });
+      const expected = items.filter(item => (item.board.stage === "received" ? "in_progress" : item.board.stage) === stage);
+      await expect(dialog.locator("[data-board-card]")).toHaveCount(expected.length);
+      for (const item of expected) {
+        await expect(dialog.getByRole("button", { name: `Open ${item.client_name}`, exact: true })).toBeVisible();
+        seen.push(item.client_name);
+      }
+      if (stage === "decision") await expect(dialog.getByRole("button", { name: "Open Quinn Patel", exact: true })).toContainText("2 documents needed");
+      else await expect(dialog.getByRole("button", { name: "Open Casey Brooks", exact: true })).toContainText("Update the medication details");
+      expect(await dialog.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+      await page.screenshot({ path: testInfo.outputPath(`hopper-${stage}-${width}.png`) });
+      await page.keyboard.press("Escape");
+      await expect(open).toBeFocused();
     }
-    await expect(hopper.getByRole("button", { name: "Open Quinn Patel", exact: true })).toContainText("Documents needed2");
-    if (width < 1024) await hopper.getByRole("combobox", { name: "Referral stage", exact: true }).selectOption("in_progress");
-    await expect(hopper.getByRole("button", { name: "Open Casey Brooks", exact: true })).toContainText("Update the medication details");
-    expect(await page.locator("[data-home-module]").count()).toBe(1);
-    expect(await hopper.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
-    await page.screenshot({ path: testInfo.outputPath(`hopper-${width}.png`) });
-    await page.getByRole("button", { name: "Pipeline home", exact: true }).click();
+    expect(seen.sort()).toEqual(items.map(item => item.client_name).sort());
     await page.reload();
-    if (width < 1024) await hopper.getByRole("combobox", { name: "Referral stage", exact: true }).selectOption("decision");
-    await expect(hopper.getByRole("button", { name: "Open Quinn Patel", exact: true })).toBeVisible();
+    await hopper.getByRole("button", { name: "Open decision folder", exact: true }).click();
+    await expect(page.getByRole("dialog").getByRole("button", { name: "Open Quinn Patel", exact: true })).toBeVisible();
   });
 }
 
 test("supervisors see submitted referrals as review work, not a personal waiting task", async ({ page }) => {
   await mockHopper(page, [], true);
   await page.goto("/");
-  const hopper = page.getByRole("region", { name: "Current work", exact: true });
+  await page.getByRole("button", { name: "Open decision folder", exact: true }).click();
+  const hopper = page.getByRole("dialog", { name: "Decision folder", exact: true });
   await expect(hopper.getByRole("button", { name: "Open Riley Hart", exact: true })).toContainText("Review the submitted assessment");
   await expect(hopper).not.toContainText("Waiting for supervisor");
 });
@@ -173,19 +184,15 @@ test("the board cannot be removed and its expanded view remains operable and res
   await mockHopper(page);
   await page.goto("/?editHome=1");
   await expect(page.getByRole("button", { name: "Remove Board from Home", exact: true })).toHaveCount(0);
-  await page.getByRole("button", { name: "Open current work", exact: true }).click();
-  const dialog = page.getByRole("dialog", { name: "Current work", exact: true });
-  const select = dialog.getByRole("combobox", { name: "Referral stage", exact: true });
-  await expect(select).toHaveValue("received");
-  await select.selectOption("decision");
-  await expect(dialog.getByRole("button", { name: "Open Riley Hart", exact: true })).toBeVisible();
-  await dialog.getByRole("button", { name: "Close current work", exact: true }).click();
-  await page.getByRole("button", { name: "Open current work", exact: true }).click();
-  await select.selectOption("decision");
-  await expect(dialog.getByRole("button", { name: "Open Riley Hart", exact: true })).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expect(dialog).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Open current work", exact: true })).toBeFocused();
+  const open = page.getByRole("button", { name: "Open decision folder", exact: true });
+  for (let visit = 0; visit < 2; visit += 1) {
+    await open.click();
+    const dialog = page.getByRole("dialog", { name: "Decision folder", exact: true });
+    await expect(dialog.getByRole("button", { name: "Open Riley Hart", exact: true })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+    await expect(open).toBeFocused();
+  }
 });
 
 for (const failure of [false, true]) {
@@ -247,6 +254,7 @@ test("a save in another tab refreshes the hopper and supersedes an older pending
   const referral = await createReferral(page.request);
   const { briefing } = await mockHopper(page, [referral]);
   await page.goto("/");
+  await page.getByRole("button", { name: "Open in progress folder", exact: true }).click();
   await expect(page.getByRole("button", { name: `Open ${referral.name}`, exact: true })).toBeVisible();
   const editor = await context.newPage();
   await editor.goto(`/?screen=packet&referralId=${referral.id}&workspaceStage=intake&workspaceField=name`);
@@ -274,7 +282,7 @@ test("a save in another tab refreshes the hopper and supersedes an older pending
     await expect(page.getByRole("button", { name: "Open Updated Client", exact: true })).toBeVisible();
     release();
     await expect(page.getByRole("button", { name: `Open ${referral.name}`, exact: true })).toHaveCount(0);
-    await expect(page.getByRole("region", { name: "Current work", exact: true }).locator("[data-board-card]")).toHaveCount(7);
+    await expect(page.getByRole("dialog", { name: "In progress folder", exact: true }).locator("[data-board-card]")).toHaveCount(5);
     await expect(editor.getByRole("textbox", { name: "Referrer phone:", exact: true })).toHaveValue("555-0188");
   } finally { release(); await editor.close(); }
 });
@@ -339,7 +347,7 @@ for (const preset of [false, true]) {
     });
     await page.goto("/");
     await expect(page.getByRole("button", { name: "Pipeline home", exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Open Quinn Patel", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Open decision folder", exact: true })).toBeVisible();
     await expect(page.locator("html")).toHaveAttribute("data-pipeline-keyboard-shortcuts-ready", "true");
     await page.keyboard.press("Control+k");
     const search = page.getByRole("dialog", { name: "Search Pipeline", exact: true });

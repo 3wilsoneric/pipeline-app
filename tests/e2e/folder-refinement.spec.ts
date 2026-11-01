@@ -56,7 +56,12 @@ test("the intake action creates once, opens the chart, and remains there after r
   await expect(page.getByTestId("packet-workspace")).toHaveAttribute("aria-busy", "false");
   const surname = randomUUID().replace(/[^a-z]/g, "");
   const name = `Avery ${surname[0].toUpperCase()}${surname.slice(1)}`;
+  const progress = page.getByRole("progressbar", { name: "Intake details recorded", exact: true });
+  await expect(progress).toHaveCount(1);
+  await expect(progress).toHaveAttribute("value", "1");
   await page.locator('[data-workspace-field="name"] input').fill(name);
+  await expect(progress).toHaveAttribute("value", "2");
+  await expect(progress).toHaveAttribute("aria-valuetext", "2 of 13 intake details recorded");
   const create = page.getByRole("button", { name: "Create referral", exact: true });
   await create.click();
   await expect(page).toHaveURL(/referralId=\d+/);

@@ -20,7 +20,7 @@ export async function openAdmitDate(page: Page) {
 }
 export async function openSummary(page: Page) {
   const review = await openAdmitDate(page);
-  await review.locator("details > summary").click();
+  await review.locator("summary").filter({ hasText: /^Client summary/ }).click();
   return review;
 }
 export async function openFiles(page: Page) {

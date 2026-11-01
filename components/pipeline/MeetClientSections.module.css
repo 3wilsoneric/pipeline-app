@@ -1,0 +1,45 @@
+.document { min-width: 0; padding: 24px 12px 32px; background: var(--color-paper); color: var(--color-ink); }
+.blocks { position: relative; }
+.identity { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 28px; padding: 8px 24px 24px 48px; border-bottom: 0; }
+.identity > div:first-child { grid-column: 1 / -1; }
+.identity dt, .facts dt { margin-bottom: 4px; font-size: var(--text-label); line-height: 1.5; color: var(--color-ink-muted); font-weight: 500; }
+.identity dd { margin: 0; font-size: var(--text-value); line-height: 1.5; font-weight: 600; overflow-wrap: anywhere; }
+.identity > div:first-child dd { font-size: var(--text-title); line-height: 1.25; }
+.block { position: relative; padding: 28px 24px 28px 48px; border-bottom: 0; transition: background var(--motion-state) ease; }
+.block:hover, .block:focus-within { background: var(--color-card-warm); }
+.block h3 { display: flex; align-items: center; gap: 12px; margin: 0 0 20px; color: var(--color-ink); font-size: var(--text-section); line-height: 1.4; font-weight: 650; }
+.facts { display: grid; gap: 20px; }
+.facts dd, .block li, .message { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--text-value); line-height: 1.75; color: var(--color-ink-body); }
+.block ul { margin: 0; padding-left: 20px; }
+.block li + li { margin-top: 12px; }
+.moveMenu { position: absolute; top: 16px; left: 0; z-index: 1; }
+.moveMenu[open] { z-index: 3; }
+.moveMenu summary { display: grid; place-items: center; min-width: var(--spacing-control); min-height: var(--spacing-control); color: var(--color-ink-muted); border-radius: var(--radius-input); cursor: grab; list-style: none; }
+.moveMenu summary::-webkit-details-marker { display: none; }
+.moveMenu summary:is(:hover, :focus-visible), .moveMenu[open] summary { color: var(--color-ink); background: var(--color-segment); }
+.moveMenu summary:active { cursor: grabbing; }
+.moveOptions { position: absolute; top: 100%; left: 4px; min-width: 160px; padding: 4px; border: 1px solid var(--color-control-border); border-radius: var(--radius-input); background: var(--color-paper); box-shadow: var(--shadow-popover); }
+.moveOptions button { display: flex; align-items: center; gap: 12px; width: 100%; min-height: var(--spacing-control); padding: 8px 12px; font-size: var(--text-value); text-align: left; }
+.moveOptions button:hover:enabled { background: var(--color-action-soft); }
+.moveOptions button:disabled { color: var(--color-ink-muted); opacity: .5; }
+.moveMenu :is(summary, button):focus-visible { outline: 2px solid var(--color-focus); outline-offset: -2px; }
+.block[data-dragging] { opacity: .45; }
+.block[data-drop]::after { content: ""; position: absolute; left: 0; right: 0; height: 3px; background: var(--color-primary); }
+.block[data-drop="before"]::after { top: 0; }
+.block[data-drop="after"]::after { bottom: 0; }
+.srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+@media (max-width: 639px) {
+  .document { padding-inline: 0; }
+  .identity { padding-inline: 16px; gap: 16px; }
+  .block { padding-right: 12px; }
+}
+@media (prefers-reduced-motion: reduce) { .block { transition: none; } }
+@media (forced-colors: active) { .block[data-drop]::after { background: Highlight; } }
+
+/* The message stays a readable letter, with color in its subject matter. */
+.identity > div:first-child dd { color: var(--color-primary); }
+.block h3 { gap: 12px; }
+.block h3 > svg { width: 32px; height: 32px; }
+.facts { grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); gap: 18px 28px; }
+.block { scroll-margin-top: 24px; }
+.block[data-section-id="bio"] { font-size: var(--text-value); }

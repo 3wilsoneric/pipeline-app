@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "pipeline-static-";
-const CACHE_NAME = `${CACHE_PREFIX}v16`;
+const CACHE_NAME = `${CACHE_PREFIX}v17`;
 // Unregistering does not stop fetches from a tab this worker already controls.
 let desktopCacheDisabled = false;
 const SCOPE_PATH = new URL(self.registration.scope).pathname.replace(/\/$/, "");
@@ -11,10 +11,10 @@ const STATIC_ASSETS = [
   OFFLINE_ASSESSMENT_URL,
   scopedPath("/offline-assessment.js"),
   scopedPath("/brand/pipeline-mark.svg"),
-  scopedPath("/pwa/pipeline-favicon-32-v3.png"),
-  scopedPath("/pwa/pipeline-app-icon-192-v11.png"),
-  scopedPath("/pwa/pipeline-app-icon-512-v11.png"),
-  scopedPath("/pwa/pipeline-app-icon-1024-v11.png"),
+  scopedPath("/pwa/pipeline-favicon-32-v4.png"),
+  scopedPath("/pwa/pipeline-app-icon-192-v12.png"),
+  scopedPath("/pwa/pipeline-app-icon-512-v12.png"),
+  scopedPath("/pwa/pipeline-app-icon-1024-v12.png"),
 ];
 
 self.addEventListener("install", (event) => {

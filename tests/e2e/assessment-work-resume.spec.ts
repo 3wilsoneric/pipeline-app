@@ -1,4 +1,6 @@
+import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
+import { openAllQuestions } from "./support/assessment-navigation";
 import { createOperationalAssessment, createOperationalReferral, scheduleOperationalAssessment } from "./support/operational-api";
 
 for (const width of [1440, 390]) test(`assessment preparation and appointment drafts resume without booking at ${width}px`, async ({ page }, info) => {
@@ -10,7 +12,7 @@ for (const width of [1440, 390]) test(`assessment preparation and appointment dr
   const writes: string[] = [];
   page.on("request", request => { if (request.method() === "POST" && /\/(start|schedule)$/.test(new URL(request.url()).pathname)) writes.push(request.url()); });
   await page.goto(`${workspace}&workspaceStage=assessment`);
-  await expect(page.getByRole("button", { name: "Prepare assessment", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator('[data-assessment-working-section][data-assessment-phase="preparation"]')).toBeVisible();
   await page.getByRole("button", { name: "Schedule interview", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Schedule interview", exact: true });
   await dialog.getByLabel("Assessment date and time", { exact: true }).fill("2026-10-12T10:30");
@@ -32,15 +34,19 @@ for (const width of [1440, 390]) test(`assessment preparation and appointment dr
   await expect(page).not.toHaveURL(/assessmentDialog/);
   await page.reload();
   await expect(dialog).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Prepare assessment", exact: true })).toHaveAttribute("aria-pressed", "true");
-  await page.getByRole("button", { name: "Interview", exact: true }).click();
+  await expect(page.locator('[data-assessment-working-section][data-assessment-phase="preparation"]')).toBeVisible();
+  // Opening the interview deep link resumes that view without recording a start or booking.
+  await page.goto(`${workspace}&workspaceStage=assessment&assessmentMode=interview&assessmentSection=identity`);
   await expect(page).toHaveURL(/assessmentMode=interview/);
+  if (width >= 768) await expect(page.locator('[data-assessment-working-section][data-assessment-phase="interview"]')).toBeVisible();
+  else await expect(page.locator("[data-phone-interview]")).toBeVisible();
   await page.reload();
   await expect(page).toHaveURL(/assessmentMode=interview/);
-  if (width >= 768) await expect(page.getByRole("button", { name: "Interview", exact: true })).toHaveAttribute("aria-pressed", "true");
+  if (width >= 768) await expect(page.locator('[data-assessment-working-section][data-assessment-phase="interview"]')).toBeVisible();
   else await expect(page.locator("[data-phone-interview]")).toBeVisible();
   expect((await read()).started_at).toBeFalsy();
   expect((await read()).assessment_date).toBeFalsy();
+  if (width >= 768) await openAllQuestions(page);
   await page.getByRole("button", { name: "Schedule interview", exact: true }).click();
   await expect(dialog.getByLabel("Phone number to call", { exact: true })).toHaveValue("555-0100");
   await dialog.getByRole("button", { name: "Schedule interview", exact: true }).click();
@@ -48,15 +54,19 @@ for (const width of [1440, 390]) test(`assessment preparation and appointment dr
   expect((await read()).scheduled_start_at).toBeTruthy();
   expect((await read()).started_at).toBeFalsy();
   expect(writes.filter(url => url.endsWith("/schedule"))).toHaveLength(1);
+  if (width >= 768) await page.goto(`${workspace}&workspaceStage=assessment&assessmentMode=interview&assessmentSection=identity`);
+  await expect(page.locator(width >= 768 ? '[data-assessment-working-section][data-assessment-phase="interview"]' : "[data-phone-interview]")).toBeVisible();
   await page.reload();
   await expect(dialog).toHaveCount(0);
   await expect(page).toHaveURL(/assessmentMode=interview/);
-  if (width >= 768) await expect(page.getByRole("button", { name: "Interview", exact: true })).toHaveAttribute("aria-pressed", "true");
+  if (width >= 768) await expect(page.locator('[data-assessment-working-section][data-assessment-phase="interview"]')).toBeVisible();
   else await expect(page.locator("[data-phone-interview]")).toBeVisible();
 });
 
 test("opening from Workspaces resumes scheduling; a newer booking supersedes the old draft", async ({ page }) => {
-  const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: "Continuity Example", owner: "", tags: [] });
+  const inputName = `Continuity Example ${randomUUID().replace(/[^a-z]/g, "")}`;
+  const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: inputName, owner: "", tags: [] });
+  const name = referral.name;
   const assessment = await createOperationalAssessment(page.request, referral.id);
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment`);
   await page.getByRole("button", { name: "Schedule interview", exact: true }).click();
@@ -70,7 +80,7 @@ test("opening from Workspaces resumes scheduling; a newer booking supersedes the
     return (await response.json()).state?.lastWorkspace?.location?.assessmentDialog;
   }).toBe("schedule");
   await page.goto("/?view=referrals");
-  await page.getByRole("button", { name: "Open Continuity Example referral workspace", exact: true }).click();
+  await page.getByRole("button", { name: `Open ${name} referral workspace`, exact: true }).click();
   await expect(dialog).toBeVisible();
   await expect(dialog.getByLabel("Assessment address", { exact: true })).toHaveValue("Unbooked draft address");
   const scheduled = await scheduleOperationalAssessment(page.request, assessment);
@@ -110,23 +120,26 @@ test("a phone interview returns to the exact question and uses the prepared answ
 });
 
 test("Workspaces resumes scheduling while the Board opens preparation without booking", async ({ page }) => {
-  const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: "Synthetic Return", owner: "", tags: [] });
+  const inputName = `Synthetic Return ${randomUUID().replace(/[^a-z]/g, "")}`;
+  const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: inputName, owner: "", tags: [] });
+  const name = referral.name;
   const assessment = await createOperationalAssessment(page.request, referral.id);
   await page.goto("/?view=referrals");
-  await page.getByRole("button", { name: "Open Synthetic Return referral workspace", exact: true }).click();
+  await page.getByRole("button", { name: `Open ${name} referral workspace`, exact: true }).click();
   await page.getByRole("navigation", { name: "Workspace stages", exact: true }).getByRole("button", { name: "Assessment", exact: true }).click();
   await page.getByRole("button", { name: "Schedule interview", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Schedule interview", exact: true });
   await expect(dialog).toBeVisible();
   await page.goBack();
-  await page.getByRole("button", { name: "Open Synthetic Return referral workspace", exact: true }).click();
+  await page.getByRole("button", { name: `Open ${name} referral workspace`, exact: true }).click();
   await expect(dialog).toBeVisible();
   await page.goto("/");
-  await page.getByRole("button", { name: "Open Synthetic Return", exact: true }).locator("[data-folder-name]").click();
+  await page.getByRole("button", { name: /Open in progress folder/ }).click();
+  await page.getByRole("dialog").getByRole("button", { name: `Open ${name}`, exact: true }).click();
   await expect(page).toHaveURL(/workspaceStage=assessment/);
   await expect(page).not.toHaveURL(/workspaceEntry=resume|assessmentDialog=/);
   await expect(dialog).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Prepare assessment", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator('[data-assessment-working-section][data-assessment-phase="preparation"]')).toBeVisible();
   // Choosing the Board's next action does not discard the saved appointment draft.
   await page.getByRole("button", { name: "Schedule interview", exact: true }).click();
   await expect(dialog).toBeVisible();
@@ -151,13 +164,14 @@ test("Workspaces resumes Begin interview; Keep preparing and Board navigation ne
   await page.goto("/?view=referrals");
   await page.getByRole("button", { name: "Open Synthetic Confirmation referral workspace", exact: true }).click();
   await expect(begin).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Prepare assessment", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator('[data-assessment-working-section][data-assessment-phase="preparation"]')).toBeVisible();
   await page.getByRole("button", { name: "Begin interview", exact: true }).click();
   await expect(begin).toBeVisible();
   await page.goto("/");
-  await page.getByRole("button", { name: "Open Synthetic Confirmation", exact: true }).locator("[data-folder-name]").click();
+  await page.getByRole("button", { name: /Open in progress folder/ }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Open Synthetic Confirmation", exact: true }).click();
   await expect(begin).toHaveCount(0);
   await expect(page).not.toHaveURL(/workspaceEntry=resume|assessmentDialog=/);
-  await expect(page.getByRole("button", { name: "Prepare assessment", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator('[data-assessment-working-section][data-assessment-phase="preparation"]')).toBeVisible();
   expect((await read()).started_at).toBeFalsy();
 });

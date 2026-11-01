@@ -13,17 +13,15 @@ test.describe("Responsive and accessible application shell", () => {
     await page.goto("/");
     await page.waitForLoadState("networkidle");
     await expect(page.getByRole("region", { name: "Current work", exact: true })).toBeVisible();
-    await page.getByRole("tab", { name: "New assignments", exact: true }).click();
-    await expect(page.getByRole("region", { name: "Since your last visit" })).toBeVisible();
-    await page.getByRole("tab", { name: "Board", exact: true }).click();
+    await page.getByRole("button", { name: "Upcoming assessments", exact: true }).click();
+    await expect(page.getByRole("region", { name: "Upcoming assessments", exact: true })).toBeVisible();
+    await page.keyboard.press("Escape");
     await expectNoPageOverflow(page);
     await expectNoSeriousAxeViolations(page);
     await expect(page.getByRole("navigation", { name: "Platform pages" })).toHaveCount(0);
     const phone = (page.viewportSize()?.width ?? 0) < 640;
     if (phone) await page.getByRole("button", { name: /^Open page menu/ }).click();
-    else await page.getByRole("button", { name: "Expand navigation", exact: true }).click();
-    const platformBrand = page.getByRole("img", { name: "Alamo Health Management" });
-    if (!phone) await expect(platformBrand).toBeVisible();
+    if (!phone) await expect(page.getByRole("button", { name: "Pipeline home" }).getByText("Home", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Pipeline home" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Open reports" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Create new referral" })).toBeVisible();
@@ -86,7 +84,8 @@ test.describe("Responsive and accessible application shell", () => {
     await expectNoSeriousAxeViolations(page);
 
     await expect(stepNavigation.getByRole("button", { name: "Assessment", exact: true })).toHaveCount(0);
-    if (!compactSteps && await page.locator("html").getAttribute("data-design") === "v2") {
+    if (compactSteps) await stepSelect.selectOption({ label: "Intake" });
+    else if (await page.locator("html").getAttribute("data-design") === "v2") {
       await stepNavigation.getByRole("button", { name: "Intake", exact: true }).click();
       await expect(page.getByRole("textbox", { name: "NAME", exact: true })).not.toHaveValue("");
     }

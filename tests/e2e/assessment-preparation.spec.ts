@@ -5,7 +5,7 @@ import { assessmentInterviewQuestions, assessmentInterviewSections, getRequiredA
 import { createEmptyAssessmentToolData, type AssessmentToolSection } from "../../lib/assessment/assessment-tool-schema";
 import { assessmentWorkingCounts } from "../../components/pipeline/assessment-working-view";
 import { createOperationalAssessment, createOperationalReferral, startOperationalAssessment } from "./support/operational-api";
-import { editPreparedAnswer, openAssessmentChart, returnToAssessmentQuestions } from "./support/assessment-navigation";
+import { editPreparedAnswer, leaveInterviewFullScreen, openAssessmentChart, returnToAssessmentQuestions } from "./support/assessment-navigation";
 import type { AxeResults } from "axe-core";
 
 test("source preparation retains canonical questions and conditional fields", () => {
@@ -29,7 +29,14 @@ async function createReferral(page: Page) {
   return createOperationalReferral(page.request, "assessmentCoordinator", { name: `Preparation ${randomUUID().slice(0, 8)}`, owner: "Annette Everhart", dob: "1980-04-12" }, { assigneeId: "provisional:allo:annette" });
 }
 async function openPage(page: Page, label: string) {
+  await leaveInterviewFullScreen(page);
   await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: new RegExp(`${label}$`) }).click();
+  if (label === "Assessment") {
+    const begin = page.getByRole("button", { name: "Prepare assessment", exact: true });
+    const folder = page.getByTestId("assessment-client-folder");
+    await expect(begin.or(folder).first()).toBeVisible();
+    if (!await folder.isVisible()) await begin.click();
+  }
 }
 async function section(page: Page, key: string) {
   const picker = page.getByRole("combobox", { name: "Assessment section", exact: true });
@@ -98,21 +105,21 @@ for (const width of [1440, 768]) {
     await expect(begin).toHaveCount(0);
     await expect(page).toHaveURL(/assessmentMode=interview/);
     await section(page, "diagnosis_clinical");
-    await expect(page).toHaveURL(/assessmentSection=diagnosis_clinical/);
+    await expect(page.locator('[data-assessment-group-heading="diagnosis_clinical"]')).toBeInViewport();
     await page.locator("#assessment-current_symptoms").fill("Observed during the interview.");
     await openAssessmentChart(page);
-    await expect(page.getByRole("region", { name: "Assessment chart review" })).toContainText("Observed during the interview.");
+    await expect(page.getByRole("article", { name: "Assessment record", exact: true })).toContainText("Observed during the interview.");
     await returnToAssessmentQuestions(page);
     await expect(page).toHaveURL(/assessmentMode=interview/);
     await expect(page.getByRole("combobox", { name: "Assessment section" })).toHaveValue("diagnosis_clinical");
     const referenceToggle = reference.getByRole("button", { name: /^Current information/ });
     if (await referenceToggle.isVisible() && await referenceToggle.getAttribute("aria-expanded") === "false") await referenceToggle.click();
-    await reference.getByRole("button", { name: "Edit Secondary diagnosis", exact: true }).click();
+    await editPreparedAnswer(page, "Secondary diagnosis");
     await expect(page).toHaveURL(/assessmentMode=prepare/);
     await expect(secondary).toHaveValue("Documented secondary diagnosis from the referral.");
     await secondary.fill("Updated during the interview.");
     await openAssessmentChart(page);
-    await expect(page.getByRole("region", { name: "Assessment chart review" })).toContainText("Updated during the interview.");
+    await expect(page.getByRole("article", { name: "Assessment record", exact: true })).toContainText("Updated during the interview.");
     await returnToAssessmentQuestions(page);
     await expect(page).toHaveURL(/assessmentMode=prepare/);
     await expect(page.getByRole("combobox", { name: "Assessment section" })).toHaveValue("prior_history");
@@ -172,7 +179,7 @@ test("folder tabs support keyboard, small screens and reduced motion", async ({ 
   expect(violations).toEqual([]);
   await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: /Chart$/ }).focus();
   await page.keyboard.press("Enter");
-  await expect(page.getByRole("region", { name: "Assessment chart review" })).toBeVisible();
+  await expect(page.getByRole("article", { name: "Assessment record", exact: true })).toBeVisible();
 });
 
 test("signed answers stay editable until sent, then become read only", async ({ page }) => {
@@ -182,7 +189,7 @@ test("signed answers stay editable until sent, then become read only", async ({ 
   const signed = await page.request.post(`/api/assessments/${assessment.assessment_id}/sign`, { data: { if_match: assessment.version, client_mutation_id: randomUUID() } });
   expect(signed.status()).toBe(200);
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=diagnosis_clinical`);
-  await page.getByRole("button", { name: "Edit Secondary diagnosis", exact: true }).click();
+  await editPreparedAnswer(page, "Secondary diagnosis");
   await page.locator("#assessment-secondary_diagnoses").fill("Corrected before sending");
   await page.locator("#assessment-secondary_diagnoses").blur();
   const read = async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
@@ -214,7 +221,7 @@ test("queued answers stay visible across chart review and sync after recovery", 
   await section(page, "identity");
   await page.locator("#assessment-current_location").fill("Unsaved but retained referral notes");
   await openAssessmentChart(page);
-  await expect(page.getByRole("region", { name: "Assessment chart review" })).toContainText("Unsaved but retained referral notes");
+  await expect(page.getByRole("article", { name: "Assessment record", exact: true })).toContainText("Unsaved but retained referral notes");
   await expect(page.locator('[data-guide-target="assessment-save-status"]')).not.toHaveText("All changes saved");
   expect((await (await page.request.get(`/api/assessments/${id}`)).json()).assessment.current_location).not.toBe("Unsaved but retained referral notes");
   await returnToAssessmentQuestions(page);

@@ -1,12 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
-import { createOperationalReferral } from "./support/operational-api";
+import { activeOperationalAssessor, createOperationalReferral } from "./support/operational-api";
 
 test("interview completion preserves answers, editability, original appointment and audit history", async ({ page }) => {
+  const assessor = await activeOperationalAssessor(page.request);
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", {
-    name: `Calendar ${randomUUID().replaceAll(/[^a-z]/g, "")}`, owner: "Annette Everhart", documentName: "", documentStatus: "Missing", tags: [],
-  }, { assigneeId: "provisional:allo:annette" });
+    name: `Calendar ${randomUUID().replaceAll(/[^a-z]/g, "")}`, owner: assessor.display_name, documentName: "", documentStatus: "Missing", tags: [],
+  }, { assigneeId: assessor.principal_id });
   if (!referral.name) throw new Error("The created referral must retain its name.");
   const created = await page.request.post(`/api/referrals/${referral.id}/assessments`, { data: { client_mutation_id: randomUUID(), data: { current_symptoms: "Synthetic retained answer" } } });
   expect(created.status()).toBe(201);
@@ -207,9 +208,10 @@ test("Mine and Team scope, assessor filters and empty states explain what is sho
 
 // Item 9: one scheduling dialog reached from Chart and Assessment; cancelling books nothing.
 test("Chart and Assessment open the same scheduling dialog, cancel books nothing, and a saved time opens the right workspace", async ({ page }) => {
+  const assessor = await activeOperationalAssessor(page.request);
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", {
-    name: `Schedule ${randomUUID().replaceAll(/[^a-z]/g, "")}`, owner: "Annette Everhart", documentName: "", documentStatus: "Missing", tags: [],
-  }, { assigneeId: "provisional:allo:annette" });
+    name: `Schedule ${randomUUID().replaceAll(/[^a-z]/g, "")}`, owner: assessor.display_name, documentName: "", documentStatus: "Missing", tags: [],
+  }, { assigneeId: assessor.principal_id });
   const created = await page.request.post(`/api/referrals/${referral.id}/assessments`, { data: { client_mutation_id: randomUUID(), data: {} } });
   expect(created.status()).toBe(201);
   const assessmentId = (await created.json()).assessment.assessment_id;
@@ -217,9 +219,9 @@ test("Chart and Assessment open the same scheduling dialog, cancel books nothing
   let scheduleWrites = 0;
   await page.route(`**${assessmentUrl}/schedule`, async (route) => { scheduleWrites += 1; await route.continue(); });
 
-  // Chart surfaces scheduling beside the referral's contact and coordination details.
+  // Chart surfaces scheduling in the assessment portion of the client record.
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=chart`);
-  const contact = page.getByRole("region", { name: "Contact information", exact: true });
+  const contact = page.getByRole("region", { name: "Chart", exact: true });
   await expect(contact).toContainText("No assessment appointment booked yet.");
   await contact.getByRole("button", { name: "Schedule interview", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Schedule interview", exact: true });

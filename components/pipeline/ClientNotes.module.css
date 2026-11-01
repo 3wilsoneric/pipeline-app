@@ -1,6 +1,11 @@
 /* One shared client note stays beside assessment questions and opens from a
    floating button on other steps. */
 
+@keyframes notes-enter { from { opacity: 0; translate: 0 8px; } to { opacity: 1; translate: none; } }
+@media (prefers-reduced-motion: no-preference) {
+  .panel { animation: notes-enter var(--motion-enter) var(--ease-open); }
+}
+
 .notes { position: sticky; top: 16px; display: flex; flex-direction: column; max-height: calc(100dvh - 140px); min-height: 280px; overflow: hidden; border: 1px solid var(--color-card-border); border-radius: var(--radius-paper); background: var(--color-paper); box-shadow: var(--shadow-card); }
 
 .head { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 8px 0 14px; border-bottom: 1px solid var(--color-paper-rule); background: var(--color-sheet); }
@@ -66,9 +71,19 @@
 .fab:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .fab[data-has-note] { color: var(--color-link); }
 .fab[aria-expanded="true"] { background: var(--color-segment); }
-.panel { width: min(420px, calc(100vw - 48px)); }
-.panel .notes { position: static; height: min(620px, calc(100dvh - 200px)); max-height: none; box-shadow: var(--shadow-popover); animation: notes-open var(--duration-fade) var(--ease-open); }
-@keyframes notes-open { from { opacity: 0; transform: translateY(8px) scale(0.98); transform-origin: 100% 100%; } }
+.panel { width: min(440px, calc(100vw - 48px)); }
+.panel .notes { position: static; height: min(620px, calc(100dvh - 200px)); max-height: none; border-color: var(--color-control-border); box-shadow: var(--shadow-popover); }
+/* The floating note uses the available panel as a writing surface. */
+.panel .head { min-height: var(--spacing-action); padding: 4px 8px 4px 20px; background: var(--color-paper); }
+.panel .head h3 { font-size: var(--text-section); }
+.panel .iconButton { width: var(--spacing-control); height: var(--spacing-control); flex: none; }
+.panel .blocks { display: flex; flex-direction: column; padding: 16px; background: var(--color-card-warm); }
+.panel .block { display: flex; flex: 1; flex-direction: column; padding: 0; }
+.panel .field { flex: 1 0 auto; min-height: min(320px, 40dvh); margin: 0; padding: 16px; border-color: transparent; background: var(--color-card-warm); line-height: 1.75; }
+.panel .field:focus { border-color: var(--color-control-border); outline: 2px solid var(--color-focus); outline-offset: -2px; }
+.panel .conflict, .panel .error { margin: 12px 0 0; flex: none; }
+.panel .conflict button { min-height: var(--spacing-control); font-size: var(--text-label); }
+.panel .conflict div { flex-wrap: wrap; }
 
 /* The latest note on a card or row. */
 .line { display: flex; align-items: flex-start; gap: 6px; min-width: 0; padding: 6px 8px; border-radius: var(--radius-chip); background: var(--color-sheet); color: var(--color-ink-2); font-size: var(--text-meta); line-height: var(--text-meta--line-height); text-align: left; }
@@ -80,9 +95,24 @@
 @media print { .floating { display: none; } }
 @media (max-width: 767px) {
   .floating { right: 12px; bottom: max(88px, env(safe-area-inset-bottom)); }
+  /* Preparation and phone interview paging sit above the save/date bar. */
+  :global(body:has([data-phone-interview], [data-assessment-phase="preparation"])) .floating { bottom: calc(max(88px, env(safe-area-inset-bottom)) + var(--spacing-action)); }
   .panel { position: fixed; top: calc(var(--mobile-viewport-top, 0px) + 12px); right: 12px; left: 12px; width: auto; }
   .panel .notes { height: calc(var(--mobile-viewport-height, 100dvh) - 112px); min-height: 0; }
+  .panel .head { padding-inline: 8px; gap: 4px; }
+  .panel .blocks { padding: 12px; }
   .iconButton, .viewAll, .conflict button { min-width: 44px; min-height: 44px; }
   .field { font-size: 16px; }
 }
 @media (prefers-reduced-motion: reduce) { .panel .notes { animation: none; } }
+@media (max-width: 359px) {
+  :global(body:has([data-phone-interview], [data-assessment-phase="preparation"])) .floating { bottom: calc(max(88px, env(safe-area-inset-bottom)) + var(--spacing-action) + var(--spacing-control)); }
+}
+
+/* Phones keep Notes beside the client identity, clear of fields and sending controls. */
+.fab.docked { display: inline-flex; gap: 6px; width: auto; min-height: var(--spacing-control); height: auto; padding: 8px; border: 0; border-radius: var(--radius-input); box-shadow: none; font-size: var(--text-label); font-weight: 600; }
+.floating[data-inline-notes] .panel { position: fixed; top: calc(var(--mobile-viewport-top, 0px) + 12px); right: 12px; left: 12px; width: auto; z-index: 70; }
+.floating[data-inline-notes] .panel .notes { height: calc(var(--mobile-viewport-height, 100dvh) - 112px); min-height: 0; }
+
+.fab.docked { width: var(--spacing-control); justify-content: center; }
+.fab.docked > span { display: none; }

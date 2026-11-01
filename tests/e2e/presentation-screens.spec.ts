@@ -1,3 +1,4 @@
+import { showTutorialHelp } from "./support/app-navigation";
 import { expect, test } from "@playwright/test";
 
 // The retired workshop/gallery now redirect to the app. Help owns tutorials.
@@ -9,7 +10,7 @@ for (const path of ["/training", "/training/demo?journey=1", "/training/demo?vie
     });
     await page.goto(path);
     await expect(page).toHaveURL(new URL("/", baseURL).toString());
-    await expect(page.getByRole("button", { name: "Open guided tutorials", exact: true })).toBeVisible();
+    await expect(await showTutorialHelp(page)).toBeVisible();
     await expect(page.getByRole("combobox", { name: "Jump to slide" })).toHaveCount(0);
     await expect(page.locator('[data-pipeline-demo-banner="true"]')).toHaveCount(0);
     expect(writes).toEqual([]);
@@ -21,7 +22,7 @@ for (const width of [320, 834, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto("/?screen=calendar");
     if (width < 640) await page.getByRole("button", { name: /^Open page menu/ }).click();
-    await page.getByRole("button", { name: "Open guided tutorials", exact: true }).click();
+    await (await showTutorialHelp(page)).click();
     const library = page.getByRole("dialog", { name: "Tutorials", exact: true });
     await expect(library).toBeVisible();
     for (const title of ["Walk through a referral", "Schedule an appointment", "Fill out the assessment", "Review & sign", "Create a referral", "Record a decision", "Prepare the admission packet", "View reports"]) {

@@ -1,39 +1,40 @@
 #!/usr/bin/env node
 
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { createCanvas, loadImage } from "@napi-rs/canvas";
 
 const outputDirectory = "public/pwa";
 const brandMarkPath = "public/brand/pipeline-mark.svg";
-const appIconMarkWidthRatio = 0.36;
+const appIconMarkWidthRatio = 0.46;
 const appIconHorizontalNudgeRatio = 0.01;
+const tokens = await readFile("app/design-tokens.css", "utf8");
+const token = (name) => {
+  const value = tokens.match(new RegExp(`--${name}:\\s*([^;]+);`))?.[1].trim();
+  if (!value) throw new Error(`Missing design token: ${name}`);
+  return value;
+};
+const backgroundColor = token("color-night");
+const markColor = token("color-paper");
 
 const brandMark = await loadImage(brandMarkPath);
 
 await mkdir(outputDirectory, { recursive: true });
 await Promise.all([
-  renderFavicon(`${outputDirectory}/pipeline-favicon-32-v3.png`),
-  renderAppIcon(192, `${outputDirectory}/pipeline-app-icon-192-v11.png`),
-  renderAppIcon(512, `${outputDirectory}/pipeline-app-icon-512-v11.png`),
-  renderAppIcon(1024, `${outputDirectory}/pipeline-app-icon-1024-v11.png`),
+  renderAppIcon(32, `${outputDirectory}/pipeline-favicon-32-v4.png`, 0.54),
+  renderAppIcon(192, `${outputDirectory}/pipeline-app-icon-192-v12.png`),
+  renderAppIcon(512, `${outputDirectory}/pipeline-app-icon-512-v12.png`),
+  renderAppIcon(1024, `${outputDirectory}/pipeline-app-icon-1024-v12.png`),
 ]);
 
-async function renderFavicon(outputPath) {
-  const canvas = createCanvas(32, 32);
-  const context = canvas.getContext("2d");
-  context.drawImage(brandMark, 3, 1, 26, 28);
-  await writeFile(outputPath, canvas.toBuffer("image/png"));
-}
-
-async function renderAppIcon(size, outputPath) {
+async function renderAppIcon(size, outputPath, widthRatio = appIconMarkWidthRatio) {
   const canvas = createCanvas(size, size);
   const context = canvas.getContext("2d");
-  context.fillStyle = "#ffffff";
+  context.fillStyle = backgroundColor;
   context.fillRect(0, 0, size, size);
   context.imageSmoothingEnabled = true;
   context.imageSmoothingQuality = "high";
 
-  const markWidth = Math.round(size * appIconMarkWidthRatio);
+  const markWidth = Math.round(size * widthRatio);
   const markHeight = Math.round((markWidth * brandMark.height) / brandMark.width);
   const x = Math.round((size - markWidth) / 2);
   const y = Math.round((size - markHeight) / 2);
@@ -45,11 +46,7 @@ async function renderAppIcon(size, outputPath) {
   markContext.drawImage(brandMark, x, y, markWidth, markHeight);
   markContext.globalCompositeOperation = "source-in";
 
-  const markGradient = markContext.createLinearGradient(x, y, x + markWidth, y + markHeight);
-  markGradient.addColorStop(0, "#00d98f");
-  markGradient.addColorStop(0.46, "#00ad78");
-  markGradient.addColorStop(1, "#007b59");
-  markContext.fillStyle = markGradient;
+  markContext.fillStyle = markColor;
   markContext.fillRect(x, y, markWidth, markHeight);
 
   const bounds = alphaBounds(markContext, size);

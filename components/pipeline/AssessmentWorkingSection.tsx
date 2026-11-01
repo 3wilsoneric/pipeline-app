@@ -3,6 +3,7 @@
 import { intakeAnswerSource, type PriorAnswers } from "@/lib/assessment/assessment-prior-answers";
 import { Fragment, useId, useLayoutEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronRight, Pencil, Play } from "lucide-react";
+import { AssessmentSectionIllustration } from "./PipelineIllustration";
 import {
   assessmentInterviewFieldLabel,
   assessmentInterviewOptionLabel,
@@ -64,6 +65,7 @@ export function AssessmentWorkingNavigation({ data, pending, activeSection, guid
   const counts = assessmentWorkingCounts(sections[index].questions, data, pending);
   const total = sections[index].questions.length;
   const picker = <label className={styles.sectionPicker}>
+      <span key={activeSection} className={styles.sectionPicture}><AssessmentSectionIllustration section={activeSection} /></span>
       <span className={styles.sectionPosition} aria-label={`Section ${index + 1} of ${sections.length}`}>{index + 1} / {sections.length}</span>
       <select aria-label="Assessment section" data-guide-target={["assessment-section-nav", ...Object.values(guideTargets)].join(" ")} value={activeSection} onChange={(event) => {
         if (onAllQuestions && event.target.value === allQuestionsChoice) { onAllQuestions(); return; }
@@ -130,7 +132,7 @@ export type WorkingSectionProps = WorkingData & {
   /** Redesign interview: the Chart as text beside the questions, in place of the tabs (docs/design/DECISIONS.md, "Split interview"). */
   split?: React.ReactNode;
   /** One page of groups: each question's group (preparation group or interview topic), for headings. */
-  groupHeadings?: ReadonlyMap<AssessmentToolFieldKey, { key: string; label: string }>;
+  groupHeadings?: ReadonlyMap<AssessmentToolFieldKey, { key: AssessmentToolSection; label: string }>;
   /** The referral intake's current answers, offered where this assessment is still empty. */
   intakeAnswers?: Partial<AssessmentToolData>;
   /** Redesign: referral summary and documents shown at the top of Current information. */
@@ -221,18 +223,18 @@ export default function AssessmentWorkingSection(props: WorkingSectionProps) {
         const heading = props.groupHeadings?.get(group.questions[0].field);
         const showHeading = heading && heading.key !== (position > 0 ? props.groupHeadings?.get(groups[position - 1].questions[0].field)?.key : undefined);
         return <Fragment key={group.label}>
-      {showHeading ? <h3 tabIndex={-1} data-assessment-group-heading={heading.key} className={`${styles.sectionHeading} ${styles.groupHeading}`}>{heading.label}</h3> : null}
+      {showHeading ? <h3 tabIndex={-1} data-assessment-group-heading={heading.key} className={`${styles.sectionHeading} ${styles.groupHeading}`}><AssessmentSectionIllustration section={heading.key} size={48} /><span>{heading.label}</span></h3> : null}
       <section aria-label={group.label} className={styles.questionGroup}>
         <div className={styles.fields}>
           {group.questions.map((question) => {
             const answer = <>
             <WorkingAssessmentField {...props} question={question} onFieldFocus={focusField} onAnswerBlur={finishReference} />
-            {assessmentQuestionStatus(question, data, pending) === "captured" ? <span className={styles.recorded}>Recorded</span> : null}
+            {assessmentQuestionStatus(question, data, pending) === "captured" ? <span className={designV2 ? "sr-only" : styles.recorded}>Recorded</span> : null}
             {props.preparing && hasAssessmentInterviewValue(data[question.field]) ? <AssessmentAnswerSource assessment={props.assessment} data={data} field={question.field} /> : null}
             </>;
-            // Redesign: a status circle beside each question (dashed until recorded).
+            // The field label owns the recorded/review status; do not repeat it beside the row.
             return designV2
-              ? <div key={question.field} className={`${styles.questionRow} ${question.span === "full" ? styles.fullField : ""}`}><span aria-hidden="true" className={styles.questionStatus} data-status={assessmentQuestionStatus(question, data, pending)} /><div className="min-w-0">{answer}</div></div>
+              ? <div key={question.field} data-answer-state={assessmentQuestionStatus(question, data, pending)} className={`${styles.questionRow} ${question.span === "full" ? styles.fullField : ""}`}><div className="min-w-0">{answer}</div></div>
               : <div key={question.field} className={question.span === "full" ? styles.fullField : undefined}>{answer}</div>;
           })}
         </div>

@@ -8,9 +8,9 @@ async function openWorkingAssessment(page: Page, section = "functional_adl") {
   return assessment;
 }
 
-async function revealAppNavigation(page: Page) {
+async function expectAppNavigation(page: Page) {
   await page.getByRole("button", { name: "Pipeline home", exact: true }).hover();
-  await expect(page.getByRole("complementary", { name: "App navigation", exact: true })).toHaveAttribute("data-sidebar-expanded", "true");
+  await expect(page.getByRole("button", { name: "Open referrals", exact: true }).getByText("Workspaces", { exact: true })).toBeVisible();
 }
 
 test("prepares answers before an appointment and finishes the same questionnaire", async ({ page }) => {
@@ -134,19 +134,19 @@ test("captured answers sit beside the unfinished questions with compact section 
   await expect(assessment.getByRole("combobox", { name: "Assessment section", exact: true }).locator("option:checked")).toHaveText("Confirm the basics");
 });
 
-test("app navigation reveals on hover and keyboard focus without moving the form", async ({ page }) => {
+test("app navigation stays labeled on hover and keyboard focus without moving the form", async ({ page }) => {
   const assessment = await openWorkingAssessment(page);
   const before = await assessment.boundingBox();
-  await revealAppNavigation(page);
+  await expectAppNavigation(page);
   await expect(page.getByRole("button", { name: "Pipeline home", exact: true })).toBeInViewport();
   expect(await assessment.boundingBox()).toEqual(before);
   await assessment.locator("[data-assessment-question-editor]").hover();
-  await expect(page.getByRole("complementary", { name: "App navigation", exact: true })).toHaveAttribute("data-sidebar-expanded", "false");
+  await expect(page.getByRole("complementary", { name: "App navigation", exact: true })).toHaveCSS("width", "104px");
   await page.getByRole("button", { name: "Pipeline home", exact: true }).focus();
-  await expect(page.getByRole("complementary", { name: "App navigation", exact: true })).toHaveAttribute("data-sidebar-expanded", "true");
+  await expect(page.getByRole("button", { name: "Open referrals", exact: true }).getByText("Workspaces", { exact: true })).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(assessment).toBeVisible();
-  await expect(page.getByRole("complementary", { name: "App navigation", exact: true })).toHaveAttribute("data-sidebar-expanded", "false");
+  await expect(page.getByRole("complementary", { name: "App navigation", exact: true })).toHaveCSS("width", "104px");
 });
 
 test.describe("touch navigation", () => {
@@ -154,6 +154,13 @@ test.describe("touch navigation", () => {
   test("reveals the header on a real tap and saves on Home navigation", async ({ page }) => {
     const assessment = await openWorkingAssessment(page);
     await page.getByRole("button", { name: /^Open page menu/ }).tap();
+    await expect(page.getByRole("dialog", { name: "Pipeline pages", exact: true })).toBeInViewport();
+    // A delayed assessment-position update must not dismiss an open page menu.
+    await page.evaluate(() => {
+      const url = new URL(window.location.href);
+      url.searchParams.set("assessmentQuestion", "adl_needs");
+      window.history.replaceState(window.history.state, "", url);
+    });
     await expect(page.getByRole("dialog", { name: "Pipeline pages", exact: true })).toBeInViewport();
     await page.getByRole("button", { name: "Close page menu", exact: true }).tap();
     await page.getByRole("button", { name: "Back to previous page", exact: true }).tap();
@@ -166,7 +173,7 @@ test("shared Home navigation remains usable and saves before leaving the assessm
   const assessment = await openWorkingAssessment(page, "diagnosis_clinical");
   await assessment.getByRole("complementary", { name: "Current information" }).getByRole("button", { name: "Edit Current symptoms", exact: true }).click();
   await assessment.getByRole("textbox", { name: "Current symptoms", exact: false }).fill("Synthetic edit immediately before navigating home.");
-  await revealAppNavigation(page);
+  await expectAppNavigation(page);
   await page.getByRole("button", { name: "Pipeline home", exact: true }).click();
   await expect(assessment).not.toBeVisible();
   await expect(page.locator('[data-guide-target="home-workspace"]')).toBeVisible();
@@ -176,22 +183,38 @@ test("shared Home navigation remains usable and saves before leaving the assessm
 
 test("profile navigation leaves through the save path and practice help stays in context", async ({ page }) => {
   let assessment = await openWorkingAssessment(page);
-  await revealAppNavigation(page);
+  await expectAppNavigation(page);
   await page.getByRole("button", { name: /^Open profile menu for/ }).click();
-  await page.getByRole("link", { name: "Settings Your profile and contacts", exact: true }).click();
+  await page.getByRole("link", { name: /^Settings(?: Your profile and contacts)?$/ }).click();
   await expect(page).toHaveURL(/\/settings$/);
   await expect(assessment).not.toBeVisible();
   assessment = await openWorkingAssessment(page);
-  await expect(page.locator("[data-pipeline-demo-banner]")).toContainText("Practice workspace · synthetic data only");
+  await expect(assessment).toHaveAttribute("data-assessment-view", "assessment");
+  await page.getByRole("button", { name: /^Open profile menu for/ }).click();
   await page.getByRole("button", { name: "Open guided tutorials", exact: true }).click();
   await expect(page.getByRole("dialog", { name: "Tutorials", exact: true })).toBeVisible();
   await expect(assessment).toBeVisible();
 });
 
-test("Home uses the warm canvas behind its board deck", async ({ page }) => {
+test("Home distinguishes active-work categories from paper client files", async ({ page }) => {
   await page.goto("/");
-  await expect(page.locator('[data-guide-target="home-workspace"]')).toHaveCSS("background-color", "rgb(238, 238, 231)");
-  await expect(page.getByRole("button", { name: "Open current work", exact: true })).toBeVisible();
+  const board = page.locator("[data-current-work-board]");
+  const colors = await page.evaluate(() => {
+    const sample = document.createElement("span");
+    sample.style.backgroundColor = "var(--color-stage-blue-tile)";
+    document.body.append(sample);
+    const warm = getComputedStyle(sample).backgroundColor;
+    sample.style.backgroundColor = "var(--color-paper)";
+    const paper = getComputedStyle(sample).backgroundColor;
+    sample.remove();
+    return { warm, paper };
+  });
+  const category = board.getByRole("button", { name: "Open in progress folder", exact: true });
+  await expect(category).toHaveCSS("background-color", colors.warm);
+  await category.click();
+  const card = page.getByRole("dialog").locator("[data-board-card]").first();
+  await expect(card).toBeVisible();
+  await expect(card).toHaveCSS("background-color", colors.paper);
   await page.screenshot({ path: "outputs/home-working-green.png" });
 });
 
