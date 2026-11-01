@@ -85,8 +85,10 @@ for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]]
         const preparedName = page.getByRole("textbox", { name: "Resident name", exact: true });
         await expect(preparedName).toHaveValue(clientName);
         await expect(preparedName).toBeVisible();
-        expect((await preparedName.boundingBox())!.height).toBeGreaterThanOrEqual(44);
-        expect((await page.locator("[data-assessment-primary-action] button").boundingBox())!.height).toBeGreaterThanOrEqual(44);
+        // Rotation can replace the responsive editor between visibility and
+        // measurement. Check its settled size without relaxing the touch target.
+        await expect.poll(async () => (await preparedName.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
+        await expect.poll(async () => (await page.locator("[data-assessment-primary-action] button").boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
         const preparation = page.getByTestId("assessment-client-folder");
         await expect(preparation.locator(":scope > strong")).toHaveCount(0);
         await preparation.scrollIntoViewIfNeeded();

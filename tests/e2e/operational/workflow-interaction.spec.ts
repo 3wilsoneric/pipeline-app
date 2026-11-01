@@ -196,6 +196,7 @@ test.describe("workflow interaction and durable feedback", () => {
     } finally {
       release();
       releaseReturn();
+      await page.unrouteAll({ behavior: "wait" });
       await context.close();
       await api.dispose();
     }
