@@ -41,3 +41,18 @@ Desktop launcher icons may remain cached by the operating system after rollback.
 Deployment input and safe configuration snapshots are in the release worktree's
 ignored `.data/release-carelog-20261031/` directory. The production credentials
 remain in Azure; this document contains none.
+
+## Release validation
+
+The October 31 release check passed the full local platform fast gate, production
+build, assurance and enterprise gates. Personal pins were also exercised against
+a disposable PostgreSQL 16 database, including concurrent updates and assessor
+isolation (five tests, no skips).
+
+The six existing visual reference screens were reviewed at their original desktop
+and phone sizes: Home, workspaces, client profiles, and intake. Their new reference
+images reflect the approved Carelog navigation, typography, colors, and intake
+layout. Both macOS Chromium and Linux Chromium in the CI Playwright 1.61.1 image
+passed all six comparisons after review. Screenshot assertions, masks, dimensions,
+and the 0.002 pixel-difference limit were unchanged. This refresh does not waive
+any functional, accessibility, security, or release check.
