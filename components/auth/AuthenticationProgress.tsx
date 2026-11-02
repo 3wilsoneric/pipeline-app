@@ -1,7 +1,6 @@
 import { LockKeyhole } from "lucide-react";
 import { MicrosoftMark } from "@/components/auth/AuthenticationBrand";
 import AuthenticationShell from "@/components/auth/AuthenticationShell";
-import styles from "./Authentication.module.css";
 
 export default function AuthenticationProgress({
   label = "Signing you in",
@@ -12,21 +11,21 @@ export default function AuthenticationProgress({
 }) {
   return (
     <AuthenticationShell>
-      <section role="status" aria-live="polite" className={styles.form}>
-        <p className={styles.eyebrow}><LockKeyhole size={16} aria-hidden="true" />Secure workspace</p>
-        <h1 className={styles.heading}>{label}</h1>
-        <p className={styles.description}>{detail}</p>
-        <div className={styles.verification}>
-          <span className={styles.spinner} aria-hidden="true" />
+      <section role="status" aria-live="polite" className="pipeline-auth-form">
+        <p className="pipeline-auth-eyebrow"><LockKeyhole size={16} aria-hidden="true" />Secure workspace</p>
+        <h1 className="pipeline-auth-heading">{label}</h1>
+        <p className="pipeline-auth-description">{detail}</p>
+        <div className="pipeline-auth-verification">
+          <span className="pipeline-auth-spinner" aria-hidden="true" />
           <div>
-            <div className={styles.verificationName}>
+            <div className="pipeline-auth-verificationName">
               <MicrosoftMark size={14} />
               Microsoft Entra ID
             </div>
-            <p className={styles.verificationDetail}>Verifying your Alamo Health access</p>
+            <p className="pipeline-auth-verificationDetail">Verifying your Alamo Health access</p>
           </div>
         </div>
-        <p className={styles.access}>This window will continue automatically.</p>
+        <p className="pipeline-auth-access">This window will continue automatically.</p>
       </section>
     </AuthenticationShell>
   );

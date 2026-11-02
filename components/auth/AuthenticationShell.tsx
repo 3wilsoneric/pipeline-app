@@ -1,13 +1,12 @@
 import type { ReactNode } from "react";
 
 import AuthenticationBrand from "@/components/auth/AuthenticationBrand";
-import styles from "./Authentication.module.css";
 
 export default function AuthenticationShell({ children }: { children: ReactNode }) {
   return (
-    <main className={styles.page}>
-      <div className={styles.workspace}>
-        <div className={styles.content}>
+    <main className="pipeline-auth-page">
+      <div className="pipeline-auth-workspace">
+        <div className="pipeline-auth-content">
           <AuthenticationBrand />
           {children}
         </div>

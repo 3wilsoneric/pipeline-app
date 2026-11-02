@@ -1,6 +1,5 @@
 import Image from "next/image";
 import { toPipelinePath } from "@/lib/pipeline/base-path";
-import styles from "./Authentication.module.css";
 
 export default function AuthenticationBrand() {
   return (
@@ -10,7 +9,7 @@ export default function AuthenticationBrand() {
       width={774}
       height={206}
       unoptimized
-      className={styles.companyLogo}
+      className="pipeline-auth-companyLogo"
     />
   );
 }

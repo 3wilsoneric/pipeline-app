@@ -10,7 +10,6 @@ import AuthenticationShell from "@/components/auth/AuthenticationShell";
 import { usePipelineAuth } from "@/components/auth/PipelineAuthProvider";
 import { clearPostLoginPath, normalizePostLoginPath, readPostLoginPath } from "@/lib/auth/post-login-path";
 import { toPipelinePath } from "@/lib/pipeline/base-path";
-import styles from "./Authentication.module.css";
 
 export default function PipelineSignIn({ nextPath }: { nextPath: string }) {
   const auth = usePipelineAuth();
@@ -31,30 +30,30 @@ export default function PipelineSignIn({ nextPath }: { nextPath: string }) {
 
   return (
     <AuthenticationShell>
-      <section aria-labelledby="sign-in-heading" className={styles.form}>
-        <p className={styles.eyebrow}><LockKeyhole size={16} aria-hidden="true" />Secure workspace</p>
-        <h1 id="sign-in-heading" className={styles.heading}>Sign in to Pipeline</h1>
-        <p className={styles.description}>Use your Microsoft account to continue to Pipeline.</p>
+      <section aria-labelledby="sign-in-heading" className="pipeline-auth-form">
+        <p className="pipeline-auth-eyebrow"><LockKeyhole size={16} aria-hidden="true" />Secure workspace</p>
+        <h1 id="sign-in-heading" className="pipeline-auth-heading">Sign in to Pipeline</h1>
+        <p className="pipeline-auth-description">Use your Microsoft account to continue to Pipeline.</p>
 
         {auth.configured ? (
           <button
             type="button"
             onClick={() => void auth.signIn(safeNextPath)}
-            className={styles.signIn}
+            className="pipeline-auth-signIn"
           >
-            <span className={styles.microsoftBadge}><MicrosoftMark size={18} /></span>
+            <span className="pipeline-auth-microsoftBadge"><MicrosoftMark size={18} /></span>
             <span>Continue with Microsoft</span>
-            <ArrowRight className={styles.arrow} size={20} aria-hidden="true" />
+            <ArrowRight className="pipeline-auth-arrow" size={20} aria-hidden="true" />
           </button>
         ) : null}
 
         {auth.error || !auth.configured ? (
-          <div role="alert" className={styles.error}>
+          <div role="alert" className="pipeline-auth-error">
             {auth.error ?? "Microsoft sign-in is not configured for this deployment. An administrator needs to add the Entra application settings."}
           </div>
         ) : null}
 
-        <p className={styles.access}>Access is limited to authorized Alamo Health accounts.</p>
+        <p className="pipeline-auth-access">Access is limited to authorized Alamo Health accounts.</p>
       </section>
     </AuthenticationShell>
   );
