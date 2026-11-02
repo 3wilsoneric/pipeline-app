@@ -28,7 +28,13 @@ check("workspace-month navigation has a matching index", referralMonthMigration.
 check("document ordering has a matching index", migration.includes("documents_uploaded_keyset_idx"));
 check("assessment ordering has a matching index", migration.includes("assessments_updated_keyset_idx"));
 check("resident-link ordering has a matching index", migration.includes("resident_links_updated_keyset_idx"));
-check("active queue paging is bounded", operations.includes("limit: 200") && operations.includes("referrals.length < 5_000"));
+check(
+  "active queue paging is bounded",
+  operations.includes("limit: 200")
+    && operations.includes("maxReferrals = 5_000")
+    && operations.includes("referrals.length < maxReferrals")
+    && operations.includes("referrals.length > maxReferrals")
+);
 check("API page size remains capped", store.includes("const maxPageSize = 200"));
 check(
   "active-canvas change checks read metadata only",

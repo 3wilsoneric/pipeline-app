@@ -109,7 +109,10 @@ for (const absoluteFile of routeFiles) {
       check(`${key} requires internal-worker authentication`, body.includes("requireInternalWorker("));
       check(`${key} does not accept browser-user authentication`, !body.includes("requirePipelineUser("));
     } else if (isPlatformIntegration) {
-      check(`${key} requires Platform integration authentication`, body.includes("requirePlatformIntegration("));
+      const requiredBoundary = route === "/api/integrations/platform/client-briefing"
+        ? "requirePlatformClientBriefing("
+        : "requirePlatformIntegration(";
+      check(`${key} requires Platform integration authentication`, body.includes(requiredBoundary));
       check(`${key} does not accept browser-user authentication`, !body.includes("requirePipelineUser("));
       check(`${key} is read-only`, method === "GET");
     } else if (isPacketRecipient) {

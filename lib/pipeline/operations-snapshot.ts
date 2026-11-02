@@ -64,6 +64,7 @@ import {
   type PlatformManagementItem,
   type PlatformManagementProfile,
 } from "@/lib/pipeline/platform-admissions-summary";
+import { buildPlatformClientBriefing } from "@/lib/pipeline/platform-client-briefing";
 import { applyPipelineWorkspaceLocation } from "@/lib/pipeline/work-continuity";
 import { buildWeeklyCompletionMemo } from "@/lib/pipeline/weekly-completion-memo";
 import type {
@@ -122,6 +123,43 @@ export async function getPlatformAdmissionsSummary() {
         pipelinePath: `/?${params.toString()}`,
       };
     }),
+  });
+}
+
+/** Client-level admission history for the separately authorized Platform briefing. */
+export async function getPlatformClientBriefing(start: string, end: string) {
+  if (!getReferralStoreReadiness().ready) return null;
+  // PostgreSQL applies this range before pagination; the local adapter matches it
+  // before slicing. Add an admission-date index if the bounded query gets slow.
+  const referrals = await loadReferralPages({
+    workspaceStatus: "all",
+    pipelineAdmittedBetween: { from: start, through: end },
+  }, 500);
+  const contexts = await getReferralWorkflowContexts(referrals);
+  return buildPlatformClientBriefing({
+    start,
+    end,
+    generatedAt: new Date().toISOString(),
+    cases: referrals
+      .map((referral) => {
+        const context = contexts.get(referral.id);
+        const params = new URLSearchParams({ view: "referrals", screen: "packet", referralId: String(referral.id) });
+        return {
+          referralId: referral.id,
+          clientName: referral.name,
+          community: referral.community,
+          referringCounty: context?.assessmentSigned ? context.assessmentData?.county || referral.county || null : referral.county || null,
+          assessor: normalizeOwnerName(referral.owner),
+          receivedAt: referralReceivedDate(referral),
+          assessmentCreatedAt: context?.assessmentCreatedAt ?? null,
+          assessmentSignedAt: context?.assessmentSignedAt ?? null,
+          admittedAt: referral.actualAdmissionDate ?? null,
+          handoffSentAt: context?.packetSentAt ?? null,
+          dateOfBirth: context?.assessmentSigned ? context.assessmentData?.date_of_birth || referral.dob : referral.dob,
+          assessment: context?.assessmentSigned ? context.assessmentData ?? null : null,
+          pipelinePath: `/?${params.toString()}`,
+        };
+      }),
   });
 }
 
@@ -874,6 +912,7 @@ async function loadOperationalReferrals(user?: PipelineUser) {
 
 async function loadReferralPages(
   filter: Parameters<typeof listReferrals>[0],
+  maxReferrals = 5_000,
 ) {
   const referrals: Referral[] = [];
   let cursor: string | undefined;
@@ -882,9 +921,9 @@ async function loadReferralPages(
     const page = await listReferrals({ ...filter, limit: 200, cursor, includeTotal: false });
     referrals.push(...page.referrals);
     cursor = page.next_cursor;
-  } while (cursor && referrals.length < 5_000);
+  } while (cursor && referrals.length < maxReferrals);
 
-  if (cursor) {
+  if (cursor || referrals.length > maxReferrals) {
     throw new Error("The operational workspace report exceeded its safe reporting capacity.");
   }
 

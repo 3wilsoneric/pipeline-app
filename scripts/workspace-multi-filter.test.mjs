@@ -182,6 +182,31 @@ test("local workspace and file filters compose before pagination and retain assi
   await verifyFilters(loadStore());
 });
 
+const admittedRangeRecords = [
+  { id: 201, actualAdmissionDate: "2026-06-30", workspaceOrigin: "pipeline" },
+  { id: 202, actualAdmissionDate: "2026-07-01", workspaceOrigin: "pipeline" },
+  { id: 203, actualAdmissionDate: "2026-07-31", workspaceOrigin: "pipeline", workspaceStatus: "archived" },
+  { id: 204, actualAdmissionDate: "2026-08-01", workspaceOrigin: "pipeline" },
+  { id: 205, actualAdmissionDate: "2026-07-15", workspaceOrigin: "allo" },
+  { id: 206, workspaceOrigin: "pipeline" },
+].map((item) => ({ ...referrals[0], name: `Admission Range ${item.id}`, ...item }));
+
+async function verifyAdmissionRange(store) {
+  const selected = { workspaceStatus: "all", pipelineAdmittedBetween: { from: "2026-07-01", through: "2026-07-31" } };
+  const found = [];
+  let cursor;
+  do {
+    const page = await store.listReferrals({ ...selected, limit: 1, cursor });
+    found.push(...page.referrals.map((item) => item.id));
+    cursor = page.next_cursor;
+  } while (cursor);
+  assert.deepEqual(found.sort((a, b) => a - b), [202, 203]);
+}
+
+test("local admitted-date filter excludes pre-July and imported workspaces before pagination", async () => {
+  await verifyAdmissionRange(loadStore(undefined, admittedRangeRecords));
+});
+
 // Always starts a fresh loopback cluster; never uses an application database URL.
 test("PostgreSQL workspace and file filters match the local adapter", { skip: process.env.PIPELINE_FILTER_POSTGRES !== "true" }, async () => {
   const directory = mkdtempSync("/tmp/pipeline-filter-pg-");
@@ -224,6 +249,13 @@ test("PostgreSQL workspace and file filters match the local adapter", { skip: pr
         values (${referral.id}, ${person.person_id}, ${referral.stage}, ${referral.community}, ${referral.workspaceStatus}, ${referral.workspaceOrigin}, ${referral.ownerId}, ${referral.owner}, ${referral.name.toLowerCase()}, ${sql.json(referral)}, ${referral.createdAt}, ${referral.updatedAt}, 'fixture', 'Fixture', 'fixture', 'Fixture')`;
     }
     await verifyAdmittedFilter(loadStore(sql, admissionFilterRecords));
+    await sql`truncate table pipeline.referrals cascade`;
+    for (const referral of admittedRangeRecords.filter((item) => item.workspaceOrigin === "pipeline")) {
+      const [person] = await sql`insert into pipeline.people (display_name) values (${referral.name}) returning person_id`;
+      await sql`insert into pipeline.referrals (referral_id, person_id, stage, community, workspace_status, workspace_origin, owner_id, owner_name, search_text, data, created_at, updated_at, created_by, created_by_name, updated_by, updated_by_name)
+        values (${referral.id}, ${person.person_id}, ${referral.stage}, ${referral.community}, ${referral.workspaceStatus}, ${referral.workspaceOrigin}, ${referral.ownerId}, ${referral.owner}, ${referral.name.toLowerCase()}, ${sql.json(referral)}, ${referral.createdAt}, ${referral.updatedAt}, 'fixture', 'Fixture', 'fixture', 'Fixture')`;
+    }
+    await verifyAdmissionRange(loadStore(sql, admittedRangeRecords));
   } finally {
     if (sql) await sql.end({ timeout: 5 });
     if (started) execFileSync(binary("pg_ctl"), ["-D", data, "-w", "stop", "-m", "fast"], { stdio: "pipe" });
