@@ -49,8 +49,11 @@ function admission(overrides = {}) {
     community: "San Pablo",
     referringCounty: "Sacramento",
     assessor: "Assessor A",
+    assessmentAssessor: "Assessor B",
     receivedAt: "2026-10-01",
     assessmentCreatedAt: "2026-10-02T12:00:00.000Z",
+    assessmentStartedAt: "2026-10-03T12:00:00.000Z",
+    assessmentCompletedAt: "2026-10-03T13:30:00.000Z",
     assessmentSignedAt: "2026-10-04T12:00:00.000Z",
     admittedAt: "2026-10-15",
     handoffSentAt: "2026-10-14T12:00:00.000Z",
@@ -110,6 +113,17 @@ test("a signature after admission is visible but never becomes a negative elapse
   assert.equal(report.summary.median_days_referral_to_signed, null);
   assert.equal(report.summary.signed_after_admit, 1);
   assert.equal(report.summary.median_days_signed_to_admit, null);
+});
+
+test("assessment completion time belongs to the assessment assessor, not the referral owner", () => {
+  const report = build([
+    admission(),
+    admission({ referralId: 43, assessor: "Assessor A", assessmentAssessor: "Assessor C", assessmentStartedAt: null }),
+    admission({ referralId: 44, assessor: "Assessor A", assessmentAssessor: "Assessor D", assessmentCompletedAt: "2026-10-03T11:00:00.000Z" }),
+  ]);
+  assert.deepEqual(report.rows.map((row) => row.assessment_assessor), ["Assessor B", "Assessor C", "Assessor D"]);
+  assert.deepEqual(report.rows.map((row) => row.minutes_assessment_start_to_complete), [90, null, null]);
+  assert.equal(report.rows.every((row) => row.assessor === "Assessor A"), true);
 });
 
 test("selected date-window boundaries are inclusive and distinct", () => {

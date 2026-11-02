@@ -220,8 +220,8 @@ export async function getReferralWorkflowSnapshot(referralId: number): Promise<R
       where referral_id = ${referralId}
       order by submission_number desc, review_id desc
     `,
-    sql<{ assessment_id: string; assessor_id: string | null; created_at: Date | string; status: AssessmentWorkflowStatus; assessment_date: Date | string | null; signed_at: Date | string | null; meet_client_sent_at: Date | string | null; started_at: Date | string | null; schedule_status: PipelineAssessmentRecord["schedule_status"]; scheduled_start_at: Date | string | null; scheduled_duration_minutes: number | string | null; data: AssessmentToolData }[]>`
-      select assessment_id, assessor_id, created_at, status, assessment_date, signed_at, meet_client_sent_at, started_at,
+    sql<{ assessment_id: string; assessor_id: string | null; assessor_name: string | null; created_at: Date | string; status: AssessmentWorkflowStatus; assessment_date: Date | string | null; completed_at: Date | string | null; signed_at: Date | string | null; meet_client_sent_at: Date | string | null; started_at: Date | string | null; schedule_status: PipelineAssessmentRecord["schedule_status"]; scheduled_start_at: Date | string | null; scheduled_duration_minutes: number | string | null; data: AssessmentToolData }[]>`
+      select assessment_id, assessor_id, assessor_name, created_at, status, assessment_date, completed_at, signed_at, meet_client_sent_at, started_at,
              schedule_status, scheduled_start_at, scheduled_duration_minutes, data
       from pipeline.assessments
       where referral_id = ${referralId}
@@ -316,8 +316,8 @@ export async function getReferralWorkflowContexts(referrals: Referral[]) {
       where referral_id = any(${ids}::bigint[])
       order by referral_id, submission_number desc, review_id desc
     `,
-    sql<{ referral_id: number | string; assessment_id: string; assessor_id: string | null; created_at: Date | string; status: AssessmentWorkflowStatus; assessment_date: Date | string | null; signed_at: Date | string | null; meet_client_sent_at: Date | string | null; started_at: Date | string | null; schedule_status: PipelineAssessmentRecord["schedule_status"]; scheduled_start_at: Date | string | null; scheduled_duration_minutes: number | string | null; data: AssessmentToolData }[]>`
-      select distinct on (referral_id) referral_id, assessment_id, assessor_id, created_at, status, assessment_date, signed_at, meet_client_sent_at, started_at,
+    sql<{ referral_id: number | string; assessment_id: string; assessor_id: string | null; assessor_name: string | null; created_at: Date | string; status: AssessmentWorkflowStatus; assessment_date: Date | string | null; completed_at: Date | string | null; signed_at: Date | string | null; meet_client_sent_at: Date | string | null; started_at: Date | string | null; schedule_status: PipelineAssessmentRecord["schedule_status"]; scheduled_start_at: Date | string | null; scheduled_duration_minutes: number | string | null; data: AssessmentToolData }[]>`
+      select distinct on (referral_id) referral_id, assessment_id, assessor_id, assessor_name, created_at, status, assessment_date, completed_at, signed_at, meet_client_sent_at, started_at,
              schedule_status, scheduled_start_at, scheduled_duration_minutes, data
       from pipeline.assessments
       where referral_id = any(${ids}::bigint[])
@@ -1714,10 +1714,13 @@ function assessmentPacketSentAt(assessment: { meet_client_sent_at?: Date | strin
   return assessment?.meet_client_sent_at ? toIso(assessment.meet_client_sent_at) : null;
 }
 
-function workflowAssessmentIdentity(assessment: { assessment_id: string; assessor_id: string | null; created_at: Date | string } | null | undefined) {
+function workflowAssessmentIdentity(assessment: { assessment_id: string; assessor_id: string | null; assessor_name?: string | null; assessor?: string | null; created_at: Date | string; started_at?: Date | string | null; completed_at?: Date | string | null } | null | undefined) {
   return {
     assessmentId: assessment?.assessment_id ?? null,
     assessmentAssessorId: assessment?.assessor_id ?? null,
+    assessmentAssessorName: assessment?.assessor_name?.trim() || assessment?.assessor?.trim() || null,
     assessmentCreatedAt: assessment?.created_at ? toIso(assessment.created_at) : null,
+    assessmentStartedAt: assessment?.started_at ? toIso(assessment.started_at) : null,
+    assessmentCompletedAt: assessment?.completed_at ? toIso(assessment.completed_at) : null,
   };
 }
