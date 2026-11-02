@@ -139,7 +139,6 @@ test.describe("field exit saves and single uploads", () => {
       const referral = await createReferral(api);
       await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}`);
       await page.getByRole("navigation", { name: "Workspace stages", exact: true }).getByRole("button", { name: "Assessment", exact: true }).click();
-      if (redesign) await page.getByRole("button", { name: "Prepare assessment", exact: true }).click();
       const editor = page.locator('[data-assessment-view]');
       await editor.getByRole("combobox", { name: "Assessment section", exact: true }).selectOption("prior_history");
       const first = editor.getByRole("textbox", { name: "Hospitalization history", exact: true });

@@ -81,8 +81,7 @@ test("assessment can return to Intake, add documents and resume the same saved i
   } });
   expect(scheduled.status(), await scheduled.text()).toBe(200);
   await page.goto(`/?screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=prior_history`);
-  await page.locator('footer[aria-label="Assessment actions"]').getByRole("button", { name: "Begin interview", exact: true }).click();
-  await page.getByRole("dialog", { name: "Begin interview", exact: true }).getByRole("button", { name: "Begin interview", exact: true }).click();
+  await page.getByRole("region", { name: "Interview", exact: true }).getByRole("button", { name: "Start now", exact: true }).click();
   const chart = page.locator('[data-assessment-view="assessment"]');
   const stages = page.getByRole("navigation", { name: "Workspace stages", exact: true });
   for (const width of [320, 390, 768, 1024, 1440]) {

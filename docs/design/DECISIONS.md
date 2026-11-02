@@ -506,3 +506,39 @@ Keep the existing per-user visit order, saved resume locations, active-work filt
 Use Pipeline's compact type scale, warm section headers and existing green/blue stage accents for the admissions report. Keep the census bars and client drill-downs. Origin remains visible; county, prior placement and assessor remain in an expandable detail group rather than a repeated prose line.
 
 The owner removed the separate “Did not move in” category from this briefing. Keep it focused on census, admissions and clients moving toward admission. Existing placement outcome records remain in their workspaces; no admission status, counts or history are rewritten. The report does not load cancellation correspondence.
+
+
+## Chart, preparation and interview (owner, 2026-11-01, local)
+
+Chart remains the cumulative client record. Assessment preparation uses the existing assessment form to build that record before the interview. The interview completes the same assessment; facts, notes, provenance and verification state carry forward without copying or re-entry. The Decision shortcut belongs under Assessment, alongside its review and confirmation flow, rather than under Chart. Completed decisions remain part of the chart history.
+
+Intake opens Chart, with a compact creation confirmation and an illustrated Assessment prep action above the record. This action opens the canonical assessment questions as the Chart's preparation view, keeping Chart selected. The existing assessment preparation route still owns section position and recovery; there is no second form or copy of the assessment. Opening Chart alone does not create an assessment. Entering editable preparation opens its existing draft or creates the first draft once, after history and permissions load. Failed history reads cannot create a replacement.
+
+Scheduling and Start interview live together above preparation. The owner’s November 2 refinement removes the redundant Chart back button and stacks smaller, equal-width interview actions; the workspace navigation still returns to Chart. Reopening Chart shows the booked appointment and Begin interview (Continue interview once started). Booking never starts the interview; neither booking nor completed preparation is a prerequisite. Start uses the canonical save/start command and opens the focused interview under Assessment. The existing gap filter asks unanswered or unverified questions; recorded answers remain editable in the reference. Editing a prepared fact returns to preparation, and Continue interview does not record another start.
+
+Source files and Notes remain beside preparation and the desktop interview. Files use the canonical workspace inventory with collapsible previews and an Open Files action for uploads and management; the duplicate uploader below Chart is removed. Phones retain paged questions and their Notes control, with file previews in Client info during the interview. Standalone assessment surfaces without a workspace inventory retain the existing twelve-file convenience fetch; Open Files remains the complete inventory. Preserve question wording, signing, working decision/confirmation, email rules, permissions, save queues, conflict handling and recovery. Local only; no schema or data migration.
+
+## Restore Notes size (owner, 2026-11-01, local)
+
+The floating Notes header ends with an inward-arrow control to restore its original dimensions. Resizing and restoring keep the current position and note content; existing viewport bounds still apply. Docking resets the floating size. Phones use the available viewport and omit resize/reset controls. No save-cadence or storage changes.
+
+
+## Decision before the Handoff signature (owner, 2026-11-02, local)
+
+Finishing the assessment saves its answers and opens Decision. A matching working decision offers one explicit confirmation before signing, with Change still available; an earlier assessment's recommendation does not count as that confirmation. Recording acceptance opens Handoff, where Confirm chart shows the existing intake details and assessment answers. Signing uses the same assessment signature command, conflict checks and audit trail, then reveals Meet the Client in Handoff. There is no required assessment-review detour before the decision and no return to Assessment after signing. An already signed assessment opens Meet the Client directly. Denied and under-review decisions keep their existing outcomes and do not open an email.
+
+Reuse the kept-mounted assessment editor for Handoff confirmation; no second draft or signature implementation. Reopening an accepted, unsigned client in Handoff returns to Confirm chart. Corrections can still open the original question or intake field and return to Handoff. A failed signature stays on confirmation, and a failed decision stays on Decision. Retain signature requirements before email, recipient authorization, explicit send, permissions, provenance, save/recovery handling and server validation. No schema, admission-rule or production changes.
+
+## Meet the Client reading order (owner, 2026-11-02, local)
+
+Place the Meet the Client title immediately above the name and identity details in the working message and email. Omit assessment date from that identity block; keep it in the assessment record. Put the client introduction before Admission & coordination by default. Preserve sender-saved section orders and custom messages. No send, signature, packet-selection or data changes.
+
+## Compact interview entry and signing confirmation (owner, 2026-11-02, local)
+
+Replace the stacked preparation buttons with inline text actions: Schedule interview or Start now. Keep comfortable touch targets, visible keyboard focus, the booked appointment and existing edit, continue and retry states. This supersedes the stacked-buttons refinement above. Preserve booking and interview-start commands and their save protections.
+
+Keep the explicit Sign assessment label. Its confirmation reuses Pipeline's compact decision-dialog styling, with the existing assessment illustration and orange confirmation action. Keep the same confirmation text, Cancel/Escape behavior, focus handling and signature command. Local only.
+
+## Chart completeness confirmation (owner, 2026-11-02)
+
+Replace the Sign assessment action with Confirm chart. The confirmation asks “Everything correct and included?” and continues with Confirm & continue. This supersedes the earlier explicit signing-label decision. Preserve the canonical assessment confirmation/signature command, saved timestamp, permissions, conflict checks and audit history; only its user-facing purpose and wording change. Acceptance still precedes this Handoff confirmation, and sending remains separate.

@@ -38,7 +38,7 @@ test("a saved client can switch workspace tabs repeatedly without a page crash",
     await page.getByRole("button", { name: "Workspace activity", exact: true }).click();
     await expect(page.getByRole("region", { name: "Referral ownership and activity" })).toBeVisible();
     await assessment.click();
-    await expect(page.getByRole("region", { name: "Assessment", exact: true })).toBeVisible();
+    await expect(page.locator("#packet-page-2")).toBeVisible();
     await chart.click();
     await expect(chart).toHaveAttribute("aria-current", "page");
   }
@@ -203,7 +203,6 @@ test("unsigned Workflow links keep the decision and questionnaire reachable", as
   await page.goto(workspaceUrl(referral.id, "workflow"));
   await expect(page.getByRole("region", { name: "Admission decision", exact: true })).toBeVisible();
   await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: /Assessment$/ }).click();
-  await page.getByRole("button", { name: "Prepare assessment", exact: true }).click();
   await expect(page.locator("[data-assessment-view]")).toBeVisible();
   await expect(page.getByRole("region", { name: "Admission decision", exact: true })).toBeHidden();
 });

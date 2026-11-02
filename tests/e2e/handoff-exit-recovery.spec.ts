@@ -13,11 +13,6 @@ async function chooseWorkspaceView(page: Page, label: "Files" | "Decision" | "Ha
   await expect(page.getByRole("navigation", { name: "Workspace stages", exact: true })).toBeVisible();
   const phonePicker = page.getByRole("combobox", { name: "Workspace view", exact: true });
   if (await phonePicker.isVisible()) await phonePicker.selectOption({ label });
-  else if (label === "Decision" && process.env.PIPELINE_DESIGN_V2 === "true") {
-    // Exercise the Chart's Decision shortcut, distinct from admission requirements.
-    await page.getByRole("navigation", { name: "Workspace stages", exact: true }).getByRole("button", { name: "Chart", exact: true }).click();
-    await page.locator('[data-chart-stage="Decision"]').getByRole("button", { name: "Open decision", exact: true }).click();
-  }
   else await page.getByRole("button", { name: label === "Files" ? "Workspace files" : label, exact: true }).click();
 }
 

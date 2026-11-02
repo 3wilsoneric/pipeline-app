@@ -644,3 +644,30 @@
 }
 @keyframes interview-focus { from { opacity: .5; transform: translateX(10px); } to { opacity: 1; transform: none; } }
 @keyframes preparation-open { from { opacity: .5; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* Preparation owns booking; the interview continues the same assessment. */
+.preparationActions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 20px; padding: 16px 20px; margin-bottom: 24px; border-radius: var(--radius-paper); background: var(--color-card-warm); }
+.preparationActions > button, .preparationButtons > button { display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: var(--spacing-control); padding: 10px 16px; border: 1px solid var(--color-control-border); border-radius: var(--radius-input); color: var(--color-ink-2); background: var(--color-paper); font-size: var(--text-label); font-weight: 650; }
+.preparationActions button[data-primary] { background: var(--color-action); color: var(--color-on-action); }
+.preparationActions > button[data-primary] { margin-left: auto; }
+.preparationActions.interviewActions { padding-block: 0; background: transparent; }
+.preparationButtons { display: flex; align-items: center; flex-wrap: wrap; gap: 0 8px; max-width: 100%; }
+.preparationButtons > button { padding: 0; border: 0; background: transparent; color: var(--color-primary); font-size: var(--text-label); text-decoration: underline; text-underline-offset: 4px; }
+.preparationButtons > span { color: var(--color-ink-muted); font-size: var(--text-label); }
+.preparationActions button:hover:enabled { border-color: var(--color-primary); }
+.preparationActions button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 3px; }
+.preparationActions button:disabled { opacity: .5; }
+.preparationActions > p { flex-basis: 100%; }
+.preparationActions > p[role="alert"] { color: var(--color-danger); }
+.appointmentSummary { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; min-width: 0; }
+.appointmentSummary > svg { color: var(--color-stage-blue); flex: none; }
+.appointmentSummary > div { display: grid; gap: 2px; }
+.appointmentSummary span { color: var(--color-ink-muted); font-size: var(--text-meta); }
+.appointmentSummary strong { color: var(--color-ink); font-size: var(--text-label); }
+@media (max-width: 639px) {
+  .preparationActions { padding: 12px; gap: 12px; margin-bottom: 16px; }
+  .preparationActions > button { flex: 0 1 auto; }
+  .preparationActions > button[data-primary] { flex-basis: 100%; }
+  .appointmentSummary { flex: 1 1 auto; }
+  .appointmentSummary strong { overflow-wrap: anywhere; }
+}

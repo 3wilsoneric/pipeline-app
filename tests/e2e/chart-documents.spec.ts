@@ -18,15 +18,23 @@ async function createFromIntake(page: Page) {
   return { id, name };
 }
 
+async function openFiles(page: Page) {
+  const picker = page.getByRole("combobox", { name: "Workspace view", exact: true });
+  if (await picker.isVisible()) await picker.selectOption({ label: "Files" });
+  else await page.getByRole("button", { name: "Workspace files", exact: true }).click();
+  await expect(page).toHaveURL(/workspaceView=files/);
+}
+
 for (const width of [390, 834, 1440]) {
-  test(`documents stay above the chart after creation and reload at ${width}px`, async ({ page }, info) => {
+  test(`files remain reachable after creation and reload at ${width}px`, async ({ page }, info) => {
     await page.setViewportSize({ width, height: 900 });
     await createFromIntake(page);
+    await openFiles(page);
     for (const phase of ["created", "reopened"]) {
       const documents = page.getByRole("region", { name: "Document checklist", exact: true });
       const drop = documents.getByRole("button", { name: /Drop files or choose files/ });
       await expect(drop).toBeVisible();
-      await expect(page.getByTestId("document-checklist-panel")).not.toHaveAttribute("open");
+      await expect(page.getByTestId("document-checklist-panel")).toHaveCount(0);
       await drop.scrollIntoViewIfNeeded();
       await expect(drop).toBeInViewport();
       expect(await documents.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
@@ -39,6 +47,7 @@ for (const width of [390, 834, 1440]) {
 
 test("chart drop, updated copy, cancel and reopen preserve files and existing evidence", async ({ page }, info) => {
   const { id, name } = await createFromIntake(page);
+  await openFiles(page);
   const inventory = async () => (await (await page.request.get(`/api/files?referral_id=${id}`)).json()).files as { id: string; name: string; category: string; downloadUrl: string }[];
   const chart = async () => (await (await page.request.get(`/api/referrals/${id}/canvas`)).json()).referral;
   const original = `Synthetic medication record for ${name}, original copy.`;
@@ -71,12 +80,12 @@ test("chart drop, updated copy, cancel and reopen preserve files and existing ev
   await chooseUpdate();
   await page.route("**/api/uploads/create-url", (route) => route.fulfill({ status: 422, json: { error: "Synthetic upload unavailable" } }));
   await confirmReferralFileLabels(page);
-  await expect(page.getByRole("region", { name: "Saving" })).toContainText("Synthetic upload unavailable");
+  await expect(page.getByRole("alert").filter({ hasText: "Synthetic upload unavailable" })).toBeVisible();
   await expect(page.getByRole("list", { name: "Queued referral files" })).toContainText("new-copy.txt");
   expect(await inventory()).toHaveLength(1);
   expect(await (await page.request.get(originalFile.downloadUrl)).text()).toBe(original);
   await page.unroute("**/api/uploads/create-url");
-  await page.getByRole("region", { name: "Saving" }).getByRole("button", { name: "Retry saving", exact: true }).click();
+  await page.getByRole("button", { name: "Retry saving", exact: true }).click();
   await expect.poll(async () => (await inventory()).length).toBe(2);
   const newFile = (await inventory()).find((file) => file.name === "new-copy.txt")!;
   expect(newFile.category).toBe("Medication list");
@@ -86,7 +95,6 @@ test("chart drop, updated copy, cancel and reopen preserve files and existing ev
   expect(await (await page.request.get(newFile.downloadUrl)).text()).toBe(updated);
   expect((await chart()).name).toBe(name);
   await page.reload();
-  await page.getByTestId("document-checklist-toggle").click();
   await expect(files).toContainText(originalFile.name);
   await expect(files).toContainText(newFile.name);
   await page.addScriptTag({ path: "node_modules/axe-core/axe.min.js" });
@@ -100,6 +108,7 @@ test("chart drop, updated copy, cancel and reopen preserve files and existing ev
 
 test("updated copy keeps uncommon document types without assuming a new signature", async ({ page }) => {
   const { id } = await createFromIntake(page);
+  await openFiles(page);
   const originalFiles = [
     { name: "payer-original.txt", category: "payer_verification" },
     { name: "responsible-original.txt", category: "responsible_party" },
@@ -109,7 +118,6 @@ test("updated copy keeps uncommon document types without assuming a new signatur
   await confirmReferralFileLabels(page, Object.fromEntries(originalFiles.map(({ name, category }) => [name, category])));
   await expect.poll(async () => (await (await page.request.get(`/api/files?referral_id=${id}`)).json()).files.length).toBe(originalFiles.length);
   await page.reload();
-  await page.getByTestId("document-checklist-toggle").click();
   for (const { name, category } of originalFiles) {
     const chooser = page.waitForEvent("filechooser");
     await page.getByRole("button", { name: `Add updated copy of ${name}`, exact: true }).click();
@@ -121,15 +129,16 @@ test("updated copy keeps uncommon document types without assuming a new signatur
   expect((await (await page.request.get(`/api/files?referral_id=${id}`)).json()).files).toHaveLength(originalFiles.length);
 });
 
-test("documents remain at the top when an assessment exists, without entering the interview", async ({ page }) => {
+test("files stay available beside preparation without starting the interview", async ({ page }) => {
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: `Files ${randomUUID()}`, owner: "Annette Everhart" }, { assigneeId: "provisional:allo:annette" });
   await createOperationalAssessment(page.request, referral.id);
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=chart`);
+  await expect(page.getByRole("button", { name: "Edit referral details", exact: true })).toBeVisible();
+  await openFiles(page);
   const drop = page.getByRole("button", { name: /Drop files or choose files/ });
   await expect(drop).toBeVisible();
   await drop.scrollIntoViewIfNeeded();
   await expect(drop).toBeInViewport();
-  await expect(page.getByRole("button", { name: "Edit referral details", exact: true })).toBeVisible();
   await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: /Assessment$/ }).click();
   await expect(drop).toHaveCount(0);
   const assessment = (await (await page.request.get(`/api/referrals/${referral.id}/assessments`)).json()).assessments[0];

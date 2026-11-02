@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import HomeDialog from "./HomeDialog";
 import { DecisionStamp } from "./DecisionFeedback";
+import PipelineIllustration, { type PipelineIllustrationKind } from "./PipelineIllustration";
 import decisionStyles from "./DecisionFeedback.module.css";
 
 type Confirmation = {
@@ -13,6 +14,7 @@ type Confirmation = {
   cancelLabel?: string;
   destructive?: boolean;
   decisionOutcome?: "accepted" | "declined";
+  illustration?: PipelineIllustrationKind;
 };
 
 export function useConfirmationDialog() {
@@ -42,9 +44,10 @@ export function useConfirmationDialog() {
     resolve?.(accepted);
   };
 
+  const illustrated = Boolean(request?.decisionOutcome || request?.illustration);
   const confirmationDialog = request ? createPortal(
-    <HomeDialog key={request.id} size="confirmation" role="alertdialog" label={request.title} className={request.decisionOutcome ? decisionStyles.confirmation : undefined} title={request.decisionOutcome ? <><DecisionStamp outcome={request.decisionOutcome} /><span>{request.title}</span></> : request.title} description={request.message} onClose={() => finish(false)}>
-      <div className={request.decisionOutcome ? decisionStyles.actions : "flex flex-wrap justify-end gap-3 border-t border-[#dfe5e2] bg-[#f7faf8] px-4 py-4 sm:px-6"} onKeyDown={(event) => {
+    <HomeDialog key={request.id} size="confirmation" role="alertdialog" label={request.title} className={illustrated ? decisionStyles.confirmation : undefined} title={illustrated ? <>{request.decisionOutcome ? <DecisionStamp outcome={request.decisionOutcome} /> : request.illustration ? <PipelineIllustration kind={request.illustration} size={48} /> : null}<span>{request.title}</span></> : request.title} description={request.message} onClose={() => finish(false)}>
+      <div className={illustrated ? decisionStyles.actions : "flex flex-wrap justify-end gap-3 border-t border-[#dfe5e2] bg-[#f7faf8] px-4 py-4 sm:px-6"} onKeyDown={(event) => {
         if (event.key !== "Tab") return;
         const buttons = event.currentTarget.querySelectorAll<HTMLButtonElement>("button:not(:disabled)");
         const first = buttons[0];
@@ -52,10 +55,10 @@ export function useConfirmationDialog() {
         if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
         else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
       }}>
-        <button type="button" onClick={() => finish(false)} className={request.decisionOutcome ? decisionStyles.cancel : "min-h-11 rounded-md border border-[#cbd6d2] bg-white px-4 py-2 text-[14px] font-semibold text-[#3d5147] hover:bg-[#edf3ef] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#087d66]"}>
+        <button type="button" onClick={() => finish(false)} className={illustrated ? decisionStyles.cancel : "min-h-11 rounded-md border border-[#cbd6d2] bg-white px-4 py-2 text-[14px] font-semibold text-[#3d5147] hover:bg-[#edf3ef] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#087d66]"}>
           {request.cancelLabel ?? "Cancel"}
         </button>
-        <button type="button" onClick={() => finish(true)} className={request.decisionOutcome ? `${decisionStyles.primary} ${request.destructive ? decisionStyles.destructive : ""}` : `min-h-11 rounded-md px-4 py-2 text-[14px] font-semibold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#087d66] ${request.destructive ? "bg-[#a9473d] hover:bg-[#8d382f]" : "bg-[#087d66] hover:bg-[#06634f]"}`}>
+        <button type="button" onClick={() => finish(true)} className={illustrated ? `${decisionStyles.primary} ${request.destructive ? decisionStyles.destructive : ""}` : `min-h-11 rounded-md px-4 py-2 text-[14px] font-semibold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#087d66] ${request.destructive ? "bg-[#a9473d] hover:bg-[#8d382f]" : "bg-[#087d66] hover:bg-[#06634f]"}`}>
           {request.confirmLabel}
         </button>
       </div>

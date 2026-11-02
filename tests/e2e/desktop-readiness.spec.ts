@@ -487,7 +487,8 @@ test.describe("desktop feature enabled", () => {
     try {
       await location.fill(offlineValue);
       await location.blur();
-      await expect(page.getByText("Offline · 1 queued", { exact: true })).toBeVisible({ timeout: 10_000 });
+      await expect(page.getByRole("status", { name: "Saved on this device · waiting to sync", exact: true })).toBeVisible({ timeout: 10_000 });
+      await expect(page.getByRole("listitem", { name: "1 assessment change waiting to sync.", exact: true })).toBeVisible();
       const encrypted = await page.evaluate(async (plaintext) => {
         const database = await new Promise<IDBDatabase>((resolve, reject) => {
           const request = indexedDB.open("pipeline-offline-v1");
@@ -509,7 +510,7 @@ test.describe("desktop feature enabled", () => {
       await context.setOffline(false);
     }
 
-    await expect(page.getByText("Offline changes synced", { exact: true })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("status", { name: "All changes saved", exact: true })).toBeVisible({ timeout: 15_000 });
     await expect.poll(async () => {
       const response = await page.request.get(`/api/assessments/${assessmentPayload.assessment.assessment_id}`);
       const payload = await response.json() as { assessment?: { current_location?: string } };
@@ -530,7 +531,8 @@ test.describe("desktop feature enabled", () => {
     try {
       await location.fill(localCollisionValue);
       await location.blur();
-      await expect(page.getByText("Offline · 1 queued", { exact: true })).toBeVisible({ timeout: 10_000 });
+      await expect(page.getByRole("status", { name: "Saved on this device · waiting to sync", exact: true })).toBeVisible({ timeout: 10_000 });
+      await expect(page.getByRole("listitem", { name: "1 assessment change waiting to sync.", exact: true })).toBeVisible();
       const remoteWrite = await outsideSession.patch(`/api/assessments/${assessmentPayload.assessment.assessment_id}`, {
         data: {
           section: "identity",

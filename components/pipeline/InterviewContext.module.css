@@ -18,3 +18,12 @@
 .document { box-shadow: var(--shadow-file); padding: 12px; }
 .documentName { white-space: normal; overflow-wrap: anywhere; }
 .summaryText { display: block; overflow: visible; }
+
+.documents { display: flex; align-items: flex-start; gap: 12px; }
+.documents details { flex: 1; min-width: 0; }
+.documents summary { min-height: var(--spacing-control); padding: 10px 0; color: var(--color-ink); font-size: var(--text-label); font-weight: 600; cursor: pointer; }
+.documents summary span { margin-left: 8px; color: var(--color-ink-muted); font-size: var(--text-meta); }
+.documents ul { max-height: calc(var(--spacing-control) * 4); overflow-y: auto; overscroll-behavior: contain; padding: 2px; }
+.openFiles { flex: 0 0 auto; min-height: var(--spacing-control); padding: 10px 6px; border: 0; border-radius: var(--radius-input); color: var(--color-link); background: transparent; font-size: var(--text-label); font-weight: 600; }
+.openFiles:hover { background: var(--color-card-warm); }
+.documents summary:focus-visible, .openFiles:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -2px; }

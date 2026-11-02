@@ -211,8 +211,7 @@ test("saved preparation remains editable across visits and becomes interview ref
   await page.reload();
   await expect(page.getByLabel("Assessment section", { exact: true })).toBeVisible();
   await expect(field).toHaveValue("Synthetic corrected diagnosis from later records");
-  await page.locator('footer[aria-label="Assessment actions"]').getByRole("button", { name: "Begin interview", exact: true }).click();
-  await page.getByRole("dialog", { name: "Begin interview", exact: true }).getByRole("button", { name: "Begin interview", exact: true }).click();
+  await page.getByRole("region", { name: "Interview", exact: true }).getByRole("button", { name: "Start now", exact: true }).click();
   await page.getByLabel("Assessment section", { exact: true }).selectOption("diagnosis_clinical");
   await expect(page.getByRole("complementary", { name: "Current information" })).toContainText("Synthetic corrected diagnosis from later records");
   await expect(field).toHaveCount(0);

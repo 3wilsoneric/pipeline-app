@@ -45,6 +45,7 @@ type ReferralWorkflowPanelProps = {
   onOpenProfile: (canonicalClientId: string) => void;
   onDone?: () => Promise<void>;
   decisionReviewTarget?: HTMLElement | null;
+  confirmRecommendation?: boolean;
   compactRecommendation?: boolean;
   recommendationAssessmentId?: string;
   onSavingChange?: (pending: boolean, failed?: boolean) => void;
@@ -74,6 +75,7 @@ export default function ReferralWorkflowPanel({
   onOpenProfile,
   onDone,
   decisionReviewTarget,
+  confirmRecommendation = false,
   compactRecommendation = false,
   recommendationAssessmentId,
   onSavingChange,
@@ -437,7 +439,7 @@ export default function ReferralWorkflowPanel({
       return;
     }
     const outcome = recommendationDraft.outcome === "accept" ? "accepted" : "declined";
-    const alreadyConfirmed = confirmedInReview && Boolean(decisionReviewTarget) && workflow.context.assessmentSigned
+    const alreadyConfirmed = confirmedInReview && (confirmRecommendation || Boolean(decisionReviewTarget))
       && workflow.recommendation?.assessmentId === workflow.context.assessmentId
       && recommendationDraft.outcome === workflow.recommendation?.outcome
       && recommendationDraft.reasonCode === workflow.recommendation?.reasonCode
@@ -600,6 +602,7 @@ export default function ReferralWorkflowPanel({
   return display(
     <>{confirmationDialog}{emailDialog}{recordedFeedback ? <DecisionFeedback decision={recordedFeedback} onDismiss={() => setRecordedFeedback(null)} /> : null}<ReferralWorkflowPanelPresentation
       reviewConfirmation={Boolean(decisionReviewTarget)}
+      confirmRecommendation={confirmRecommendation}
       placementOnly={placementOnly}
       placementContent={children}
       workflow={workflow}

@@ -122,7 +122,7 @@ for (const width of [1440, 1024, 437, 390]) {
     expect(await assessment.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
     await page.screenshot({ path: testInfo.outputPath(`assessment-${width}.png`) });
     // Embedded practice is editable without recording a clinical start event.
-    await expect(assessment.getByRole("button", { name: "Sign assessment", exact: true })).toHaveCount(0);
+    await expect(assessment.getByRole("button", { name: "Confirm chart", exact: true })).toHaveCount(0);
     await expect(secondary).toHaveValue("Synthetic referral history prepared for the interview.");
     await assessment.locator("main").evaluate((element) => { element.scrollTop = element.scrollHeight; });
     const next = assessment.getByRole("button", { name: "Next section", exact: true });

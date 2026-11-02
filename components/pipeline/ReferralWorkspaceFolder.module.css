@@ -424,6 +424,7 @@
     /* Kept-mounted steps: each step's folder keeps its own step color. */
     .verticalFlow > [data-record-step="3"] { --stage-edge: var(--color-stage-blue); }
     .verticalFlow > :is([data-record-step="2"], [data-record-step="workflow"], [data-record-step="email"]) { --stage-edge: var(--color-manila); }
+    .verticalFlow > [data-chart-preparation] { --stage-edge: var(--color-stage-blue); }
     .verticalFlow[data-decision-outcome="accepted"] > :is([data-record-step="workflow"], [data-record-step="email"]) { --stage-edge: var(--color-stage-green); }
     .verticalFlow[data-decision-outcome="declined"] > :is([data-record-step="workflow"], [data-record-step="email"]) { --stage-edge: var(--color-danger); }
     .verticalFlow > .stepContinue { display: flex; justify-content: flex-end; margin-top: 40px; padding: 32px 0 24px; border-top: 1px solid var(--color-sheet-border); }
@@ -730,7 +731,7 @@
 .phoneWorkspace [data-workspace-notes] { grid-column: 3; grid-row: 1; }
 .phoneWorkspace .tabRow:has([data-workspace-notes]) .stages { grid-column: 2; grid-row: 1; }
 
-/* Decision is a chart tool; the journey contains the three working stages. */
+/* Decision belongs with assessment review; the journey keeps three working stages. */
 .stageEntry { display: flex; align-items: flex-end; position: relative; min-width: 0; }
 .filedDecision { display: flex; align-items: center; gap: 8px; min-height: var(--spacing-control); padding: 8px; color: var(--color-ink-muted); font-size: var(--text-meta); font-weight: 600; }
 .filedDecision span { font-weight: 400; overflow-wrap: anywhere; }

@@ -156,7 +156,7 @@ test("iPhone WebKit supports portrait, landscape and iPad without replacing answ
     await page.setViewportSize({ width: 844, height: 390 });
     await expect(page.locator("[data-phone-interview]")).toBeVisible();
     await expect(page.getByRole("region", { name: "Assessment progress", exact: true })).not.toBeVisible();
-    expect((await page.locator("[data-phone-question-scroll]").boundingBox())!.height).toBeGreaterThanOrEqual(120);
+    await expect.poll(async () => (await page.locator("[data-phone-question-scroll]").boundingBox())!.height).toBeGreaterThanOrEqual(120);
     await page.screenshot({ path: info.outputPath("mobile-landscape.png") });
     await expect(page.locator("[data-phone-interview]").getByRole("button", { name: "Next section", exact: true })).toBeInViewport();
     await page.setViewportSize({ width: 834, height: 1194 });

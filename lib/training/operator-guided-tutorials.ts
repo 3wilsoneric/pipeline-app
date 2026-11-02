@@ -151,7 +151,7 @@ function assessmentSteps(route: string) {
     step("assessment-current", route, "assessment-recorded", "Current information", "Answers already recorded stay here. Select an answer to reopen it. On a phone, open Client info; on a tablet, expand Current information."),
     step("assessment-fields", route, "assessment-fields", "Work on remaining fields", "The question area keeps fields still needing attention together. Conditional follow-ups appear when relevant. Editing an answer does not create another assessment."),
     step("assessment-save", route, "assessment-save-status", "Check saving", route.includes("trainingAssessment=") ? "Check the practice status after editing. Practice answers last only while this assessment stays open; refreshing resets them. Live referrals use normal autosave." : "Changes save automatically. Check this status after editing. If saving fails, keep the assessment open and resolve the error before leaving."),
-    step("assessment-next", route, "assessment-next-section", "Continue or jump", "Next moves through phone questions; Next section moves between sections. Use the section picker to jump elsewhere. Review & sign is at the end. Advancing this tutorial signs nothing."),
+    step("assessment-next", route, "assessment-next-section", "Continue or jump", "Next moves through phone questions; Next section moves between sections. Use the section picker to jump elsewhere. Continue to decision is at the end. Advancing this tutorial signs nothing."),
   ];
 }
 
@@ -193,12 +193,12 @@ export const operatorGuidedTutorials: readonly OperatorGuidedTutorial[] = [
   tutorial({ id: "complete-assessment", title: "Fill out the assessment", context: "workspace", persona: "assessor", audiences: writeRoles, summary: "Answer questions, change earlier answers, and check that they saved.", steps: assessmentSteps(assessment) }),
   tutorial({ id: "practice-assessment", title: "Practice an assessment", context: "practice", persona: "assessor", audiences: writeRoles, summary: "Try a sample assessment without changing real client information. Refreshing resets it.",
     steps: [step("practice-start", assessmentPractice + "&assessmentSection=functional_adl", "assessment-section-nav", "A separate practice case", "Use this synthetic case to try the controls without changing a live referral. Practice edits last while the assessment stays open. Restarting or refreshing resets the case."), ...assessmentSteps(assessmentPractice)] }),
-  tutorial({ id: "review-chart", title: "Sign the assessment", context: "workspace", persona: "assessor", audiences: writeRoles, summary: "Check your answers, then sign when ready.",
+  tutorial({ id: "review-chart", title: "Confirm the chart", context: "workspace", persona: "assessor", audiences: writeRoles, summary: "Check that everything is correct and included.",
     steps: [
       step("review-chart", review, "assessment-review", "Review the full assessment", "Review the assembled chart and unanswered items. Return to Assessment to add or change an answer in the same assessment."),
-      step("review-save", review, "assessment-save-status", "Check the save status", "Confirm changes have saved before signing. A saving or error message is not a successful save."),
+      step("review-save", review, "assessment-save-status", "Check the save status", "Confirm changes have saved before continuing. A saving or error message is not a successful save."),
       step("review-return", review, "workspace-stage-nav", "Return to an earlier page", "Use the workspace navigation to reopen Assessment or Files when something needs attention. Return to review after making the change; opening a page does not sign."),
-      step("review-sign", review, "assessment-sign", "Sign when ready", "Sign & continue to decision is an explicit action with its own confirmation. Signing and sending the packet are separate. This tooltip does not sign for you.", "confirm", true),
+      step("review-sign", review, "assessment-sign", "Confirm when ready", "Use Confirm chart, review the confirmation, then select Confirm & continue. Sending Meet the Client remains a separate action.", "confirm", true),
     ] }),
   tutorial({ id: "record-decision", title: "Accept or decline a referral", context: "workspace", audiences: writeRoles, summary: "Record the decision. If accepted, add the admission date when known.",
     steps: [
@@ -275,9 +275,9 @@ export const operatorGuideNextActions: Readonly<Record<string, { message: string
   "create-referral": { message: "Choose Create referral on the form and wait for it to save. Then schedule from the client's Home Board card. These tips do not create it for you.", tutorials: ["start-assessment", "workspace-files"] },
   "practice-intake": { message: "This was a sample only. To do the real task, open a real intake form. No referral has been created by this tutorial.", tutorials: ["create-referral", "practice-assessment"] },
   "start-assessment": { message: "Check the appointment shown in Assessment details. A successful save adds it to Calendar and moves the Board card into In progress. You can continue the assessment here.", tutorials: ["complete-assessment", "calendar"] },
-  "complete-assessment": { message: "Keep filling in this assessment or check the full version before signing. Your answers and save status are in the workspace, not in this help panel.", tutorials: ["review-chart", "workspace-files"] },
+  "complete-assessment": { message: "Keep filling in this assessment or check the full version before confirming. Your answers and save status are in the workspace, not in this help panel.", tutorials: ["review-chart", "workspace-files"] },
   "practice-assessment": { message: "This was a sample. For real work, go to your Board, open the client's card, and continue their assessment. Refreshing resets sample answers.", tutorials: ["assessor-shift"] },
-  "review-chart": { message: "Finishing these tips does not sign the assessment. Use Sign & continue to decision in the workspace and confirm it there. Then record the decision on the same referral.", tutorials: ["record-decision", "complete-assessment"] },
+  "review-chart": { message: "Finishing these tips does not confirm the chart. In Handoff, review the chart and use Confirm chart. Meet the Client follows your confirmation.", tutorials: ["record-decision", "complete-assessment"] },
   "record-decision": { message: "Check the saved decision in the workspace. For an accepted referral, add the admission date when known, then prepare the packet. Accepted is not the same as admitted.", tutorials: ["prepare-packet", "workspace-files"] },
   "prepare-packet": { message: "Previewing or finishing this help sends nothing. Check the recipients and attachments, use the separate Send action, and check the actual delivery status.", tutorials: ["workspace-files", "workspace-history"] },
   "workspace-files": { message: "Check that the files appear on this referral. You can add more here later without creating a second referral.", tutorials: ["complete-assessment", "workspace-history"] },

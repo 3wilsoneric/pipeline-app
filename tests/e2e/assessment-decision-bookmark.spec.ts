@@ -31,8 +31,8 @@ for (const [width, outcome] of [[1440, "accept"], [834, "accept"], [390, "declin
     await page.screenshot({ path: info.outputPath(`bookmark-${width}.png`), animations: "disabled" });
     await page.goto(`${url}&assessmentMode=review`);
     await expect(bookmark).toHaveValue(outcome);
-    await page.locator('footer[aria-label="Assessment actions"]').getByRole("button", { name: "Sign assessment", exact: true }).click();
-    await page.getByRole("alertdialog", { name: "Sign this assessment?" }).getByRole("button", { name: "Sign assessment", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Confirm chart", exact: true })).toHaveCount(0);
+    await page.locator('footer[aria-label="Assessment actions"]').getByRole("button", { name: "Continue to decision", exact: true }).click();
     const decision = page.getByRole("region", { name: "Admission decision", exact: true });
     const confirmation = decision.getByRole("button", { name: outcome === "accept" ? "Record acceptance" : "Record denial", exact: true });
     await expect(confirmation).toBeEnabled();
@@ -43,9 +43,9 @@ for (const [width, outcome] of [[1440, "accept"], [834, "accept"], [390, "declin
         return covering === element || element.contains(covering);
       })).toBe(true);
     }
-    await expect(page).toHaveURL(/assessmentMode=review/);
+    await expect(page).toHaveURL(/workspaceView=workflow/);
     await expect(decision.getByRole("radio")).toHaveCount(0);
-    await expect(bookmark).toHaveCount(0);
+    await expect(bookmark).toBeHidden();
     expect((await read()).decision).toBeNull();
     await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
     await page.evaluate(() => document.fonts.ready);
@@ -54,7 +54,7 @@ for (const [width, outcome] of [[1440, "accept"], [834, "accept"], [390, "declin
     expect(violations).toEqual([]);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: info.outputPath(`confirmation-${width}.png`), animations: "disabled" });
-    // Closing and reopening after signing still offers confirmation, never automatic finalization.
+    // Closing and reopening still offers confirmation, never automatic finalization or signing.
     await page.reload();
     await expect(confirmation).toBeEnabled();
     expect((await read()).decision).toBeNull();
@@ -64,11 +64,11 @@ for (const [width, outcome] of [[1440, "accept"], [834, "accept"], [390, "declin
     if (outcome === "accept") await expect(page).toHaveURL(/workspaceView=email/);
     else await expect(decision.getByRole("button", { name: "Done", exact: true })).toBeVisible();
     const saved = (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
-    expect(saved.signed_at).toBeTruthy();
+    expect(saved.signed_at).toBeNull();
     expect(saved.meet_client_sent_at).toBeFalsy();
     expect((await read()).referral.admissionDate).toBeFalsy();
     expect(sends).toBe(0);
-    // The nested chart action keeps the recorded decision reachable.
+    // The nested assessment action keeps the recorded decision reachable.
     const decisionLink = page.getByRole("navigation", { name: "Workspace stages", exact: true }).getByRole("button", { name: "Decision", exact: true });
     if (await decisionLink.isVisible()) await decisionLink.click();
     else await page.getByRole("combobox", { name: "Workspace view" }).selectOption("workflow");
@@ -84,6 +84,7 @@ test("failed confirmation retains the earmark and retries the same command", asy
   await expect.poll(async () => (await read()).recommendation?.outcome).toBe("accept");
   await signOperationalAssessment(page.request, assessment);
   await page.goto(`${url}&assessmentMode=review`);
+  await page.getByRole("button", { name: "Continue to decision", exact: true }).click();
   const panel = page.getByRole("region", { name: "Admission decision", exact: true });
   const commands: string[] = [];
   await page.route(`**/api/referrals/${referral.id}/decision`, async route => {
@@ -108,6 +109,7 @@ test("an earmark can change in review without changing the stored choice until c
   await expect.poll(async () => (await read()).recommendation?.outcome).toBe("accept");
   await signOperationalAssessment(page.request, assessment);
   await page.goto(`${url}&assessmentMode=review`);
+  await page.getByRole("button", { name: "Continue to decision", exact: true }).click();
   const panel = page.getByRole("region", { name: "Admission decision", exact: true });
   await panel.getByRole("button", { name: "Change", exact: true }).click();
   await panel.getByRole("radio", { name: "Deny", exact: true }).check();
@@ -138,6 +140,7 @@ for (const earlier of [false, true]) {
     }
     await signOperationalAssessment(page.request, assessment);
     await page.goto(`${url}&assessmentMode=review`);
+    await page.getByRole("button", { name: "Continue to decision", exact: true }).click();
     const panel = page.getByRole("region", { name: "Admission decision", exact: true });
     await expect(panel.getByRole("radio")).toHaveCount(3);
     await expect(panel.getByRole("button", { name: "Record acceptance", exact: true })).toHaveCount(0);

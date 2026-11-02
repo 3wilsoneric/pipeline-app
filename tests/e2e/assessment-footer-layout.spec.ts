@@ -72,9 +72,10 @@ test("loading the decision cannot move assessment navigation during a press", as
     await page.locator("#assessment-current_symptoms").fill("Synthetic stable navigation observation");
     // The early bookmark loads with the interview; its reserved space keeps review navigation stable.
     await expect.poll(() => decisionChunkPending).toBe(true);
-    // Use the real exit/save path while the answer is dirty, not a forced document unload.
-    await page.getByRole("button", { name: "Choose questionnaire section", exact: true }).click();
-    await page.getByRole("dialog", { name: "Questionnaire sections", exact: true }).getByRole("button", { name: /^Review assessment/ }).click();
+    // Persist the answer before reopening the saved review destination.
+    await page.locator("#assessment-current_symptoms").blur();
+    await expect.poll(async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment.current_symptoms).toBe("Synthetic stable navigation observation");
+    await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentMode=review`);
     await expect.poll(() => decisionChunkPending).toBe(true);
     const backToQuestions = page.getByRole("button", { name: "Back to questions", exact: true });
     await backToQuestions.click({ trial: true });
@@ -123,10 +124,21 @@ test("iPad WebKit keeps date and interview controls reachable", async ({ baseURL
     await createOperationalAssessment(page.request, referral.id);
     await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment`);
     const footer = page.locator('footer[aria-label="Assessment actions"]');
+    const read = async () => (await (await page.request.get(`/api/referrals/${referral.id}/assessments`)).json()).assessments[0];
+    const entry = page.getByRole("region", { name: "Interview", exact: true });
+    await entry.getByRole("button", { name: "Schedule interview", exact: true }).tap();
+    const appointment = page.getByRole("dialog", { name: "Schedule interview", exact: true });
+    await expect(appointment).toBeInViewport();
+    await appointment.getByRole("button", { name: "Close schedule", exact: true }).tap();
+    await expect(entry.getByRole("button", { name: "Schedule interview", exact: true })).toBeFocused();
+    expect((await read()).started_at).toBeNull();
+    await entry.getByRole("button", { name: "Start now", exact: true }).tap();
+    await expect(footer.getByRole("button", { name: "Continue to decision", exact: true })).toBeVisible();
+    expect((await read()).started_at).toBeTruthy();
     const date = page.getByRole("button", { name: /^Interview date/ });
     await date.tap();
     const dialog = page.getByRole("dialog", { name: "Interview date", exact: true });
-    await expect(dialog).toBeVisible();
+    await expect(dialog).toBeInViewport();
     const bounds = (await dialog.boundingBox())!;
     expect(bounds.x).toBeGreaterThanOrEqual(0);
     expect(bounds.x + bounds.width).toBeLessThanOrEqual(834);
@@ -134,16 +146,6 @@ test("iPad WebKit keeps date and interview controls reachable", async ({ baseURL
     expect(bounds.y + bounds.height).toBeLessThanOrEqual(1194);
     await page.keyboard.press("Escape");
     await expect(date).toBeFocused();
-    const beginButton = footer.getByRole("button", { name: "Begin interview", exact: true });
-    await beginButton.tap();
-    const begin = page.getByRole("dialog", { name: "Begin interview", exact: true });
-    await expect(begin).toBeVisible();
-    await begin.getByRole("button", { name: "Keep preparing", exact: true }).tap();
-    await expect(begin).toBeHidden();
-    await expect(beginButton).toBeFocused();
-    await beginButton.tap();
-    await begin.getByRole("button", { name: "Begin interview", exact: true }).tap();
-    await expect(footer.getByRole("button", { name: "Review assessment", exact: true })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   } finally { await closeTestBrowser(browser); }
 });

@@ -21,7 +21,7 @@ export function renderMeetClientEmail(
 
 function renderEmailHeader(options: { demo?: boolean; logoUrl?: string }) {
   const demoNotice = options.demo ? '<p style="padding:14px 16px;border:1px solid #d8c387;border-radius:6px;background:#fff8e6;color:#684f17;font-size:16px;font-weight:700">Not production yet — no email will be sent. This admission packet is a demo.</p>' : "";
-  return `<img src="${escapeHtml(options.logoUrl ?? "https://alamo-pipeline.com/brand/alamo-health-management.png")}" alt="Alamo Health Management" width="300" height="80" style="display:block;width:300px;max-width:100%;height:auto;margin:0 0 24px;border:0"><h1 style="margin:8px 0 24px;font-size:30px;line-height:1.2">Meet the Client</h1>${demoNotice}`;
+  return `<img src="${escapeHtml(options.logoUrl ?? "https://alamo-pipeline.com/brand/alamo-health-management.png")}" alt="Alamo Health Management" width="300" height="80" style="display:block;width:300px;max-width:100%;height:auto;margin:0 0 24px;border:0">${demoNotice}`;
 }
 
 export function meetClientIdentityRows(summary: MeetClientSummary) {
@@ -30,7 +30,6 @@ export function meetClientIdentityRows(summary: MeetClientSummary) {
     ["Date of birth", formatMeetClientDate(summary.dateOfBirth)],
     ["Community", summary.community],
     ["Admission date", formatMeetClientDate(summary.admissionDate)],
-    ["Assessment date", formatMeetClientDate(summary.assessmentDate)],
   ].filter(([, value]) => value);
 }
 
@@ -64,13 +63,13 @@ export function meetClientSections(summary: MeetClientSummary, message?: MeetCli
 function meetClientContent(summary: MeetClientSummary, attachmentNames: string[], message?: MeetClientMessage) {
   const edited = message?.body != null;
   const sections = meetClientSections(summary, message);
-  const html = sections.map((section) => section.kind === "items" ? emailItemSection(section.title, section.items)
-    : section.kind === "list" ? emailSection(section.title, section.values)
+  const html = sections.map((section, index) => section.kind === "items" ? emailItemSection(section.title, section.items)
+    : section.kind === "list" ? emailSection(section.id === "bio" && index === 0 ? "" : section.title, section.values)
     : `<div style="white-space:pre-wrap">${escapeHtml(section.text)}</div>`).join("");
   const text = sections.map((section) => section.kind === "message" ? section.text
     : `${section.title}\n${section.kind === "items" ? section.items.map(({ label, value }) => `${label}: ${value}`).join("\n") : section.values.join("\n")}`).join("\n\n");
   return {
-    html: `${edited ? "" : admissionIntroduction(summary)}${table(meetClientIdentityRows(summary))}${html}${emailSection("Admission packet", attachmentNames)}`,
+    html: `${edited ? "" : admissionIntroduction(summary)}<h1 style="margin:8px 0 24px;font-size:30px;line-height:1.2">Meet the Client</h1>${table(meetClientIdentityRows(summary))}${html}${emailSection("Admission packet", attachmentNames)}`,
     text: edited ? text : `Hello team,\n\nPlease review the handoff details below and the admission packet.\n\n${text}`,
     edited,
   };
@@ -86,7 +85,7 @@ function table(rows: string[][]) {
 
 function emailSection(title: string, values: string[]) {
   if (values.length === 0) return "";
-  return `<h2 style="margin:30px 0 12px;font-size:21px;line-height:1.3">${escapeHtml(title)}</h2><ul style="margin:0;padding-left:22px;font-size:17px;line-height:1.7">${values.map((value) => `<li style="margin-bottom:10px">${escapeHtml(value)}</li>`).join("")}</ul>`;
+  return `${title ? `<h2 style="margin:30px 0 12px;font-size:21px;line-height:1.3">${escapeHtml(title)}</h2>` : ""}<ul style="margin:0;padding-left:22px;font-size:17px;line-height:1.7">${values.map((value) => `<li style="margin-bottom:10px">${escapeHtml(value)}</li>`).join("")}</ul>`;
 }
 
 function emailItemSection(title: string, values: Array<{ label: string; value: string }>) {

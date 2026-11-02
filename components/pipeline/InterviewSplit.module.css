@@ -3,6 +3,7 @@
    notes docked below. One vertical line between the halves; it widens and darkens when it can be dragged. */
 
 .pane { position: sticky; top: 84px; display: flex; flex-direction: column; align-self: start; min-width: 0; min-height: 0; padding-right: 28px; }
+.context { flex: 0 1 auto; min-height: 0; max-height: 35%; overflow-y: auto; overscroll-behavior: contain; padding: 2px; }
 
 .text { display: flex; flex: 1; flex-direction: column; min-height: 0; padding: 0 8px 0 4px; overflow: hidden; }
 /* Recorded facts read label-first, across the full pane. */

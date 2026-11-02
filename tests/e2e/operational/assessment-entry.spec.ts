@@ -75,7 +75,7 @@ test.describe("assessment editing entry and return paths", () => {
         await page.goto(`${workspacePath(referral.id)}&workspaceStage=assessment&assessmentSection=prior_history`);
         const full = page.locator("[data-assessment-view]");
         await expect(full.getByRole("textbox", { name: "Hospitalization history", exact: true })).toBeEditable();
-        await page.getByRole("region", { name: "Assessment progress", exact: true })
+        await page.getByRole("region", { name: "Interview", exact: true })
           .getByRole("button", { name: "Schedule interview", exact: true }).click();
         const schedule = page.getByRole("dialog", { name: "Schedule interview", exact: true });
         await expect(schedule).toBeVisible();

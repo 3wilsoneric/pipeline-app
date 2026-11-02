@@ -56,8 +56,9 @@ for (const width of [1440, 390]) test(`full questionnaire stays editable during 
   await page.getByRole("combobox", { name: "Assessment section", exact: true }).selectOption("identity");
   await page.locator("#assessment-referrer_contact").fill("Synthetic updated contact");
   await page.screenshot({ path: info.outputPath(`all-questions-${width}.png`) });
-  await expect(page.getByRole("button", { name: "Return to interview", exact: true })).toBeInViewport();
-  await page.getByRole("button", { name: "Return to interview", exact: true }).click();
+  await page.getByRole("button", { name: "Continue interview", exact: true }).scrollIntoViewIfNeeded();
+  await expect(page.getByRole("button", { name: "Continue interview", exact: true })).toBeInViewport();
+  await page.getByRole("button", { name: "Continue interview", exact: true }).click();
   await expect(symptoms).toHaveValue("Synthetic interview observation");
   await expect.poll(async () => (await read()).referrer_contact).toBe("Synthetic updated contact");
   if (width === 390) {
@@ -72,8 +73,9 @@ for (const width of [1440, 390]) test(`full questionnaire stays editable during 
     await expect(page.locator("#assessment-secondary_diagnoses")).toBeFocused();
     await page.locator("#assessment-secondary_diagnoses").fill("Synthetic corrected record detail");
   }
-  await expect(page.getByRole("button", { name: "Return to interview", exact: true })).toBeInViewport();
-  await page.getByRole("button", { name: "Return to interview", exact: true }).click();
+  await page.getByRole("button", { name: "Continue interview", exact: true }).scrollIntoViewIfNeeded();
+  await expect(page.getByRole("button", { name: "Continue interview", exact: true })).toBeInViewport();
+  await page.getByRole("button", { name: "Continue interview", exact: true }).click();
   await expect(symptoms).toHaveValue("Synthetic interview observation");
   await expect.poll(async () => width === 390 ? (await read()).referrer_contact : (await read()).secondary_diagnoses).toEqual(width === 390 ? "Synthetic contact from phone search" : ["Synthetic corrected record detail"]);
   // Leave a focused, changed answer using real workspace navigation. The chart

@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useLayoutEffect, useRef, useState, type PointerEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { AlertTriangle, Check, CloudUpload, GripVertical, LoaderCircle, MoveDiagonal2, NotebookPen, PanelRightClose, PanelRightOpen, X } from "lucide-react";
+import { AlertTriangle, Check, CloudUpload, GripVertical, LoaderCircle, Minimize2, MoveDiagonal2, NotebookPen, PanelRightClose, PanelRightOpen, X } from "lucide-react";
 
 import { combinedClientNote, noteHeadings, unifiedNoteKey } from "@/lib/pipeline/client-notes";
 import ClientNoteEditor from "./ClientNoteEditor";
@@ -24,6 +24,7 @@ const statusText: Record<NotesStatus, string> = {
 };
 
 type NotePosition = { x: number; y: number };
+type NoteSize = { width: number; height: number };
 
 export default function ClientNotes({ referralId, readOnly, onCollapse, onClose }: {
   referralId: number;
@@ -42,6 +43,7 @@ export default function ClientNotes({ referralId, readOnly, onCollapse, onClose 
   const handle = useRef<HTMLButtonElement>(null);
   const dockTarget = useRef<HTMLButtonElement>(null);
   const [position, setPosition] = useState<NotePosition | null>(null);
+  const [size, setSize] = useState<NoteSize | null>(null);
   const [moving, setMoving] = useState(false);
   const [overDock, setOverDock] = useState(false);
   const drag = useRef<{ cleanup: () => void; cancel: () => void } | null>(null);
@@ -76,6 +78,7 @@ export default function ClientNotes({ referralId, readOnly, onCollapse, onClose 
     setOverDock(false);
     suppressClick.current = false;
     setPosition(null);
+    setSize(null);
     requestAnimationFrame(() => handle.current?.focus({ preventScroll: true }));
   };
   const close = () => {
@@ -170,6 +173,7 @@ export default function ClientNotes({ referralId, readOnly, onCollapse, onClose 
       {floating && !onClose ? <button type="button" aria-label="Dock notes" title="Dock notes" onClick={dock} className={styles.iconButton}><PanelRightOpen size={16} aria-hidden="true" /></button> : null}
       {onCollapse && !floating ? <button type="button" aria-label="Hide notes" title="Hide notes" onClick={onCollapse} className={styles.iconButton}><PanelRightClose size={16} aria-hidden="true" /></button> : null}
       {onClose ? <button type="button" aria-label="Close notes" title="Close notes" onClick={close} className={styles.iconButton}><X size={16} aria-hidden="true" /></button> : null}
+      {floating ? <button type="button" aria-label="Restore notes size" title="Restore original size" onClick={() => setSize(null)} className={`${styles.iconButton} ${styles.restoreSize}`}><Minimize2 size={18} aria-hidden="true" /></button> : null}
     </header>
     {notes.loadFailed ? <p role="alert" className={styles.notice}>Notes could not be loaded. <button type="button" onClick={notes.reload}>Retry</button></p> : null}
     <div className={styles.blocks}>
@@ -189,13 +193,12 @@ export default function ClientNotes({ referralId, readOnly, onCollapse, onClose 
   </section>;
   return floating ? <>
     {!onClose ? <button ref={dockTarget} type="button" className={styles.reopen} data-notes-detached data-drop-target={moving || undefined} data-drop-over={overDock || undefined} onClick={dock} aria-label="Dock notes"><PanelRightOpen size={16} aria-hidden="true" />Notes</button> : null}
-    <NotesWindow position={position} moving={moving} onClose={close}>{editor}</NotesWindow>
+    <NotesWindow position={position} size={size} onResize={setSize} moving={moving} onClose={close}>{editor}</NotesWindow>
   </> : editor;
 }
 
-function NotesWindow({ position, moving, children, onClose }: { position: NotePosition | null; moving: boolean; children: ReactNode; onClose: () => void }) {
+function NotesWindow({ position, size, onResize: setSize, moving, children, onClose }: { position: NotePosition | null; size: NoteSize | null; onResize: (size: NoteSize) => void; moving: boolean; children: ReactNode; onClose: () => void }) {
   const viewport = useMobileViewport();
-  const [size, setSize] = useState<{ width: number; height: number } | null>(null);
   const sizing = useRef<{ pointer: number; x: number; y: number; width: number; height: number } | null>(null);
   const fit = (width: number, height: number) => ({
     width: Math.min(window.innerWidth - 24, Math.max(320, width)),

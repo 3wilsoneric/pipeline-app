@@ -26,8 +26,8 @@ test.describe("independent assessor workflow steps", () => {
       expect(referral.dob).toBe("");
       expect(referral.documentName).toBe("");
       const stages = page.getByRole("navigation", { name: "Workspace stages", exact: true });
-      await page.getByRole("region", { name: "Workspace created", exact: true }).getByRole("button", { name: "Assessment prep", exact: true }).click();
       const editor = page.locator('[data-assessment-view]');
+      await page.getByRole("button", { name: "Assessment prep", exact: true }).click();
       await expect(editor).toBeVisible();
       await stages.getByRole("button", { name: "Chart", exact: true }).click();
       await page.getByRole("button", { name: "Edit referral details", exact: true }).click();

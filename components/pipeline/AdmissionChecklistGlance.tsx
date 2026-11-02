@@ -165,14 +165,14 @@ export function ChartProcess({ referralId, assessment, record, entry, appointmen
       {entry}
       {record}
     </ChartStage>
-    <ChartStage id={`chart-decision-${referralId}`} title="Decision" filed={decisionFiled}
+    {decisionFiled || workflow?.recommendation ? <ChartStage id={`chart-decision-${referralId}`} title="Decision" filed={decisionFiled}
       status={decided ? (decisionFiled ? `${decided.label} · ${decided.detail}` : decided.label) : undefined}
       action={onOpenDecision ? <button type="button" onClick={onOpenDecision} className={styles.open}>Open decision<ArrowRight size={16} aria-hidden="true" /></button> : null}>
       {workflow && (workflow.recommendation || workflow.decision?.reasonNote) ? <dl className={styles.facts}>
         {workflow.recommendation ? <div><dt>Placement recommendation</dt><dd>{workflow.recommendation.outcome === "accept" ? "Accept" : workflow.recommendation.outcome === "decline" ? "Deny" : "Under review"}{workflow.recommendation.reasonNote ? <span>{workflow.recommendation.reasonNote}</span> : null}</dd></div> : null}
         {workflow.decision?.reasonNote ? <div><dt>Decision reason</dt><dd>{workflow.decision.reasonNote}</dd></div> : null}
       </dl> : null}
-    </ChartStage>
+    </ChartStage> : null}
     {accepted || packet?.state === "done" ? <ChartStage id={`chart-finish-${referralId}`} title="Handoff" filed={referral?.stage === "Accepted / Admitted" || Boolean(referral?.placementCancellation)}
       status={referral?.placementCancellation ? "Did not move in" : referral?.stage === "Accepted / Admitted" ? "Admitted" : packet ? (packet.state === "done" ? `${packet.label} · ${packet.detail}` : packet.label) : undefined}
       action={onOpenFinish ? <button type="button" onClick={onOpenFinish} className={styles.open}>Open handoff<ArrowRight size={16} aria-hidden="true" /></button> : null}>

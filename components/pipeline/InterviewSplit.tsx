@@ -29,7 +29,7 @@ const subscribeWidth = (changed: () => void) => {
 
 type Topic = { key: AssessmentToolSection; label: string; questions: readonly AssessmentInterviewQuestion[]; referenceQuestions?: readonly AssessmentInterviewQuestion[] };
 
-export default function InterviewSplit({ topics, data, pending, currentTopic, notes, finalized, onEdit }: {
+export default function InterviewSplit({ topics, data, pending, currentTopic, notes, context, finalized, onEdit }: {
   topics: readonly Topic[];
   data: AssessmentToolData;
   pending: readonly AssessmentToolFieldKey[];
@@ -38,6 +38,7 @@ export default function InterviewSplit({ topics, data, pending, currentTopic, no
   onEdit: (field: AssessmentToolFieldKey) => void;
   /** The current topic's notes, docked at the foot of the left side. */
   notes?: ReactNode;
+  context?: ReactNode;
 }) {
   const pane = useRef<HTMLElement>(null);
   const text = useRef<HTMLDivElement>(null);
@@ -97,6 +98,7 @@ export default function InterviewSplit({ topics, data, pending, currentTopic, no
   const answered = topic ? (topic.referenceQuestions ?? topic.questions).filter((question) => hasAssessmentInterviewValue(data[question.field]) || getAssessmentUnableReason(data, question.field)) : [];
 
   return <aside ref={pane} aria-label="Current information" className={styles.pane} data-interview-split>
+    {context ? <div className={styles.context}>{context}</div> : null}
     <div ref={text} className={styles.text} data-split-chart>
       {/* Recorded facts above the shared notes; both remain available while answering. */}
       <div className={styles.page}>

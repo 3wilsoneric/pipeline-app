@@ -12,7 +12,7 @@ test.describe("assessment outcome and admission handoff", () => {
   test.skip(process.env.PIPELINE_OPERATIONAL_E2E !== "true", "Requires isolated operational stores.");
   test.setTimeout(75_000);
 
-  test("sign, save under review, reopen active work and clarify its recommendation without a review submission", async ({ browser, baseURL }) => {
+  test("finish, save under review, reopen active work and clarify its recommendation without a review submission", async ({ browser, baseURL }) => {
     const url = requireOperationalBaseURL(baseURL);
     const assessor = await actorApiContext("assessorA", url);
     const admin = await actorApiContext("admin", url);
@@ -20,8 +20,7 @@ test.describe("assessment outcome and admission handoff", () => {
     try {
       const { referral, assessment } = await completedAssessment(assessor);
       await page.goto(`${workspace(referral.id)}&workspaceStage=assessment&assessmentMode=review`);
-      await page.getByRole("button", { name: "Sign assessment", exact: true }).click();
-      await page.getByRole("alertdialog", { name: "Sign this assessment?", exact: true }).getByRole("button", { name: "Sign assessment", exact: true }).click();
+      await page.getByRole("button", { name: "Continue to decision", exact: true }).click();
       await expect(page.getByRole("region", { name: "Admission decision", exact: true })).toBeVisible();
       await expect(page.getByRole("radio", { name: "Accept", exact: true })).not.toBeChecked();
       await expect(page.getByRole("button", { name: "Record decision", exact: true })).toBeDisabled();
@@ -64,7 +63,7 @@ test.describe("assessment outcome and admission handoff", () => {
       const returned = await (await assessor.get("/api/operations/home")).json();
       expect(returned.workflow.active_items.map((item: { referral_id: number }) => item.referral_id)).toContain(referral.id);
       const original = await (await assessor.get(`/api/assessments/${assessment.assessment_id}`)).json();
-      expect(original.assessment.signed_at).toBeTruthy();
+      expect(original.assessment.signed_at).toBeNull();
     } finally { await context.close(); await assessor.dispose(); await admin.dispose(); }
   });
 
@@ -80,10 +79,15 @@ test.describe("assessment outcome and admission handoff", () => {
         await submitOperationalRecommendation(assessor, await readOperationalReferral(assessor, referral.id), signed);
         await resolveOperationalDecisionRequirements(admin, referral.id);
         await page.goto(`${workspace(referral.id)}&workspaceView=workflow`);
-        await page.getByRole("radio", { name: outcome === "accepted" ? "Accept" : "Deny", exact: true }).check();
-        if (outcome === "declined") await page.getByRole("textbox", { name: "Reason (optional)", exact: true }).fill("Synthetic referral needs a different level of care.");
-        await page.getByRole("button", { name: "Record decision", exact: true }).click();
-        await page.getByRole("alertdialog").getByRole("button", { name: /^Record (acceptance|denial)$/, exact: true }).click();
+        if (outcome === "accepted") {
+          await page.getByRole("button", { name: "Record acceptance", exact: true }).click();
+        } else {
+          await page.getByRole("button", { name: "Change", exact: true }).click();
+          await page.getByRole("radio", { name: "Deny", exact: true }).check();
+          await page.getByRole("textbox", { name: "Reason (optional)", exact: true }).fill("Synthetic referral needs a different level of care.");
+          await page.getByRole("button", { name: "Record decision", exact: true }).click();
+          await page.getByRole("alertdialog").getByRole("button", { name: "Record denial", exact: true }).click();
+        }
         await expect.poll(async () => (await workflow(admin, referral.id)).decision?.outcome).toBe(outcome);
         await page.reload();
         if (outcome === "accepted") await page.getByRole("navigation", { name: "Workspace stages", exact: true }).getByRole("button", { name: "Decision", exact: true }).click();
@@ -106,20 +110,20 @@ test.describe("assessment outcome and admission handoff", () => {
         expect(before.email.blockers.join(" ")).toContain("planned admit date before sending Meet the Client");
         await expect(page.getByRole("region", { name: "Email and referral packet", exact: true })).toBeVisible();
         const admitDate = await openAdmitDate(page);
-        await admitDate.getByLabel("Planned admit date", { exact: true }).fill("2026-10-12");
+        await admitDate.getByLabel("Planned admit date", { exact: true }).fill("2027-10-12");
         const recipient = page.getByRole("combobox", { name: /^To/ });
         await recipient.fill("care@example.invalid");
         await recipient.press("Enter");
         await admitDate.getByRole("checkbox", { name: /I verified/ }).check();
         await admitDate.getByRole("button", { name: "Preview email", exact: true }).click();
-        await expect(admitDate.getByLabel("Planned admit date", { exact: true })).toHaveValue("2026-10-12");
+        await expect(admitDate.getByLabel("Planned admit date", { exact: true })).toHaveValue("2027-10-12");
         const after = await (await admin.get(`/api/referrals/${referral.id}/admission-summary`)).json();
-        expect(after.referral.plannedAdmissionDate).toBe("2026-10-12");
-        expect(after.report.meetClient.admissionDate).toBe("2026-10-12");
+        expect(after.referral.plannedAdmissionDate).toBe("2027-10-12");
+        expect(after.report.meetClient.admissionDate).toBe("2027-10-12");
         expect(after.email.blockers.join(" ")).not.toContain("planned admit date before sending Meet the Client");
         expect(after.referral.stage).not.toBe("Accepted / Admitted");
         await page.reload();
-        await expect((await openAdmitDate(page)).getByLabel("Planned admit date", { exact: true })).toHaveValue("2026-10-12");
+        await expect((await openAdmitDate(page)).getByLabel("Planned admit date", { exact: true })).toHaveValue("2027-10-12");
         await page.setViewportSize({ width: 390, height: 844 });
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
         const unavailableSend = await assessor.post(`/api/referrals/${referral.id}/meet-client-email`, { data: { confirmed: true, if_match: after.referral.version, recipients: ["synthetic@example.invalid"], client_mutation_id: randomUUID() } });

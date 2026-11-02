@@ -88,7 +88,7 @@ for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]]
         // Rotation can replace the responsive editor between visibility and
         // measurement. Check its settled size without relaxing the touch target.
         await expect.poll(async () => (await preparedName.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
-        await expect.poll(async () => (await page.locator("[data-assessment-primary-action] button").boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
+        await expect.poll(async () => (await page.getByRole("region", { name: "Interview", exact: true }).getByRole("button", { name: "Start now", exact: true }).boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
         const preparation = page.getByTestId("assessment-client-folder");
         await expect(preparation.locator(":scope > strong")).toHaveCount(0);
         await preparation.scrollIntoViewIfNeeded();

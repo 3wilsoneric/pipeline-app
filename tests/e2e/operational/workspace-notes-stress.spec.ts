@@ -30,7 +30,6 @@ test("creating a workspace then editing preparation keeps the saved referral add
     await expect.poll(() => new URL(page.url()).searchParams.get("referralId")).toMatch(/^\d+$/);
     const id = new URL(page.url()).searchParams.get("referralId");
     await returnToAssessmentQuestions(page);
-    await page.getByRole("button", { name: "Prepare assessment", exact: true }).click();
     const answer = page.getByRole("textbox", { name: "Where the client is now", exact: true });
     await answer.fill("Synthetic preparation immediately after creation");
     await openAssessmentChart(page);

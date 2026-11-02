@@ -39,15 +39,14 @@ function workspaceReturn(page: Page) {
 
 async function openStage(page: Page, label: string) {
   const stages = page.getByRole("navigation", { name: "Workspace stages", exact: true });
-  if (page.viewportSize()!.width < 640) {
-    const picker = stages.getByRole("combobox", { name: "Workspace view", exact: true });
-    await picker.selectOption({ label });
-    await expect(picker.locator("option:checked")).toHaveText(label);
-  } else {
-    const button = stages.getByRole("button", { name: label, exact: true });
-    await button.click();
-    await expect(button).toHaveAttribute("aria-current", "page");
-  }
+  const phone = page.viewportSize()!.width < 640;
+  const picker = stages.getByRole("combobox", { name: "Workspace view", exact: true });
+  if (phone) await picker.selectOption({ label });
+  else await stages.getByRole("button", { name: label, exact: true }).click();
+  if (label === "Assessment") await expect(page.getByTestId("assessment-client-folder")).toBeVisible();
+  const active = label === "Assessment" && await page.locator('[data-assessment-phase="preparation"]').isVisible() ? "Chart" : label;
+  if (phone) await expect(picker.locator("option:checked")).toHaveText(active);
+  else await expect(stages.getByRole("button", { name: active, exact: true })).toHaveAttribute("aria-current", "page");
 }
 
 for (const width of [1440, 834, 390]) {
@@ -158,7 +157,7 @@ for (const width of [1440, 1024, 768, 640, 390, 320]) {
       await expect(picker.locator("optgroup option")).toHaveText(["Files", "Activity"]);
       await expect(picker.locator("option:checked")).toHaveText("Assessment");
     } else {
-      expect(await pages.getByRole("button").evaluateAll((buttons) => buttons.map((button) => button.getAttribute("aria-label")))).toEqual(["Chart", "Decision", "Assessment", "Handoff"]);
+      expect(await pages.getByRole("button").evaluateAll((buttons) => buttons.map((button) => button.getAttribute("aria-label")))).toEqual(["Chart", "Assessment", "Decision", "Handoff"]);
       await expect(pages.getByRole("button", { name: "Assessment", exact: true })).toHaveAttribute("aria-current", "page");
     }
     if (width < 640) {
@@ -176,7 +175,7 @@ for (const width of [1440, 1024, 768, 640, 390, 320]) {
     if (width < 640) await expect(folder.getByRole("textbox", { name: "Current symptoms", exact: true })).toBeVisible();
 
     if (width >= 640) {
-      await expect(folder.locator('footer[aria-label="Assessment actions"]').getByRole("button", { name: "Review assessment", exact: true })).toBeInViewport();
+      await expect(folder.locator('footer[aria-label="Assessment actions"]').getByRole("button", { name: "Continue to decision", exact: true })).toBeInViewport();
     } else {
       expect((await header.boundingBox())!.height).toBeLessThanOrEqual(110);
       const menu = page.getByRole("button", { name: /^Open page menu/ });

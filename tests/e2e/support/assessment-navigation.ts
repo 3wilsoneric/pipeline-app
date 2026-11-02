@@ -108,3 +108,24 @@ export async function openWorkspaceFiles(page: Page) {
   await leaveInterviewFullScreen(page);
   await page.getByRole("button", { name: "Workspace files", exact: true }).click();
 }
+
+// Confirmation belongs to Handoff, after the decision, for the same saved chart.
+export async function openHandoffConfirmation(page: Page) {
+  await leaveInterviewFullScreen(page);
+  const stages = page.getByRole("navigation", { name: "Workspace stages", exact: true });
+  const picker = stages.getByRole("combobox", { name: "Workspace view", exact: true });
+  const open = async (label: string) => {
+    if (await picker.isVisible()) await picker.selectOption({ label });
+    else await stages.getByRole("button", { name: label, exact: true }).click();
+  };
+  await open("Decision");
+  const decision = page.getByRole("region", { name: "Admission decision", exact: true });
+  await expect(decision).toBeVisible();
+  const accept = decision.getByRole("radio", { name: "Accept", exact: true });
+  if (await accept.isVisible()) {
+    await accept.check();
+    await decision.getByRole("button", { name: "Record decision", exact: true }).click();
+    await page.getByRole("alertdialog").getByRole("button", { name: "Record acceptance", exact: true }).click();
+  } else await open("Handoff");
+  await expect(page).toHaveURL(/workspaceView=email/);
+}

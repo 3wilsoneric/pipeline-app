@@ -122,7 +122,7 @@ test("a lost assessment save reply retries the same mutation without losing the 
   await expect(diagnosis).toHaveValue("Synthetic first answer");
   await expect.poll(() => mutations.length, { timeout: 15_000 }).toBe(2);
   expect(mutations[1]).toBe(mutations[0]);
-  await expect(page.locator('[data-guide-target="assessment-save-status"]')).toContainText("Offline changes synced");
+  await expect(page.getByRole("status", { name: "All changes saved", exact: true })).toBeVisible();
   expect((await read()).audit_events.filter((event: { action: string }) => event.action === "assessment_updated")).toHaveLength(1);
   await page.locator("#assessment-current_symptoms").fill("Synthetic next answer after interrupted saving.");
   await page.getByLabel("Assessment section", { exact: true }).selectOption({ label: "Medication & health" });

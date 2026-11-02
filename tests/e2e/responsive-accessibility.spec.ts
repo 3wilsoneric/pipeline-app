@@ -104,7 +104,8 @@ test.describe("Responsive and accessible application shell", () => {
     await expectNoSeriousAxeViolations(page);
     if (compactSteps) await stepSelect.selectOption({ label: "Assessment" });
     else await page.getByRole("button", { name: "Assessment", exact: true }).click();
-    await expect(page.getByRole("region", { name: "Assessment", exact: true })).toBeVisible();
+    await expect(page.getByTestId("assessment-client-folder")).toBeVisible();
+    await expect(page.locator('[data-assessment-phase="preparation"]')).toBeVisible();
     if (compactSteps) await expect(stepSelect.getByRole("option", { name: "Decision", exact: true })).toHaveCount(1);
     else await expect(page.getByRole("button", { name: "Decision", exact: true })).toBeVisible();
     await expectNoPageOverflow(page);

@@ -320,7 +320,7 @@ test("a failed intake field save remains visible and retryable after Done", asyn
   await expect(chart.locator('[data-chart-field="Email"]')).toContainText("after@example.invalid");
 });
 
-test("a chart visit that changes nothing writes nothing, and signing stays in assessment review", async ({ page }) => {
+test("a chart visit that changes nothing writes nothing, and confirmation follows the decision", async ({ page }) => {
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", {
     name: `Example Untouched ${randomUUID()}`, phone: "555-0101", owner: "Annette Everhart",
   }, { assigneeId: "provisional:allo:annette" });
@@ -332,7 +332,7 @@ test("a chart visit that changes nothing writes nothing, and signing stays in as
   await expect(chart).toBeVisible();
 
   // Chart has one assessment entry, with a neutral answer count.
-  const openAssessment = page.getByRole("button", { name: "Open assessment", exact: true });
+  const openAssessment = page.getByRole("button", { name: "Continue interview", exact: true });
   await expect(openAssessment).toBeVisible();
   await expect(page.getByRole("button", { name: "Next: Assessment", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Review unanswered assessment items", exact: true })).toHaveCount(0);
@@ -347,9 +347,9 @@ test("a chart visit that changes nothing writes nothing, and signing stays in as
   await expect(chart.getByRole("button", { name: "Edit Phone", exact: true })).toBeFocused();
 
   await openAssessment.click();
-  await page.getByRole("button", { name: "Review assessment", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Review assessment", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: /^Sign/ })).toBeVisible();
+  await page.getByRole("button", { name: "Continue to decision", exact: true }).click();
+  await expect(page.getByRole("region", { name: "Admission decision", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Confirm chart", exact: true })).toHaveCount(0);
   const after = (await (await page.request.get(`/api/referrals/${referral.id}`)).json()).referral;
   expect(after).toEqual(before);
 });

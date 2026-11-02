@@ -1,6 +1,6 @@
 import { expect, test, webkit } from "@playwright/test";
 import type { AxeResults } from "axe-core";
-import { createOperationalAssessment, createOperationalReferral } from "./support/operational-api";
+import { createOperationalAssessment, createOperationalReferral, recordOperationalAcceptance } from "./support/operational-api";
 
 for (const scenario of [
   { width: 1440, height: 900, browser: "chromium" },
@@ -22,14 +22,15 @@ for (const scenario of [
       let nativePrompts = 0;
       page.on("dialog", async (dialog) => { nativePrompts++; await dialog.dismiss(); });
       page.on("request", (request) => { if (request.method() === "POST" && request.url().endsWith(`${assessmentUrl}/sign`)) signatures++; });
-      await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentMode=review&assessmentSection=provenance_qc`);
-      const trigger = page.getByRole("button", { name: "Sign assessment", exact: true });
+      await recordOperationalAcceptance(page.request, referral);
+      await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
+      const trigger = page.getByRole("button", { name: "Confirm chart", exact: true });
       await trigger.click();
-      const dialog = page.getByRole("alertdialog", { name: "Sign this assessment?", exact: true });
+      const dialog = page.getByRole("alertdialog", { name: "Everything correct and included?", exact: true });
       await expect(dialog).toBeVisible();
-      await expect(dialog).toHaveAccessibleDescription("You can still edit it until Meet the Client is sent. Changes are logged.");
+      await expect(dialog).toHaveAccessibleDescription("Confirm the chart is ready for Meet the Client.");
       const cancel = dialog.getByRole("button", { name: "Cancel", exact: true });
-      const sign = dialog.getByRole("button", { name: "Sign assessment", exact: true });
+      const sign = dialog.getByRole("button", { name: "Confirm & continue", exact: true });
       await expect(cancel).toBeFocused();
       // The confirmation enters with the shared motion; measure its settled position.
       await expect.poll(async () => {
@@ -68,7 +69,7 @@ for (const scenario of [
 
       await trigger.click();
       await sign.click();
-      await expect(page.getByRole("region", { name: "Admission decision", exact: true })).toBeVisible();
+      await expect(page.getByRole("region", { name: "Email and referral packet", exact: true })).toBeVisible();
       expect(signatures).toBe(1);
       const saved = await read();
       expect(saved.signed_at).toBeTruthy();

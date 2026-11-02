@@ -19,10 +19,9 @@ test.describe("assessment preparation", () => {
         await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}`);
         const stages = page.getByRole("navigation", { name: "Workspace stages", exact: true });
         await stages.getByRole("button", { name: "Assessment", exact: true }).click();
-        if (process.env.PIPELINE_DESIGN_V2 === "true") await page.getByRole("button", { name: "Prepare assessment", exact: true }).click();
         const editor = page.locator("[data-assessment-view]");
         await expect(editor).toBeVisible();
-        await expect(stages.getByRole("button", { name: "Assessment", exact: true })).toHaveAttribute("aria-current", "page");
+        await expect(stages.getByRole("button", { name: "Chart", exact: true })).toHaveAttribute("aria-current", "page");
         await expect(page.getByRole("dialog", { name: "Schedule interview", exact: true })).toHaveCount(0);
         const list = await api.get(`/api/referrals/${referral.id}/assessments`);
         const records = (await list.json()).assessments as PipelineAssessmentRecord[];
