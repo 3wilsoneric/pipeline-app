@@ -85,7 +85,7 @@ test("keeps scheduling methods, keyboard focus, and unsaved appointment edits us
   await expect(save).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
-  await page.getByRole("region", { name: "Interview", exact: true }).getByRole("button", { name: "Schedule interview", exact: true }).click();
+  await page.getByRole("button", { name: "Schedule interview", exact: true }).click();
   await expect(dialog).toBeVisible();
   await expect(date).toHaveValue("2027-09-14T09:30");
   await expect(dialog.getByLabel("Assessment duration")).toHaveValue("90");

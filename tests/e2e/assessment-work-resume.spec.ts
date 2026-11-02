@@ -50,7 +50,8 @@ for (const width of [1440, 390]) test(`assessment preparation and appointment dr
   expect((await read()).assessment_date).toBeFalsy();
   if (width >= 768) await openAllQuestions(page);
   await waitForAssessmentReady(page);
-  await page.getByRole("region", { name: "Interview", exact: true }).getByRole("button", { name: "Schedule interview", exact: true }).click();
+  const schedulingSurface = width >= 768 ? page.getByRole("region", { name: "Interview", exact: true }) : page;
+  await schedulingSurface.getByRole("button", { name: "Schedule interview", exact: true }).click();
   await expect(dialog.getByLabel("Phone number to call", { exact: true })).toHaveValue("555-0100");
   await dialog.getByRole("button", { name: "Schedule interview", exact: true }).click();
   await expect(dialog).toHaveCount(0);
