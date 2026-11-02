@@ -22,9 +22,14 @@ export type PlatformClientBriefingCase = {
   clientName: string;
   community: string;
   referringCounty: string | null;
+  /** Assigned referral owner, retained for workload context. */
   assessor: string;
+  /** Assessor of record on the assessment, independent of referral ownership. */
+  assessmentAssessor: string | null;
   receivedAt: string | null;
   assessmentCreatedAt: string | null;
+  assessmentStartedAt: string | null;
+  assessmentCompletedAt: string | null;
   assessmentSignedAt: string | null;
   admittedAt: string | null;
   handoffSentAt: string | null;
@@ -43,6 +48,15 @@ function day(value: string | null | undefined) {
 function elapsed(start: string | null, end: string | null) {
   if (!start || !end || end < start) return null;
   return Math.round((Date.parse(end) - Date.parse(start)) / dayMs);
+}
+
+function elapsedMinutes(start: string | null, end: string | null) {
+  if (!start || !end) return null;
+  const from = Date.parse(start);
+  const through = Date.parse(end);
+  return Number.isFinite(from) && Number.isFinite(through) && through >= from
+    ? Math.round((through - from) / 60_000)
+    : null;
 }
 
 function median(values: Array<number | null>) {
@@ -88,6 +102,8 @@ export function buildPlatformClientBriefing(input: {
     const assessment = item.assessment;
     const received = day(item.receivedAt);
     const created = day(item.assessmentCreatedAt);
+    const started = item.assessmentStartedAt;
+    const completed = item.assessmentCompletedAt;
     const signed = day(item.assessmentSignedAt);
     const signedBeforeAdmission = signed && signed <= admitted ? signed : null;
     const priorSetting = setting(assessment?.prior_setting_bucket);
@@ -100,8 +116,11 @@ export function buildPlatformClientBriefing(input: {
       community: bounded(item.community, 80) ?? "Unassigned",
       referring_county: bounded(item.referringCounty, 80) ?? "Not recorded",
       assessor: bounded(item.assessor, 100) ?? "Unassigned",
+      assessment_assessor: bounded(item.assessmentAssessor, 100) ?? "Not recorded",
       received_at: received,
       assessment_created_at: created,
+      assessment_started_at: started,
+      assessment_completed_at: completed,
       assessment_signed_at: signed,
       admitted_at: admitted,
       age_at_admission: ageOn(day(item.dateOfBirth), admitted),
@@ -118,6 +137,7 @@ export function buildPlatformClientBriefing(input: {
       handoff_sent: Boolean(item.handoffSentAt),
       days_referral_to_signed: elapsed(received, signedBeforeAdmission),
       days_assessment_to_signed: elapsed(created, signedBeforeAdmission),
+      minutes_assessment_start_to_complete: elapsedMinutes(started, completed),
       days_referral_to_admit: elapsed(received, admitted),
       days_assessment_to_admit: elapsed(created, admitted),
       days_signed_to_admit: elapsed(signed, admitted),
