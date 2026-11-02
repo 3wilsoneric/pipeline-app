@@ -16,7 +16,10 @@ export type WorkflowContext = {
   assessmentExists?: boolean;
   assessmentId?: string | null;
   assessmentAssessorId?: string | null;
+  assessmentAssessorName?: string | null;
   assessmentCreatedAt?: string | null;
+  assessmentStartedAt?: string | null;
+  assessmentCompletedAt?: string | null;
   assessmentSignedAt?: string | null;
   assessmentComplete?: boolean;
   assessmentSigned?: boolean;
