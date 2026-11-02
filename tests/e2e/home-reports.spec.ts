@@ -145,10 +145,18 @@ test.describe("role-scoped home and reports", () => {
 
     await page.setViewportSize({ width: 320, height: 720 });
     await page.goto("/settings");
-    await page.getByRole("link", { name: "Edit Home", exact: true }).click();
-    await expect(page.getByRole("button", { name: "Add module" })).toBeInViewport();
-    await expect(page.getByRole("button", { name: "Done" })).toBeInViewport();
+    await expect(page.getByRole("link", { name: "Edit Home", exact: true })).toHaveCount(0);
+    await page.goto("/");
+    await expect.poll(async () => page.locator("[data-home-module]").evaluateAll((elements) => (
+      elements.map((element) => element.getAttribute("data-home-module"))
+    ))).toEqual(["current-work"]);
+    await expect(page.getByRole("button", { name: "Add module" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Done" })).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await expect.poll(async () => page.locator("[data-home-module]").evaluateAll((elements) => (
+      elements.map((element) => element.getAttribute("data-home-module"))
+    ))).toEqual(["current-work", "scheduling-queue", "search", "recent-work"]);
   });
 
   test("does not display or acknowledge retired Home assignments", async ({ page }) => {

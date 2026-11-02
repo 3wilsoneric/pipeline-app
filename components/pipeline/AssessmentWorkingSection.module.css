@@ -499,11 +499,14 @@
     .scheduleAction svg, .beginAssessment svg { display: none; }
     .preparationMain { overflow-y: auto; }
     .preparationMain .readingContent { flex: 1 0 auto; min-height: auto; }
-    .book.preparing { display: grid; flex: 1 0 auto; gap: 14px; padding: 12px; background: var(--pipeline-surface); }
-    .preparing .editor { border: 1px solid #d1dcd5; border-radius: 6px; }
-    .preparing .questionPage { flex: 1 0 auto; overflow: visible; padding: 20px 16px; }
+    .book.preparing { display: grid; flex: 1 0 auto; gap: 8px; padding: 8px 12px; background: var(--color-paper); }
+    .preparing .editor { border: 0; border-radius: 0; }
+    .preparing .questionPage { flex: 1 0 auto; overflow: visible; padding: 8px 4px 20px; }
+    .preparing .sectionHeading { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
     .preparing .navigation { min-height: 44px; flex-wrap: wrap; gap: 4px; padding: 0 0 6px; }
     .preparing .sectionPicker { flex-basis: 100%; }
+    .preparing .sectionPicture { display: none; }
+    .preparing .sectionPosition { padding-inline: 4px; }
     .preparing .sectionPicker select { flex: 1; width: 0; min-width: 0; min-height: var(--spacing-control); font-size: var(--text-value); text-overflow: ellipsis; }
     .preparing .sectionProgress { display: flex; align-items: center; gap: 12px; width: 100%; max-width: none; padding-inline: 10px; font-size: 12px; }
     .preparing .sectionProgress strong { font-size: 14px; }

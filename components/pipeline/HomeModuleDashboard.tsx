@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import HomeDialog from "@/components/pipeline/HomeDialog";
+import { usePhoneAssessment } from "./use-phone-layout";
 import { toPipelinePath } from "@/lib/pipeline/base-path";
 
 import {
@@ -108,7 +109,9 @@ export default function HomeModuleDashboard({
 }) {
   const [layout, setLayout] = useState(defaultPipelineHomeDashboardLayout);
   const [layoutReady, setLayoutReady] = useState(false);
-  const [editing, setEditing] = useState(initialEditing);
+  const phone = usePhoneAssessment();
+  const [editingRequested, setEditing] = useState(initialEditing);
+  const editing = editingRequested && !phone;
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [draggedModuleId, setDraggedModuleId] = useState<PipelineHomeModuleId | null>(null);
   const [saveStatus, setSaveStatus] = useState("");
@@ -127,10 +130,10 @@ export default function HomeModuleDashboard({
     };
   }, [viewerId]);
 
-  const searchVisible = layout.module_ids.includes("search");
+  const searchVisible = !phone && layout.module_ids.includes("search");
   // Upcoming assessments now has a fixed Home ribbon; New assignments is retired from Home.
   // Keep stored IDs readable without exposing obsolete modules in Arrange Home.
-  const visibleOptionalIds = layout.module_ids.filter((id) => id !== "current-work" && id !== "new-assignments" && id !== "upcoming-assessments");
+  const visibleOptionalIds = phone ? [] : layout.module_ids.filter((id) => id !== "current-work" && id !== "new-assignments" && id !== "upcoming-assessments");
   const optionalModuleIds = visibleOptionalIds;
   useEffect(() => onSearchVisibilityChange(searchVisible), [searchVisible, onSearchVisibilityChange]);
 
@@ -290,7 +293,7 @@ export default function HomeModuleDashboard({
         </div>
       )}
 
-      {libraryOpen ? (
+      {libraryOpen && !phone ? (
         <HomeModuleLibrary
           selected={["current-work", ...optionalModuleIds]}
           onAdd={(moduleIds) => {

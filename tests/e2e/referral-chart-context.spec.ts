@@ -20,8 +20,10 @@ test("intake referrer details seed the assessment without copying earlier medica
   }, { assigneeId: "provisional:allo:annette" });
   await page.goto(`/?view=referrals&screen=packet&referralId=${created.id}&workspaceStage=chart`);
   const header = page.getByTestId("workspace-folder-header");
-  await expect(header.getByRole("button", { name: "Move workspace to trash" })).toBeVisible();
-  expect((await header.boundingBox())!.height).toBeLessThanOrEqual(100);
+  await expect(header.getByRole("button", { name: "Move workspace to trash" })).toBeHidden();
+  const name = header.getByRole("heading", { name: created.name!, exact: true });
+  await expect(name).toBeVisible();
+  expect(await name.evaluate(element => element.scrollHeight <= element.clientHeight)).toBe(true);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   const chart = page.getByRole("article", { name: "Referral chart", exact: true });
   await expect(chart.locator('[data-chart-field="Referrer name"]')).toContainText("County coordinator");

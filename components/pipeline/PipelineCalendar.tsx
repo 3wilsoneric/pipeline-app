@@ -15,6 +15,8 @@ import {
   SchedulingQueue,
 } from "@/components/pipeline/PipelineCalendarPresentation";
 import { useConfirmationDialog } from "./useConfirmationDialog";
+import { usePhoneAssessment } from "./use-phone-layout";
+import { isAssignedToUser } from "@/lib/pipeline/referral-ownership";
 import calendarStyles from "./CalendarWork.module.css";
 import { usePipelineAuth } from "@/components/auth/PipelineAuthProvider";
 import {
@@ -56,6 +58,7 @@ import { loadPipelineWorkspaceResumeLocation } from "@/lib/pipeline/work-continu
 
 export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">, location?: PipelineWorkspaceLocation) => void }) {
   const { initialUser } = usePipelineAuth();
+  const phone = usePhoneAssessment();
   const navigationKey = initialUser?.id ?? "calendar";
   const calendarElement = useRef<HTMLElement>(null);
   const restoreScroll = useRef<number | null>(null);
@@ -63,8 +66,10 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
   const [anchor, setAnchor] = useState(todayKey);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [community, setCommunity] = useState("");
-  const [owner, setOwner] = useState("");
-  const [mySchedule, setMySchedule] = useState(true);
+  const [ownerChoice, setOwner] = useState("");
+  const owner = phone ? "" : ownerChoice;
+  const [personalChoice, setMySchedule] = useState(true);
+  const mySchedule = phone || personalChoice;
   const [showFilters, setShowFilters] = useState(false);
   const [queueOpen, setQueueOpen] = useState(false);
   const [queueSearch, setQueueSearch] = useState("");
@@ -89,7 +94,8 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
   const [navigationReady, setNavigationReady] = useState(false);
   const [requestState, setRequestState] = useState({ key: "", loading: false, error: "" });
   const calendarState = resolveCalendarState(cache[requestKey], requestState, requestKey);
-  const { snapshot, loading, refreshing, error, events, unscheduled, scope, viewer } = calendarState;
+  const { snapshot, loading, refreshing, error, events, unscheduled, scope: backendScope, viewer } = calendarState;
+  const scope = phone ? "personal" : backendScope;
 
   useEffect(() => {
     const saved = calendarNavigation.get(navigationKey);
@@ -104,8 +110,8 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
   }, [navigationKey]);
 
   useEffect(() => {
-    if (navigationReady) calendarNavigation.set(navigationKey, { view, anchor, community, owner, mine: mySchedule, scrollTop: calendarNavigation.get(navigationKey)?.scrollTop ?? 0 });
-  }, [navigationReady, navigationKey, view, anchor, community, owner, mySchedule]);
+    if (navigationReady) calendarNavigation.set(navigationKey, { view, anchor, community, owner: ownerChoice, mine: personalChoice, scrollTop: calendarNavigation.get(navigationKey)?.scrollTop ?? 0 });
+  }, [navigationReady, navigationKey, view, anchor, community, ownerChoice, personalChoice]);
 
   useEffect(() => {
     if (!snapshot || restoreScroll.current === null) return;
@@ -220,14 +226,14 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
   const visibleEvents = calendarEvents.filter((event) => (
     (!community || event.community === community)
     && (!owner || ownerKey(event.ownerId, event.owner) === owner)
-    && (scope === "personal" || !mySchedule || (Boolean(viewer?.id) && event.ownerId === viewer?.id))
+    && (backendScope === "personal" || !mySchedule || (viewer && isAssignedToUser(event, { id: viewer.id, name: initialUser?.name ?? "", email: initialUser?.email })))
   ));
   const appointments = visibleEvents.filter((event) => event.kind === "assessment");
   const followUps = visibleEvents.filter((event) => event.kind === "follow_up");
   const continuing = (snapshot?.continuing ?? []).filter((event) => (
     (!community || event.community === community)
     && (!owner || ownerKey(event.ownerId, event.owner) === owner)
-    && (scope === "personal" || !mySchedule || event.ownerId === viewer?.id)
+    && (backendScope === "personal" || !mySchedule || (viewer && isAssignedToUser(event, { id: viewer.id, name: initialUser?.name ?? "", email: initialUser?.email })))
   ));
   const eventsByDate = groupEventsByDate(appointments);
   const hasFilters = hasCalendarFilters(community, owner);

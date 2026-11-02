@@ -2554,14 +2554,14 @@ export default function AssessmentWorkspace({
   // In full screen the rail is hidden, so the bottom bar shows the save status again.
   const renderSaveStatus = () => (
     <div className={workingStyles.footerUtilities}>
-          <span data-guide-target="assessment-save-status" role="status" aria-live="polite" className={`flex min-w-0 items-center gap-1.5 ${saveIndicatorColor()}`}>
+          <span data-guide-target="assessment-save-status" data-assessment-saved={!error && networkOnline && pendingOfflineSaves === 0 && !dirty && !isBusy || undefined} role="status" aria-live="polite" className={`flex min-w-0 items-center gap-1.5 ${saveIndicatorColor()}`}>
             {!error && networkOnline && pendingOfflineSaves === 0 && !dirty && !isBusy ? <Check size={14} className="shrink-0" aria-hidden="true" /> : null}
             <span>{assessmentSaveStatus({ error, trainingAssessmentMode, dirty, message, networkOnline, pendingOfflineSaves })}</span>
           </span>
           {renderReturnToInterview()}
           {/* Redesign: while answering, Details would hold only the interview date, so the date sits in the bar itself. */}
           {embeddedFolder && designV2 && !reviewingChart && !(selected.signed_at && canAddAddendum)
-            ? <button type="button" className={workingStyles.saveRecovery} onClick={(event) => { event.currentTarget.focus(); setShowInterviewDate(true); }}><CalendarClock size={15} aria-hidden="true" />Interview date{draft.assessment_date ? `: ${draft.assessment_date}` : ""}</button>
+            ? <button type="button" data-interview-date className={workingStyles.saveRecovery} title={`Interview date${draft.assessment_date ? `: ${draft.assessment_date}` : ""}`} onClick={(event) => { event.currentTarget.focus(); setShowInterviewDate(true); }}><CalendarClock size={18} aria-hidden="true" /><span className={phoneLayout ? "sr-only" : undefined}>Interview date{draft.assessment_date ? `: ${draft.assessment_date}` : ""}</span></button>
             : embeddedFolder && assessmentDetails ? <AssessmentFileDetails label="Details" detailsRef={secondaryActionsRef}>{assessmentDetails}</AssessmentFileDetails> : null}
         </div>
   );
@@ -2743,7 +2743,7 @@ export default function AssessmentWorkspace({
   // entry); in the signed review it draws the plain chart there instead.
   const stackedChart = chartSlot ? (assessmentReview ? plainStackedChart : createPortal(renderChartReview(), chartSlot)) : null;
   return (<>{stackedChart}
-    {designV2 && referral && !trainingAssessmentMode && workspaceActive && questionsOnScreen && !phoneInterview ? <ChartPeek key={referral.id} referral={referral} assessment={{ ...selected, ...draft }} source={chartReferenceSource} /> : null}
+    {designV2 && referral && !trainingAssessmentMode && workspaceActive && questionsOnScreen && !phoneLayout ? <ChartPeek key={referral.id} referral={referral} assessment={{ ...selected, ...draft }} source={chartReferenceSource} /> : null}
     <AssessmentFileSurface
       title={workspaceTitle}
       container={contentRef.current}

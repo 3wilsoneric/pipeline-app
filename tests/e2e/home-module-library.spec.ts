@@ -116,7 +116,12 @@ for (const width of [1440, 390]) {
     await expect(card).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(page.getByRole("button", { name: /^(Remove Board from Home|Move Board)$/ })).toHaveCount(0);
-    await page.getByRole("button", { name: "Done", exact: true }).click();
+    if (width < 640) {
+      await expect(page.getByRole("button", { name: "Done", exact: true })).toHaveCount(0);
+      await expect(page.getByRole("button", { name: "Add module", exact: true })).toHaveCount(0);
+    } else {
+      await page.getByRole("button", { name: "Done", exact: true }).click();
+    }
     await page.reload();
     await work.getByRole("button", { name: "Open in progress folder", exact: true }).click();
     await expect(card).toBeVisible();
@@ -142,8 +147,11 @@ test("keeps optional Home modules below the focus deck on a warm responsive canv
   await page.screenshot({ path: testInfo.outputPath("home-surfaces-desktop.png"), animations: "disabled", fullPage: true });
 
   await page.setViewportSize({ width: 390, height: 844 });
+  await expect.poll(() => moduleOrder(page)).toEqual(["current-work"]);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   await page.screenshot({ path: testInfo.outputPath("home-surfaces-mobile.png"), animations: "disabled", fullPage: true });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect(page.locator('[data-home-surface="true"]')).toHaveCount(4);
 });
 
 test("removes search and recent work, adds a batch once, and keeps canceled selections out of Home", async ({ page }) => {
@@ -186,7 +194,7 @@ test("keeps header search usable without the Home search module", async ({ page 
   await expect.poll(() => moduleOrder(page)).toEqual(["current-work"]);
 });
 
-for (const width of [390, 1440]) {
+for (const width of [834, 1440]) {
   test(`module screenshots enlarge without changing selection at ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 900 });
     const writes = await mockLayout(page, ["current-work"]);
@@ -277,7 +285,22 @@ test("captures real Home module previews with synthetic data", async ({ page, ba
 });
 });
 
-for (const width of [390, 834, 1440]) {
+test("phone edit links keep personal work visible without changing the desktop layout", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const writes = await mockLayout(page, ["current-work", "search", "recent-work"]);
+  await page.goto("/?editHome=1");
+  await expect.poll(() => moduleOrder(page)).toEqual(["current-work"]);
+  await expect(page.getByRole("button", { name: "Add module", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Done", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("dialog", { name: "Home module library" })).toHaveCount(0);
+  expect(writes).toHaveLength(0);
+  await page.setViewportSize({ width: 834, height: 900 });
+  await expect.poll(() => moduleOrder(page)).toEqual(["current-work", "search", "recent-work"]);
+  await expect(page.getByRole("button", { name: "Add module", exact: true })).toBeVisible();
+  expect(writes).toHaveLength(0);
+});
+
+for (const width of [834, 1440]) {
   test(`module library fits ${width}px, keeps background controls inert, and restores focus`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 900 });
     await mockLayout(page, ["current-work"]);

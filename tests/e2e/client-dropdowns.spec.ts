@@ -370,6 +370,7 @@ test("keeps Reports free of filter pickers and preserves Calendar picker styling
     await expect(page.getByRole("combobox", { name: "Report", exact: true })).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   }
+  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/?screen=calendar");
   await page.getByRole("button", { name: "Show calendar filters" }).click();
   const assessor = page.getByLabel("Filter calendar by assessor");
@@ -389,6 +390,11 @@ test("keeps Reports free of filter pickers and preserves Calendar picker styling
   await assessor.click();
   await option.click();
   await expect(assessor).toHaveValue(value);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(assessor).toHaveCount(0);
+  await expect(page.getByRole("group", { name: "Whose schedule", exact: true })).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.unrouteAll({ behavior: "wait" });
 });
 
 test("styles intake pickers and contact suggestions without changing selection behavior", async ({ page }, testInfo) => {

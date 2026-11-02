@@ -6,7 +6,7 @@ const owner = { id: "f73371d5-d2b4-48b4-a32b-1edc7c88869f", email: "ericwilsonal
 const person = { id: "fixture-assessor", name: "Synthetic Assessor", email: "assessor@example.invalid", last_seen_at: "2026-09-26T03:00:00Z", last_sign_in_at: "2026-09-26T02:00:00Z", sign_ins: 1, recorded_actions: 2 };
 const event = { id: "first", actor_id: person.id, actor_name: person.name, action: "referral_updated", entity_type: "referral", entity_id: "42", fields: ["Primary assignee", "Admission date"], created_at: "2026-09-26T03:00:00Z", workspace: { id: 42, name: "Synthetic Client", deleted: false } };
 
-for (const width of [1440, 1024, 390]) test(`owner activity is readable, filterable and accessible at ${width}px`, async ({ page }) => {
+for (const width of [1440, 1024, 834]) test(`owner activity is readable, filterable and accessible at ${width}px`, async ({ page }) => {
   await page.setViewportSize({ width, height: 900 });
   await page.route("**/api/auth/me", (route) => route.fulfill({ json: { user: owner } }));
   await page.route("**/api/operations/azure-usage", (route) => route.fulfill({ json: {
@@ -94,6 +94,16 @@ for (const width of [1440, 1024, 390]) test(`owner activity is readable, filtera
   await page.screenshot({ path: `.data/activity-${width}.png` });
   await dialog.getByRole("button", { name: "Close application activity" }).click();
   await expect(card).toBeFocused();
+});
+
+test("phone Home keeps owner monitoring out of the personal assessment workflow", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.route("**/api/auth/me", route => route.fulfill({ json: { user: owner } }));
+  await page.goto("/");
+  await expect(page.getByRole("region", { name: "Current work", exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Live database usage" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Open application activity" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Upcoming assessments", exact: true })).toBeVisible();
 });
 
 test("other admins do not get the card or access to the reporting endpoint", async ({ page }) => {

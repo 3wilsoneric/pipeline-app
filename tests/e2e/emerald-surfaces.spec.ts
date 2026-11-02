@@ -149,7 +149,13 @@ for (const width of [1440, 390]) {
       await expect(last.locator("[data-folder-details]")).toContainText("San Pablo");
       await expect(last.locator("[data-folder-details]")).not.toContainText("File progress");
       await expect(last.locator("[data-folder-details]")).not.toContainText("documents needed");
-      await expect(last).toContainText("Example Assessor");
+      if (width < 640) {
+        await expect(last).not.toContainText("Example Assessor");
+        await expect(stack.getByRole("button", { name: "All", exact: true })).toHaveCount(0);
+        await expect(stack.getByRole("button", { name: "Mine", exact: true })).toHaveCount(0);
+      } else {
+        await expect(last).toContainText("Example Assessor");
+      }
       await last.scrollIntoViewIfNeeded();
       expect(await last.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
       await stack.evaluate(async (element) => {

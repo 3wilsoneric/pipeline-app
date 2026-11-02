@@ -125,7 +125,9 @@ test.describe("Pipeline calendar characterization", () => {
     for (const width of [834, 390]) {
       await page.setViewportSize({ width, height: 932 });
       await expect(width < 621 ? page.getByRole("combobox", { name: "Calendar view", exact: true }) : page.getByRole("button", { name: "week", exact: true })).toBeVisible();
-      for (const name of ["Show calendar filters", "Refresh calendar", "Scheduling queue 30"]) {
+      const queueName = `Scheduling queue ${width < 640 ? 15 : 30}`;
+      await expect(page.getByRole("button", { name: queueName, exact: true })).toBeVisible();
+      for (const name of ["Show calendar filters", "Refresh calendar", queueName]) {
         const control = await page.getByRole("button", { name, exact: true }).boundingBox();
         expect(control).not.toBeNull();
         expect(control!.x).toBeGreaterThanOrEqual(0);

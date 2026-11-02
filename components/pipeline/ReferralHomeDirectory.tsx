@@ -23,6 +23,7 @@ import type { LucideIcon } from "lucide-react";
 import PipelineArcadeLoader from "@/components/pipeline/PipelineArcadeLoader";
 import ReferralWorklist from "@/components/pipeline/ReferralWorklist";
 import WorkspaceMultiFilter from "@/components/pipeline/WorkspaceMultiFilter";
+import { usePhoneAssessment } from "./use-phone-layout";
 import type { ClientFileImportReviewItem } from "@/lib/pipeline/client-file-import-contracts";
 import { formatClientIdentityTitle } from "@/lib/pipeline/client-identity-presentation.mjs";
 import { pipelineCommunities } from "@/lib/pipeline/community-config";
@@ -213,6 +214,7 @@ function ReferralFilterToolbar(props: ReferralHomeDirectoryProps) {
 }
 
 function ReferralFilterControls(props: ReferralHomeDirectoryProps) {
+  const phone = usePhoneAssessment();
   return (
     <>
       <WorkspaceMultiFilter label="Filter workspaces by community" noun="communities" values={referralFilterCommunities(props.filter)} options={props.recordedCommunityFacets.map((community) => community.value)} onChange={(communities) => props.onFilterChange({ ...props.filter, communities })} />
@@ -220,7 +222,7 @@ function ReferralFilterControls(props: ReferralHomeDirectoryProps) {
         <option value="">All counties</option>
         {props.facets.counties.map((county) => <option key={county.value} value={county.value}>{county.value} ({formatDirectoryCount(county.count)})</option>)}
       </select>
-      <WorkspaceMultiFilter label="Filter by owner" noun="owners" values={props.filter.owners ?? []} options={props.ownerOptions} onChange={(owners) => props.onFilterChange({ ...props.filter, owners })} />
+      {!phone ? <WorkspaceMultiFilter label="Filter by owner" noun="owners" values={props.filter.owners ?? []} options={props.ownerOptions} onChange={(owners) => props.onFilterChange({ ...props.filter, owners })} /> : null}
     </>
   );
 }
@@ -250,13 +252,14 @@ function FileFilterSelects(props: ReferralHomeDirectoryProps) {
 }
 
 function WorkspaceDirectoryNavigation(props: ReferralHomeDirectoryProps) {
+  const phone = usePhoneAssessment();
   return (
     <aside aria-label="Workspace navigation" className="min-w-0 bg-white pt-0 xl:sticky xl:top-0 xl:self-start">
-      <nav aria-label="Workspace views" className="grid grid-cols-4 gap-2 pb-2 xl:block xl:space-y-1 xl:pb-0">
+      <nav aria-label="Workspace views" className={`grid ${phone ? "grid-cols-3" : "grid-cols-4"} gap-2 pb-2 xl:block xl:space-y-1 xl:pb-0`}>
         <WorkspaceNavItem icon={FolderOpen} label="Current" compactLabel="Now" active={props.filter.kind === "all"} onClick={() => props.onFilterChange({ kind: "all" })} />
         <WorkspaceNavItem icon={FolderCheck} label="Completed" compactLabel="Done" active={props.filter.kind === "completed"} onClick={() => props.onFilterChange({ kind: "completed" })} />
         <WorkspaceNavItem icon={FolderCheck} label="Admitted" compactLabel="Admit" active={props.filter.kind === "admitted"} onClick={() => props.onFilterChange({ kind: "admitted" })} />
-        <WorkspaceNavItem icon={Files} label="All files" compactLabel="Files" active={props.filter.kind === "files"} onClick={props.onShowFiles} />
+        {!phone ? <WorkspaceNavItem icon={Files} label="All files" compactLabel="Files" active={props.filter.kind === "files"} onClick={props.onShowFiles} /> : null}
       </nav>
       <button type="button" aria-label="Browse workspaces by month and community" onClick={() => props.onBrowseOpenChange(true)} className="mt-1 flex h-11 w-full items-center gap-3 border border-[#d9dfdc] bg-[#f8faf9] px-3 text-left text-[#303638] outline-none hover:border-[#9fcfc2] hover:bg-[#f2f8f6] focus-visible:ring-2 focus-visible:ring-[#0f8b73] xl:hidden">
         <CalendarDays size={16} className="shrink-0 text-[#0c705f]" aria-hidden="true" /><span className="min-w-0 flex-1 truncate text-[12px] font-black">{referralScopeLabel(props.filter)}</span><ChevronRight size={15} className="shrink-0 text-[#737373]" aria-hidden="true" />

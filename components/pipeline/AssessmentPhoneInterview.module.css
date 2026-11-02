@@ -4,7 +4,7 @@
   .toolbar button { display: flex; align-items: center; justify-content: space-between; gap: 6px; min-height: 44px; min-width: 44px; font-size: 13px; font-weight: 650; text-align: left; }
   .toolbar button:first-child { flex: 1; min-width: 0; }
   .toolbar button:first-child > span { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 14px; line-height: 1.35; letter-spacing: -.015em; }
-  .toolbar strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 650; }
+  .toolbar strong { min-width: 0; white-space: normal; overflow-wrap: anywhere; font-size: var(--text-label); line-height: var(--text-label--line-height); font-weight: 650; }
   .toolbar small { flex-shrink: 0; color: var(--color-ink-muted); font-size: var(--text-meta); font-weight: 500; white-space: nowrap; }
   .toolbar svg { flex-shrink: 0; }
   .toolbar button:last-child { flex-shrink: 0; justify-content: center; gap: 7px; min-height: 44px; padding-inline: 10px; border: 1px solid var(--color-control-border); border-radius: 8px; background: #f5f9f7; color: #245d46; font-size: 13px; line-height: 1.2; }
@@ -89,3 +89,17 @@
 /* Keep the working decision and save status on one row on short touch screens. */
 .mobileFooter [aria-label="Placement recommendation"] { min-height: var(--spacing-control); }
 .mobileFooter [aria-label="Placement recommendation"] label { display: flex; align-items: center; gap: 12px; }
+
+/* One compact utility row leaves the phone's working area to the question.
+   Pending, offline and failed saves keep their full status and recovery controls. */
+.mobileFooter:not([data-assessment-chart-review]) { display: flex; flex-wrap: wrap; align-items: center; padding-inline: 12px; }
+.mobileFooter:not([data-assessment-chart-review]) > section { flex: 1 1 0; min-width: 0; }
+.mobileFooter [data-quick-recommendation] > svg { display: none; }
+.mobileFooter [data-quick-recommendation] label { gap: 8px; }
+.mobileFooter [data-quick-recommendation] label > span { max-width: 72px; font-size: var(--text-meta); line-height: var(--text-meta--line-height); }
+.mobileFooter [data-quick-recommendation] select { width: 120px; flex: 1; }
+.mobileFooter:not([data-assessment-chart-review]) > div:has([data-assessment-saved]) { flex: 0 0 auto; flex-wrap: nowrap; gap: 6px; }
+.mobileFooter [data-assessment-saved] { flex: 0 0 auto; min-height: var(--spacing-control); }
+.mobileFooter [data-assessment-saved] > span { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.mobileFooter [data-interview-date] { width: var(--spacing-control); min-width: var(--spacing-control); justify-content: center; }
+.mobileFooter:not([data-assessment-chart-review]) > div:has([data-guide-target="assessment-save-status"]:not([data-assessment-saved])) { flex-basis: 100%; }

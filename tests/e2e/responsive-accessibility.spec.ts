@@ -23,7 +23,8 @@ test.describe("Responsive and accessible application shell", () => {
     if (phone) await page.getByRole("button", { name: /^Open page menu/ }).click();
     if (!phone) await expect(page.getByRole("button", { name: "Pipeline home" }).getByText("Home", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Pipeline home" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Open reports" })).toBeVisible();
+    if (phone) await expect(page.getByRole("button", { name: "Open reports" })).toHaveCount(0);
+    else await expect(page.getByRole("button", { name: "Open reports" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Create new referral" })).toBeVisible();
 
     if (phone) await page.getByRole("button", { name: "Close page menu", exact: true }).click();
@@ -142,7 +143,7 @@ test.describe("Responsive and accessible application shell", () => {
         body: JSON.stringify({ error: "Referral refresh is temporarily unavailable." }),
       });
     });
-    await page.getByLabel("Search all workspaces").fill("trigger refresh failure");
+    await page.getByLabel(/Search (all|my) workspaces/).fill("trigger refresh failure");
     const failure = page.getByRole("alert").filter({ hasText: "Referral refresh is temporarily unavailable." });
     await expect(failure).toContainText("Referral refresh is temporarily unavailable.");
     await expect(failure.getByRole("button", { name: "Retry" })).toBeVisible();

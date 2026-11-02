@@ -12,16 +12,14 @@ async function setup(page: Page, mode: "prepare" | "interview" = "prepare") {
   if (mode === "interview") await startOperationalAssessment(page.request, assessment);
   const url = `/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentMode=${mode}&assessmentSection=diagnosis_clinical`;
   await page.goto(url);
-  const trigger = page.viewportSize()!.width < 640
-    ? page.getByRole("button", { name: "Open Chart reference", exact: true })
-    : page.getByRole("navigation", { name: "Workspace stages", exact: true }).getByRole("button", { name: "Chart", exact: true });
+  const trigger = page.getByRole("navigation", { name: "Workspace stages", exact: true }).getByRole("button", { name: "Chart", exact: true });
   await expect(trigger).toBeVisible();
   await expect(trigger).toHaveAttribute("aria-keyshortcuts", "Alt+C");
   const openReference = async () => { await trigger.focus(); await page.keyboard.press("Alt+c"); };
   return { referral, assessment, url, trigger, openReference, panel: page.getByRole("complementary", { name: "Chart reference", exact: true }) };
 }
 
-for (const width of [1440, 834, 390, 320]) test(`Chart reference stays usable with the assessment at ${width}px`, async ({ page }, info) => {
+for (const width of [1440, 834]) test(`Chart reference stays usable with the assessment at ${width}px`, async ({ page }, info) => {
   await page.setViewportSize({ width, height: 950 });
   const { referral, assessment, trigger, openReference, panel } = await setup(page);
   const before = await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json();
@@ -52,6 +50,27 @@ for (const width of [1440, 834, 390, 320]) test(`Chart reference stays usable wi
   await page.keyboard.press("Escape");
   await expect(panel).toHaveCount(0);
   await expect(trigger).toBeFocused();
+});
+
+for (const width of [390, 320]) test(`phone preparation references Chart through the stage picker at ${width}px`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 844 });
+  const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: `Synthetic Phone Chart ${randomUUID().slice(0, 8)}`, owner: "", community: "San Pablo" });
+  const response = await page.request.post(`/api/referrals/${referral.id}/assessments`, { data: { client_mutation_id: randomUUID(), data: { current_symptoms: "Synthetic prepared answer" } } });
+  expect(response.status()).toBe(201);
+  const { assessment } = await response.json();
+  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentMode=prepare&assessmentSection=diagnosis_clinical`);
+  const answer = page.getByRole("textbox", { name: "Current symptoms", exact: true });
+  await expect(answer).toHaveValue("Synthetic prepared answer");
+  await expect(page.getByRole("button", { name: "Open Chart reference", exact: true })).toHaveCount(0);
+  const picker = page.getByRole("combobox", { name: "Workspace view", exact: true });
+  await picker.selectOption({ label: "Chart" });
+  await expect(page.getByRole("article", { name: "Referral chart", exact: true })).toContainText(referral.name!);
+  await picker.selectOption({ label: "Assessment" });
+  await expect(answer).toHaveValue("Synthetic prepared answer");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  const saved = (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
+  expect(saved.current_symptoms).toBe("Synthetic prepared answer");
+  expect(saved.version).toBe(assessment.version);
 });
 
 test("holding Chart lifts a chart, dropping opens a reference without navigating or losing an answer", async ({ page }, info) => {

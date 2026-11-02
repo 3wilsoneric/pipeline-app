@@ -10,6 +10,7 @@ import { canAccessOperationsReports, canAccessSupervisorOperations } from "@/lib
 import ContactDirectoryImport from "@/components/pipeline/ContactDirectoryImport";
 import OutlookConnectionSetup from "./OutlookConnectionSetup";
 import { useStaffProfile } from "./useStaffProfile";
+import { usePhoneAssessment } from "./use-phone-layout";
 import { usePersonaSwitchSave } from "@/lib/demo/persona-switch-save";
 import styles from "./StaffProfileSettings.module.css";
 
@@ -22,6 +23,7 @@ const timeZones = [
 ];
 
 export default function StaffProfileSettings() {
+  const phone = usePhoneAssessment();
   const { member, draft, loading, saving, message, controller, reload } = useStaffProfile();
   const form = draft.form;
   const conflict = Boolean(draft.conflict);
@@ -77,13 +79,13 @@ export default function StaffProfileSettings() {
           <ContactSettings member={member} />
           <OutlookConnectionSetup mode="settings" />
           {renderProfileForm(member)}
-          <section className={styles.card} aria-label="Workspace settings">
+          {!phone ? <section className={styles.card} aria-label="Workspace settings">
             <Link href="/?editHome=1" aria-label="Edit Home" className={styles.settingRow}>
               <span className={styles.icon}><LayoutDashboard size={21} aria-hidden="true" /></span>
               <span className={styles.rowText}><strong>Home layout</strong><span>Choose and arrange the sections on your Home screen.</span></span>
               <ArrowRight size={19} aria-hidden="true" />
             </Link>
-          </section>
+          </section> : null}
           <section className={styles.account} aria-labelledby="settings-account">
             <div className={styles.sectionHeader}><h2 id="settings-account">Account & access</h2><p>Managed by your organization.</p></div>
             <dl className={styles.accountFields}>

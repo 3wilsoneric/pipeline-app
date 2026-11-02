@@ -72,10 +72,10 @@ for (const [name, engine] of [["Chromium", chromium], ["WebKit", webkit]] as con
         await expect(directory.getByRole("button", { name: /Open .* referral workspace/ })).toHaveCount(50);
         await directory.getByRole("button", { name: "Next", exact: true }).click();
         await expect(directory.getByRole("button", { name: "Open Avery Secondpage referral workspace", exact: true })).toBeVisible();
-        await directory.getByRole("searchbox", { name: "Search all workspaces" }).fill("Zoe");
+        await directory.getByRole("searchbox", { name: width < 640 ? "Search my workspaces" : "Search all workspaces" }).fill("Zoe");
         await expect(directory.getByRole("button", { name: "Open Zoe Faraway referral workspace", exact: true })).toBeVisible();
         expect(requests.at(-1)?.searchParams.get("workspace")).toBe("all");
-        expect(requests.at(-1)?.searchParams.get("scope")).toBe("team");
+        expect(requests.at(-1)?.searchParams.get("scope")).toBe(width < 640 ? "mine" : "team");
         expect(requests.at(-1)?.searchParams.has("cursor")).toBe(false);
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
         await page.screenshot({ path: info.outputPath(`directory-${name}-${width}.png`) });

@@ -605,7 +605,7 @@ test.describe("Referral home and packet canvas", () => {
     await page.goto("/?screen=profiles");
     const profilesMain = page.getByRole("main", { name: "Client profiles" });
     await expect(profilesMain).toBeVisible();
-    expect((await profilesMain.boundingBox())?.y).toBe(expectedSurfaceTop);
+    await expect.poll(async () => (await profilesMain.boundingBox())?.y).toBe(expectedSurfaceTop);
 
     await page.getByRole("button", { name: "Create new referral" }).click();
     await expect(page.getByTestId("packet-workspace")).toHaveAttribute("aria-busy", "false");
