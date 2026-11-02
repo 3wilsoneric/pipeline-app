@@ -232,8 +232,8 @@ test("Chart leads to assessment scheduling, cancel books nothing, and a saved ti
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=chart`);
   const contact = page.getByRole("region", { name: "Chart", exact: true });
   await expect(contact.getByRole("button", { name: "Schedule interview", exact: true })).toHaveCount(0);
-  await contact.getByRole("button", { name: "Open assessment", exact: true }).click();
-  await page.getByRole("region", { name: "Assessment progress", exact: true }).getByRole("button", { name: "Schedule interview", exact: true }).click();
+  await contact.getByRole("button", { name: "Assessment prep", exact: true }).click();
+  await page.getByRole("region", { name: "Interview", exact: true }).getByRole("button", { name: "Schedule interview", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Schedule interview", exact: true });
   await expect(dialog).toBeVisible();
 
@@ -246,7 +246,7 @@ test("Chart leads to assessment scheduling, cancel books nothing, and a saved ti
 
   // Assessment opens the same dialog and saves the appointment.
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment`);
-  await page.getByRole("region", { name: "Assessment progress", exact: true }).getByRole("button", { name: "Schedule interview", exact: true }).click();
+  await page.getByRole("region", { name: "Interview", exact: true }).getByRole("button", { name: "Schedule interview", exact: true }).click();
   await expect(dialog).toBeVisible();
   await dialog.getByLabel("Assessment date and time").fill("2026-09-24T10:00");
   await dialog.getByLabel("Assessment method").selectOption("phone");

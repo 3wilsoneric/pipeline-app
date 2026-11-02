@@ -431,8 +431,7 @@ test.describe("workflow interaction and durable feedback", () => {
       const scheduled = (await (await api.get(`/api/assessments/${assessmentId}`)).json()).assessment;
       expect(scheduled.scheduled_start_at).toBe("2026-09-18T17:30:00.000Z");
       expect(scheduled.scheduled_method).toBe("zoom");
-      await page.getByRole("button", { name: "Begin interview", exact: true }).click();
-      await page.getByRole("dialog", { name: "Begin interview", exact: true }).getByRole("button", { name: "Begin interview", exact: true }).click();
+      await page.getByRole("region", { name: "Interview", exact: true }).getByRole("button", { name: "Start now", exact: true }).click();
       await expect(page.getByRole("button", { name: "Begin assessment", exact: true })).toHaveCount(0);
       if (redesign) await expect(page.locator("html")).toHaveAttribute("data-interview-focus", "true");
       else await expect(page.getByRole("button", { name: "Interview", exact: true })).toHaveAttribute("aria-pressed", "true");

@@ -79,7 +79,7 @@ for (const width of [1440, 390]) {
     await page.route(`**/api/referrals/${referral.id}/recommendation`, async (route) => { await gate; await route.continue(); });
     try {
       await recommendation.selectOption("accept");
-      await expect(footer.getByRole("button", { name: "Saving recommendation...", exact: true })).toBeDisabled();
+      await expect(footer.getByRole("button", { name: "Continue to decision", exact: true })).toBeDisabled();
     } finally { release(); }
     await expect(footer.getByRole("button", { name: "Continue to decision", exact: true })).toBeEnabled();
     await expect.poll(async () => (await read()).recommendation?.outcome).toBe("accept");
@@ -118,9 +118,8 @@ test("current information follows only the active section and keeps unverified s
   await page.screenshot({ path: info.outputPath("conversation-context.png") });
 });
 
-// Batch 2, item 5: a concise review before signing, with links back to editable
-// sections and plain language about what signing does and does not finalize.
-test("review summary links back to editable sections and explains signing", async ({ page }, info) => {
+// Review keeps gaps editable; chart confirmation belongs after the decision.
+test("review summary links back to editable sections before the decision", async ({ page }, info) => {
   const { referral, assessment, url } = await createInterview(page);
   await startOperationalAssessment(page.request, assessment);
   const read = async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
@@ -135,9 +134,8 @@ test("review summary links back to editable sections and explains signing", asyn
   const sections = page.getByRole("list", { name: /^Answers by section/ });
   await expect(sections.getByRole("button")).toHaveCount(12);
   await expect(sections.getByRole("button").first()).toContainText("recorded");
-  const signing = page.getByRole("region", { name: "What signing does", exact: true });
-  await expect(signing).toContainText("The decision and email are separate actions");
-  await expect(signing).toContainText("Unanswered items stay unanswered");
+  await expect(page.getByRole("button", { name: "Continue to decision", exact: true })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Confirm chart", exact: true })).toHaveCount(0);
   await expect(page.getByRole("region", { name: "Placement recommendation", exact: true })).toBeVisible();
   await page.screenshot({ path: info.outputPath("assessment-review-summary.png"), fullPage: true, animations: "disabled" });
 

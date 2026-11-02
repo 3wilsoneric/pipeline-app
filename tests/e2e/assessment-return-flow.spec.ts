@@ -78,9 +78,9 @@ for (const width of [1440, 390]) test(`leave, begin deliberately, and resume the
   await page.setViewportSize({ width, height: 900 });
   const { referral, read, home, name } = await scheduledWorkspace(page);
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment`);
-  const progress = page.getByRole("region", { name: "Assessment progress", exact: true });
-  await expect(progress).toHaveAttribute("data-phase", "preparation");
-  await expect(progress.getByLabel("Assessment appointment", { exact: true })).toContainText(/Scheduled.*(PDT|PST)/);
+  const progress = page.getByRole("region", { name: "Interview", exact: true });
+  await expect(page.locator('[data-assessment-phase="preparation"]')).toBeVisible();
+  await expect(progress).toContainText(/PDT|PST/);
   await expect(progress.getByRole("button", { name: "Edit assessment appointment" })).toBeVisible();
   await expect(page.locator("#assessment-assessment_date")).toHaveCount(0);
   expect(await read()).toMatchObject({ started_at: null, assessment_date: null });
@@ -88,7 +88,7 @@ for (const width of [1440, 390]) test(`leave, begin deliberately, and resume the
   await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
   expect(await page.evaluate(async () => {
     const axe = (window as unknown as { axe: { run: (selector: string, options: object) => Promise<AxeResults> } }).axe;
-    return (await axe.run('[aria-label="Assessment progress"]', { runOnly: ["wcag2a", "wcag2aa", "wcag21aa"] })).violations.map(({ id }) => id);
+    return (await axe.run('[aria-label="Interview"]', { runOnly: ["wcag2a", "wcag2aa", "wcag21aa"] })).violations.map(({ id }) => id);
   })).toEqual([]);
   await page.screenshot({ path: info.outputPath(`scheduled-prep-${width}.png`) });
   await progress.getByRole("button", { name: "Edit assessment appointment" }).click();
@@ -99,19 +99,17 @@ for (const width of [1440, 390]) test(`leave, begin deliberately, and resume the
   await expect(entry).toHaveAttribute("title", "Prepare assessment");
   await page.screenshot({ path: info.outputPath(`upcoming-${width}.png`) });
   await entry.click();
+  await expect(page).toHaveURL(new RegExp(`referralId=${referral.id}(?:&|$)`));
+  await expect(progress).toBeVisible();
   const begin = page.getByRole("dialog", { name: "Begin interview", exact: true });
   await expect(begin).toHaveCount(0);
   expect((await read()).started_at).toBeNull();
-  await page.getByRole("button", { name: "Begin interview", exact: true }).click();
-  await expect(begin).toBeVisible();
-  await begin.getByRole("button", { name: "Keep preparing", exact: true }).click();
   await page.reload();
   await expect(progress).toBeVisible();
   await expect(begin).toHaveCount(0);
   expect((await read()).started_at).toBeNull();
-  await page.getByRole("button", { name: "Begin interview", exact: true }).click();
-  await begin.getByRole("button", { name: "Begin interview", exact: true }).click();
-  await expect(begin).toHaveCount(0);
+  await progress.getByRole("button", { name: "Start now", exact: true }).click();
+  await expect.poll(async () => Boolean((await read()).started_at)).toBe(true);
   const started = await read();
   expect(started.started_at).toBeTruthy();
   expect(started.assessment_date).toBe(isoToOperationalInput(started.started_at).slice(0, 10));
