@@ -194,10 +194,16 @@ var platformSummarySecrets = enablePlatformSummary ? [
     keyVaultUrl: '${keyVaultBaseUri}secrets/pipeline-platform-summary-secret'
     identity: keyVaultSecretIdentity
   }
+  {
+    name: 'platform-client-briefing-secret'
+    keyVaultUrl: '${keyVaultBaseUri}secrets/pipeline-platform-client-briefing-secret'
+    identity: keyVaultSecretIdentity
+  }
 ] : []
 
 var platformSummaryEnvironment = enablePlatformSummary ? [
   { name: 'PIPELINE_PLATFORM_SUMMARY_SECRET', secretRef: 'platform-summary-secret' }
+  { name: 'PIPELINE_PLATFORM_CLIENT_BRIEFING_SECRET', secretRef: 'platform-client-briefing-secret' }
 ] : []
 
 var baseEnvironment = [
