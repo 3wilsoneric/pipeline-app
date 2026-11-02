@@ -70,35 +70,18 @@
 .form article[aria-label="Referral intake chart"] > header { background: var(--color-card-warm); border: 0; }
 .form article[aria-label="Referral intake chart"] section + section { border-top: 0; }
 .form article[aria-label="Referral intake chart"] section > h2 { color: var(--color-stage-blue); }
-.created { margin-bottom: 24px; padding: 28px; border-top: 3px solid var(--color-stage-blue); border-radius: var(--radius-paper); background: var(--color-card-warm); color: var(--color-ink); }
-.createdIdentity { display: flex; align-items: center; gap: 20px; }
-.createdIdentity > svg { flex: none; }
-.createdIdentity > div { flex: 1; min-width: 0; }
-.created h2 { font-size: var(--text-title); line-height: var(--text-title--line-height); font-weight: 700; }
-.created p { margin: 8px 0 0; font-size: var(--text-label); line-height: var(--text-value--line-height); color: var(--color-ink-muted); }
-.created button { min-height: var(--spacing-control); border-radius: var(--radius-input); }
+.created { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; color: var(--color-status-done); font-size: var(--text-label); }
+.created > span { flex: 1; }
+.created button { display: grid; place-items: center; width: var(--spacing-control); min-height: var(--spacing-control); border-radius: var(--radius-input); color: var(--color-ink-muted); }
 .created button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 3px; }
-.createdIdentity > button { align-self: start; font-size: var(--text-label); color: var(--color-link); }
-.createdActions { display: flex; margin-top: 20px; }
-.createdActions button { display: flex; align-items: center; gap: 16px; padding: 20px; border: 1px solid var(--color-card-border); background: var(--color-paper); text-align: left; box-shadow: var(--shadow-file); transition: transform var(--duration-move) var(--ease-open); }
-.createdActions button:hover:enabled { transform: translateY(-2px); border-color: var(--color-control-border); }
-.createdActions button > svg { flex: none; }
-.createdActions button > span { flex: 1; min-width: 0; }
-.createdActions strong { display: block; font-size: var(--text-section); }
-.createdActions button:disabled { opacity: .6; }
 @media (prefers-reduced-motion: no-preference) {
   .created { animation: file-open var(--duration-move) var(--ease-open); }
   .sourceTray [aria-label="Queued referral files"] > li { animation: file-open var(--duration-move) var(--ease-open); }
 }
 @keyframes file-open { from { opacity: .3; transform: translateY(12px) rotate(-.4deg); } to { opacity: 1; transform: none; } }
-@media (prefers-reduced-motion: reduce) { .createdActions button { transform: none !important; transition: none; } }
 @media (max-width: 639px) {
   .sourceTray { padding: 12px; }
   .sourceTray > section { gap: 8px 12px; }
   .sourceTray [data-guide-target="initial-packet-upload"] { flex-basis: 100%; }
   .sourceTray > section > p { flex: 1; }
-  .created { padding: 20px 16px; }
-  .createdIdentity { flex-wrap: wrap; gap: 12px; }
-  .createdIdentity > svg { width: 48px; height: 48px; }
-  .createdActions button { width: 100%; }
 }

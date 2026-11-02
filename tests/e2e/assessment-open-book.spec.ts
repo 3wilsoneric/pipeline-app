@@ -1,5 +1,5 @@
 import { closeTestBrowser } from "./support/browser-lifecycle";
-import { editPreparedAnswer, openAssessmentChart, returnToAssessmentQuestions } from "./support/assessment-navigation";
+import { editPreparedAnswer, openAssessmentChart, openHandoffConfirmation, returnToAssessmentQuestions } from "./support/assessment-navigation";
 import { expect, test, webkit, type Page } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import type { AxeResults } from "axe-core";
@@ -358,18 +358,18 @@ for (const width of [1440, 390]) {
     await expect(secondary).toHaveValue("Final answer before immediate exit");
     await editPreparedAnswer(page, "Secondary diagnosis");
     await secondary.fill("Final answer before signing");
-    await expect(page.getByRole("button", { name: "Sign assessment", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Confirm chart", exact: true })).toHaveCount(0);
     await openAssessmentChart(page);
     await expect(page.getByRole("article", { name: "Assessment record", exact: true })).toContainText("Final answer before signing");
     await returnToAssessmentQuestions(page);
     await expect(secondary).toHaveValue("Final answer before signing");
     if (width < 640) await expect(secondary).toBeInViewport();
-    // The chart is reference-only; review/sign belongs to the assessment.
-    await page.goto(root + "&workspaceStage=assessment&assessmentMode=review");
+    // Confirm the same chart after accepting; prepared answers are retained.
+    await openHandoffConfirmation(page);
     await expect(page.getByRole("region", { name: "Assessment chart review" })).toContainText("Final answer before signing");
-    await page.getByRole("button", { name: "Sign assessment", exact: true }).click();
-    await page.getByRole("alertdialog", { name: "Sign this assessment?", exact: true }).getByRole("button", { name: "Sign assessment", exact: true }).click();
-    await expect(page.getByRole("region", { name: "Admission decision", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Confirm chart", exact: true }).click();
+    await page.getByRole("alertdialog", { name: "Everything correct and included?", exact: true }).getByRole("button", { name: "Confirm & continue", exact: true }).click();
+    await expect(page.getByRole("region", { name: "Email and referral packet", exact: true })).toBeVisible();
     await expect(chart).toHaveCount(1);
     const saved = (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
     expect(saved.signed_at).toBeTruthy();

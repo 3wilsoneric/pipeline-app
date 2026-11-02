@@ -1,29 +1,8 @@
 import { closeTestBrowser } from "./support/browser-lifecycle";
-import { expect, test, webkit, type Page } from "@playwright/test";
+import { expect, test, webkit } from "@playwright/test";
 import { randomUUID } from "node:crypto";
+import { openHandoffConfirmation } from "./support/assessment-navigation";
 import { createOperationalReferral } from "./support/operational-api";
-
-async function openAssessmentReview(page: Page) {
-  const footer = page.locator('footer[aria-label="Assessment actions"]');
-  if (page.viewportSize()!.width >= 640) {
-    const begin = footer.getByRole("button", { name: "Begin interview", exact: true });
-    if (await begin.isVisible()) {
-      await begin.click();
-      await page.getByRole("dialog", { name: "Begin interview", exact: true }).getByRole("button", { name: "Begin interview", exact: true }).click();
-    }
-    const back = footer.getByRole("button", { name: "Return to interview", exact: true });
-    if (await back.isVisible()) await back.click();
-    await footer.getByRole("button", { name: "Review assessment", exact: true }).click();
-  } else {
-    const section = page.getByRole("combobox", { name: "Assessment section", exact: true });
-    if (await section.isVisible() && await section.locator("option").count() === 5) {
-      await section.selectOption((await section.locator("option").last().getAttribute("value"))!);
-      await footer.getByRole("button", { name: "Open interview", exact: true }).click();
-    }
-    await page.getByRole("button", { name: "Choose questionnaire section", exact: true }).click();
-    await page.getByRole("dialog", { name: "Questionnaire sections", exact: true }).getByRole("button", { name: /^Review assessment/ }).click();
-  }
-}
 
 for (const width of [1440, 768, 390, 320]) {
   test(`assessment footer follows preparation, interview and decision at ${width}px`, async ({ page }, info) => {
@@ -41,15 +20,16 @@ for (const width of [1440, 768, 390, 320]) {
     await page.goto(url);
     const footer = page.locator('footer[aria-label="Assessment actions"]');
     const primary = footer.locator("[data-assessment-primary-action]");
+    const entryAction = width >= 640 ? page.getByRole("region", { name: "Interview", exact: true }).getByRole("button", { name: "Start now", exact: true }) : footer.getByRole("button", { name: "Next section", exact: true });
     await expect(footer).toBeInViewport();
-    await expect(footer.getByRole("button", { name: "Sign assessment", exact: true })).toHaveCount(0);
+    await expect(footer.getByRole("button", { name: "Confirm chart", exact: true })).toHaveCount(0);
     await expect(footer.getByRole("button", { name: "Schedule interview", exact: true })).toBeHidden();
-    await expect(page.getByRole("navigation", { name: "Assessment section steps", exact: true }).getByRole("button", { name: width >= 640 ? "Begin interview" : "Next section", exact: true })).toHaveCount(1);
-    await expect(page.getByRole("navigation", { name: "Assessment section steps", exact: true }).getByRole("button", { name: width >= 640 ? "Begin interview" : "Next section", exact: true })).toBeVisible();
-    await expect(footer.getByRole("button", { name: "Sign assessment", exact: true })).toHaveCount(0);
+    await expect(entryAction).toHaveCount(1);
+    await expect(entryAction).toBeVisible();
+    await expect(footer.getByRole("button", { name: "Confirm chart", exact: true })).toHaveCount(0);
     expect((await read()).started_at).toBeNull();
 
-    const appointment = page.getByRole("region", { name: "Assessment progress", exact: true });
+    const appointment = page.getByRole("region", { name: "Interview", exact: true });
     await appointment.getByRole("button", { name: "Schedule interview", exact: true }).click();
     const schedule = page.getByRole("dialog", { name: "Schedule interview", exact: true });
     await schedule.getByLabel("Assessment date and time").fill("2027-09-20T10:00");
@@ -57,7 +37,7 @@ for (const width of [1440, 768, 390, 320]) {
     await expect(schedule).toHaveCount(0);
     await expect.poll(async () => Boolean((await read()).scheduled_start_at)).toBe(true);
     expect((await read()).started_at).toBeNull();
-    await expect(page.getByRole("navigation", { name: "Assessment section steps", exact: true }).getByRole("button", { name: width >= 640 ? "Begin interview" : "Next section", exact: true })).toBeVisible();
+    await expect(entryAction).toBeVisible();
 
     await expect(page.getByRole("button", { name: "Begin assessment", exact: true })).toHaveCount(0);
     await appointment.getByRole("button", { name: "Edit assessment appointment", exact: true }).click();
@@ -65,33 +45,33 @@ for (const width of [1440, 768, 390, 320]) {
     await schedule.getByRole("button", { name: "Close schedule", exact: true }).click();
     await expect(appointment.getByRole("button", { name: "Edit assessment appointment", exact: true })).toBeFocused();
     expect((await read()).started_at).toBeNull();
-    await expect(page.getByRole("navigation", { name: "Assessment section steps", exact: true }).getByRole("button", { name: width >= 640 ? "Begin interview" : "Next section", exact: true })).toHaveCount(1);
+    await expect(entryAction).toHaveCount(1);
     await expect(footer.getByRole("button", { name: /Schedule interview|Change appointment/ })).toHaveCount(0);
     await page.screenshot({ path: info.outputPath(`assessment-footer-ready-${width}.png`) });
 
-    await openAssessmentReview(page);
+    await openHandoffConfirmation(page);
     const chartReview = page.getByRole("region", { name: "Assessment chart review", exact: true });
     await expect(chartReview).toContainText("Synthetic prepared information");
-    await expect(primary.getByRole("button", { name: "Sign assessment", exact: true })).toBeInViewport();
+    await expect(primary.getByRole("button", { name: "Confirm chart", exact: true })).toBeInViewport();
     expect(await page.getByTestId("assessment-client-folder").evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
     await page.screenshot({ path: info.outputPath(`chart-review-${width}.png`) });
     await chartReview.getByRole("button", { name: "Back to questions", exact: true }).click();
     await expect(chartReview).toHaveCount(0);
-    await expect(footer.getByRole("button", { name: "Sign assessment", exact: true })).toHaveCount(0);
-    await openAssessmentReview(page);
+    await expect(footer.getByRole("button", { name: "Confirm chart", exact: true })).toHaveCount(0);
+    await openHandoffConfirmation(page);
     // Unanswered questions remain permissible; the signature still uses the existing save path.
-    await primary.getByRole("button", { name: "Sign assessment", exact: true }).click();
-    await page.getByRole("alertdialog", { name: "Sign this assessment?", exact: true }).getByRole("button", { name: "Sign assessment", exact: true }).click();
-    await expect(page.getByRole("region", { name: "Admission decision", exact: true })).toBeVisible();
+    await primary.getByRole("button", { name: "Confirm chart", exact: true }).click();
+    await page.getByRole("alertdialog", { name: "Everything correct and included?", exact: true }).getByRole("button", { name: "Confirm & continue", exact: true }).click();
+    await expect(page.getByRole("region", { name: "Email and referral packet", exact: true })).toBeVisible();
     const signed = await read();
     expect(signed.signed_at).toBeTruthy();
     expect(signed.secondary_diagnoses).toEqual(["Synthetic prepared information"]);
     expect(signed.meet_client_sent_at).toBeFalsy();
     await page.goto(url);
-    await openAssessmentReview(page);
+    await openHandoffConfirmation(page);
     await expect(primary.getByRole("button")).toHaveCount(0);
     await expect(footer.getByRole("button", { name: /^(Begin|Sign) assessment$/ })).toHaveCount(0);
-    await expect(page.getByRole("region", { name: "Admission decision", exact: true })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Email and referral packet", exact: true })).toBeVisible();
     expect((await read()).meet_client_sent_at).toBeFalsy();
   });
 }
@@ -143,12 +123,10 @@ for (const width of [1440, 390]) {
     let startRequests = 0;
     await page.route(`**/api/assessments/${assessment.assessment_id}/start`, (route) => { startRequests++; return route.fulfill({ status: 503, json: { error: "Synthetic start unavailable" } }); });
     await expect(page.getByRole("button", { name: "Begin assessment", exact: true })).toHaveCount(0);
-    const reviewUrl = new URL(page.url());
-    reviewUrl.searchParams.set("assessmentMode", "review");
-    await page.goto(reviewUrl.toString());
-    await footer.getByRole("button", { name: "Sign assessment", exact: true }).click();
-    await page.getByRole("alertdialog", { name: "Sign this assessment?", exact: true }).getByRole("button", { name: "Sign assessment", exact: true }).click();
-    await expect(page.getByRole("region", { name: "Admission decision", exact: true })).toBeVisible();
+    await openHandoffConfirmation(page);
+    await footer.getByRole("button", { name: "Confirm chart", exact: true }).click();
+    await page.getByRole("alertdialog", { name: "Everything correct and included?", exact: true }).getByRole("button", { name: "Confirm & continue", exact: true }).click();
+    await expect(page.getByRole("region", { name: "Email and referral packet", exact: true })).toBeVisible();
     const saved = (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
     expect(saved.signed_at).toBeTruthy();
     expect(saved.started_at).toBeNull();

@@ -37,7 +37,7 @@ test("corrected identity replaces placeholders in the Meet the Client summary", 
   assert.equal(fromAssessment.community, "Santa Clarita");
 });
 
-test("Meet the Client refers to the original medication file and keeps clinical dates", () => {
+test("Meet the Client refers to the medication file and keeps admission and medication dates without the assessment date", () => {
   const assessment = {
     ...schemaOwner.createEmptyAssessmentToolData(),
     assessment_id: "synthetic-assessment",
@@ -54,7 +54,9 @@ test("Meet the Client refers to the original medication file and keeps clinical 
   assert.deepEqual(summary.medications, ["Current medication 10 mg"]);
   assert.equal(summary.medicationNotes.find((item) => item.label === "Next injection due")?.value, "10/08/2026");
   const email = templateOwner.renderMeetClientEmail(summary, "Synthetic Assessor", "fixture");
-  for (const value of ["06/12/1980", "09/28/2026", "10/01/2026", "09/10/2026", "10/08/2026"]) assert.match(email.html, new RegExp(value));
+  for (const value of ["06/12/1980", "10/01/2026", "09/10/2026", "10/08/2026"]) assert.match(email.html, new RegExp(value));
+  assert.equal(assessment.assessment_date, "2026-09-28");
+  assert.doesNotMatch(email.html, /Assessment date|09\/28\/2026/);
   assert.match(email.html, /Refer to the medication list in the admission packet if attached; otherwise confirm the current list with the referring team/);
   assert.doesNotMatch(email.html, /Current medication 10 mg|Current medications for handoff/);
   assert.doesNotMatch(email.html, /Historical medication|1980-06-12|2026-10-01/);

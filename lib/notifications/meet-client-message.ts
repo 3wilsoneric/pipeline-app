@@ -1,4 +1,4 @@
-export const meetClientSectionIds = ["message", "coordination", "bio", "medications", "safety", "diet", "billing", "support"] as const;
+export const meetClientSectionIds = ["message", "bio", "coordination", "medications", "safety", "diet", "billing", "support"] as const;
 export type MeetClientSectionId = typeof meetClientSectionIds[number];
 export type MeetClientMessage = { subject: string | null; body: string | null; sectionOrder?: MeetClientSectionId[] };
 

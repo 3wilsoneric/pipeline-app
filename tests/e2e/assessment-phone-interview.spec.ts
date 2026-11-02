@@ -1,6 +1,6 @@
 import { expect, test, chromium, webkit, type Page } from "@playwright/test";
 import { randomUUID } from "node:crypto";
-import { createOperationalReferral } from "./support/operational-api";
+import { activeOperationalAssessor, createOperationalReferral } from "./support/operational-api";
 
 test.use({ hasTouch: true });
 
@@ -10,11 +10,13 @@ for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]]
     const context = await browser.newContext({ baseURL, viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
     try {
       const page = await context.newPage();
-      const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: `Pocket ${randomUUID().replace(/[^a-z]/g, "")}`, owner: "Annette Everhart", tags: [], documentName: "", documentStatus: "Missing" }, { assigneeId: "provisional:allo:annette" });
+      const owner = await activeOperationalAssessor(page.request);
+      const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: `Pocket ${randomUUID().replace(/[^a-z]/g, "")}`, owner: owner.display_name, tags: [], documentName: "", documentStatus: "Missing" }, { assigneeId: owner.principal_id });
       await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=intake`);
       await page.getByRole("combobox", { name: "Workspace view", exact: true }).selectOption({ label: "Assessment" });
       await expect(page.locator('[data-assessment-phase="preparation"]')).toBeVisible();
-      await page.getByRole("region", { name: "Assessment progress", exact: true }).getByRole("button", { name: "Interview", exact: true }).tap();
+      expect((await (await page.request.get(`/api/referrals/${referral.id}/assessments`)).json()).assessments[0].started_at).toBeNull();
+      await page.getByRole("region", { name: "Interview", exact: true }).getByRole("button", { name: "Start now", exact: true }).tap();
       await expect(page.getByRole("dialog", { name: "Begin interview", exact: true })).toHaveCount(0);
       const pocket = page.locator("[data-phone-interview]");
       await expect(pocket).toBeVisible();
@@ -99,12 +101,12 @@ for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]]
       const assessments = await read();
       expect(assessments).toHaveLength(1);
       expect(assessments[0].signed_at).toBeNull();
-      expect(assessments[0].started_at).toBeNull();
+      expect(assessments[0].started_at).toBeTruthy();
 
       await page.getByRole("combobox", { name: "Workspace view", exact: true }).selectOption({ label: "Assessment" });
       await expect(page.getByRole("button", { name: "Begin assessment", exact: true })).toHaveCount(0);
       await expect(pocket).toBeVisible();
-      expect((await read())[0]?.started_at).toBeNull();
+      expect((await read())[0]?.started_at).toBe(assessments[0].started_at);
       await findQuestion(page, "Current symptoms");
       await expect(diagnosis).toHaveValue("Synthetic rotation edit");
       expect((await read())[0].assessment_id).toBe(assessments[0].assessment_id);
@@ -114,7 +116,8 @@ for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]]
 
 test("phone questions preserve source verification rather than counting suggestions as confirmed", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: "Synthetic source review", owner: "Annette Everhart", tags: [], documentName: "", documentStatus: "Missing" }, { assigneeId: "provisional:allo:annette" });
+  const owner = await activeOperationalAssessor(page.request);
+  const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: "Synthetic source review", owner: owner.display_name, tags: [], documentName: "", documentStatus: "Missing" }, { assigneeId: owner.principal_id });
   const created = await page.request.post(`/api/referrals/${referral.id}/assessments`, { data: { client_mutation_id: randomUUID(), data: {} } });
   expect(created.status()).toBe(201);
   const { assessment } = await created.json();

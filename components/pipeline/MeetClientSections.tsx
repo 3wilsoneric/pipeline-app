@@ -64,6 +64,7 @@ export default function MeetClientSections({ summary, message, editable, onOrder
     requestAnimationFrame(() => handles.current.get(id)?.focus());
   };
   return <div className={styles.document}>
+    <h2 className={styles.title}>Meet the Client</h2>
     <dl className={styles.identity}>{meetClientIdentityRows(summary).map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
     <div ref={blocks} className={styles.blocks}>
       {sections.map((section, index) => <section key={section.id} data-message-section={section.id} className={styles.block}
@@ -82,7 +83,7 @@ export default function MeetClientSections({ summary, message, editable, onOrder
             <button type="button" disabled={index === sections.length - 1} onClick={() => move(section.id, sections[index + 1].id)}><ArrowDown size={18} aria-hidden="true" />Move down</button>
           </div>
         </details> : null}
-        <h3><PipelineIllustration kind={sectionPictures[section.id]} size={40} /><span>{section.title}</span></h3>
+        {section.id === "bio" && index === 0 ? null : <h3><PipelineIllustration kind={sectionPictures[section.id]} size={40} /><span>{section.title}</span></h3>}
         {section.kind === "items" ? <dl className={styles.facts}>{section.items.map((item, i) => <div key={`${item.label}:${i}`}><dt>{item.label}</dt><dd>{item.value}</dd></div>)}</dl>
           : section.kind === "list" ? <ul>{section.values.map((value, i) => <li key={i}>{value}</li>)}</ul>
           : <p className={styles.message}>{section.text}</p>}

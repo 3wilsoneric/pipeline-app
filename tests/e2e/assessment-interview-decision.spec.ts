@@ -81,7 +81,7 @@ for (const width of [1440, 390]) {
       await recommendation.selectOption("accept");
       await expect(footer.getByRole("button", { name: "Saving recommendation...", exact: true })).toBeDisabled();
     } finally { release(); }
-    await expect(footer.getByRole("button", { name: "Sign assessment", exact: true })).toBeEnabled();
+    await expect(footer.getByRole("button", { name: "Continue to decision", exact: true })).toBeEnabled();
     await expect.poll(async () => (await read()).recommendation?.outcome).toBe("accept");
     expect((await read()).review).toBeNull();
   });
@@ -127,7 +127,7 @@ test("review summary links back to editable sections and explains signing", asyn
   await page.goto(url);
   // Section progress and the early bookmark remain available while interviewing.
   await expect(page.getByRole("combobox", { name: "Assessment section", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Review assessment", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Continue to decision", exact: true })).toBeVisible();
   await expect(page.getByRole("region", { name: "Placement recommendation", exact: true })).toBeVisible();
 
   await page.goto(`${url}&assessmentMode=review`);

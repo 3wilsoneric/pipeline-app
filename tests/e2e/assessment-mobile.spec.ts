@@ -2,7 +2,7 @@ import { closeTestBrowser } from "./support/browser-lifecycle";
 import { expect, test, webkit, type Page } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { createOperationalReferral } from "./support/operational-api";
+import { activeOperationalAssessor, createOperationalReferral } from "./support/operational-api";
 import { editPreparedAnswer } from "./support/assessment-navigation";
 
 const practice = "/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=interview&assessmentSection=diagnosis_clinical&demo=1";
@@ -50,7 +50,7 @@ test.describe("mobile assessment", () => {
       const back = page.getByRole("button", { name: phone ? "Back to previous page" : "Open referrals", exact: true });
       await expect(back).toBeInViewport();
       if (phone) {
-        await expect(assessment.getByRole("button", { name: "Sign assessment", exact: true })).toBeHidden();
+        await expect(assessment.getByRole("button", { name: "Confirm chart", exact: true })).toBeHidden();
         await expect(assessment.getByRole("navigation", { name: "Question steps" }).getByRole("button", { name: /^Next/ })).toBeInViewport();
       } else await expect(assessment.getByRole("button", { name: "Next section", exact: true })).toBeInViewport();
       expect(await assessment.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
@@ -149,7 +149,8 @@ test.describe("mobile assessment", () => {
   });
 
   test("real mobile edits save on leaving a field, survive reload and do not duplicate the assessment", async ({ page }) => {
-    const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: `Mobile ${randomUUID().replaceAll(/[^a-z]/g, "")}`, owner: "Annette Everhart", tags: [], documentName: "", documentStatus: "Missing" }, { assigneeId: "provisional:allo:annette" });
+    const owner = await activeOperationalAssessor(page.request);
+    const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: `Mobile ${randomUUID().replaceAll(/[^a-z]/g, "")}`, owner: owner.display_name, tags: [], documentName: "", documentStatus: "Missing" }, { assigneeId: owner.principal_id });
     const created = await page.request.post(`/api/referrals/${referral.id}/assessments`, { data: { client_mutation_id: randomUUID(), data: {} } });
     expect(created.status()).toBe(201);
     const { assessment } = await created.json();

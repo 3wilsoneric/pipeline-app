@@ -12,7 +12,7 @@ test.describe("assessment outcome and admission handoff", () => {
   test.skip(process.env.PIPELINE_OPERATIONAL_E2E !== "true", "Requires isolated operational stores.");
   test.setTimeout(75_000);
 
-  test("sign, save under review, reopen active work and clarify its recommendation without a review submission", async ({ browser, baseURL }) => {
+  test("finish, save under review, reopen active work and clarify its recommendation without a review submission", async ({ browser, baseURL }) => {
     const url = requireOperationalBaseURL(baseURL);
     const assessor = await actorApiContext("assessorA", url);
     const admin = await actorApiContext("admin", url);
@@ -20,8 +20,7 @@ test.describe("assessment outcome and admission handoff", () => {
     try {
       const { referral, assessment } = await completedAssessment(assessor);
       await page.goto(`${workspace(referral.id)}&workspaceStage=assessment&assessmentMode=review`);
-      await page.getByRole("button", { name: "Sign assessment", exact: true }).click();
-      await page.getByRole("alertdialog", { name: "Sign this assessment?", exact: true }).getByRole("button", { name: "Sign assessment", exact: true }).click();
+      await page.getByRole("button", { name: "Continue to decision", exact: true }).click();
       await expect(page.getByRole("region", { name: "Admission decision", exact: true })).toBeVisible();
       await expect(page.getByRole("radio", { name: "Accept", exact: true })).not.toBeChecked();
       await expect(page.getByRole("button", { name: "Record decision", exact: true })).toBeDisabled();
@@ -64,7 +63,7 @@ test.describe("assessment outcome and admission handoff", () => {
       const returned = await (await assessor.get("/api/operations/home")).json();
       expect(returned.workflow.active_items.map((item: { referral_id: number }) => item.referral_id)).toContain(referral.id);
       const original = await (await assessor.get(`/api/assessments/${assessment.assessment_id}`)).json();
-      expect(original.assessment.signed_at).toBeTruthy();
+      expect(original.assessment.signed_at).toBeNull();
     } finally { await context.close(); await assessor.dispose(); await admin.dispose(); }
   });
 

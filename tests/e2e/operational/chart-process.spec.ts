@@ -89,11 +89,10 @@ test("accepting first leaves the unsigned assessment editable and signable", asy
     await page.getByRole("textbox", { name: "Where the client is now", exact: true }).fill(answer);
     await page.getByRole("textbox", { name: "Where the client is now", exact: true }).blur();
     await expect.poll(async () => (await read()).current_location).toBe(answer);
-    await page.getByRole("button", { name: "Begin interview", exact: true }).click();
-    await page.getByRole("dialog", { name: "Begin interview", exact: true }).getByRole("button", { name: "Begin interview", exact: true }).click();
-    await page.getByRole("button", { name: "Review assessment", exact: true }).click();
-    await page.getByRole("button", { name: "Sign assessment", exact: true }).click();
-    await page.getByRole("alertdialog", { name: "Sign this assessment?", exact: true }).getByRole("button", { name: "Sign assessment", exact: true }).click();
+    await page.getByRole("region", { name: "Interview", exact: true }).getByRole("button", { name: "Start now", exact: true }).click();
+    await page.getByRole("button", { name: "Continue to Handoff", exact: true }).click();
+    await page.getByRole("button", { name: "Confirm chart", exact: true }).click();
+    await page.getByRole("alertdialog", { name: "Everything correct and included?", exact: true }).getByRole("button", { name: "Confirm & continue", exact: true }).click();
     await expect.poll(async () => Boolean((await read()).signed_at)).toBe(true);
     expect((await read()).current_location).toBe(answer);
     await expect(assessmentTab).toBeVisible();

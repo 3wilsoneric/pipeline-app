@@ -4,7 +4,7 @@ import { assessmentPreparationGroups, preparationGroupForSection, preparationQue
 import { assessmentInterviewQuestions, assessmentInterviewSections, getRequiredAssessmentInterviewQuestions } from "../../lib/assessment/assessment-interview-schema";
 import { createEmptyAssessmentToolData, type AssessmentToolSection } from "../../lib/assessment/assessment-tool-schema";
 import { assessmentWorkingCounts } from "../../components/pipeline/assessment-working-view";
-import { createOperationalAssessment, createOperationalReferral, startOperationalAssessment } from "./support/operational-api";
+import { activeOperationalAssessor, createOperationalAssessment, createOperationalReferral, startOperationalAssessment } from "./support/operational-api";
 import { editPreparedAnswer, leaveInterviewFullScreen, openAssessmentChart, returnToAssessmentQuestions } from "./support/assessment-navigation";
 import type { AxeResults } from "axe-core";
 
@@ -26,7 +26,8 @@ test("source preparation retains canonical questions and conditional fields", ()
 });
 
 async function createReferral(page: Page) {
-  return createOperationalReferral(page.request, "assessmentCoordinator", { name: `Preparation ${randomUUID().slice(0, 8)}`, owner: "Annette Everhart", dob: "1980-04-12" }, { assigneeId: "provisional:allo:annette" });
+  const owner = await activeOperationalAssessor(page.request);
+  return createOperationalReferral(page.request, "assessmentCoordinator", { name: `Preparation ${randomUUID().slice(0, 8)}`, owner: owner.display_name, dob: "1980-04-12" }, { assigneeId: owner.principal_id });
 }
 async function openPage(page: Page, label: string) {
   await leaveInterviewFullScreen(page);
@@ -68,7 +69,7 @@ for (const width of [1440, 768]) {
     await expect(page.getByTestId("preparation-client-folder")).toHaveCount(0);
     await expect(page.getByRole("navigation", { name: "Client file pages" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Open assessment", exact: true })).toHaveCount(0);
-    await expect(folder.getByRole("button", { name: "Sign assessment", exact: true })).toHaveCount(0);
+    await expect(folder.getByRole("button", { name: "Confirm chart", exact: true })).toHaveCount(0);
     await section(page, "identity");
     const reference = folder.getByRole("complementary", { name: "Current information" });
     await expect(reference).toHaveCount(0);
@@ -99,10 +100,8 @@ for (const width of [1440, 768]) {
     const schedule = page.getByRole("dialog", { name: "Schedule interview", exact: true });
     await schedule.getByRole("button", { name: /Close/ }).click();
     await expect(schedule).toHaveCount(0);
-    await folder.getByRole("button", { name: "Begin interview", exact: true }).click();
-    const begin = page.getByRole("dialog", { name: "Begin interview", exact: true });
-    await begin.getByRole("button", { name: "Begin interview", exact: true }).click();
-    await expect(begin).toHaveCount(0);
+    await folder.getByRole("button", { name: "Start now", exact: true }).click();
+    await expect(page.getByRole("dialog", { name: "Begin interview", exact: true })).toHaveCount(0);
     await expect(page).toHaveURL(/assessmentMode=interview/);
     await section(page, "diagnosis_clinical");
     await expect(page.locator('[data-assessment-group-heading="diagnosis_clinical"]')).toBeInViewport();
@@ -222,7 +221,7 @@ test("queued answers stay visible across chart review and sync after recovery", 
   await page.locator("#assessment-current_location").fill("Unsaved but retained referral notes");
   await openAssessmentChart(page);
   await expect(page.getByRole("article", { name: "Assessment record", exact: true })).toContainText("Unsaved but retained referral notes");
-  await expect(page.locator('[data-guide-target="assessment-save-status"]')).not.toHaveText("All changes saved");
+  await expect(page.getByTestId("workspace-save-status")).not.toHaveAttribute("data-state", "saved");
   expect((await (await page.request.get(`/api/assessments/${id}`)).json()).assessment.current_location).not.toBe("Unsaved but retained referral notes");
   await returnToAssessmentQuestions(page);
   await editPreparedAnswer(page, "Where the client is now");

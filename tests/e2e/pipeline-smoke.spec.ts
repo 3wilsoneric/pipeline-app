@@ -1,5 +1,5 @@
 import { confirmReferralFileLabels } from "./support/referral-upload";
-import { leaveInterviewFullScreen } from "./support/assessment-navigation";
+import { openHandoffConfirmation, leaveInterviewFullScreen } from "./support/assessment-navigation";
 import { expect, test, type Page } from "@playwright/test";
 import { createCanvas } from "@napi-rs/canvas";
 import { createHash, randomUUID } from "node:crypto";
@@ -2322,11 +2322,11 @@ test.describe("Referral home and packet canvas", () => {
     expect(completeInterview.status(), await completeInterview.text()).toBe(200);
     await page.reload();
     await section.selectOption("provenance_qc");
-    await page.getByRole("button", { name: "Review assessment", exact: true }).click();
+    await openHandoffConfirmation(page);
     await expect(page.getByRole("region", { name: "Assessment chart review", exact: true })).toContainText("Schizoaffective disorder");
-    await page.getByRole("button", { name: "Sign assessment", exact: true }).click();
-    await page.getByRole("alertdialog", { name: "Sign this assessment?", exact: true }).getByRole("button", { name: "Sign assessment", exact: true }).click();
-    await expect(page.getByRole("region", { name: "Admission decision", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Confirm chart", exact: true }).click();
+    await page.getByRole("alertdialog", { name: "Everything correct and included?", exact: true }).getByRole("button", { name: "Confirm & continue", exact: true }).click();
+    await expect(page.getByRole("region", { name: "Email and referral packet", exact: true })).toBeVisible();
 
     const history = await page.request.get(`/api/referrals/${referralId}/assessments`);
     expect(history.ok()).toBeTruthy();

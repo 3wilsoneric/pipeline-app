@@ -493,12 +493,13 @@ for (const width of [1440, 390]) test(`review shows the record and opens an unre
   test.setTimeout(60_000);
   await page.setViewportSize({ width, height: 900 });
   const { referral, assessment } = await referralWithAssessment(page, false);
-  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentMode=review`);
+  await recordOperationalAcceptance(page.request, (await (await page.request.get(`/api/referrals/${referral.id}`)).json()).referral);
+  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
   const review = page.getByRole("region", { name: "Assessment chart review", exact: true });
-  await expect(review.getByRole("heading", { name: "Review assessment", exact: true })).toBeVisible();
+  await expect(review.getByRole("heading", { name: "Confirm chart", exact: true })).toBeVisible();
   await expect(review).toContainText("Recorded answers");
-  await expect(page.getByRole("button", { name: "Sign assessment", exact: true })).toBeInViewport();
-  await expect(review).toContainText("They do not prevent signing");
+  await expect(page.getByRole("button", { name: "Confirm chart", exact: true })).toBeInViewport();
+  await expect(review).toContainText("They do not prevent confirmation");
   await review.locator("details > summary").filter({ hasText: "Answers by section" }).click();
   const gaps = review.getByRole("list", { name: /^Answers by section/ });
   await page.screenshot({ path: info.outputPath(`review-gaps-${width}.png`), animations: "disabled" });

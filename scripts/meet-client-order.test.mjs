@@ -24,7 +24,7 @@ test("working document, HTML, and plain text share order and retain every clinic
   const sections = template.meetClientSections(summary, message);
   const rendered = template.renderMeetClientEmail(summary, "Synthetic assessor", "test", ["signed-med-list.pdf"], message);
   assert.equal(sections.length, 7);
-  assert.deepEqual(Array.from(sections, s => s.id), ["support", "billing", "diet", "safety", "medications", "bio", "coordination"]);
+  assert.deepEqual(Array.from(sections, s => s.id), ["support", "billing", "diet", "safety", "medications", "coordination", "bio"]);
   let htmlPosition = -1, textPosition = -1;
   for (const section of sections) {
     const position = rendered.html.indexOf(`>${template.escapeHtml(section.title)}</h2>`);

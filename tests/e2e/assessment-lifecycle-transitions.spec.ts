@@ -1,10 +1,11 @@
 import { expect, test } from "@playwright/test";
-import { createOperationalAssessment, createOperationalReferral, recordOperationalAcceptance, signOperationalAssessment } from "./support/operational-api";
+import { activeOperationalAssessor, createOperationalAssessment, createOperationalReferral, recordOperationalAcceptance, signOperationalAssessment } from "./support/operational-api";
 
 test("replays an interrupted assessment create without making a second draft", async ({ page }) => {
+  const owner = await activeOperationalAssessor(page.request);
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", {
-    name: "Synthetic assessment create retry", owner: "Annette Everhart", dob: "1980-04-12",
-  }, { assigneeId: "provisional:allo:annette" });
+    name: "Synthetic assessment create retry", owner: owner.display_name, dob: "1980-04-12",
+  }, { assigneeId: owner.principal_id });
   const mutationIds: string[] = [];
   await page.route(`**/api/referrals/${referral.id}/assessments`, async (route) => {
     if (route.request().method() === "POST") {
@@ -20,7 +21,7 @@ test("replays an interrupted assessment create without making a second draft", a
 
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=intake`);
   await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: "Assessment", exact: true }).click();
-  await page.getByRole("button", { name: "Prepare assessment", exact: true }).click();
+
   await expect(page.getByTestId("assessment-client-folder")).toBeVisible();
   expect(mutationIds).toHaveLength(2);
   expect(mutationIds[1]).toBe(mutationIds[0]);
@@ -32,7 +33,8 @@ test("replays an interrupted assessment create without making a second draft", a
 test("signing completes while internal tabs remain usable and app exit waits", async ({ page }) => {
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: "Synthetic signing transition", owner: "", tags: [] });
   const assessment = await createOperationalAssessment(page.request, referral.id);
-  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentMode=review`);
+  await recordOperationalAcceptance(page.request, (await (await page.request.get(`/api/referrals/${referral.id}`)).json()).referral);
+  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
   let release!: () => void;
   let entered!: () => void;
   const pending = new Promise<void>((resolve) => { release = resolve; });
@@ -42,8 +44,8 @@ test("signing completes while internal tabs remain usable and app exit waits", a
     await pending;
     await route.continue();
   });
-  await page.getByRole("button", { name: "Sign assessment", exact: true }).click();
-  await page.getByRole("alertdialog", { name: "Sign this assessment?", exact: true }).getByRole("button", { name: "Sign assessment", exact: true }).click();
+  await page.getByRole("button", { name: "Confirm chart", exact: true }).click();
+  await page.getByRole("alertdialog", { name: "Everything correct and included?", exact: true }).getByRole("button", { name: "Confirm & continue", exact: true }).click();
   await requested;
   const stages = page.getByRole("navigation", { name: "Workspace stages", exact: true });
   try {
@@ -53,9 +55,8 @@ test("signing completes while internal tabs remain usable and app exit waits", a
     await expect(page).not.toHaveURL(/screen=calendar/);
   } finally { release(); }
   await expect.poll(async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment.signed_at).toBeTruthy();
-  await stages.getByRole("button", { name: "Assessment", exact: true }).click();
-  await page.locator('footer[aria-label="Assessment actions"]').getByRole("button", { name: "Review assessment", exact: true }).click();
-  await expect(page.getByRole("region", { name: "Admission decision", exact: true })).toBeVisible();
+  await stages.getByRole("button", { name: "Handoff", exact: true }).click();
+  await expect(page.getByRole("region", { name: "Email and referral packet", exact: true })).toBeVisible();
   const saved = (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
   expect(saved.signed_at).toBeTruthy();
   expect(saved.audit_events.filter((event: { action: string }) => event.action === "assessment_signed")).toHaveLength(1);
@@ -72,10 +73,11 @@ test("a lost sign response replays one signature with the same mutation ID", asy
     if (mutationIds.length === 1) await route.abort("failed");
     else await route.fulfill({ response });
   });
-  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentMode=review`);
-  await page.getByRole("button", { name: "Sign assessment", exact: true }).click();
-  await page.getByRole("alertdialog", { name: "Sign this assessment?", exact: true }).getByRole("button", { name: "Sign assessment", exact: true }).click();
-  await expect(page.getByRole("region", { name: "Admission decision", exact: true })).toBeVisible();
+  await recordOperationalAcceptance(page.request, (await (await page.request.get(`/api/referrals/${referral.id}`)).json()).referral);
+  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
+  await page.getByRole("button", { name: "Confirm chart", exact: true }).click();
+  await page.getByRole("alertdialog", { name: "Everything correct and included?", exact: true }).getByRole("button", { name: "Confirm & continue", exact: true }).click();
+  await expect(page.getByRole("region", { name: "Email and referral packet", exact: true })).toBeVisible();
   expect(mutationIds).toHaveLength(2);
   expect(mutationIds[1]).toBe(mutationIds[0]);
   const saved = (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
@@ -170,7 +172,7 @@ test("a failed appointment save stays visible and retryable after visiting Files
   }
 });
 
-test("a failed referral refresh after signing does not reopen the signature or block Decision", async ({ page }) => {
+test("a failed referral refresh after signing does not reopen the signature or block Handoff", async ({ page }) => {
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: "Synthetic signed refresh failure", owner: "", tags: [] });
   const assessment = await createOperationalAssessment(page.request, referral.id);
   let signed = false;
@@ -186,12 +188,13 @@ test("a failed referral refresh after signing does not reopen the signature or b
     await route.fulfill({ response });
   });
 
-  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentMode=review`);
-  await page.getByRole("button", { name: "Sign assessment", exact: true }).click();
-  await page.getByRole("alertdialog", { name: "Sign this assessment?", exact: true }).getByRole("button", { name: "Sign assessment", exact: true }).click();
+  await recordOperationalAcceptance(page.request, (await (await page.request.get(`/api/referrals/${referral.id}`)).json()).referral);
+  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
+  await page.getByRole("button", { name: "Confirm chart", exact: true }).click();
+  await page.getByRole("alertdialog", { name: "Everything correct and included?", exact: true }).getByRole("button", { name: "Confirm & continue", exact: true }).click();
 
   await expect.poll(() => failedRefreshes).toBeGreaterThanOrEqual(1);
-  await expect(page.getByRole("region", { name: "Admission decision", exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Email and referral packet", exact: true })).toBeVisible();
   expect(signed).toBe(true);
   const saved = (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
   expect(saved.signed_at).toBeTruthy();

@@ -53,7 +53,7 @@ test("a pending or failed bookmark survives stage navigation and protects worksp
   await recommendation.getByRole("button", { name: "Retry working decision", exact: true }).click();
   await expect(recommendation.getByRole("button", { name: "Retry working decision", exact: true })).toHaveCount(0);
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentMode=review`);
-  await expect(page.getByRole("button", { name: "Sign assessment", exact: true })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Continue to decision", exact: true })).toBeEnabled();
   expect(mutationIds).toHaveLength(2);
   expect(mutationIds[1]).toBe(mutationIds[0]);
   expect(outcomes).toEqual(["accept", "accept"]);
@@ -92,7 +92,7 @@ test("a confirmed working decision stays saved when its workflow refresh fails",
   await expect(recommendation.getByRole("combobox", { name: "Working decision" })).toHaveValue("accept");
   await expect(recommendation.getByRole("alert")).toHaveCount(0);
   await expect(recommendation.getByRole("button", { name: "Retry working decision" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Sign assessment", exact: true })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Continue to decision", exact: true })).toBeEnabled();
   const saved = (await (await page.request.get(`/api/referrals/${referral.id}/recommendation`)).json()).recommendation;
   expect(saved.outcome).toBe("accept");
 });

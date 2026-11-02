@@ -65,6 +65,7 @@ type ReferralWorkflowPanelPresentationProps = {
   onOpenProfile: (canonicalClientId: string) => void;
   onDone?: () => void;
   reviewConfirmation?: boolean;
+  confirmRecommendation?: boolean;
   placementOnly?: boolean;
   placementContent?: ReactNode;
 };
@@ -98,6 +99,7 @@ export function ReferralWorkflowPanelPresentation({
   onOpenProfile,
   onDone,
   reviewConfirmation = false,
+  confirmRecommendation = false,
   placementOnly = false,
   placementContent,
 }: ReferralWorkflowPanelPresentationProps) {
@@ -182,7 +184,7 @@ export function ReferralWorkflowPanelPresentation({
 
       <div className={styles.layout} data-recorded={Boolean(workflow.decision) || undefined}>
         <div className={styles.main} ref={resultRef} {...recordedDecisionAttributes(workflow)}>
-          <DecisionCard workflow={workflow} busy={busy} recommendation={recommendation} onRecommendationChange={onRecommendationChange} onSubmitDecision={onSubmitDecision} onOpenUnderReviewEmail={onOpenUnderReviewEmail} onOpenAssessment={onOpenAssessment} />
+          <DecisionCard confirmRecommendation={confirmRecommendation} workflow={workflow} busy={busy} recommendation={recommendation} onRecommendationChange={onRecommendationChange} onSubmitDecision={onSubmitDecision} onOpenUnderReviewEmail={onOpenUnderReviewEmail} onOpenAssessment={onOpenAssessment} />
           {workflow.decision?.outcome === "accepted" && onOpenPlacement ? <div className={styles.decisionNext}><PrimaryButton disabled={Boolean(busy)} onClick={onOpenPlacement}>Continue to Handoff <ArrowRight size={17} aria-hidden="true" /></PrimaryButton></div> : null}
           {showDecisionDone(workflow) && onDone ? (
             <div className={styles.done}>
@@ -282,7 +284,7 @@ export function DecisionCard({ confirmRecommendation = false, workflow, busy, re
   // A checklist save must not freeze a decision the assessor is still drafting.
   // Submission remains guarded by action.disabled until that save finishes.
   const draftLocked = Boolean(busy) && !busy.startsWith("requirement:");
-  if (confirmRecommendation && workflow.context.assessmentSigned && !changingRecommendation && workflow.recommendation
+  if (confirmRecommendation && !changingRecommendation && workflow.recommendation
     && workflow.recommendation.assessmentId === workflow.context.assessmentId
     && !underReview && recommendation.outcome === workflow.recommendation.outcome
     && recommendation.reasonNote === workflow.recommendation.reasonNote

@@ -25,6 +25,8 @@
 .iconButton { display: grid; place-items: center; width: var(--spacing-control); height: var(--spacing-control); flex: none; border-radius: var(--radius-input); color: var(--color-ink-muted); }
 .iconButton:hover { background: var(--color-segment); color: var(--color-ink); }
 .iconButton:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 1px; }
+.restoreSize { order: 1; }
+.window .status { flex: 1 1 0; min-width: 0; white-space: normal; }
 
 .notice { margin: 0; padding: 8px 14px; border-bottom: 1px solid var(--color-paper-rule); background: var(--color-warning-soft); color: var(--color-warning); font-size: var(--text-meta); line-height: var(--text-meta--line-height); }
 
@@ -143,6 +145,6 @@
 .window { max-width: calc(100vw - 24px); max-height: calc(100dvh - 24px); }
 .window .blocks { padding-bottom: 28px; }
 @media (pointer: coarse) { .commands button { min-height: 44px; } }
-@media (max-width: 767px) { .resize { display: none; } .window { width: auto !important; height: calc(var(--mobile-viewport-height, 100dvh) - 112px) !important; } }
+@media (max-width: 767px) { .resize, .restoreSize { display: none; } .window { width: auto !important; height: calc(var(--mobile-viewport-height, 100dvh) - 112px) !important; } }
 @media (prefers-reduced-motion: no-preference) { .commands { animation: notes-enter var(--motion-enter) var(--ease-open); } }
 @media (forced-colors: active) { .commands button[aria-selected="true"] { outline-color: Highlight; } }

@@ -152,7 +152,7 @@ test("incomplete preparation opens the interview and returns to all questions wi
   await expect(folder.getByLabel("Assessment section", { exact: true }).locator("option")).toHaveCount(12);
   await expect(folder.getByLabel("Assessment section", { exact: true })).toHaveValue("legal_conservatorship");
   await expect(page.getByRole("dialog", { name: "Begin interview", exact: true })).toHaveCount(0);
-  await expect(folder.getByRole("button", { name: "Sign assessment", exact: true })).toHaveCount(0);
+  await expect(folder.getByRole("button", { name: "Confirm chart", exact: true })).toHaveCount(0);
 });
 
 test("preparation persists in the same assessment without starting or signing an encounter", async ({ page }) => {

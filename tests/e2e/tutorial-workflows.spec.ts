@@ -150,8 +150,8 @@ test("sign, accept, preview and simulate send stay local without confirming admi
   const writes = observeLiveWrites(page);
   await page.goto("/tutorials/referral?task=review-chart");
   await page.locator('[data-guide-target="assessment-sign"]').click();
-  const signature = page.getByRole("alertdialog", { name: "Sign this assessment?", exact: true });
-  await signature.getByRole("button", { name: "Sign assessment", exact: true }).click();
+  const signature = page.getByRole("alertdialog", { name: "Everything correct and included?", exact: true });
+  await signature.getByRole("button", { name: "Confirm & continue", exact: true }).click();
   await expect(page.locator("#tutorial-step")).toHaveValue("5");
   await page.getByRole("radio", { name: "Accept", exact: true }).check();
   await page.getByRole("button", { name: "Record decision", exact: true }).click();
