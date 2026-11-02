@@ -55,6 +55,7 @@ function admission(overrides = {}) {
     assessmentStartedAt: "2026-10-03T12:00:00.000Z",
     assessmentCompletedAt: "2026-10-03T13:30:00.000Z",
     assessmentSignedAt: "2026-10-04T12:00:00.000Z",
+    acceptedAt: "2026-10-05T12:00:00.000Z",
     admittedAt: "2026-10-15",
     handoffSentAt: "2026-10-14T12:00:00.000Z",
     dateOfBirth: "1980-10-16",
@@ -124,6 +125,17 @@ test("assessment completion time belongs to the assessment assessor, not the ref
   assert.deepEqual(report.rows.map((row) => row.assessment_assessor), ["Assessor B", "Assessor C", "Assessor D"]);
   assert.deepEqual(report.rows.map((row) => row.minutes_assessment_start_to_complete), [90, null, null]);
   assert.equal(report.rows.every((row) => row.assessor === "Assessor A"), true);
+});
+
+test("briefing separates intake-to-assessment and accepted-to-move-in intervals", () => {
+  const report = build([
+    admission(),
+    admission({ referralId: 43, assessmentCompletedAt: null, acceptedAt: null }),
+    admission({ referralId: 44, assessmentCompletedAt: "2026-10-20T12:00:00.000Z", acceptedAt: "2026-10-20T12:00:00.000Z" }),
+  ]);
+  assert.deepEqual(report.rows.map((row) => row.days_referral_to_assessment_complete), [2, null, null]);
+  assert.deepEqual(report.rows.map((row) => row.days_accepted_to_admit), [10, null, null]);
+  assert.equal(report.rows[0].accepted_at, "2026-10-05");
 });
 
 test("selected date-window boundaries are inclusive and distinct", () => {

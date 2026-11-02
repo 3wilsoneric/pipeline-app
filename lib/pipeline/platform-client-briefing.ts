@@ -31,6 +31,7 @@ export type PlatformClientBriefingCase = {
   assessmentStartedAt: string | null;
   assessmentCompletedAt: string | null;
   assessmentSignedAt: string | null;
+  acceptedAt: string | null;
   admittedAt: string | null;
   handoffSentAt: string | null;
   dateOfBirth: string | null;
@@ -104,7 +105,11 @@ export function buildPlatformClientBriefing(input: {
     const created = day(item.assessmentCreatedAt);
     const started = item.assessmentStartedAt;
     const completed = item.assessmentCompletedAt;
+    const completedDay = day(completed);
     const signed = day(item.assessmentSignedAt);
+    const accepted = day(item.acceptedAt);
+    const completedBeforeAdmission = completedDay && completedDay <= admitted ? completedDay : null;
+    const acceptedBeforeAdmission = accepted && accepted <= admitted ? accepted : null;
     const signedBeforeAdmission = signed && signed <= admitted ? signed : null;
     const priorSetting = setting(assessment?.prior_setting_bucket);
     const diagnosisCategories = (assessment?.diagnosis_categories ?? [])
@@ -122,6 +127,7 @@ export function buildPlatformClientBriefing(input: {
       assessment_started_at: started,
       assessment_completed_at: completed,
       assessment_signed_at: signed,
+      accepted_at: accepted,
       admitted_at: admitted,
       age_at_admission: ageOn(day(item.dateOfBirth), admitted),
       prior_setting: priorSetting,
@@ -138,6 +144,8 @@ export function buildPlatformClientBriefing(input: {
       days_referral_to_signed: elapsed(received, signedBeforeAdmission),
       days_assessment_to_signed: elapsed(created, signedBeforeAdmission),
       minutes_assessment_start_to_complete: elapsedMinutes(started, completed),
+      days_referral_to_assessment_complete: elapsed(received, completedBeforeAdmission),
+      days_accepted_to_admit: elapsed(acceptedBeforeAdmission, admitted),
       days_referral_to_admit: elapsed(received, admitted),
       days_assessment_to_admit: elapsed(created, admitted),
       days_signed_to_admit: elapsed(signed, admitted),
