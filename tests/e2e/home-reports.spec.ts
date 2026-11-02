@@ -555,9 +555,15 @@ test.describe("role-scoped home and reports", () => {
     await expect(page.getByRole("heading", { name: "Admissions & census" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Census by community" })).toContainText("108");
     await expect(page.getByRole("region", { name: "Admitted last week" })).toContainText("Synthetic Admit");
-    await expect(page.getByRole("region", { name: "Admitted last week" })).toContainText("Origin: County hospital · County: Contra Costa");
+    const admittedDetails = page.getByRole("region", { name: "Admitted last week" }).locator("details");
+    await admittedDetails.locator("summary").click();
+    await expect(admittedDetails.getByText("Contra Costa", { exact: true })).toBeVisible();
+    await expect(admittedDetails).toContainText("Origin: County hospital");
     await expect(page.getByRole("region", { name: "Planned admits this week" })).toContainText("Synthetic Arrival");
-    await expect(page.getByRole("region", { name: "Planned admits this week" })).toContainText("Origin: Referral partner · County: Solano");
+    const plannedDetails = page.getByRole("region", { name: "Planned admits this week" }).locator("details");
+    await plannedDetails.locator("summary").click();
+    await expect(plannedDetails.getByText("Solano", { exact: true })).toBeVisible();
+    await expect(plannedDetails).toContainText("Origin: Referral partner");
     const movingSection = page.getByRole("region", { name: "Clients moving through" });
     await expect(movingSection).toContainText("Synthetic Past Date");
     await expect(movingSection).toContainText("Admission unconfirmed in this workspace");

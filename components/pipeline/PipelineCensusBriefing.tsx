@@ -50,7 +50,7 @@ export default function PipelineCensusBriefing() {
   return <main aria-label="Reports" data-testid="operations-workspace" className={styles.page}>
     <article data-monday-census-briefing="true" className={styles.briefing}>
       <header data-guide-target="operations-briefing-header" className={styles.masthead}>
-        <div><p className={styles.overline}>Pipeline reports · Weekly briefing</p><h1>Admissions &amp; census</h1>
+        <div><p className={styles.overline}>Weekly briefing</p><h1>Admissions &amp; census</h1>
           {admissions ? <p className={styles.deck}>Week of {formatDate(admissions.briefing.week_start)} · Pacific time</p> : null}</div>
         <button type="button" onClick={() => { setLoading(true); setRetry((value) => value + 1); }} disabled={loading} className={styles.refresh}>Refresh report</button>
       </header>
@@ -93,7 +93,6 @@ function AdmissionsSections({ report }: { report: AdmissionsCensusReport }) {
   const { briefing } = report;
   const admitted = briefing.admitted_last_week.map((item) => ({ ...item, date: item.admitted_at, detail: item.community }));
   const planned = briefing.planned_move_ins.map((item) => ({ ...item, date: item.planned_at, detail: `${item.community} · ${item.readiness === "blocked" ? "Requirements open" : item.readiness === "watch" ? "Review requirements" : "Ready"}` }));
-  const didNotMoveIn = (briefing.did_not_move_in ?? []).map((item) => ({ ...item, date: item.cancelled_at, detail: `${item.community} · ${item.status}` }));
   const moving = briefing.moving_through;
   const initialPhase = movingPhases.find(({ key }) => moving.some((row) => displayPhase(row, briefing.window_end) === key))?.key ?? "all";
   const phase = selectedPhase ?? initialPhase;
@@ -111,7 +110,7 @@ function AdmissionsSections({ report }: { report: AdmissionsCensusReport }) {
       <div className={styles.sectionHeading}><div><p className={styles.overline}>Current work</p><h2 id="moving-heading">Clients moving through</h2></div><p className={styles.sectionCount}>{briefing.moving_through.length}{briefing.coverage.moving_through_complete ? "" : "+"} active</p></div>
       {moving.length ? <>
         <div className={styles.movementChoices} aria-label="Choose clients to review">
-          {movingPhases.map(({ key, label, hint }) => { const count = moving.filter((row) => displayPhase(row, briefing.window_end) === key).length; return <button key={key} type="button" className={styles.movementChoice} data-selected={phase === key} aria-pressed={phase === key} onClick={() => setSelectedPhase(key)} disabled={!count}><strong>{count}</strong><span>{label}</span><small>{hint}</small></button>; })}
+          {movingPhases.map(({ key, label, hint }) => { const count = moving.filter((row) => displayPhase(row, briefing.window_end) === key).length; return <button key={key} type="button" data-phase={key} className={styles.movementChoice} data-selected={phase === key} aria-pressed={phase === key} onClick={() => setSelectedPhase(key)} disabled={!count}><strong>{count}</strong><span>{label}</span><small>{hint}</small></button>; })}
         </div>
         <div className={styles.movementDrill}>
           <div className={styles.movementToolbar}><div><h3>{phase === "all" ? "All active clients" : movingPhases.find((item) => item.key === phase)?.label}</h3><p>{visible.length} shown · Select a client to open the workspace</p></div><button type="button" className={styles.allClients} onClick={() => setSelectedPhase("all")} aria-pressed={phase === "all"}>View all {moving.length}</button></div>
@@ -125,25 +124,27 @@ function AdmissionsSections({ report }: { report: AdmissionsCensusReport }) {
       </> : <p className={styles.empty}>No active clients are moving through Pipeline.</p>}
       {!briefing.coverage.moving_through_complete ? <p className={styles.caption}>The list is capped; more clients are on the board.</p> : null}
     </section>
-    <div className={styles.outcomeList}>
-      <WeekList title="Did not move in" dates="Recorded in the past 30 days" items={didNotMoveIn} complete={briefing.coverage.did_not_move_in_complete ?? true} empty="No placements were recorded as did not move in during this period." />
-    </div>
   </>;
 }
 
 function WeekList({ title, dates, items, complete, empty }: { title: string; dates: string; items: WeekRow[]; complete: boolean; empty: string }) {
-  return <section className={styles.weekSection} aria-label={title}>
+  return <section className={styles.weekSection} data-period={title === "Admitted last week" ? "admitted" : "planned"} aria-label={title}>
     <div className={styles.weekHeading}><div><p className={styles.overline}>{dates}</p><h2>{title}</h2></div><strong>{items.length}{complete ? "" : "+"}</strong></div>
     {items.length ? <ul className={styles.weekList}>{items.map((item) => <li key={item.pipeline_path}>
       <div><a href={item.pipeline_path}>{item.client_name}</a><span>{formatDate(item.date)}</span></div>
-      <p>{item.detail}</p><ClientContextText item={item} />
+      <p>{item.detail} · {item.owner || "Unassigned"}</p><ClientContextText item={item} />
     </li>)}</ul> : <p className={styles.empty}>{empty}</p>}
     {!complete ? <p className={styles.caption}>The list is capped; more records exist.</p> : null}
   </section>;
 }
 
 function ClientContextText({ item }: { item: ClientContext }) {
-  return <span className={styles.origin}>Origin: {item.source_name || "not recorded"} · County: {item.referring_county || "not recorded"} · Prior placement: {item.prior_placement || "not recorded"} · Assessor: {item.owner}</span>;
+  return <details className={styles.clientDetails}>
+    <summary>Origin: {item.source_name || "not recorded"}<span className={styles.detailsHint}>Details</span></summary>
+    <dl><div><dt>County</dt><dd>{item.referring_county || "Not recorded"}</dd></div>
+      <div><dt>Prior placement</dt><dd>{item.prior_placement || "Not recorded"}</dd></div>
+      <div><dt>Assessor</dt><dd>{item.owner || "Unassigned"}</dd></div></dl>
+  </details>;
 }
 
 function formatNumber(value: number | null) { return value === null ? "Unavailable" : value.toLocaleString("en-US"); }

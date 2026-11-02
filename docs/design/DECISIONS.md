@@ -500,3 +500,9 @@ Remove repeated pencils from chart facts and captured assessment answers. The di
 Remove client pinning from Home and the expanded work folders. Recent contains the signed-in user's six most recently opened eligible workspaces: the first uses the existing featured resume card, with five compact rows beneath. A shorter history shows only the workspaces actually visited. Older work remains in In progress or Clients in handoff. This supersedes the earlier pinned-first and three-recent decisions.
 
 Keep the existing per-user visit order, saved resume locations, active-work filtering and authorization. Retire pin controls, state fields and pin mutations; previously saved pin preferences are ignored while the rest of the user's continuity record still loads. No client records or workflow rules change. Remove the space reserved for pin buttons; preserve the existing Carelog styling and responsive hierarchy. Local only.
+
+## Admissions briefing clarity (owner, 2026-11-01)
+
+Use Pipeline's compact type scale, warm section headers and existing green/blue stage accents for the admissions report. Keep the census bars and client drill-downs. Origin remains visible; county, prior placement and assessor remain in an expandable detail group rather than a repeated prose line.
+
+The owner removed the separate “Did not move in” category from this briefing. Keep it focused on census, admissions and clients moving toward admission. Existing placement outcome records remain in their workspaces; no admission status, counts or history are rewritten. The report does not load cancellation correspondence.
