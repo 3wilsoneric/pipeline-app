@@ -51,7 +51,8 @@ for (const mobile of [false, true]) for (const reload of [false, true]) {
           return records.some((record) => record.kind === "client-notes-draft" && record.ciphertext instanceof ArrayBuffer);
         } finally { database.close(); }
       })).toBe(true);
-      await panel.getByRole("button", { name: "Close notes", exact: true }).click();
+      if (mobile) await panel.getByRole("button", { name: "Close notes", exact: true }).click();
+      else await text.press("Escape");
       await expect(panel).toBeHidden();
       if (reload) await page.reload();
       await toggle.click();

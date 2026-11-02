@@ -174,6 +174,7 @@ export default function ClientNoteEditor({ id, value, disabled, onChange, onBlur
       <div className={styles.blockContent}>
       {current.kind === "bullet" ? <span className={styles.marker} aria-hidden="true">•</span> : null}
       <ParagraphField id={`${id}-${paragraph.key}`} label={index === 0 ? "Notes" : `Notes paragraph ${index + 1}`} value={current.text} disabled={disabled}
+        describedBy={index === 0 && !disabled ? `${id}-hint` : undefined}
         activeOption={slash?.key === paragraph.key && choices.length ? `${id}-command-${Math.min(slash.selected, choices.length - 1)}` : undefined}
         menuId={slash?.key === paragraph.key && choices.length ? `${id}-commands` : undefined}
         maxLength={unifiedNoteMaxLength - (document.value.length - current.text.length)}
@@ -230,7 +231,7 @@ export default function ClientNoteEditor({ id, value, disabled, onChange, onBlur
 
 function ParagraphField({ fieldRef, ...props }: {
   id: string; label: string; value: string; disabled: boolean; maxLength: number;
-  activeOption?: string; menuId?: string;
+  activeOption?: string; menuId?: string; describedBy?: string;
   fieldRef: (element: HTMLTextAreaElement | null) => void;
   onChange: (value: string) => void; onBlur: (event: React.FocusEvent<HTMLTextAreaElement>) => void;
   onKeyDown: (event: React.KeyboardEvent<HTMLTextAreaElement>) => void;
@@ -256,6 +257,7 @@ function ParagraphField({ fieldRef, ...props }: {
     return () => observer.disconnect();
   }, []);
   return <textarea ref={(element) => { field.current = element; fieldRef(element); }} id={props.id} aria-label={props.label} value={props.value}
+    aria-describedby={props.describedBy}
     aria-haspopup="listbox" aria-controls={props.menuId} aria-activedescendant={props.activeOption}
     disabled={props.disabled} maxLength={props.maxLength} placeholder="Type notes" spellCheck className={styles.field} rows={1}
     onChange={(event) => props.onChange(event.target.value)} onBlur={props.onBlur} onKeyDown={props.onKeyDown} />;

@@ -551,3 +551,9 @@ Title the Home section “Recent workspaces” and use the same compact row layo
 ## Interview actions at both ends of preparation (owner, 2026-11-02)
 
 Repeat “Schedule interview or Start now” above and below preparation, keeping the same teal underlined text style with more prominent type and comfortable touch targets. Both locations use the existing scheduling and interview commands, including their edit, continue and retry states. Keep the appointment summary and tutorial anchor at the top; preserve permissions, draft saves and start semantics.
+
+## Notes discovery and one reset control (owner, 2026-11-02)
+
+Show “Type / for headings and bullets” as a muted line below the Notes header when editing is available. Associate it with the first writing field; preserve the slash menu and save behavior.
+
+Remove the grip and separate dock/hide/close icons from the desktop header. Its text remains the drag handle. One return-arrow control restores the floating note to its original size and position, docking it beside the questions when it began there. Escape still closes or docks Notes, and can collapse the preparation notebook; the existing Notes trigger reopens it. Keep the resize handle at the bottom right. Phones retain one close control and their fitted panel, with no resize/reset controls. This supersedes the earlier size-only reset that preserved a moved position.

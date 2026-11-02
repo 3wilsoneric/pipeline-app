@@ -70,10 +70,10 @@ test("existing topic notes become one editable note without losing their saved o
     const last = panel.locator("textarea").last();
     await last.fill(`${await last.inputValue()}\n\nNew note after consolidation.`);
     // Close immediately, without waiting for the debounce or an explicit save.
-    await panel.getByRole("button", { name: "Close notes" }).click();
+    await panel.getByRole("textbox", { name: "Notes", exact: true }).press("Escape");
     await toggle.click();
     await expectText(edited);
-    await panel.getByRole("button", { name: "Close notes" }).click();
+    await panel.getByRole("textbox", { name: "Notes", exact: true }).press("Escape");
     await returnToAssessmentQuestions(page);
     await openAllQuestions(page);
     const answer = page.getByRole("textbox", { name: "Where the client is now", exact: true });
@@ -103,7 +103,7 @@ test("existing topic notes become one editable note without losing their saved o
       await panel.locator("textarea").last().press("Backspace");
     }
     await (await openNote(panel, "notes")).fill("");
-    await panel.getByRole("button", { name: "Close notes" }).click();
+    await panel.getByRole("textbox", { name: "Notes", exact: true }).press("Escape");
     await expect.poll(async () => Object.fromEntries((await read()).map(block => [block.block_key, block.body])).notes).toBe("");
     await expect(toggle).not.toHaveAttribute("data-has-note", "true");
     await page.reload();
@@ -144,7 +144,7 @@ test("a delayed summary cannot put a deleted note back into the preview", async 
     await field.blur();
     await captured;
     await field.fill("");
-    await panel.getByRole("button", { name: "Close notes" }).click();
+    await panel.getByRole("textbox", { name: "Notes", exact: true }).press("Escape");
     await expect.poll(async () => (await (await api.get(`/api/referrals/${referral.id}/notes`)).json()).blocks[0]?.body).toBe("");
     await expect(toggle).not.toHaveAttribute("data-has-note", "true");
     release();
@@ -182,7 +182,7 @@ test("a slow notes reply cannot restore deleted text or prevent editing another 
     await field.blur();
     await saving;
     await field.fill("");
-    await panel.getByRole("button", { name: "Close notes" }).click({ timeout: 1000 });
+    await panel.getByRole("textbox", { name: "Notes", exact: true }).press("Escape", { timeout: 1000 });
     await page.getByRole("button", { name: "Workspace files", exact: true }).click({ timeout: 1000 });
     await expect(page.locator("#packet-files")).toBeVisible();
     release();
