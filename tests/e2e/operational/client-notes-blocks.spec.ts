@@ -55,7 +55,7 @@ test("slash blocks keep note content, keyboard access and exact saved structure 
     // Normal slashes and URLs never open commands or replace text.
     await last().fill("https://example.invalid/a/b"); await expect(menu).toHaveCount(0);
     const expected = `${original}\n\n## Interview observations\n\n## Medication follow-up\n\n- First observation\n\n- Second observation\n\nhttps://example.invalid/a/b`;
-    await panel.getByRole("button", { name: "Close notes" }).click();
+    await panel.getByRole("textbox", { name: "Notes", exact: true }).press("Escape");
     await expect.poll(saved).toBe(expected);
     await page.reload(); await toggle.click();
     await expect(rows).toHaveCount(9); await expect(rows.nth(4)).toHaveAttribute("data-block-kind", "heading");
@@ -63,7 +63,7 @@ test("slash blocks keep note content, keyboard access and exact saved structure 
     // Reorder the entire heading, including its persisted formatting.
     await rows.nth(5).locator("summary").press("ArrowUp");
     await expect(rows.nth(4).locator("textarea")).toHaveValue("Medication follow-up");
-    await panel.getByRole("button", { name: "Close notes" }).click();
+    await panel.getByRole("textbox", { name: "Notes", exact: true }).press("Escape");
     await expect.poll(saved).toBe(expected.replace("## Interview observations\n\n## Medication follow-up", "## Medication follow-up\n\n## Interview observations"));
     await toggle.click();
     await page.screenshot({ animations: "disabled", path: ".data/notes-quiet-pass-20261101/structured-notes.png" });
@@ -75,7 +75,7 @@ test("slash blocks keep note content, keyboard access and exact saved structure 
     const rect = await menu.boundingBox(); expect(rect!.x).toBeGreaterThanOrEqual(0); expect(rect!.x + rect!.width).toBeLessThanOrEqual(390);
     await menu.getByRole("option", { name: "History & timeline", exact: true }).click();
     await expect(last()).toBeFocused(); await last().pressSequentially("Earlier placement recorded.");
-    await panel.getByRole("button", { name: "Close notes" }).click();
+    await panel.getByRole("textbox", { name: "Notes", exact: true }).press("Escape");
     await expect.poll(saved).toContain("\n\n## History & timeline\n\nEarlier placement recorded.");
   } finally { await context.close(); await api.dispose(); }
 });
@@ -149,7 +149,7 @@ test("notes wait for a typing pause, batch paragraph changes, and save immediate
     await expect.poll(() => writes).toEqual(["One updated\n\nTwo"]);
     await expect(panel.locator("[data-notes-drag-header] [role=status]")).toHaveText("All notes saved");
     await rows.last().locator("textarea").fill("Two updated");
-    await panel.getByRole("button", { name: "Close notes" }).click();
+    await panel.getByRole("textbox", { name: "Notes", exact: true }).press("Escape");
     await expect.poll(() => writes).toEqual(["One updated\n\nTwo", "One updated\n\nTwo updated"]);
     await expect.poll(async () => ((await (await api.get(`/api/referrals/${referral.id}/notes`)).json()).blocks as { block_key: string; body: string }[]).find((item) => item.block_key === "notes")?.body).toBe("One updated\n\nTwo updated");
     await toggle.click(); await expect(rows.last().locator("textarea")).toHaveValue("Two updated");

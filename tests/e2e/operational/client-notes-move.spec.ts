@@ -34,7 +34,7 @@ for (const mode of ["prepare", "interview"]) {
       await expect(floating).not.toHaveAttribute("aria-modal", "true");
       const last = note.locator("textarea").last();
       await last.fill(`${await last.inputValue()}\n\nAdded while floating.`);
-      await floating.getByRole("button", { name: "Dock notes", exact: true }).click();
+      await floating.getByRole("button", { name: "Restore notes size", exact: true }).click();
       await expect(floating).toHaveCount(0);
       await expect.poll(() => note.locator("textarea").evaluateAll((fields) => fields.map((field) => (field as HTMLTextAreaElement).value))).toEqual(`${value}\n\nAdded while floating.`.split(/\n{2,}/));
 
@@ -98,7 +98,7 @@ test("floating workspace notes remain reachable after moving, cancellation and v
     await page.setViewportSize({ width: 850, height: 640 });
     await expect.poll(async () => { const rect = await panel.boundingBox(); return Boolean(rect && rect.x >= 0 && rect.y >= 0 && rect.x + rect.width <= 850 && rect.y + rect.height <= 640); }).toBe(true);
     await panel.getByRole("textbox", { name: "Notes", exact: true }).fill("Saved after moving the window.");
-    await panel.getByRole("button", { name: "Close notes" }).click();
+    await panel.getByRole("textbox", { name: "Notes", exact: true }).press("Escape");
     await expect(toggle).toBeFocused();
     await toggle.click();
     await expect(panel.getByRole("textbox", { name: "Notes", exact: true })).toHaveValue("Saved after moving the window.");
@@ -149,7 +149,7 @@ test("paragraph drag and keyboard editing preserve the shared plain-text note ex
     await page.keyboard.type("Fourth");
     await page.keyboard.press("Shift+Enter");
     await page.keyboard.type("continued");
-    await panel.getByRole("button", { name: "Close notes" }).click();
+    await panel.getByRole("textbox", { name: "Notes", exact: true }).press("Escape");
     await toggle.click();
     await expect.poll(contents).toEqual([second, first, third, "Fourth\ncontinued"]);
     await expect.poll(saved).toBe(`${second}\n\n\n${first}\n\n${third}\n\nFourth\ncontinued`);
@@ -192,7 +192,7 @@ test("deleting a carried-over paragraph stays deleted through an offline reload"
     await expect(panel.locator("textarea")).toHaveValue("Original note");
     await page.clock.runFor(5000);
     await expect(panel).toContainText("Waiting to sync");
-    await panel.getByRole("button", { name: "Close notes" }).click();
+    await panel.getByRole("textbox", { name: "Notes", exact: true }).press("Escape");
     await page.reload();
     await toggle.click();
     await expect(panel.locator("textarea")).toHaveCount(1);

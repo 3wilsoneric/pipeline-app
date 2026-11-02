@@ -93,7 +93,7 @@ test("client notes stay together, save while typing, and fit beside the question
   await expect(page.locator('[data-assessment-working-section][data-assessment-phase="preparation"]')).toBeVisible();
   // Preparing: the notebook sits to the right and can be hidden and brought back.
   await expect(page.locator("[data-client-notes]")).toBeVisible();
-  await page.getByRole("button", { name: "Hide notes" }).click();
+  await notebook.getByRole("button", { name: "Move notes" }).press("Escape");
   await expect(page.locator("[data-client-notes]")).toHaveCount(0);
   await page.getByRole("button", { name: "Notes", exact: true }).click();
   await expect(page.locator("[data-client-notes]")).toBeVisible();

@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useLayoutEffect, useRef, useState, type PointerEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { AlertTriangle, Check, CloudUpload, GripVertical, LoaderCircle, Minimize2, MoveDiagonal2, NotebookPen, PanelRightClose, PanelRightOpen, X } from "lucide-react";
+import { AlertTriangle, Check, CloudUpload, LoaderCircle, MoveDiagonal2, NotebookPen, PanelRightOpen, RotateCcw, X } from "lucide-react";
 
 import { combinedClientNote, noteHeadings, unifiedNoteKey } from "@/lib/pipeline/client-notes";
 import ClientNoteEditor from "./ClientNoteEditor";
@@ -79,7 +79,7 @@ export default function ClientNotes({ referralId, readOnly, onCollapse, onClose 
     suppressClick.current = false;
     setPosition(null);
     setSize(null);
-    requestAnimationFrame(() => handle.current?.focus({ preventScroll: true }));
+    if (!onClose) requestAnimationFrame(() => handle.current?.focus({ preventScroll: true }));
   };
   const close = () => {
     notes.flush(unifiedNoteKey);
@@ -154,6 +154,7 @@ export default function ClientNotes({ referralId, readOnly, onCollapse, onClose 
       if (event.key !== "Escape" || event.defaultPrevented) return;
       if (drag.current) { event.preventDefault(); event.stopPropagation(); drag.current.cancel(); }
       else if (floating) { event.preventDefault(); event.stopPropagation(); close(); }
+      else if (onCollapse) { event.preventDefault(); event.stopPropagation(); notes.flush(unifiedNoteKey); onCollapse(); }
     }}>
     <header className={styles.head} onPointerDown={move} data-notes-drag-header>
       <h3 id={`notes-title-${instance}`} aria-label="Notes"><span className={styles.mobileTitle}>Notes</span><button ref={handle} type="button" aria-label="Move notes" title="Drag to move · Enter to lift · arrow keys to reposition" className={styles.move}
@@ -165,16 +166,15 @@ export default function ClientNotes({ referralId, readOnly, onCollapse, onClose 
           const rect = panel.current.getBoundingClientRect();
           const step = event.shiftKey ? 48 : 16;
           setPosition(constrain({ x: rect.x + direction[0] * step, y: rect.y + direction[1] * step }));
-        }}><GripVertical size={16} aria-hidden="true" />Notes</button></h3>
+        }}>Notes</button></h3>
       <span role="status" aria-live="polite" className={styles.status}>
         {notes.status !== "unsaved" ? <StatusIcon size={14} aria-hidden="true" className={notes.status === "saving" || notes.status === "loading" ? "motion-safe:animate-spin" : undefined} /> : null}{statusText[notes.status]}
       </span>
       {notes.failed._recovery && !notes.loadFailed ? <button type="button" onClick={notes.reload}>Retry</button> : null}
-      {floating && !onClose ? <button type="button" aria-label="Dock notes" title="Dock notes" onClick={dock} className={styles.iconButton}><PanelRightOpen size={16} aria-hidden="true" /></button> : null}
-      {onCollapse && !floating ? <button type="button" aria-label="Hide notes" title="Hide notes" onClick={onCollapse} className={styles.iconButton}><PanelRightClose size={16} aria-hidden="true" /></button> : null}
-      {onClose ? <button type="button" aria-label="Close notes" title="Close notes" onClick={close} className={styles.iconButton}><X size={16} aria-hidden="true" /></button> : null}
-      {floating ? <button type="button" aria-label="Restore notes size" title="Restore original size" onClick={() => setSize(null)} className={`${styles.iconButton} ${styles.restoreSize}`}><Minimize2 size={18} aria-hidden="true" /></button> : null}
+      {onClose ? <button type="button" aria-label="Close notes" title="Close notes" onClick={close} className={`${styles.iconButton} ${styles.mobileClose}`}><X size={16} aria-hidden="true" /></button> : null}
+      {floating ? <button type="button" aria-label="Restore notes size" title="Restore original size and position" onClick={dock} className={`${styles.iconButton} ${styles.restoreSize}`}><RotateCcw size={18} aria-hidden="true" /></button> : null}
     </header>
+    {!notes.readOnly && notes.loaded ? <p id={`${fieldId}-hint`} className={styles.writingHint}>Type <kbd>/</kbd> for headings and bullets</p> : null}
     {notes.loadFailed ? <p role="alert" className={styles.notice}>Notes could not be loaded. <button type="button" onClick={notes.reload}>Retry</button></p> : null}
     <div className={styles.blocks}>
       <div data-note-heading={unifiedNoteKey} className={styles.block}>

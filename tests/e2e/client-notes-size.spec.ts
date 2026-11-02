@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
-import { activeOperationalAssessor, createOperationalReferral } from "./support/operational-api";
+import { activeOperationalAssessor, createOperationalAssessment, createOperationalReferral } from "./support/operational-api";
 
-test("restore Notes size preserves its position, text and save behavior", async ({ page }) => {
+test("snap Notes back to its original size and position without losing text", async ({ page }) => {
   const owner = await activeOperationalAssessor(page.request);
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { owner: owner.display_name }, { assigneeId: owner.principal_id });
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=chart`);
@@ -9,6 +9,11 @@ test("restore Notes size preserves its position, text and save behavior", async 
   await toggle.click();
   const panel = page.getByRole("dialog", { name: "Notes", exact: true });
   const text = panel.getByRole("textbox", { name: "Notes", exact: true });
+  await expect(text).toHaveAccessibleDescription("Type / for headings and bullets");
+  await text.fill("/");
+  await expect(page.getByRole("listbox", { name: "Note blocks" })).toBeVisible();
+  await text.press("Escape");
+  await expect(panel).toBeVisible();
   await text.fill("Synthetic note preserved through size restoration.");
   const original = (await panel.boundingBox())!;
   const resize = page.getByRole("button", { name: "Resize notes", exact: true });
@@ -22,10 +27,12 @@ test("restore Notes size preserves its position, text and save behavior", async 
   await restore.click();
   await expect.poll(async () => (await panel.boundingBox())!.width).toBeCloseTo(original.width, 0);
   await expect.poll(async () => (await panel.boundingBox())!.height).toBeCloseTo(original.height, 0);
-  // Move, resize with the keyboard, then reset without docking or dismissing.
+  await expect(panel.locator("header button:visible")).toHaveCount(2); // Notes drag title and one reset icon.
+  await expect(panel.getByRole("button", { name: "Close notes" })).toBeHidden();
+  // Move and resize with the keyboard, then restore the original frame.
   const move = panel.getByRole("button", { name: "Move notes", exact: true });
   await move.press("ArrowLeft");
-  const moved = (await panel.boundingBox())!;
+  expect((await panel.boundingBox())!.x).toBeLessThan(original.x);
   for (let index = 0; index < 4; index++) await resize.press("Shift+ArrowLeft");
   await resize.press("Shift+ArrowUp");
   expect((await panel.boundingBox())!.width).toBe(320);
@@ -38,10 +45,11 @@ test("restore Notes size preserves its position, text and save behavior", async 
   await expect(restore).toBeFocused();
   await expect.poll(async () => (await panel.boundingBox())!.width).toBeCloseTo(original.width, 0);
   await expect.poll(async () => (await panel.boundingBox())!.height).toBeCloseTo(original.height, 0);
-  expect((await panel.boundingBox())!.x).toBeCloseTo(moved.x, 0);
+  await expect.poll(async () => (await panel.boundingBox())!.x).toBeCloseTo(original.x, 0);
+  await expect.poll(async () => (await panel.boundingBox())!.y).toBeCloseTo(original.y, 0);
   await expect(text).toHaveValue("Synthetic note preserved through size restoration.");
   await page.screenshot({ path: ".data/notes-restored-desktop.png" });
-  await panel.getByRole("button", { name: "Close notes", exact: true }).click();
+  await text.press("Escape");
   await expect.poll(async () => (await (await page.request.get(`/api/referrals/${referral.id}/notes`)).json()).blocks.find((block: { block_key: string }) => block.block_key === "notes")?.body).toBe("Synthetic note preserved through size restoration.");
   await page.reload();
   await toggle.click();
@@ -53,4 +61,29 @@ test("restore Notes size preserves its position, text and save behavior", async 
   expect(phone.x).toBeGreaterThanOrEqual(0);
   expect(phone.x + phone.width).toBeLessThanOrEqual(390);
   await expect(panel.getByRole("button", { name: "Close notes", exact: true })).toBeVisible();
+  await expect(text).toHaveAccessibleDescription("Type / for headings and bullets");
+  await page.screenshot({ path: ".data/notes-hint-phone.png" });
+  await panel.getByRole("button", { name: "Close notes", exact: true }).click();
+  await expect(panel).toBeHidden();
+
+  // Notes lifted from preparation return to their original column with the same draft.
+  await createOperationalAssessment(page.request, referral.id);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentMode=prepare`);
+  const notebook = page.locator("[data-client-notes]");
+  await expect(notebook).toBeVisible();
+  await notebook.getByRole("button", { name: "Move notes" }).click();
+  await expect(panel).toBeVisible();
+  await resize.press("Shift+ArrowLeft");
+  await text.fill("Pending synthetic note returns to preparation.");
+  await restore.click();
+  await expect(panel).toBeHidden();
+  await expect(notebook.getByRole("textbox", { name: "Notes", exact: true })).toHaveValue("Pending synthetic note returns to preparation.");
+  await expect(notebook.getByRole("button", { name: "Move notes" })).toBeFocused();
+  await page.screenshot({ path: ".data/notes-hint-docked.png" });
+  await notebook.getByRole("button", { name: "Move notes" }).press("Escape");
+  await expect(notebook).toBeHidden();
+  await expect.poll(async () => (await (await page.request.get(`/api/referrals/${referral.id}/notes`)).json()).blocks.find((block: { block_key: string }) => block.block_key === "notes")?.body).toBe("Pending synthetic note returns to preparation.");
+  await page.getByRole("button", { name: "Notes", exact: true }).click();
+  await expect(notebook.getByRole("textbox", { name: "Notes", exact: true })).toHaveValue("Pending synthetic note returns to preparation.");
 });
