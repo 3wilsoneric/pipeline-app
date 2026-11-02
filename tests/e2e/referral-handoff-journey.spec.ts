@@ -76,7 +76,7 @@ for (const width of [1440, 834, 390]) {
     // One integrated journey covers scheduling, partial preparation and a side trip
     // before the existing review/sign/decision/handoff steps below.
     await openStage("Assessment");
-    await page.getByRole("button", { name: "Schedule interview", exact: true }).click();
+    await page.getByRole("region", { name: "Interview", exact: true }).getByRole("button", { name: "Schedule interview", exact: true }).click();
     const schedule = page.getByRole("dialog", { name: "Schedule interview", exact: true });
     await schedule.getByLabel("Assessment date and time").fill("2026-10-01T10:00");
     await schedule.getByLabel("Assessment method").selectOption("phone");

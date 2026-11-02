@@ -120,7 +120,7 @@ test.describe("interview layout", () => {
       await openAllQuestions(page);
       await expect(root).not.toHaveAttribute("data-interview-focus", "true");
       await expect(rail).toBeVisible();
-      await page.getByRole("button", { name: "Continue interview", exact: true }).click();
+      await page.getByRole("region", { name: "Interview", exact: true }).getByRole("button", { name: "Continue interview", exact: true }).click();
       await expect(root).toHaveAttribute("data-interview-focus", "true");
 
       // A narrow window keeps the normal layout with the rail.
@@ -194,7 +194,7 @@ test.describe("interview layout", () => {
       await expect(page.getByRole("button", { name: /Schedule interview|Edit assessment appointment/ })).toHaveCount(0);
       await expect(page.locator('[aria-label="Assessment appointment"]')).toHaveCount(0);
       await expect(begin).toHaveCount(0);
-      const resume = page.getByRole("button", { name: "Continue interview", exact: true });
+      const resume = page.getByRole("region", { name: "Interview", exact: true }).getByRole("button", { name: "Continue interview", exact: true });
       await expect(resume).toHaveCount(1);
       await resume.click();
       await expect(page.locator("html")).toHaveAttribute("data-interview-focus", "true");

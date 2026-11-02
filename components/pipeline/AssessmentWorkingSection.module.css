@@ -650,10 +650,11 @@
 .preparationActions > button, .preparationButtons > button { display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: var(--spacing-control); padding: 10px 16px; border: 1px solid var(--color-control-border); border-radius: var(--radius-input); color: var(--color-ink-2); background: var(--color-paper); font-size: var(--text-label); font-weight: 650; }
 .preparationActions button[data-primary] { background: var(--color-action); color: var(--color-on-action); }
 .preparationActions > button[data-primary] { margin-left: auto; }
-.preparationActions.interviewActions { padding-block: 0; background: transparent; }
-.preparationButtons { display: flex; align-items: center; flex-wrap: wrap; gap: 0 8px; max-width: 100%; }
-.preparationButtons > button { padding: 0; border: 0; background: transparent; color: var(--color-primary); font-size: var(--text-label); text-decoration: underline; text-underline-offset: 4px; }
-.preparationButtons > span { color: var(--color-ink-muted); font-size: var(--text-label); }
+.preparationActions.interviewActions { padding-block: 12px; background: transparent; }
+.interviewActions[data-interview-entry="bottom"] { margin-top: 24px; margin-bottom: 0; }
+.preparationButtons { display: flex; align-items: center; flex-wrap: wrap; gap: 0 12px; max-width: 100%; }
+.preparationButtons > button { padding: 0; border: 0; background: transparent; color: var(--color-primary); font-size: var(--text-section); line-height: var(--text-section--line-height); text-decoration: underline; text-underline-offset: 4px; }
+.preparationButtons > span { color: var(--color-ink-muted); font-size: var(--text-value); }
 .preparationActions button:hover:enabled { border-color: var(--color-primary); }
 .preparationActions button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 3px; }
 .preparationActions button:disabled { opacity: .5; }
@@ -666,6 +667,8 @@
 .appointmentSummary strong { color: var(--color-ink); font-size: var(--text-label); }
 @media (max-width: 639px) {
   .preparationActions { padding: 12px; gap: 12px; margin-bottom: 16px; }
+  .preparationButtons { gap: 0 8px; }
+  .preparationButtons > button { font-size: var(--text-value); line-height: var(--text-value--line-height); }
   .preparationActions > button { flex: 0 1 auto; }
   .preparationActions > button[data-primary] { flex-basis: 100%; }
   .appointmentSummary { flex: 1 1 auto; }

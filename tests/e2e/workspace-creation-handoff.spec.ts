@@ -44,15 +44,28 @@ for (const width of [1440, 820, 390, 320]) {
     await expect(page.getByRole("textbox", { name: "Where the client is now", exact: true })).toHaveCount(0);
     expect((await (await page.request.get(`/api/referrals/${id}/assessments`)).json()).assessments).toHaveLength(0);
     await openPreparation(page);
-    await expect(page.getByRole("button", { name: "Schedule interview", exact: true })).toBeEnabled();
+    const topActions = page.getByRole("region", { name: "Interview", exact: true });
+    const bottomActions = page.getByRole("region", { name: "Interview actions", exact: true });
+    for (const actions of [topActions, bottomActions]) {
+      const scheduleAction = actions.getByRole("button", { name: "Schedule interview", exact: true });
+      await expect(scheduleAction).toBeEnabled();
+      await expect(actions.getByRole("button", { name: "Start now", exact: true })).toBeEnabled();
+      await scheduleAction.scrollIntoViewIfNeeded();
+      await expect(scheduleAction).toBeInViewport();
+      expect((await scheduleAction.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+      expect(await actions.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+    }
+    await expect(page.locator('[data-guide-target="assessment-schedule-open"]')).toHaveCount(1);
+    await page.screenshot({ path: info.outputPath(`preparation-bottom-${width}.png`), animations: "disabled" });
+    await topActions.scrollIntoViewIfNeeded();
     await page.screenshot({ path: info.outputPath(`preparation-actions-${width}.png`), animations: "disabled" });
     if (width === 1440 || width === 390) {
       await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
-      const violations = await page.evaluate(async () => (await (window as unknown as { axe: { run: (selector: string, options: object) => Promise<AxeResults> } }).axe.run('[aria-label="Interview"]', { runOnly: ["wcag2a", "wcag2aa", "wcag21aa"] })).violations);
+      const violations = await page.evaluate(async () => (await (window as unknown as { axe: { run: (selector: string, options: object) => Promise<AxeResults> } }).axe.run('[data-interview-entry]', { runOnly: ["wcag2a", "wcag2aa", "wcag21aa"] })).violations);
       expect(violations).toEqual([]);
     }
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    await page.getByRole("button", { name: "Schedule interview", exact: true }).click();
+    await bottomActions.getByRole("button", { name: "Schedule interview", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "Schedule interview", exact: true });
     await expect(dialog).toBeVisible();
     const read = async () => (await (await page.request.get(`/api/referrals/${id}/assessments`)).json()).assessments;
@@ -62,7 +75,8 @@ for (const width of [1440, 820, 390, 320]) {
     await dialog.getByRole("button", { name: "Back to assessment", exact: true }).click();
     expect((await read())[0].scheduled_start_at).toBeUndefined();
     await expect(page.locator("body")).not.toHaveCSS("overflow", "hidden");
-    await page.getByRole("button", { name: "Schedule interview", exact: true }).click();
+    await expect(bottomActions.getByRole("button", { name: "Schedule interview", exact: true })).toBeFocused();
+    await page.getByRole("region", { name: "Interview", exact: true }).getByRole("button", { name: "Schedule interview", exact: true }).click();
     await dialog.getByLabel("Assessment date and time").fill("2028-09-21T10:00");
     await dialog.getByLabel("Assessment method").selectOption("phone");
     await dialog.getByLabel("Phone number to call").fill("555-010-2000");
@@ -79,7 +93,7 @@ for (const width of [1440, 820, 390, 320]) {
     const scheduled = (await read())[0];
     expect(scheduled).toMatchObject({ schedule_status: "scheduled", started_at: null, assessment_date: null, scheduled_start_at: "2028-09-21T17:00:00.000Z", scheduled_method: "phone", scheduled_location: "555-010-2000" });
     await expect(page.locator('#assessment-assessment_date')).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Edit assessment appointment", exact: true })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Interview", exact: true }).getByRole("button", { name: "Edit assessment appointment", exact: true })).toBeVisible();
     const workspacePicker = page.getByRole("combobox", { name: "Workspace view", exact: true });
     if (await workspacePicker.isVisible()) await workspacePicker.selectOption({ label: "Chart" });
     else await page.getByRole("navigation", { name: "Workspace stages", exact: true }).getByRole("button", { name: "Chart", exact: true }).click();
@@ -131,7 +145,7 @@ test("preparation builds the chart, preserves answers, and starts without bookin
   await page.getByRole("textbox", { name: "Referrer", exact: true }).fill("Synthetic record contact");
   const notes = page.getByRole("textbox", { name: "Notes", exact: true });
   await notes.fill("Synthetic preparation note carried into the interview.");
-  await page.getByRole("button", { name: "Start now", exact: true }).click();
+  await page.getByRole("region", { name: "Interview actions", exact: true }).getByRole("button", { name: "Start now", exact: true }).click();
   await expect(page).toHaveURL(/assessmentMode=interview/);
   await expect(page.getByRole("dialog", { name: "Begin interview", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Edit Where the client is now", exact: true })).toContainText("Synthetic referring facility");
@@ -153,7 +167,7 @@ test("preparation builds the chart, preserves answers, and starts without bookin
   await reference.getByRole("button", { name: "Edit Referrer", exact: true }).click();
   await expect(page).toHaveURL(/workspaceStage=assessment/);
   await page.getByRole("textbox", { name: "Referrer", exact: true }).fill("Updated synthetic record contact");
-  await page.getByRole("button", { name: "Continue interview", exact: true }).click();
+  await page.getByRole("region", { name: "Interview actions", exact: true }).getByRole("button", { name: "Continue interview", exact: true }).click();
   await expect(page).toHaveURL(/assessmentMode=interview/);
   await expect(reference.getByRole("button", { name: "Edit Referrer", exact: true })).toContainText("Updated synthetic record contact");
   await expect.poll(async () => (await read())[0].referrer_name).toBe("Updated synthetic record contact");
@@ -162,7 +176,7 @@ test("preparation builds the chart, preserves answers, and starts without bookin
   await expect(reference.getByRole("button", { name: "Edit County", exact: true })).toContainText("Synthetic County");
   await reference.getByRole("button", { name: "Edit County", exact: true }).click();
   await page.getByRole("textbox", { name: "County", exact: true }).fill("Updated Synthetic County");
-  await page.getByRole("button", { name: "Continue interview", exact: true }).click();
+  await page.getByRole("region", { name: "Interview actions", exact: true }).getByRole("button", { name: "Continue interview", exact: true }).click();
   await expect(page.getByRole("combobox", { name: "Assessment section", exact: true })).toHaveValue("prior_placement");
   await expect(reference.getByRole("button", { name: "Edit County", exact: true })).toContainText("Updated Synthetic County");
   expect(await read()).toHaveLength(1);
@@ -191,7 +205,7 @@ test("starting preserves a historical interview date, with normal optimistic con
 test("reopening Assessment keeps an unfinished appointment draft available", async ({ page }) => {
   const { id } = await createFromIntake(page);
   await openPreparation(page);
-  await page.getByRole("button", { name: "Schedule interview", exact: true }).click();
+  await page.getByRole("region", { name: "Interview", exact: true }).getByRole("button", { name: "Schedule interview", exact: true }).click();
   const schedule = page.getByRole("dialog", { name: "Schedule interview", exact: true });
   await schedule.getByLabel("Assessment date and time").fill("2028-09-21T10:00");
   await schedule.getByLabel("Assessment method").selectOption("phone");
@@ -200,7 +214,7 @@ test("reopening Assessment keeps an unfinished appointment draft available", asy
   await page.goto("/?view=referrals");
   await page.goto(`/?view=referrals&screen=packet&referralId=${id}&workspaceStage=assessment&assessmentMode=prepare`);
   await expect(schedule).toHaveCount(0);
-  await page.getByRole("button", { name: "Schedule interview", exact: true }).click();
+  await page.getByRole("region", { name: "Interview", exact: true }).getByRole("button", { name: "Schedule interview", exact: true }).click();
   await expect(schedule.getByLabel("Assessment date and time")).toHaveValue("2028-09-21T10:00");
   await expect(schedule.getByLabel("Phone number to call")).toHaveValue("555-010-2000");
   const records = (await (await page.request.get(`/api/referrals/${id}/assessments`)).json()).assessments;

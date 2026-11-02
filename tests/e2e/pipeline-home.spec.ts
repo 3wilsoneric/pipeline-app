@@ -36,7 +36,7 @@ test.describe("Pipeline home", () => {
     await expect(page.getByRole("button", { name: "Upcoming assessments", exact: true })).toBeFocused();
     await expect(page.getByRole("region", { name: "Ready to schedule" })).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Data completion" })).toHaveCount(0);
-    await expect(page.getByRole("region", { name: "Recent clients", exact: true }).or(page.getByText("No recent work yet.", { exact: true }))).toBeVisible();
+    await expect(page.getByRole("region", { name: "Recent workspaces", exact: true }).or(page.getByText("No recent work yet.", { exact: true }))).toBeVisible();
     await expect(page.getByRole("button", { name: "Open search" })).toHaveCount(0);
     await expect(page.getByLabel("Search or ask")).toHaveCount(0);
     await page.getByRole("button", { name: "Pipeline home" }).hover();
@@ -290,7 +290,7 @@ test.describe("Pipeline home", () => {
     expect(new URL(page.url()).searchParams.has("view")).toBeFalsy();
 
     await page.getByRole("button", { name: "Pipeline home" }).click();
-    await expect(page.getByRole("region", { name: "Recent clients", exact: true }).or(page.getByText("No recent work yet.", { exact: true }))).toBeVisible();
+    await expect(page.getByRole("region", { name: "Recent workspaces", exact: true }).or(page.getByText("No recent work yet.", { exact: true }))).toBeVisible();
     await expect(page.getByText("Broken recent", { exact: true })).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Current work", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Upcoming assessments", exact: true }).click();
@@ -347,7 +347,7 @@ test.describe("Pipeline home", () => {
     await expect(page.getByRole("button", { name: "Open in progress folder", exact: true })).toBeVisible();
     await expect(page.getByRole("region", { name: "Ready to schedule" })).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Data completion" })).toHaveCount(0);
-    await expect(page.getByRole("region", { name: "Recent clients", exact: true }).or(page.getByText("No recent work yet.", { exact: true }))).toBeVisible();
+    await expect(page.getByRole("region", { name: "Recent workspaces", exact: true }).or(page.getByText("No recent work yet.", { exact: true }))).toBeVisible();
     const welcomePipelinePosition = await page.locator('[data-pipeline-home="true"]').boundingBox();
 
     await page.getByRole("button", { name: "Open referrals" }).click();
@@ -370,7 +370,7 @@ test.describe("Pipeline home", () => {
     await expect(page.getByRole("dialog", { name: "Upcoming assessments", exact: true })).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(page.getByRole("button", { name: "Upcoming assessments", exact: true })).toBeFocused();
-    await expect(page.getByRole("region", { name: "Recent clients", exact: true }).or(page.getByText("No recent work yet.", { exact: true }))).toBeVisible();
+    await expect(page.getByRole("region", { name: "Recent workspaces", exact: true }).or(page.getByText("No recent work yet.", { exact: true }))).toBeVisible();
 
     const queueResponse = await page.request.get("/api/operations/my-queue");
     expect(queueResponse.ok()).toBeTruthy();

@@ -52,7 +52,7 @@ test.describe("assessment preparation", () => {
         const scheduledAnswer = `${answer} Prepared before scheduling.`;
         await field.fill(scheduledAnswer);
         if (process.env.PIPELINE_DESIGN_V2 !== "true") await editor.locator('summary[aria-label="Assessment details"]').click();
-        await editor.getByRole("button", { name: "Schedule interview", exact: true }).click();
+        await editor.getByRole("region", { name: "Interview", exact: true }).getByRole("button", { name: "Schedule interview", exact: true }).click();
         const schedule = page.getByRole("dialog", { name: "Schedule interview", exact: true });
         const future = new Date(Date.now() + (30 + referral.id) * 86_400_000).toISOString().slice(0, 16);
         await schedule.getByLabel("Assessment date and time").fill(future);
@@ -77,7 +77,7 @@ test.describe("assessment preparation", () => {
         const finalAnswer = `${scheduledAnswer} Last edit immediately before rescheduling.`;
         await field.fill(finalAnswer);
         await field.blur();
-        await editor.getByRole("button", { name: "Edit assessment appointment", exact: true }).click();
+        await editor.getByRole("region", { name: "Interview", exact: true }).getByRole("button", { name: "Edit assessment appointment", exact: true }).click();
         await schedule.getByLabel("Assessment date and time").fill("2027-10-20T10:00");
         await page.route(`**/api/assessments/${id}/schedule`, (route) => route.fulfill({ status: 503, json: { error: "Synthetic schedule failure. Retry without losing preparation." } }));
         await schedule.getByRole("button", { name: "Save new time", exact: true }).click();

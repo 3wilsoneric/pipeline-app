@@ -44,7 +44,7 @@ test.describe("assessment editing entry and return paths", () => {
         await expect(full.getByRole("textbox", { name: "Hospitalization history", exact: true })).toHaveValue(answer);
         await page.getByRole("button", { name: "Pipeline home", exact: true }).click();
         await expect(page.getByTestId("packet-workspace")).toHaveCount(0);
-        const board = page.getByRole("region", { name: "Recent clients", exact: true });
+        const board = page.getByRole("region", { name: "Recent workspaces", exact: true });
         await board.getByRole("button", { name: `Open ${referral.name}`, exact: true }).click();
         await expect(full).toBeVisible();
         await expect(full.getByRole("combobox", { name: "Assessment section", exact: true })).toHaveValue("prior_history");

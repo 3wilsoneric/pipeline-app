@@ -176,19 +176,18 @@
 
 .requirementDetail { color: var(--color-ink-muted); font-size: var(--text-label); line-height: var(--text-label--line-height); overflow-wrap: anywhere; }
 
-/* Carelog's task hierarchy: one resume tile, followed by compact client rows.
-   Recent ordering and every clinical status still come from the existing model. */
+/* Equal recent-workspace rows; ordering and statuses come from the existing model. */
 .clientSpace { display: flex; flex-direction: column; gap: 28px; }
 .workingClients { display: grid; gap: 28px; }
 .shelfTitle { margin: 0 0 12px; color: var(--color-ink-2); font-size: var(--text-value); line-height: var(--text-value--line-height); font-weight: 600; }
-.clientShelf { display: grid; gap: 0; }
+.clientShelf { display: grid; grid-auto-rows: 1fr; gap: 0; }
 .clientFile { position: relative; min-width: 0; --stage-accent: var(--color-stage-blue); --docket-edge: var(--color-stage-blue-border); }
 .clientFile[data-card-stage="decision"] { --stage-accent: var(--color-stage-violet); --docket-edge: var(--color-stage-violet-border); }
 .workingClients .clientFile .card { display: grid; grid-template-columns: minmax(0, 1fr) 128px; align-items: center; gap: 20px; min-height: 88px; padding: 16px 24px; border: 1px solid var(--color-folder-edge); border-radius: 0; background: var(--color-paper); box-shadow: none; }
-.workingClients .clientFile + .clientFile:not([data-featured]) .card { border-top-width: 0; }
-.workingClients .clientFile:first-child .card, .workingClients .clientFile[data-featured] + .clientFile .card { border-top-width: 1px; border-radius: var(--radius-task) var(--radius-task) 0 0; }
+.workingClients .clientFile + .clientFile .card { border-top-width: 0; }
+.workingClients .clientFile:first-child .card { border-top-width: 1px; border-radius: var(--radius-task) var(--radius-task) 0 0; }
 .workingClients .clientFile:last-child .card { border-radius: 0 0 var(--radius-task) var(--radius-task); }
-.workingClients .clientFile:only-child .card, .workingClients .clientFile[data-featured] + .clientFile:last-child .card { border-radius: var(--radius-task); }
+.workingClients .clientFile:only-child .card { border-radius: var(--radius-task); }
 .workingClients .clientFile .card::before { content: none; }
 .workingClients .clientFile .cardHead { flex-direction: row; align-items: baseline; gap: 6px 18px; flex-wrap: wrap; padding: 0; }
 .workingClients .clientFile .name { flex: 0 1 auto; }
@@ -198,16 +197,6 @@
 .workingClients .actionText { white-space: nowrap; }
 .workingClients .clientFile .card:hover { transform: none; background: var(--color-action-soft); border-color: var(--color-control-border); box-shadow: none; }
 .workingClients .clientFile .card:active { transform: none; background: var(--color-task-peach); }
-.workingClients .clientFile[data-featured] { margin-bottom: 16px; }
-.workingClients .clientFile[data-featured]:last-child { margin-bottom: 0; }
-.workingClients .clientFile[data-featured] .card { grid-template-columns: 76px minmax(0, 1fr) 156px; min-height: 166px; padding: 20px 28px 20px 24px; border: 1.5px solid var(--color-task-edge); border-radius: var(--radius-task); background: var(--surface-task); box-shadow: var(--shadow-task); }
-.workingClients .clientFile[data-featured] .docsNeeded { flex-basis: 100%; }
-.workingClients .clientFile[data-featured] .cardHead { flex-direction: column; gap: 5px; }
-.workingClients .clientFile[data-featured] .name { font-size: var(--text-title); line-height: var(--text-title--line-height); }
-.workingClients .clientFile[data-featured] .nextStep { flex-direction: column-reverse; justify-content: center; gap: 8px; }
-.workingClients .clientFile[data-featured] .actionText { font-size: var(--text-section); line-height: var(--text-section--line-height); }
-.workingClients .clientFile[data-featured] .nextStep > svg { width: 30px; height: 30px; }
-.taskArt { display: grid; place-items: center; }
 .clientFile .card { height: 100%; }
 .emptyRecent { padding: 18px 0; margin: 0; color: var(--color-ink-muted); font-size: var(--text-value); line-height: var(--text-value--line-height); }
 .categoryLinks { display: grid; grid-template-columns: 240px max-content max-content; gap: 16px; align-items: center; }
@@ -249,14 +238,7 @@
   .workingClients .clientFile .nextStep { gap: 6px; }
   .workingClients .clientFile .fileIndex { display: grid; gap: 3px; }
   .workingClients .clientFile .owner::before { content: none; }
-  .workingClients .clientFile[data-featured] .card { grid-template-columns: 48px minmax(0, 1fr); gap: 12px; padding: 20px 16px 0; background: var(--color-paper); }
-  .workingClients .clientFile[data-featured] .name { font-size: var(--text-section); line-height: var(--text-section--line-height); }
-  .taskArt > svg { width: 48px; height: 48px; }
-  .workingClients .clientFile[data-featured] .footer { grid-column: 1 / -1; margin-inline: -16px; border-radius: 0 0 var(--radius-task) var(--radius-task); background: var(--surface-task); }
-  .workingClients .clientFile[data-featured] .nextStep { flex-direction: row; justify-content: space-between; min-height: 64px; padding: 12px 20px; }
-  .workingClients .clientFile[data-featured] .actionText { font-size: var(--text-value); }
 }
 @media (forced-colors: active) {
-  .workingClients .clientFile .card, .workingClients .clientFile[data-featured] .card, .categoryLinks .openFolder { border-color: ButtonText; background: Canvas; box-shadow: none; }
-  .workingClients .clientFile[data-featured] .footer { background: Canvas; }
+  .workingClients .clientFile .card, .categoryLinks .openFolder { border-color: ButtonText; background: Canvas; box-shadow: none; }
 }

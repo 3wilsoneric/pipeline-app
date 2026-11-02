@@ -103,7 +103,7 @@ test.describe("uninterrupted workflow", () => {
       await createOperationalAssessment(api, referral.id);
       await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment`);
       if (process.env.PIPELINE_DESIGN_V2 !== "true") await page.locator('summary[aria-label="Assessment details"]').click();
-      await page.getByRole("button", { name: "Schedule interview", exact: true }).click();
+      await page.getByRole("region", { name: "Interview", exact: true }).getByRole("button", { name: "Schedule interview", exact: true }).click();
       const schedule = page.getByRole("dialog", { name: "Schedule interview", exact: true });
       await schedule.getByLabel("Assessment date and time").fill("2027-01-15T10:00");
       await page.route("**/api/assessments/*/schedule", route => route.fulfill({ status: 503, json: { error: "Synthetic schedule outage" } }));

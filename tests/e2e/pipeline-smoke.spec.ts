@@ -2273,7 +2273,7 @@ test.describe("Referral home and packet canvas", () => {
     await page.reload();
     await expect(assessmentInterview).toBeVisible();
     const section = page.getByRole("combobox", { name: "Assessment section", exact: true });
-    await page.getByRole("button", { name: "Schedule interview", exact: true }).click();
+    await page.getByRole("region", { name: "Interview", exact: true }).getByRole("button", { name: "Schedule interview", exact: true }).click();
     const scheduleDialog = page.getByRole("dialog", { name: "Schedule interview", exact: true });
     await scheduleDialog.getByLabel("Assessment date and time").fill("2026-08-26T09:00");
     await scheduleDialog.getByLabel("Assessment address").fill("San Pablo interview room");

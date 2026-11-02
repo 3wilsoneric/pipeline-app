@@ -340,7 +340,7 @@ test.describe("workflow interaction and durable feedback", () => {
       release();
       await page.getByRole("button", { name: "Pipeline home", exact: true }).click();
       await expect.poll(async () => (await (await api.get(`/api/assessments/${assessmentId}`)).json()).assessment.prior_placements).toBe(answer);
-      await page.getByRole("region", { name: "Recent clients", exact: true })
+      await page.getByRole("region", { name: "Recent workspaces", exact: true })
         .getByRole("button", { name: `Open ${referral.name}`, exact: true }).click();
       await expect(page).toHaveURL(new RegExp(`referralId=${referral.id}.*assessmentSection=prior_history`));
       await expect(chart).toBeVisible();
@@ -416,7 +416,7 @@ test.describe("workflow interaction and durable feedback", () => {
       const assessmentId = (await created.json()).assessment.assessment_id;
       await page.goto(`${workspacePath(referral.id)}&workspaceStage=assessment`);
       if (process.env.PIPELINE_DESIGN_V2 !== "true") await page.locator('summary[aria-label="Assessment details"]').click();
-      await page.getByRole("button", { name: "Schedule interview", exact: true }).click();
+      await page.getByRole("region", { name: "Interview", exact: true }).getByRole("button", { name: "Schedule interview", exact: true }).click();
       const scheduling = page.getByRole("dialog", { name: "Schedule interview", exact: true });
       await expect(scheduling).toBeVisible();
       await scheduling.getByRole("combobox", { name: "Assessment method" }).selectOption("zoom");

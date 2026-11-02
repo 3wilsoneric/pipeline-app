@@ -74,8 +74,8 @@ for (const width of [1440, 390]) {
       await expect(column.locator("[data-open-folder]")).toHaveCSS("border-top-color", stage === "in_progress" ? "rgb(47, 84, 200)" : "rgb(23, 113, 79)");
 
       if (stage === "in_progress") {
-        await expect(page.getByRole("region", { name: "Recent clients" }).getByRole("button", { name: "Open Avery Rivera", exact: true })).toHaveAccessibleDescription("Referral received Resume");
-        await expect(page.getByRole("region", { name: "Recent clients" }).getByRole("button", { name: "Open Jordan Rivera", exact: true })).toHaveAccessibleDescription("Assessment underway Resume");
+        await expect(page.getByRole("region", { name: "Recent workspaces" }).getByRole("button", { name: "Open Avery Rivera", exact: true })).toHaveAccessibleDescription("Referral received Resume");
+        await expect(page.getByRole("region", { name: "Recent workspaces" }).getByRole("button", { name: "Open Jordan Rivera", exact: true })).toHaveAccessibleDescription("Assessment underway Resume");
       }
       await page.screenshot({ path: info.outputPath(`two-section-board-${width}-${stage}.png`), animations: "disabled" });
       await column.locator("[data-open-folder]").click();
@@ -254,7 +254,7 @@ for (const width of [1440, 834, 390, 320]) test(`Home ribbon opens its accessibl
   await expect(priorities.locator('[data-open-folder] svg')).toHaveCount(0);
   if (width >= 768) { expect(boxes[1].y).toBeLessThan(boxes[0].y + boxes[0].height); expect(boxes[1].width).toBeLessThan(boxes[2].width); }
   else { expect(boxes[1].y).toBeGreaterThan(boxes[0].y); expect(Math.abs(boxes[1].width - boxes[2].width)).toBeLessThan(2); }
-  expect((await priorities.boundingBox())!.y).toBeLessThan((await home.getByRole("region", {name: "Recent clients"}).boundingBox())!.y);
+  expect((await priorities.boundingBox())!.y).toBeLessThan((await home.getByRole("region", {name: "Recent workspaces"}).boundingBox())!.y);
   await priorities.screenshot({ path: info.outputPath(`home-priorities-${width}.png`), animations: "disabled" });
   await upcoming.focus();
   await page.keyboard.press("Enter");
@@ -494,7 +494,7 @@ test("folder expansion respects reduced motion and empty stages", async ({ page 
 test("Escape returns from the full list to the same recent clients", async ({ page }) => {
   await homeFixture(page, undefined, 3);
   await page.goto("/");
-  const recent = page.getByRole("region", { name: "Recent clients" });
+  const recent = page.getByRole("region", { name: "Recent workspaces" });
   await expect(recent.locator("[data-client-file]")).toHaveCount(6);
   const before = await recent.locator("[data-client-file]").evaluateAll(elements => elements.map(element => element.getAttribute("data-client-file")));
   expect(before).toEqual(["920000", "920001", "920002", "920100", "920101", "920102"]);
@@ -580,17 +580,20 @@ test("iPad folder scrolling does not turn the Home deck", async ({ baseURL }) =>
   } finally { try { await context.close(); } finally { await browser.close(); } }
 });
 
-for (const width of [1440, 390]) test(`most recent workspace leads five more without pin controls at ${width}px`, async ({ page }, info) => {
+for (const width of [1440, 390]) test(`recent workspaces use equal rows without pin controls at ${width}px`, async ({ page }, info) => {
   await page.setViewportSize({ width, height: 950 });
   await homeFixture(page, undefined, 4);
   await page.goto("/");
-  const recent = page.getByRole("region", { name: "Recent clients" });
+  const recent = page.getByRole("region", { name: "Recent workspaces" });
   const cards = recent.locator("[data-client-file]");
   await expect(cards).toHaveCount(6);
   await expect(cards.locator("[data-folder-name]")).toHaveText(["Avery Rivera", "Avery Brooks", "Avery Chen", "Avery Patel", "Jordan Rivera", "Jordan Brooks"]);
-  await expect(cards.first()).toHaveAttribute("data-featured", "true");
-  await expect(recent.locator("[data-client-file][data-featured]")).toHaveCount(1);
-  expect((await cards.first().boundingBox())!.height).toBeGreaterThan((await cards.nth(1).boundingBox())!.height);
+  await expect(recent.getByRole("heading", { name: "Recent workspaces", exact: true })).toBeVisible();
+  const sizes = await cards.evaluateAll(elements => elements.map(element => ({ width: element.getBoundingClientRect().width, height: element.getBoundingClientRect().height })));
+  for (const size of sizes) {
+    expect(size.width).toBeCloseTo(sizes[0].width, 0);
+    expect(size.height).toBeCloseTo(sizes[0].height, 0);
+  }
   await expect(page.getByRole("button", { name: /^(Unpin|Pin) / })).toHaveCount(0);
   await expect(page.getByRole("region", { name: "Pinned clients" })).toHaveCount(0);
   await expect(page.locator("[data-folder-stack]")).toHaveCount(0);
@@ -618,9 +621,9 @@ for (const width of [1440, 390]) test(`most recent workspace leads five more wit
 test("a short history shows only real recent workspaces", async ({ page }) => {
   await homeFixture(page);
   await page.goto("/");
-  const recent = page.getByRole("region", { name: "Recent clients" });
+  const recent = page.getByRole("region", { name: "Recent workspaces" });
   await expect(recent.locator("[data-client-file]")).toHaveCount(1);
-  await expect(recent.locator("[data-client-file][data-featured]")).toHaveCount(1);
+  await expect(recent.getByRole("heading", { name: "Recent workspaces", exact: true })).toBeVisible();
 });
 
 test("recent Resume honors the user's saved page", async ({ page }) => {
@@ -632,7 +635,7 @@ test("recent Resume honors the user's saved page", async ({ page }) => {
     } } });
   });
   await page.goto("/");
-  await page.getByRole("region", { name: "Recent clients" }).getByRole("button", { name: "Open Avery Board", exact: true }).click();
+  await page.getByRole("region", { name: "Recent workspaces" }).getByRole("button", { name: "Open Avery Board", exact: true }).click();
   await expect(page).toHaveURL(/referralId=910501/);
   await expect(page).toHaveURL(/workspaceView=files/);
   await expect(page).toHaveURL(/workspaceEntry=resume/);
@@ -662,7 +665,7 @@ for (const width of [320, 390]) test(`phone shows only personal work even with t
   await page.setViewportSize({ width, height: 844 });
   await homeFixture(page, ["search", "recent-work"], 2, true, false, "mixed", 1, true);
   await page.goto("/");
-  const recent = page.getByRole("region", { name: "Recent clients" });
+  const recent = page.getByRole("region", { name: "Recent workspaces" });
   await expect(recent.locator("[data-client-file]")).toHaveCount(6);
   await expect(recent.getByText("Team Rivera", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Upcoming assessments", exact: true })).toBeVisible();
