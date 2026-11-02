@@ -24,11 +24,13 @@ export async function proxy(request: NextRequest) {
     return withSecurityHeaders(denied ?? continueRequest(request), request);
   }
 
-  // Alamo Platform reads aggregate counts server-to-server with its own secret.
+  // Client-level briefing and the broad board summary never share a credential.
   if (applicationPathname.startsWith("/api/integrations/platform/")) {
     const denied = requireBearerSecretAtProxy(
       request,
-      process.env.PIPELINE_PLATFORM_SUMMARY_SECRET?.trim(),
+      applicationPathname === "/api/integrations/platform/client-briefing"
+        ? process.env.PIPELINE_PLATFORM_CLIENT_BRIEFING_SECRET?.trim()
+        : process.env.PIPELINE_PLATFORM_SUMMARY_SECRET?.trim(),
       "Platform integration is not configured.",
     );
     return withSecurityHeaders(denied ?? continueRequest(request), request);

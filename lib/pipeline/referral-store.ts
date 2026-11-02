@@ -145,6 +145,8 @@ export type ReferralListOptions = {
   assignedOwnerNames?: string[];
   /** Internal bulk readers can skip an exact count that they never display. */
   includeTotal?: boolean;
+  /** Internal Pipeline-origin admission reader; filter before pagination. */
+  pipelineAdmittedBetween?: { from: string; through: string };
 };
 
 export type ReferralFacetValue = {
@@ -1390,6 +1392,8 @@ async function listPostgresReferrals(options: ReferralListOptions = {}): Promise
   const placementCancelled = options.placementCancelled === true;
   const postOutcomeAssessment = options.postOutcomeAssessment === true;
   const workspaceStatus = options.workspaceStatus ?? "active";
+  const admittedFrom = options.pipelineAdmittedBetween?.from ?? null;
+  const admittedThrough = options.pipelineAdmittedBetween?.through ?? null;
   const queue = options.queue ?? null;
   const sort = options.sort ?? "updated_desc";
   const cursor = decodeReferralSortCursor(options.cursor, sort);
@@ -1495,6 +1499,11 @@ async function listPostgresReferrals(options: ReferralListOptions = {}): Promise
           )
         )
         and (${workspaceStatus} = 'all' or r.workspace_status = ${workspaceStatus})
+        and (${admittedFrom}::text is null or (
+          r.workspace_origin = 'pipeline'
+          and r.data->>'actualAdmissionDate' >= ${admittedFrom}
+          and r.data->>'actualAdmissionDate' <= ${admittedThrough}
+        ))
         and (
           ${queue}::text is null
           or (${queue} = 'unassigned' and lower(coalesce(nullif(trim(r.owner_name), ''), 'unassigned')) in ('unassigned', 'unknown', 'pending'))
@@ -3241,6 +3250,12 @@ function matchesReferralLabels(referral: Referral, options: ReferralListOptions)
 }
 
 function matchesReferralWork(referral: Referral, options: ReferralListOptions) {
+  if (options.pipelineAdmittedBetween && (
+    referral.workspaceOrigin !== "pipeline" ||
+    !referral.actualAdmissionDate ||
+    referral.actualAdmissionDate < options.pipelineAdmittedBetween.from ||
+    referral.actualAdmissionDate > options.pipelineAdmittedBetween.through
+  )) return false;
   if (options.workflowStatus && referral.workflowStatus !== options.workflowStatus) return false;
   if (options.activeOnly && (isClosedStage(referral.stage) || referral.workflowStatus === "closed")) return false;
   if (options.closedOnly && !isClosedStage(referral.stage) && referral.workflowStatus !== "closed") return false;

@@ -19,6 +19,15 @@ export function requirePlatformIntegration(request: Request) {
   );
 }
 
+/** Client-level briefing uses a separate credential from the broad board summary. */
+export function requirePlatformClientBriefing(request: Request) {
+  return requireBearerSecret(
+    request,
+    process.env.PIPELINE_PLATFORM_CLIENT_BRIEFING_SECRET?.trim(),
+    "Platform client briefing is not configured.",
+  );
+}
+
 function requireBearerSecret(request: Request, expected: string | undefined, unconfiguredMessage: string) {
   if (!expected) {
     return Response.json({ error: unconfiguredMessage }, { status: 503 });
