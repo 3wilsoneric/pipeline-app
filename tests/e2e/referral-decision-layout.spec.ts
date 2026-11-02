@@ -305,14 +305,14 @@ test("the decision page keeps one assessment summary and records the decision wi
   await panel.getByRole("button", { name: "Record decision", exact: true }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Record acceptance", exact: true }).click();
   const placement = page.getByRole("region", { name: "Handoff follow-through" });
-  await expect(placement.getByRole("heading", { name: "Meet the Client", exact: true })).toBeVisible();
+  await expect(placement.getByRole("heading", { name: "Meet the Client", level: 2, exact: true })).toBeVisible();
   await expect(placement).toContainText("Accepted · Not sent");
   const workflow = await (await page.request.get(`/api/referrals/${referral.id}/workflow`)).json();
   expect(workflow.context.packetSentAt ?? null).toBeNull();
   expect(sends).toBe(0);
 });
 
-test("the recommendation sits beside the final decision, attributed and dated", async ({ page }) => {
+test("the working decision can be confirmed or changed with its original attribution", async ({ page }) => {
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: "Example Recommended Referral", owner: "", tags: [] });
   let assessment = await createOperationalAssessment(page.request, referral.id);
   assessment = await startOperationalAssessment(page.request, assessment);
@@ -320,6 +320,9 @@ test("the recommendation sits beside the final decision, attributed and dated", 
 
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=workflow`);
   const panel = page.getByRole("region", { name: "Admission decision", exact: true });
+  await expect(panel.getByRole("heading", { name: "Accept", exact: true })).toBeVisible();
+  await expect(panel.getByRole("button", { name: "Record acceptance", exact: true })).toBeEnabled();
+  await panel.getByRole("button", { name: "Change", exact: true }).click();
   const recommendation = panel.getByRole("region", { name: "Recommendation on file", exact: true });
   await expect(recommendation).toContainText("Accept");
   const { user } = await (await page.request.get("/api/auth/me")).json();

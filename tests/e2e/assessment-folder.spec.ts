@@ -39,15 +39,14 @@ function workspaceReturn(page: Page) {
 
 async function openStage(page: Page, label: string) {
   const stages = page.getByRole("navigation", { name: "Workspace stages", exact: true });
-  if (page.viewportSize()!.width < 640) {
-    const picker = stages.getByRole("combobox", { name: "Workspace view", exact: true });
-    await picker.selectOption({ label });
-    await expect(picker.locator("option:checked")).toHaveText(label);
-  } else {
-    const button = stages.getByRole("button", { name: label, exact: true });
-    await button.click();
-    await expect(button).toHaveAttribute("aria-current", "page");
-  }
+  const phone = page.viewportSize()!.width < 640;
+  const picker = stages.getByRole("combobox", { name: "Workspace view", exact: true });
+  if (phone) await picker.selectOption({ label });
+  else await stages.getByRole("button", { name: label, exact: true }).click();
+  if (label === "Assessment") await expect(page.getByTestId("assessment-client-folder")).toBeVisible();
+  const active = label === "Assessment" && await page.locator('[data-assessment-phase="preparation"]').isVisible() ? "Chart" : label;
+  if (phone) await expect(picker.locator("option:checked")).toHaveText(active);
+  else await expect(stages.getByRole("button", { name: active, exact: true })).toHaveAttribute("aria-current", "page");
 }
 
 for (const width of [1440, 834, 390]) {
