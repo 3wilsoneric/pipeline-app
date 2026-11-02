@@ -160,7 +160,9 @@ test("Workspaces resumes scheduling while the Board opens preparation without bo
 });
 
 test("Workspaces and Board reopen preparation without starting the interview", async ({ page }) => {
-  const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: "Synthetic Confirmation", owner: "", tags: [] });
+  const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: `Synthetic Confirmation ${randomUUID().replace(/[^a-z]/g, "")}`, owner: "", tags: [] });
+  const name = referral.name;
+  expect(name).toBeTruthy();
   const assessment = await createOperationalAssessment(page.request, referral.id);
   const read = async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
   const preparation = page.locator('[data-assessment-working-section][data-assessment-phase="preparation"]');
@@ -168,16 +170,17 @@ test("Workspaces and Board reopen preparation without starting the interview", a
   await expect(preparation).toBeVisible();
   await waitForAssessmentReady(page);
   await page.getByRole("button", { name: "Open referrals", exact: true }).click();
-  await page.getByRole("button", { name: "Open Synthetic Confirmation referral workspace", exact: true }).click();
+  await page.getByRole("button", { name: `Open ${name} referral workspace`, exact: true }).click();
   await expect(preparation).toBeVisible();
   expect((await read()).started_at).toBeFalsy();
   await page.getByRole("button", { name: "Pipeline home", exact: true }).click();
   await page.getByRole("button", { name: /Open in progress folder/ }).click();
-  await page.getByRole("dialog").getByRole("button", { name: "Open Synthetic Confirmation", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: `Open ${name}`, exact: true }).click();
   await expect(page).not.toHaveURL(/workspaceEntry=resume|assessmentDialog=/);
   await expect(preparation).toBeVisible();
   expect((await read()).started_at).toBeFalsy();
   await page.getByRole("region", { name: "Interview", exact: true }).getByRole("button", { name: "Start now", exact: true }).click();
+  await expect(page).toHaveURL(/assessmentMode=interview/);
   await expect.poll(async () => Boolean((await read()).started_at)).toBe(true);
   const started = (await read()).started_at;
   await page.reload();

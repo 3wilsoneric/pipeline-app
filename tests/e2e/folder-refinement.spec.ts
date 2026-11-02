@@ -83,9 +83,9 @@ test("assessment stays reachable from the chart rail at desktop and phone widths
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 900 });
     const stages = page.getByRole("navigation", { name: "Workspace stages" });
-    await expect(page.locator("#packet-page-2")).toBeVisible();
-    if (width < 640) await expect(stages.getByLabel("Workspace view")).toHaveValue("2");
-    else await expect(stages.getByRole("button", { name: "Assessment", exact: true })).toHaveAttribute("aria-current", "page");
+    await expect(page.locator('[data-assessment-phase="preparation"]')).toBeVisible();
+    if (width < 640) await expect(stages.getByLabel("Workspace view").locator("option:checked")).toHaveText("Chart");
+    else await expect(stages.getByRole("button", { name: "Chart", exact: true })).toHaveAttribute("aria-current", "page");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   }
 });
