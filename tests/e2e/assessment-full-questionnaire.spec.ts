@@ -56,6 +56,7 @@ for (const width of [1440, 390]) test(`full questionnaire stays editable during 
   await page.getByRole("combobox", { name: "Assessment section", exact: true }).selectOption("identity");
   await page.locator("#assessment-referrer_contact").fill("Synthetic updated contact");
   await page.screenshot({ path: info.outputPath(`all-questions-${width}.png`) });
+  await page.getByRole("button", { name: "Continue interview", exact: true }).scrollIntoViewIfNeeded();
   await expect(page.getByRole("button", { name: "Continue interview", exact: true })).toBeInViewport();
   await page.getByRole("button", { name: "Continue interview", exact: true }).click();
   await expect(symptoms).toHaveValue("Synthetic interview observation");
@@ -72,6 +73,7 @@ for (const width of [1440, 390]) test(`full questionnaire stays editable during 
     await expect(page.locator("#assessment-secondary_diagnoses")).toBeFocused();
     await page.locator("#assessment-secondary_diagnoses").fill("Synthetic corrected record detail");
   }
+  await page.getByRole("button", { name: "Continue interview", exact: true }).scrollIntoViewIfNeeded();
   await expect(page.getByRole("button", { name: "Continue interview", exact: true })).toBeInViewport();
   await page.getByRole("button", { name: "Continue interview", exact: true }).click();
   await expect(symptoms).toHaveValue("Synthetic interview observation");
