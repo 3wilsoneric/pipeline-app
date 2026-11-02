@@ -1,18 +1,17 @@
-import PipelineLogoMark from "@/components/pipeline/PipelineLogoMark";
+import Image from "next/image";
+import { toPipelinePath } from "@/lib/pipeline/base-path";
+import styles from "./Authentication.module.css";
 
 export default function AuthenticationBrand() {
   return (
-    <div className="flex min-h-11 items-center justify-center gap-4" aria-label="Alamo Health Pipeline">
-      <div className="whitespace-nowrap text-[17px] font-semibold leading-none text-[#595959]">
-        <span className="font-black text-[#08745f]">Alamo</span>
-        <span className="ml-1">Health</span>
-      </div>
-      <span aria-hidden="true" className="h-9 w-px shrink-0 bg-[#d9d9d9]" />
-      <div className="flex items-center gap-2.5 whitespace-nowrap">
-        <PipelineLogoMark size={34} />
-        <span className="text-[13px] font-black uppercase tracking-[0.12em] text-[#0f6f5e]">Pipeline</span>
-      </div>
-    </div>
+    <Image
+      src={toPipelinePath("/brand/alamo-health-management.png")}
+      alt="Alamo Health Management"
+      width={774}
+      height={206}
+      unoptimized
+      className={styles.companyLogo}
+    />
   );
 }
 
