@@ -14,7 +14,7 @@ for (const [name, engine] of [["Chromium", chromium], ["WebKit", webkit]] as con
       const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: `Phone ${randomUUID()}`, owner: owner.display_name, tags: [], documentName: "", documentStatus: "Missing" }, { assigneeId: owner.principal_id });
       const assessment = await createOperationalAssessment(page.request, referral.id);
       await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentSection=identity`);
-      await page.getByRole("button", { name: "Schedule interview", exact: true }).tap();
+      await page.getByRole("region", { name: "Interview", exact: true }).getByRole("button", { name: "Schedule interview", exact: true }).tap();
       await expect(page.getByRole("dialog", { name: "Schedule interview", exact: true })).toBeVisible();
       await page.getByRole("button", { name: "Close schedule", exact: true }).tap();
       await startOperationalAssessment(page.request, assessment);

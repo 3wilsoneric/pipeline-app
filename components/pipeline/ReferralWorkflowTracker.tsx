@@ -13,7 +13,6 @@ import type { ReferralWorklistItem } from "@/lib/pipeline/operations-types";
 import type { PipelineWorkspaceLocation } from "@/lib/pipeline/work-continuity";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import boardStyles from "./ReferralWorkflowTracker.module.css";
-import PipelineIllustration from "./PipelineIllustration";
 import { usePhoneAssessment } from "./use-phone-layout";
 
 type OpenWorkspace = (referral: Pick<Referral, "id" | "name" | "community">, location?: PipelineWorkspaceLocation) => void;
@@ -136,8 +135,8 @@ export function ReferralLifecycleBoard({ items, allItems = items, showOwner, onO
         </div>
         {unavailable ? <p role="status" className={boardStyles.emptyRecent}>The Board is temporarily unavailable. Close this view and try again.</p> : null}
         {clientSpace && !unavailable ? <div className={boardStyles.workingClients}>
-          {recent.length ? <section aria-label="Recent clients"><h2 className={boardStyles.shelfTitle}>Recent</h2><div className={boardStyles.clientShelf}>
-            {recent.map((item, index) => <ClientFile featured={index === 0} key={item.referral_id} item={item} showOwner={showOwner && !phone} onOpenPacket={clientSpace.onResume} resume />)}
+          {recent.length ? <section aria-label="Recent workspaces"><h2 className={boardStyles.shelfTitle}>Recent workspaces</h2><div className={boardStyles.clientShelf}>
+            {recent.map((item) => <ClientFile key={item.referral_id} item={item} showOwner={showOwner && !phone} onOpenPacket={clientSpace.onResume} resume />)}
           </div></section> : null}
           {clientSpace.unavailable ? <p role="status" className={boardStyles.emptyRecent}>Recent work could not be loaded.</p> : !recent.length ? <p className={boardStyles.emptyRecent}>No recent work yet.</p> : null}
         </div> : null}
@@ -177,27 +176,25 @@ function ExpandedStageFolder({ title, items, allItems, origin, showOwner, onClos
 }
 
 function ClientFile(props: Parameters<typeof LifecycleCard>[0]) {
-  return <div className={boardStyles.clientFile} data-client-file={props.item.referral_id} data-featured={props.featured || undefined} data-card-stage={referralBoardSection(props.item.board.stage)}>
+  return <div className={boardStyles.clientFile} data-client-file={props.item.referral_id} data-card-stage={referralBoardSection(props.item.board.stage)}>
     <LifecycleCard {...props} />
   </div>;
 }
 
 // A client file is one resume target. Full chronology and notes remain in the workspace.
-function LifecycleCard({ item, showOwner, onOpenPacket, resume = false, featured = false }: {
+function LifecycleCard({ item, showOwner, onOpenPacket, resume = false }: {
   item: ReferralWorklistItem;
   showOwner: boolean;
   onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">, location?: PipelineWorkspaceLocation) => void;
   resume?: boolean;
-  featured?: boolean;
 }) {
   const descriptionId = useId();
   const name = formatClientIdentityTitle({ name: item.client_name, community: item.community });
   const opensFiles = item.board.location.view === "files";
   const planned = plannedAdmissionDetail(item)[0];
-  return <button type="button" data-board-card data-featured={featured || undefined} data-guide-target="home-board-card" data-card-stage={referralBoardSection(item.board.stage)} data-board-outcome={item.outcome_state}
+  return <button type="button" data-board-card data-guide-target="home-board-card" data-card-stage={referralBoardSection(item.board.stage)} data-board-outcome={item.outcome_state}
     aria-label={`Open ${name}`} aria-describedby={`${descriptionId}-status ${descriptionId}-action`}
     onClick={() => onOpenPacket({ id: item.referral_id, name, community: item.community as Referral["community"] }, item.board.location)} className={boardStyles.card}>
-    {featured ? <span className={boardStyles.taskArt}><PipelineIllustration kind={item.board.stage === "received" ? "folder" : referralBoardSection(item.board.stage) === "in_progress" ? "assessment" : item.outcome_state === "accepted" ? "placement" : "decision"} size={72} /></span> : null}
     <span className={boardStyles.cardCopy}>
       <span className={boardStyles.cardHead}>
         <strong data-folder-name className={boardStyles.name}>{name}</strong>

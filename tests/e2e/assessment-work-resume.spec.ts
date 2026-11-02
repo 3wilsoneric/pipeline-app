@@ -15,7 +15,7 @@ for (const width of [1440, 390]) test(`assessment preparation and appointment dr
   await page.goto(`${workspace}&workspaceStage=assessment`);
   await expect(page.locator('[data-assessment-working-section][data-assessment-phase="preparation"]')).toBeVisible();
   await waitForAssessmentReady(page);
-  await page.getByRole("button", { name: "Schedule interview", exact: true }).click();
+  await page.getByRole("region", { name: "Interview", exact: true }).getByRole("button", { name: "Schedule interview", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Schedule interview", exact: true });
   await dialog.getByLabel("Assessment date and time", { exact: true }).fill("2026-10-12T10:30");
   await dialog.getByLabel("Assessment method", { exact: true }).selectOption("phone");
@@ -50,7 +50,7 @@ for (const width of [1440, 390]) test(`assessment preparation and appointment dr
   expect((await read()).assessment_date).toBeFalsy();
   if (width >= 768) await openAllQuestions(page);
   await waitForAssessmentReady(page);
-  await page.getByRole("button", { name: "Schedule interview", exact: true }).click();
+  await page.getByRole("region", { name: "Interview", exact: true }).getByRole("button", { name: "Schedule interview", exact: true }).click();
   await expect(dialog.getByLabel("Phone number to call", { exact: true })).toHaveValue("555-0100");
   await dialog.getByRole("button", { name: "Schedule interview", exact: true }).click();
   await expect(dialog).toHaveCount(0);
@@ -73,7 +73,7 @@ test("opening from Workspaces resumes scheduling; a newer booking supersedes the
   const assessment = await createOperationalAssessment(page.request, referral.id);
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment`);
   await waitForAssessmentReady(page);
-  await page.getByRole("button", { name: "Schedule interview", exact: true }).click();
+  await page.getByRole("region", { name: "Interview", exact: true }).getByRole("button", { name: "Schedule interview", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Schedule interview", exact: true });
   await dialog.getByLabel("Assessment date and time", { exact: true }).fill("2026-10-12T10:30");
   await dialog.getByLabel("Assessment address", { exact: true }).fill("Unbooked draft address");
@@ -137,7 +137,7 @@ test("Workspaces resumes scheduling while the Board opens preparation without bo
   await page.getByRole("button", { name: `Open ${name} referral workspace`, exact: true }).click();
   await page.getByRole("navigation", { name: "Workspace stages", exact: true }).getByRole("button", { name: "Assessment", exact: true }).click();
   await waitForAssessmentReady(page);
-  await page.getByRole("button", { name: "Schedule interview", exact: true }).click();
+  await page.getByRole("region", { name: "Interview", exact: true }).getByRole("button", { name: "Schedule interview", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Schedule interview", exact: true });
   await expect(dialog).toBeVisible();
   await page.goBack();
@@ -152,7 +152,7 @@ test("Workspaces resumes scheduling while the Board opens preparation without bo
   await expect(page.locator('[data-assessment-working-section][data-assessment-phase="preparation"]')).toBeVisible();
   // Choosing the Board's next action does not discard the saved appointment draft.
   await waitForAssessmentReady(page);
-  await page.getByRole("button", { name: "Schedule interview", exact: true }).click();
+  await page.getByRole("region", { name: "Interview", exact: true }).getByRole("button", { name: "Schedule interview", exact: true }).click();
   await expect(dialog).toBeVisible();
   const current = (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
   expect(current.scheduled_start_at).toBeFalsy();

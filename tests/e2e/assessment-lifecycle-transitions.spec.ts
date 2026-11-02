@@ -103,7 +103,7 @@ for (const width of [1440, 390]) test(`a slow appointment save does not trap the
   });
   try {
     await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment`);
-    await page.getByRole("button", { name: "Schedule interview", exact: true }).click();
+    await page.getByRole("region", { name: "Interview", exact: true }).getByRole("button", { name: "Schedule interview", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "Schedule interview", exact: true });
     await dialog.getByLabel("Assessment date and time", { exact: true }).fill("2026-10-12T10:30");
     await dialog.getByLabel("Assessment method", { exact: true }).selectOption("record_review");
@@ -147,7 +147,7 @@ test("a failed appointment save stays visible and retryable after visiting Files
   });
   try {
     await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment`);
-    await page.getByRole("button", { name: "Schedule interview", exact: true }).click();
+    await page.getByRole("region", { name: "Interview", exact: true }).getByRole("button", { name: "Schedule interview", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "Schedule interview", exact: true });
     await dialog.getByLabel("Assessment date and time", { exact: true }).fill("2026-10-13T11:30");
     await dialog.getByLabel("Assessment method", { exact: true }).selectOption("record_review");
@@ -161,7 +161,7 @@ test("a failed appointment save stays visible and retryable after visiting Files
     fail = false;
     await page.getByRole("button", { name: "Open Assessment", exact: true }).click();
     await expect(page.getByTestId("assessment-client-folder").getByRole("alert")).toContainText("Synthetic appointment save interruption");
-    await page.getByRole("button", { name: "Schedule interview", exact: true }).click();
+    await page.getByRole("region", { name: "Interview", exact: true }).getByRole("button", { name: "Schedule interview", exact: true }).click();
     await expect(dialog.getByLabel("Assessment date and time", { exact: true })).toHaveValue("2026-10-13T11:30");
     await dialog.getByRole("button", { name: "Schedule record review", exact: true }).click();
     await expect(dialog).toHaveCount(0);

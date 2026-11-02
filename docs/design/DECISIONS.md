@@ -542,3 +542,12 @@ Keep the explicit Sign assessment label. Its confirmation reuses Pipeline's comp
 ## Chart completeness confirmation (owner, 2026-11-02)
 
 Replace the Sign assessment action with Confirm chart. The confirmation asks “Everything correct and included?” and continues with Confirm & continue. This supersedes the earlier explicit signing-label decision. Preserve the canonical assessment confirmation/signature command, saved timestamp, permissions, conflict checks and audit history; only its user-facing purpose and wording change. Acceptance still precedes this Handoff confirmation, and sending remains separate.
+
+
+## Equal recent workspaces (owner, 2026-11-02)
+
+Title the Home section “Recent workspaces” and use the same compact row layout for every recent workspace. Remove the first workspace’s featured illustration, larger type, extra spacing and separate surface. Rows share equal height while allowing long names to wrap. This supersedes the featured-first presentation; keep the existing six-workspace limit, personal visit ordering, eligibility and saved Resume destinations.
+
+## Interview actions at both ends of preparation (owner, 2026-11-02)
+
+Repeat “Schedule interview or Start now” above and below preparation, keeping the same teal underlined text style with more prominent type and comfortable touch targets. Both locations use the existing scheduling and interview commands, including their edit, continue and retry states. Keep the appointment summary and tutorial anchor at the top; preserve permissions, draft saves and start semantics.

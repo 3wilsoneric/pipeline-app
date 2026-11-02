@@ -2521,15 +2521,15 @@ export default function AssessmentWorkspace({
 
   const openScheduleDialog = () => { setError(""); setShowBeginDialog(false); setShowScheduleDialog(true); };
   const showPreparationStart = canEditClinical && !(phoneLayout && !nextSection);
-  const renderPreparationScheduling = () => !assessmentReview && !selected.signed_at && (canEditClinical || hasActiveAssessmentSchedule(selected)) ? <section className={`${workingStyles.preparationActions} ${workingStyles.interviewActions}`} aria-label="Interview">
+  const renderPreparationScheduling = (position: "top" | "bottom") => !assessmentReview && !selected.signed_at && (canEditClinical || hasActiveAssessmentSchedule(selected)) ? <section className={`${workingStyles.preparationActions} ${workingStyles.interviewActions}`} aria-label={position === "top" ? "Interview" : "Interview actions"} data-interview-entry={position}>
     <div className={workingStyles.preparationButtons}>
-      {canScheduleUnstartedAssessment(selected, canEditClinical) ? <>{renderScheduleAction(true)}{showPreparationStart ? <span>or</span> : null}</> : null}
+      {canScheduleUnstartedAssessment(selected, canEditClinical) ? <>{renderScheduleAction(true, position === "top")}{showPreparationStart ? <span>or</span> : null}</> : null}
     {showPreparationStart ? <button type="button" disabled={isBusy || isClosing || resolvedPositionFor !== selectedId} onClick={() => {
       if (assessmentReadyToBegin(selected)) void beginAssessment();
       else changeWorkingMode(false);
     }}>{selected.started_at ? "Continue interview" : unrecordedStartId === selectedId ? "Retry start time" : "Start now"}</button> : null}
     </div>
-    {hasActiveAssessmentSchedule(selected) ? <div className={workingStyles.appointmentSummary}><CalendarClock size={22} aria-hidden="true" /><div><span>Interview</span><strong>{new Date(selected.scheduled_start_at!).toLocaleString("en-US", { timeZone: "America/Los_Angeles", weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" })}</strong></div></div> : null}
+    {position === "top" && hasActiveAssessmentSchedule(selected) ? <div className={workingStyles.appointmentSummary}><CalendarClock size={22} aria-hidden="true" /><div><span>Interview</span><strong>{new Date(selected.scheduled_start_at!).toLocaleString("en-US", { timeZone: "America/Los_Angeles", weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" })}</strong></div></div> : null}
   </section> : null;
   const renderAssessmentDetails = () => <>
     {selected.signed_at && canAddAddendum ? <button type="button" onClick={() => setShowAddendum((value) => !value)} disabled={isBusy}><Plus size={14} />Add note</button> : null}
@@ -2624,8 +2624,8 @@ export default function AssessmentWorkspace({
   const renderSignedAction = () => (onContinueToWorkflow && !trainingAssessmentMode ? <button type="button" onClick={onDecisionReviewTarget && !isAssessmentFinalized(selected) ? () => void reviewChart() : continueToWorkflow} disabled={isBusy || isClosing || isRecommendationPending}>{isAssessmentFinalized(selected) ? "View admission" : onDecisionReviewTarget ? "Review assessment" : "Continue to decision"}<ChevronRight size={14} /></button> : <span className="text-[12px] font-semibold text-[#0f6f5e]">{isAssessmentFinalized(selected) ? "Sent" : "Signed"}</span>);
   const renderSignAction = () => (<button type="button" data-guide-target="assessment-sign" onClick={async (event) => { event.currentTarget.focus({ preventScroll: true }); if (await confirm({ title: "Everything correct and included?", message: "Confirm the chart is ready for Meet the Client.", confirmLabel: "Confirm & continue", illustration: "assessment" })) void signAssessment(selected.assessment_id); }} disabled={isBusy || isClosing || isRecommendationPending}>{isRecommendationPending ? recommendationSaveFailed ? "Working decision not saved" : "Saving recommendation..." : onContinueToWorkflow && !trainingAssessmentMode && !onDecisionReviewTarget && !signInHandoff ? "Confirm & continue to decision" : "Confirm chart"}</button>);
 
-  const renderScheduleAction = (textOnly = false) => (
-    <button type="button" aria-label={hasActiveAssessmentSchedule(selected) ? "Edit assessment appointment" : undefined} data-guide-target={showScheduleDialog ? undefined : "assessment-schedule-open"} onClick={(event) => { event.currentTarget.focus({ preventScroll: true }); openScheduleDialog(); }} disabled={isBusy || isClosing || (buildingAssessment && resolvedPositionFor !== selectedId)}>{textOnly ? hasActiveAssessmentSchedule(selected) ? "Edit assessment appointment" : "Schedule interview" : hasActiveAssessmentSchedule(selected) ? (designV2 ? <><CalendarClock size={15} aria-hidden="true" />Edit</> : "Edit") : <><CalendarClock size={15} aria-hidden="true" />Schedule interview</>}</button>
+  const renderScheduleAction = (textOnly = false, guideTarget = true) => (
+    <button type="button" aria-label={hasActiveAssessmentSchedule(selected) ? "Edit assessment appointment" : undefined} data-guide-target={showScheduleDialog || !guideTarget ? undefined : "assessment-schedule-open"} onClick={(event) => { event.currentTarget.focus({ preventScroll: true }); openScheduleDialog(); }} disabled={isBusy || isClosing || (buildingAssessment && resolvedPositionFor !== selectedId)}>{textOnly ? hasActiveAssessmentSchedule(selected) ? "Edit assessment appointment" : "Schedule interview" : hasActiveAssessmentSchedule(selected) ? (designV2 ? <><CalendarClock size={15} aria-hidden="true" />Edit</> : "Edit") : <><CalendarClock size={15} aria-hidden="true" />Schedule interview</>}</button>
   );
 
   const renderPrimaryAssessmentActions = () => (
@@ -2858,7 +2858,7 @@ export default function AssessmentWorkspace({
 
       <div className="flex min-h-0 flex-1">
         <main ref={chartScrollRef} className={`min-w-0 flex-1 ${reviewingChart ? "overflow-y-auto" : phoneInterview ? phoneStyles.mobileMain : `${workingStyles.readingMain} ${preparing ? workingStyles.preparationMain : ""}`}`}>
-          {buildingAssessment ? renderPreparationScheduling() : null}
+          {buildingAssessment ? renderPreparationScheduling("top") : null}
           {workModeInNavigation ? null : renderWorkMode()}
           {error && !reviewingChart ? <div role="alert" className="border-b border-[#dce3e0] bg-[#f7faf9] px-5 py-3 text-[14px] font-semibold leading-6 text-[#59645e]">{error}</div> : null}
           {presence.some((item) => item.section === `assessment:${activeSection}`) ? (
@@ -2949,6 +2949,7 @@ export default function AssessmentWorkspace({
               </details>
             ) : null}
           </div>)}
+          {buildingAssessment ? renderPreparationScheduling("bottom") : null}
         </main>
 
       </div>
