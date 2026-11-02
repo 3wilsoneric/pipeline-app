@@ -552,6 +552,10 @@ Title the Home section “Recent workspaces” and use the same compact row layo
 
 Repeat “Schedule interview or Start now” above and below preparation, keeping the same teal underlined text style with more prominent type and comfortable touch targets. Both locations use the existing scheduling and interview commands, including their edit, continue and retry states. Keep the appointment summary and tutorial anchor at the top; preserve permissions, draft saves and start semantics.
 
+## Sign-in matches Pipeline (owner, 2026-11-02, local preview)
+
+The owner approved deployment of a single white sign-in panel with the existing full Alamo Health Management logo above the original sign-in heading, supporting copy and orange Microsoft action. Remove the dark-teal side panel and folder artwork, refitting the content into one responsive column. Sign-in and authentication progress share this frame. Preserve errors, Microsoft account selection and return destinations. Motion uses the existing tokens and respects reduced motion.
+
 ## Notes discovery and one reset control (owner, 2026-11-02)
 
 Show “Type / for headings and bullets” as a muted line below the Notes header when editing is available. Associate it with the first writing field; preserve the slash menu and save behavior.
