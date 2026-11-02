@@ -59,7 +59,9 @@ test.describe("assessor meeting fields", () => {
       await expect(details).toHaveAttribute("placeholder", "What happened, when, the context, and the outcome");
       await expect(details).not.toHaveAttribute("required");
       await page.setViewportSize({ width: 390, height: 844 });
-      await editor.getByRole("button", { name: "Interview", exact: true }).click();
+      const resumeInterview = editor.getByRole("region", { name: "Interview", exact: true }).getByRole("button", { name: "Continue interview", exact: true });
+      await resumeInterview.scrollIntoViewIfNeeded();
+      await resumeInterview.click();
       await editor.getByRole("button", { name: "Choose questionnaire section", exact: true }).click();
       const questions = page.getByRole("dialog", { name: "Questionnaire sections", exact: true });
       const search = questions.getByRole("searchbox", { name: "Find a question", exact: true });
