@@ -143,6 +143,7 @@ export async function getPlatformClientBriefing(start: string, end: string) {
     cases: referrals
       .map((referral) => {
         const context = contexts.get(referral.id);
+        const decision = context?.decision ?? referral.admissionDecision;
         const params = new URLSearchParams({ view: "referrals", screen: "packet", referralId: String(referral.id) });
         return {
           referralId: referral.id,
@@ -156,6 +157,7 @@ export async function getPlatformClientBriefing(start: string, end: string) {
           assessmentStartedAt: context?.assessmentStartedAt ?? null,
           assessmentCompletedAt: context?.assessmentCompletedAt ?? null,
           assessmentSignedAt: context?.assessmentSignedAt ?? null,
+          acceptedAt: decision?.outcome === "accepted" ? decision.decidedAt : null,
           admittedAt: referral.actualAdmissionDate ?? null,
           handoffSentAt: context?.packetSentAt ?? null,
           dateOfBirth: context?.assessmentSigned ? context.assessmentData?.date_of_birth || referral.dob : referral.dob,
