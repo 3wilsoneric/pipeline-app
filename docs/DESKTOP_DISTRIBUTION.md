@@ -1,5 +1,10 @@
 # Pipeline desktop distribution
 
+For the owner-requested Windows installer, signing workflow, Eric-only pilot,
+Mac installation and Microsoft Store submission boundaries, see
+[Windows app pilot](WINDOWS_APP_PILOT.md). The hosted application and offline
+contracts below remain the same.
+
 Pipeline's desktop option is an installable Progressive Web App packaged for
 Windows as an MSIX when needed. It is not an Electron fork. The installed app and
 the browser app run the same production build, routes, authorization checks, API
