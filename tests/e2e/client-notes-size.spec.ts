@@ -15,6 +15,10 @@ test("snap Notes back to its original size and position without losing text", as
   await text.press("Escape");
   await expect(panel).toBeVisible();
   await text.fill("Synthetic note preserved through size restoration.");
+  // Measure the resting window, not a frame of its entrance animation.
+  await panel.evaluate(async element => {
+    await Promise.all(element.parentElement!.getAnimations().map(animation => animation.finished));
+  });
   const original = (await panel.boundingBox())!;
   const resize = page.getByRole("button", { name: "Resize notes", exact: true });
   const grip = (await resize.boundingBox())!;
