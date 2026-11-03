@@ -1,0 +1,142 @@
+name: Pipeline Windows app
+
+on:
+  pull_request:
+    paths:
+      - 'infra/windows/**'
+      - 'scripts/windows/**'
+      - '.github/workflows/windows-app.yml'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Four-part package version ending in .0
+        default: '1.0.0.0'
+        required: true
+      sign:
+        description: Sign the verified package with the configured Windows release identity
+        type: boolean
+        default: false
+      publish_base_url:
+        description: HTTPS download directory (creates a feed; does not publish or assign devices)
+        default: 'https://alamopocdownloads.z5.web.core.windows.net/pipeline/'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pipeline-windows-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  package:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    env:
+      PACKAGE_VERSION: ${{ inputs.version || '1.0.0.0' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 22
+      - name: Verify package safety checks
+        run: python scripts/windows/test-package.py
+      - name: Generate hosted Windows package
+        shell: pwsh
+        run: node scripts/windows/build-package.mjs $env:PACKAGE_VERSION .data/windows-package
+      - name: Inspect archive, host, identity and permissions
+        run: python scripts/windows/verify-package.py .data/windows-package
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pipeline-windows-unsigned
+          path: |
+            .data/windows-package/*.msixbundle
+            .data/windows-package/release.json
+            .data/windows-package/package-inspection.json
+            .data/windows-package/edge-policy.json
+          retention-days: 30
+
+  sign:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.sign
+    needs: package
+    runs-on: windows-latest
+    timeout-minutes: 15
+    environment: windows-release
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      DOWNLOAD_BASE: ${{ inputs.publish_base_url }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: pipeline-windows-unsigned
+          path: .data/windows-package
+      - name: Verify exact build provenance before signing
+        shell: pwsh
+        run: |
+          $r = Get-Content .data/windows-package/release.json -Raw | ConvertFrom-Json
+          $hash = (Get-FileHash ".data/windows-package/$($r.packageFile)" -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($r.sourceCommit -cne $env:GITHUB_SHA -or $r.runId -ne $env:GITHUB_RUN_ID -or $r.runAttempt -ne $env:GITHUB_RUN_ATTEMPT -or $r.signed -or $r.unsignedSha256 -cne $hash) { throw 'Build provenance mismatch.' }
+          python scripts/windows/verify-package.py .data/windows-package --signed
+          if ($LASTEXITCODE -ne 0) { throw 'Package inspection failed.' }
+      - uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3
+        with:
+          client-id: ${{ vars.SIGNING_CLIENT_ID }}
+          tenant-id: ${{ vars.SIGNING_TENANT_ID }}
+          subscription-id: ${{ vars.SIGNING_SUBSCRIPTION_ID }}
+      - uses: azure/artifact-signing-action@c7ab2a863ab5f9a846ddb8265964877ef296ee82 # v2
+        with:
+          endpoint: ${{ vars.SIGNING_ENDPOINT }}
+          signing-account-name: ${{ vars.SIGNING_ACCOUNT }}
+          certificate-profile-name: ${{ vars.SIGNING_CERTIFICATE_PROFILE }}
+          files-folder: ${{ github.workspace }}\.data\windows-package
+          files-folder-filter: msixbundle
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+      - name: Verify trusted signature and create deferrable update feed
+        shell: pwsh
+        run: ./scripts/windows/complete-release.ps1 -StageRoot .data/windows-package -PublishBaseUrl $env:DOWNLOAD_BASE
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pipeline-windows-signed
+          path: |
+            .data/windows-package/*.msixbundle
+            .data/windows-package/*.appinstaller
+            .data/windows-package/release.json
+            .data/windows-package/package-inspection.json
+            .data/windows-package/edge-policy.json
+          retention-days: 30
+
+  install:
+    needs: sign
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [windows-latest, windows-11-arm]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: pipeline-windows-signed
+          path: package
+      - name: Install trusted package and verify Windows registration
+        shell: pwsh
+        run: |
+          $r = Get-Content package/release.json -Raw | ConvertFrom-Json
+          $file = (Resolve-Path "package/$($r.packageFile)").Path
+          $hash = (Get-FileHash $file -Algorithm SHA256).Hash.ToLowerInvariant()
+          if (-not $r.signed -or $r.signedSha256 -cne $hash) { throw 'Signed package provenance mismatch.' }
+          if (Get-AppxPackage -Name $r.packageId) { throw 'Expected a clean hosted test account.' }
+          Add-AppxPackage -Path $file -ErrorAction Stop
+          try {
+            $installed = Get-AppxPackage -Name $r.packageId
+            if (-not $installed -or $installed.Version -ne $r.version -or $installed.Publisher -cne $r.publisher -or $installed.Status -ne 'Ok') { throw 'Installed identity/status mismatch.' }
+            @{ version=$installed.Version.ToString(); name=$installed.Name; architecture=$env:PROCESSOR_ARCHITECTURE; status=$installed.Status.ToString(); installed=$true; realSignInTested=$false } | ConvertTo-Json | Set-Content package/windows-install-check.json
+          } finally { Get-AppxPackage -Name $r.packageId | Remove-AppxPackage -ErrorAction Stop }
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pipeline-windows-install-${{ matrix.runner }}
+          path: package/windows-install-check.json

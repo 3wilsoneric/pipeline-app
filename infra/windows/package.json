@@ -1,0 +1,9 @@
+{
+  "name": "Pipeline",
+  "packageId": "AlamoHealth.Pipeline",
+  "publisher": "CN=Eric Wilson, O=Eric Wilson, L=Boise, S=id, C=US",
+  "publisherDisplayName": "Eric Wilson",
+  "url": "https://alamo-pipeline.com/",
+  "manifestUrl": "https://alamo-pipeline.com/desktop-manifest.webmanifest",
+  "edgeAppId": "lcbbicdjbmnnkalheifmhhebkkfpopjo"
+}
