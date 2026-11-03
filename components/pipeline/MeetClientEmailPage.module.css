@@ -144,6 +144,7 @@
     .textButton { min-height: var(--spacing-control); }
     .addressRow { margin: 0 14px; gap: 8px; padding: 13px 0; }
     .addressRow textarea { font-size: 16px; }
+    .subjectInput { min-height: var(--spacing-control); }
     .recipientSection { padding: 0 12px; }
     .copyStatus { margin-inline: 14px; }
     .attachments { padding: 8px 14px 14px; }
@@ -163,7 +164,8 @@
     .handoffSection { padding: 23px 0; }
     .handoffSection h3 { font-size: 21px; }
     .handoffSection dd { font-size: 17px; }
-    .composeDialog { width: 100vw; height: 100dvh; border: 0; border-radius: 0; }
+    .composeDialog { top: var(--mobile-viewport-top, 0px); bottom: auto; width: 100vw; height: var(--mobile-viewport-height, 100dvh); max-height: var(--mobile-viewport-height, 100dvh); margin: 0; border: 0; border-radius: 0; }
+    .composeDialog.inboxReadyDialog { max-height: var(--mobile-viewport-height, 100dvh); }
     .dialogHeader { padding: 6px 10px 6px 14px; }
     .dialogHeader h2 { font-size: 18px; }
     .toolbar { padding-bottom: max(12px, env(safe-area-inset-bottom)); }

@@ -37,7 +37,7 @@ export default function ClientAssessmentRecord({ assessment, onEditField, collap
     })}
     <footer className="flex flex-wrap justify-between gap-2 px-5 py-4 text-[12px] leading-5 text-[#59675f] sm:px-7">
       <details className="min-w-0">
-        <summary className="cursor-pointer font-medium focus-visible:outline-2 focus-visible:outline-offset-2">Record details</summary>
+        <summary className="cursor-pointer font-medium max-sm:min-h-(--spacing-control) max-sm:py-3 max-sm:text-label focus-visible:outline-2 focus-visible:outline-offset-2">Record details</summary>
         <dl className="mt-1 grid grid-cols-[max-content_1fr] gap-x-3">
           <dt>Assessment ID</dt><dd className="break-all font-mono">{assessment.assessment_id}</dd>
           <dt>Version</dt><dd>{assessment.version}</dd>

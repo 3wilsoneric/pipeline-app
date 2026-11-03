@@ -159,7 +159,7 @@ function ActivityRow({ event, referralId, detailed = false }: { event: ReferralA
       <p className={styles.actor}>{event.actor_name}</p>
       {detailed ? (
         <details className="mt-1 text-[13px] text-[#59665f]">
-          <summary className="cursor-pointer font-medium focus-visible:outline-2 focus-visible:outline-offset-2">Record details</summary>
+          <summary className="cursor-pointer font-medium max-sm:min-h-(--spacing-control) max-sm:py-3 max-sm:text-label focus-visible:outline-2 focus-visible:outline-offset-2">Record details</summary>
           <dl className="mt-1 grid grid-cols-[max-content_1fr] gap-x-3 gap-y-0.5">
             {activityEventProvenance(event).map((item) => (
               <div key={item.label} className="contents"><dt>{item.label}</dt><dd className="min-w-0 break-all font-mono text-[12px]">{item.value}</dd></div>
