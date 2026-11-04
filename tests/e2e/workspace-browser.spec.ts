@@ -66,6 +66,11 @@ for (const [name, engine] of [["Chromium", chromium], ["WebKit", webkit]] as con
         await expect(page.getByRole("button", { name: "All workspaces", exact: true })).toHaveCount(0);
         await page.screenshot({ path: info.outputPath(`home-${name}-${width}.png`) });
         await openWorkspaces(page);
+        if (width < 640) {
+          const scope = page.getByRole("group", { name: "Workspace scope" });
+          await expect(scope.getByRole("button", { name: "Mine", exact: true })).toHaveAttribute("aria-pressed", "true");
+          await scope.getByRole("button", { name: "All", exact: true }).click();
+        }
         await expect(page).toHaveURL(/view=referrals/);
         await expect(page.getByRole("dialog", { name: "All workspaces", exact: true })).toHaveCount(0);
         const directory = page.getByRole("main", { name: "Referral workspaces" });

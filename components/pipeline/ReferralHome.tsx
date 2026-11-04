@@ -6,6 +6,7 @@ import { Check, Search, X } from "lucide-react";
 
 import { ReferralHomeDirectory } from "@/components/pipeline/ReferralHomeDirectory";
 import { usePhoneAssessment } from "./use-phone-layout";
+import boardStyles from "./ReferralWorkflowTracker.module.css";
 import FilePreviewDialog from "@/components/pipeline/ReferralFilePreviewDialog";
 import {
   buildReferralParams,
@@ -69,11 +70,21 @@ type ReferralHomeProps = {
 
 export default function ScopedReferralHome(props: ReferralHomeProps) {
   const phone = usePhoneAssessment();
+  const [phoneScope, setPhoneScope] = useState<WorkspaceScope>("mine");
   if (props.canViewTeam === undefined) {
     return <div role="status" aria-busy="true" className="px-6 py-5 text-sm text-[#626a66]">Loading workspaces…</div>;
   }
-  const scope = props.canViewTeam && (!phone || props.showTeamOnPhone) ? "team" : "mine";
-  return <ReferralHome key={scope} {...props} scope={scope} />;
+  const canSwitchScope = phone && props.canViewTeam && props.showTeamOnPhone;
+  const scope = phone ? (canSwitchScope ? phoneScope : "mine") : props.canViewTeam ? "team" : "mine";
+  const directory = <ReferralHome key={scope} {...props} scope={scope} />;
+  return canSwitchScope ? <div className="flex h-full min-h-0 flex-col">
+    <div className="shrink-0 px-4 pb-3 sm:px-5">
+      <div role="group" aria-label="Workspace scope" className={`${boardStyles.scopeToggle} w-fit`}>
+        {(["mine", "team"] as const).map((value) => <button key={value} type="button" aria-pressed={scope === value} onClick={() => setPhoneScope(value)}>{value === "mine" ? "Mine" : "All"}</button>)}
+      </div>
+    </div>
+    <div className="min-h-0 flex-1">{directory}</div>
+  </div> : directory;
 }
 
 function ReferralHome({

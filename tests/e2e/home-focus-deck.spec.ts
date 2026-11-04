@@ -183,7 +183,7 @@ async function homeFixture(page: Page, moduleIds = ["current-work", "new-assignm
   return acknowledgments;
 }
 
-for (const width of [1440]) test(`folder All and Mine switch instantly without changing stages at ${width}px`, async ({ page }, info) => {
+for (const width of [1440, 390, 320]) test(`folder All and Mine switch instantly without changing stages at ${width}px`, async ({ page }, info) => {
   await page.setViewportSize({ width, height: 900 });
   await homeFixture(page, undefined, 2, true, false, "mixed");
   await page.goto("/");
