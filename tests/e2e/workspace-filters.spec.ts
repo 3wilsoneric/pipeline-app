@@ -43,7 +43,11 @@ for (const width of [1440, 390]) {
     });
     await page.goto("/?view=referrals");
     await expect(page.getByRole("region", { name: "Referral worklist" })).toBeVisible();
-    await expect(page.getByRole("group", { name: "Workspace scope" })).toHaveCount(0);
+    const scope = page.getByRole("group", { name: "Workspace scope" });
+    if (width < 640) {
+      await expect(scope.getByRole("button", { name: "Mine", exact: true })).toHaveAttribute("aria-pressed", "true");
+      await scope.getByRole("button", { name: "All", exact: true }).click();
+    } else await expect(scope).toHaveCount(0);
     await expect(page.getByText("Recently updated first", { exact: true })).toHaveCount(0);
     const directory = page.getByRole("main", { name: "Referral workspaces" });
     await expect(directory.getByText("Workspaces", { exact: true })).toHaveCount(0);
@@ -60,12 +64,13 @@ for (const width of [1440, 390]) {
     } else {
       expect(searchBox.y - directoryBox.y).toBeLessThanOrEqual(32);
     }
-    expect(directoryParams.get("scope")).toBe("team");
     expect(directoryParams.get("carryover")).toBe("true");
     await expect(page.getByRole("tab", { name: "Activity", exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: /Show workspaces as/ })).toHaveCount(0);
     await page.getByRole("button", { name: "Next", exact: true }).click();
     await expect(page.getByText("Page 2", { exact: true })).toBeVisible();
+    // The first team page can come from the warm cache; pagination makes a new request.
+    await expect.poll(() => directoryParams.get("scope")).toBe("team");
     if (width < 640) await page.getByRole("button", { name: "Filters", exact: true }).click();
     await choose(page, "Filter workspaces by community", ["San Pablo", "Santa Clarita"]);
     await expect.poll(() => directoryParams.getAll("community")).toEqual(["San Pablo", "Santa Clarita"]);

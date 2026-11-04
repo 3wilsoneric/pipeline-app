@@ -77,7 +77,6 @@ export function ReferralLifecycleBoard({ items, allItems = items, showOwner, onO
 }) {
   const phone = usePhoneAssessment();
   const personalOnly = phone && !showTeamOnPhone;
-  const teamDefault = phone && showTeamOnPhone;
   const [mobileStage, setMobileStage] = useState<ReferralBoardSection>(referralBoardSection(initialStage) ?? "in_progress");
   const [expanded, setExpanded] = useState<{ stage: ReferralBoardSection; origin: HomeDialogOrigin } | null>(null);
   const active = items.filter((item) => item.board.stage !== null && (!clientSpace || item.outcome_state !== "declined"));
@@ -120,22 +119,21 @@ export function ReferralLifecycleBoard({ items, allItems = items, showOwner, onO
         {stages.map((stage) => {
           const stageItems = active.filter((item) => sectionFor(item) === stage.key);
           const allStageItems = allActive.filter((item) => sectionFor(item) === stage.key);
-          const displayedStageItems = teamDefault ? allStageItems : stageItems;
           return <div key={stage.key} data-board-stage={stage.key} className={`${boardStyles.docket} ${clientSpace || mobileStage === stage.key ? "block" : "hidden"} min-w-0 lg:block`} onClick={(event) => {
             if (!unavailable && !(event.target as HTMLElement).closest("button, a, input, select, textarea, dialog")) openFolder(stage.key, event.currentTarget);
           }}>
             <div className={boardStyles.stageHeading}>
               <h2><button type="button" data-open-folder disabled={unavailable} aria-label={`Open ${stage.label.toLowerCase()} folder`} aria-haspopup="dialog" aria-expanded={expanded?.stage === stage.key} className={boardStyles.openFolder} onClick={(event) => openFolder(stage.key, event.currentTarget)}>
                   <span className={boardStyles.stageIdentity}><span className={boardStyles.stageTitle}>{stage.label}</span>
-                  <span className={boardStyles.stageCount}>{unavailable ? "Unavailable" : <>{displayedStageItems.length.toLocaleString()}<span className={clientSpace ? "sr-only" : undefined}> {displayedStageItems.length === 1 ? "file" : "files"}</span></>}</span></span>
+                  <span className={boardStyles.stageCount}>{unavailable ? "Unavailable" : <>{stageItems.length.toLocaleString()}<span className={clientSpace ? "sr-only" : undefined}> {stageItems.length === 1 ? "file" : "files"}</span></>}</span></span>
                 {clientSpace ? null : <span className={boardStyles.expandAffordance}>View all<ArrowRight size={16} aria-hidden="true" /></span>}
               </button></h2>
             </div>
             {clientSpace ? null : <div data-folder-stack className={boardStyles.stack}>
-              {displayedStageItems.map((item) => <LifecycleCard key={item.referral_id} item={item} showOwner={showOwner} onOpenPacket={onOpenPacket} />)}
-              {displayedStageItems.length === 0 ? <p className="text-center">No referrals here</p> : null}
+              {stageItems.map((item) => <LifecycleCard key={item.referral_id} item={item} showOwner={showOwner} onOpenPacket={onOpenPacket} />)}
+              {stageItems.length === 0 ? <p className="text-center">No referrals here</p> : null}
             </div>}
-            {expanded?.stage === stage.key ? <ExpandedStageFolder personalOnly={personalOnly} initialScope={teamDefault ? "all" : "mine"} title={stage.label} items={stageItems} allItems={allStageItems} origin={expanded.origin} showOwner={showOwner && !personalOnly} onClose={() => setExpanded(null)} onOpenPacket={openFile} /> : null}
+            {expanded?.stage === stage.key ? <ExpandedStageFolder personalOnly={personalOnly} title={stage.label} items={stageItems} allItems={allStageItems} origin={expanded.origin} showOwner={showOwner && !personalOnly} onClose={() => setExpanded(null)} onOpenPacket={openFile} /> : null}
           </div>;
         })}
         </div>
@@ -151,8 +149,7 @@ export function ReferralLifecycleBoard({ items, allItems = items, showOwner, onO
   );
 }
 
-function ExpandedStageFolder({ title, items, allItems, origin, showOwner, onClose, onOpenPacket, personalOnly = false, initialScope = "mine" }: {
-  initialScope?: "all" | "mine";
+function ExpandedStageFolder({ title, items, allItems, origin, showOwner, onClose, onOpenPacket, personalOnly = false }: {
   personalOnly?: boolean;
   title: string;
   items: ReferralWorklistItem[];
@@ -162,7 +159,7 @@ function ExpandedStageFolder({ title, items, allItems, origin, showOwner, onClos
   onClose: () => void;
   onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">, location?: PipelineWorkspaceLocation) => void;
 }) {
-  const [scope, setScope] = useState<"all" | "mine">(initialScope);
+  const [scope, setScope] = useState<"all" | "mine">("mine");
   const visibleItems = !personalOnly && scope === "all" ? allItems : items;
   return <HomeDialog label={`${title} folder`} title={<>
     <span className={boardStyles.expandedLabel}>{title}</span>
