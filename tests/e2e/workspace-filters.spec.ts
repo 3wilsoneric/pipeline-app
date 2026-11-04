@@ -49,7 +49,7 @@ for (const width of [1440, 390]) {
     await expect(directory.getByText("Workspaces", { exact: true })).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Unfinished referral intake", exact: true })).toHaveCount(0);
     const directoryBox = (await directory.boundingBox())!;
-    const searchBox = (await page.getByLabel(width < 640 ? "Search my workspaces" : "Search all workspaces", { exact: true }).boundingBox())!;
+    const searchBox = (await page.getByLabel("Search all workspaces", { exact: true }).boundingBox())!;
     if (process.env.PIPELINE_DESIGN_V2 === "true") {
       // The redesign wraps the input in a padded search control. Keep that
       // control at the top and the input centered inside it, without treating
@@ -60,7 +60,7 @@ for (const width of [1440, 390]) {
     } else {
       expect(searchBox.y - directoryBox.y).toBeLessThanOrEqual(32);
     }
-    expect(directoryParams.get("scope")).toBe(width < 640 ? "mine" : "team");
+    expect(directoryParams.get("scope")).toBe("team");
     expect(directoryParams.get("carryover")).toBe("true");
     await expect(page.getByRole("tab", { name: "Activity", exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: /Show workspaces as/ })).toHaveCount(0);
@@ -115,7 +115,7 @@ for (const width of [1440, 390]) {
     expect(directoryParams.get("month")).toBe("2026-09");
     if (width < 640) {
       await expect(page.getByRole("button", { name: "All files", exact: true })).toHaveCount(0);
-      expect(directoryParams.get("scope")).toBe("mine");
+      expect(directoryParams.get("scope")).toBe("team");
       return;
     }
     await page.getByRole("button", { name: "All files", exact: true }).click();

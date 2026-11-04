@@ -542,7 +542,7 @@ test("expanded folders retain stage accents and long file labels stay readable",
   await page.getByRole("button", { name: "Open in progress folder", exact: true }).click();
   const folder = page.getByRole("dialog", { name: "In progress folder", exact: true });
   const file = folder.getByRole("button", { name: "Open Alexandria Montgomery-Rivera", exact: true });
-  await expect(file).not.toContainText("Christopher Montgomery-Williams");
+  await expect(file).toContainText("Christopher Montgomery-Williams");
   await expect(file).toContainText("Alexandria Montgomery-Rivera");
   await page.evaluate(() => document.fonts.ready);
   await folder.evaluate(async element => { await Promise.all(element.getAnimations().map(animation => animation.finished.catch(() => undefined))); });
@@ -661,7 +661,13 @@ test("unavailable work counts stay distinct from zero and leave the schedule acc
   await expect(page.getByRole("dialog", { name: "Upcoming assessments", exact: true })).toBeVisible();
 });
 
-for (const width of [320, 390]) test(`phone shows only personal work even with team history at ${width}px`, async ({ page }, info) => {
+for (const width of [320, 390]) test(`assessor phone shows only personal work even with team history at ${width}px`, async ({ page }, info) => {
+  await page.route("**/api/auth/me", async route => {
+    const response = await route.fetch();
+    const payload = await response.json();
+    payload.user.roles = ["reviewer", "viewer"];
+    await route.fulfill({ response, json: payload });
+  });
   await page.setViewportSize({ width, height: 844 });
   await homeFixture(page, ["search", "recent-work"], 2, true, false, "mixed", 1, true);
   await page.goto("/");

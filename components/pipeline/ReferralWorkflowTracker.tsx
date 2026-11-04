@@ -23,7 +23,8 @@ type ClientSpace = {
   upcoming: { count: number; unavailable: boolean; date: string; onOpen: (origin: HomeDialogOrigin) => void };
 };
 
-export default function ReferralWorkflowTracker({ briefing, onOpenPacket, selectedReferralId, limit, layout = "ribbons", clientSpace }: {
+export default function ReferralWorkflowTracker({ briefing, onOpenPacket, selectedReferralId, limit, layout = "ribbons", clientSpace, showTeamOnPhone = false }: {
+  showTeamOnPhone?: boolean;
   briefing: HomeBriefingSnapshot;
   onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">, location?: PipelineWorkspaceLocation) => void;
   selectedReferralId?: number;
@@ -42,7 +43,7 @@ export default function ReferralWorkflowTracker({ briefing, onOpenPacket, select
           The Board is temporarily unavailable. Close this view and try again.
         </div>
       ) : layout === "board" ? (
-        <ReferralLifecycleBoard items={unavailable ? [] : boardItems} allItems={unavailable ? [] : briefing.workflow.all_board_items} unavailable={unavailable} showOwner onOpenPacket={onOpenPacket} clientSpace={clientSpace} />
+        <ReferralLifecycleBoard showTeamOnPhone={showTeamOnPhone} items={unavailable ? [] : boardItems} allItems={unavailable ? [] : briefing.workflow.all_board_items} unavailable={unavailable} showOwner onOpenPacket={onOpenPacket} clientSpace={clientSpace} />
       ) : items.length === 0 ? (
         <p className="px-1 py-5 text-[13px] font-medium text-[#626b65]">No active referral work.</p>
       ) : (
@@ -64,7 +65,8 @@ export default function ReferralWorkflowTracker({ briefing, onOpenPacket, select
   );
 }
 
-export function ReferralLifecycleBoard({ items, allItems = items, showOwner, onOpenPacket, initialStage = "in_progress", clientSpace, unavailable = false }: {
+export function ReferralLifecycleBoard({ items, allItems = items, showOwner, onOpenPacket, initialStage = "in_progress", clientSpace, unavailable = false, showTeamOnPhone = false }: {
+  showTeamOnPhone?: boolean;
   items: ReferralWorklistItem[];
   allItems?: ReferralWorklistItem[];
   showOwner: boolean;
@@ -74,10 +76,12 @@ export function ReferralLifecycleBoard({ items, allItems = items, showOwner, onO
   clientSpace?: ClientSpace;
 }) {
   const phone = usePhoneAssessment();
+  const personalOnly = phone && !showTeamOnPhone;
+  const teamDefault = phone && showTeamOnPhone;
   const [mobileStage, setMobileStage] = useState<ReferralBoardSection>(referralBoardSection(initialStage) ?? "in_progress");
   const [expanded, setExpanded] = useState<{ stage: ReferralBoardSection; origin: HomeDialogOrigin } | null>(null);
   const active = items.filter((item) => item.board.stage !== null && (!clientSpace || item.outcome_state !== "declined"));
-  const allActive = (phone ? items : allItems).filter((item) => item.board.stage !== null && (!clientSpace || item.outcome_state !== "declined"));
+  const allActive = (personalOnly ? items : allItems).filter((item) => item.board.stage !== null && (!clientSpace || item.outcome_state !== "declined"));
   // Home groups current work by acceptance; the stored workflow and next action stay authoritative.
   const sectionFor = (item: ReferralWorklistItem): ReferralBoardSection | null => clientSpace
     ? item.board.stage === "decision" && item.outcome_state === "accepted" ? "decision" : "in_progress"
@@ -115,28 +119,30 @@ export function ReferralLifecycleBoard({ items, allItems = items, showOwner, onO
         {clientSpace ? <AssessmentCalendarTile {...clientSpace.upcoming} /> : null}
         {stages.map((stage) => {
           const stageItems = active.filter((item) => sectionFor(item) === stage.key);
+          const allStageItems = allActive.filter((item) => sectionFor(item) === stage.key);
+          const displayedStageItems = teamDefault ? allStageItems : stageItems;
           return <div key={stage.key} data-board-stage={stage.key} className={`${boardStyles.docket} ${clientSpace || mobileStage === stage.key ? "block" : "hidden"} min-w-0 lg:block`} onClick={(event) => {
             if (!unavailable && !(event.target as HTMLElement).closest("button, a, input, select, textarea, dialog")) openFolder(stage.key, event.currentTarget);
           }}>
             <div className={boardStyles.stageHeading}>
               <h2><button type="button" data-open-folder disabled={unavailable} aria-label={`Open ${stage.label.toLowerCase()} folder`} aria-haspopup="dialog" aria-expanded={expanded?.stage === stage.key} className={boardStyles.openFolder} onClick={(event) => openFolder(stage.key, event.currentTarget)}>
                   <span className={boardStyles.stageIdentity}><span className={boardStyles.stageTitle}>{stage.label}</span>
-                  <span className={boardStyles.stageCount}>{unavailable ? "Unavailable" : <>{stageItems.length.toLocaleString()}<span className={clientSpace ? "sr-only" : undefined}> {stageItems.length === 1 ? "file" : "files"}</span></>}</span></span>
+                  <span className={boardStyles.stageCount}>{unavailable ? "Unavailable" : <>{displayedStageItems.length.toLocaleString()}<span className={clientSpace ? "sr-only" : undefined}> {displayedStageItems.length === 1 ? "file" : "files"}</span></>}</span></span>
                 {clientSpace ? null : <span className={boardStyles.expandAffordance}>View all<ArrowRight size={16} aria-hidden="true" /></span>}
               </button></h2>
             </div>
             {clientSpace ? null : <div data-folder-stack className={boardStyles.stack}>
-              {stageItems.map((item) => <LifecycleCard key={item.referral_id} item={item} showOwner={showOwner} onOpenPacket={onOpenPacket} />)}
-              {stageItems.length === 0 ? <p className="text-center">No referrals here</p> : null}
+              {displayedStageItems.map((item) => <LifecycleCard key={item.referral_id} item={item} showOwner={showOwner} onOpenPacket={onOpenPacket} />)}
+              {displayedStageItems.length === 0 ? <p className="text-center">No referrals here</p> : null}
             </div>}
-            {expanded?.stage === stage.key ? <ExpandedStageFolder personalOnly={phone} title={stage.label} items={stageItems} allItems={allActive.filter((item) => sectionFor(item) === stage.key)} origin={expanded.origin} showOwner={showOwner && !phone} onClose={() => setExpanded(null)} onOpenPacket={openFile} /> : null}
+            {expanded?.stage === stage.key ? <ExpandedStageFolder personalOnly={personalOnly} initialScope={teamDefault ? "all" : "mine"} title={stage.label} items={stageItems} allItems={allStageItems} origin={expanded.origin} showOwner={showOwner && !personalOnly} onClose={() => setExpanded(null)} onOpenPacket={openFile} /> : null}
           </div>;
         })}
         </div>
         {unavailable ? <p role="status" className={boardStyles.emptyRecent}>The Board is temporarily unavailable. Close this view and try again.</p> : null}
         {clientSpace && !unavailable ? <div className={boardStyles.workingClients}>
           {recent.length ? <section aria-label="Recent workspaces"><h2 className={boardStyles.shelfTitle}>Recent workspaces</h2><div className={boardStyles.clientShelf}>
-            {recent.map((item) => <ClientFile key={item.referral_id} item={item} showOwner={showOwner && !phone} onOpenPacket={clientSpace.onResume} resume />)}
+            {recent.map((item) => <ClientFile key={item.referral_id} item={item} showOwner={showOwner && !personalOnly} onOpenPacket={clientSpace.onResume} resume />)}
           </div></section> : null}
           {clientSpace.unavailable ? <p role="status" className={boardStyles.emptyRecent}>Recent work could not be loaded.</p> : !recent.length ? <p className={boardStyles.emptyRecent}>No recent work yet.</p> : null}
         </div> : null}
@@ -145,7 +151,8 @@ export function ReferralLifecycleBoard({ items, allItems = items, showOwner, onO
   );
 }
 
-function ExpandedStageFolder({ title, items, allItems, origin, showOwner, onClose, onOpenPacket, personalOnly = false }: {
+function ExpandedStageFolder({ title, items, allItems, origin, showOwner, onClose, onOpenPacket, personalOnly = false, initialScope = "mine" }: {
+  initialScope?: "all" | "mine";
   personalOnly?: boolean;
   title: string;
   items: ReferralWorklistItem[];
@@ -155,7 +162,7 @@ function ExpandedStageFolder({ title, items, allItems, origin, showOwner, onClos
   onClose: () => void;
   onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">, location?: PipelineWorkspaceLocation) => void;
 }) {
-  const [scope, setScope] = useState<"all" | "mine">("mine");
+  const [scope, setScope] = useState<"all" | "mine">(initialScope);
   const visibleItems = !personalOnly && scope === "all" ? allItems : items;
   return <HomeDialog label={`${title} folder`} title={<>
     <span className={boardStyles.expandedLabel}>{title}</span>
