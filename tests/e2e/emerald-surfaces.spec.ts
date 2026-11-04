@@ -5,6 +5,12 @@ import { randomUUID } from "node:crypto";
 import { pipelineWorkspaceLocationFromSearchParams } from "../../lib/pipeline/work-continuity";
 
 async function syntheticHome(page: Page, scope: "personal" | "team" = "team") {
+  await page.route("**/api/auth/me", async (route) => {
+    const response = await route.fetch();
+    const payload = await response.json();
+    payload.user.roles = scope === "team" ? ["admin", "assessment_coordinator"] : ["reviewer", "viewer"];
+    await route.fulfill({ response, json: payload });
+  });
   await page.route("**/api/operations/home", async (route) => {
     const response = await route.fetch();
     const payload = await response.json();
@@ -149,12 +155,14 @@ for (const width of [1440, 390]) {
       await expect(last.locator("[data-folder-details]")).toContainText("San Pablo");
       await expect(last.locator("[data-folder-details]")).not.toContainText("File progress");
       await expect(last.locator("[data-folder-details]")).not.toContainText("documents needed");
-      if (width < 640) {
+      if (width < 640 && scope === "personal") {
         await expect(last).not.toContainText("Example Assessor");
         await expect(stack.getByRole("button", { name: "All", exact: true })).toHaveCount(0);
         await expect(stack.getByRole("button", { name: "Mine", exact: true })).toHaveCount(0);
       } else {
         await expect(last).toContainText("Example Assessor");
+        await expect(stack.getByRole("button", { name: "Mine", exact: true })).toHaveAttribute("aria-pressed", "true");
+        await expect(stack.getByRole("button", { name: "All", exact: true })).toHaveAttribute("aria-pressed", "false");
       }
       await last.scrollIntoViewIfNeeded();
       expect(await last.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
