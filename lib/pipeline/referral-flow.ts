@@ -60,7 +60,7 @@ export function getReferralBoardState(
 }
 
 function decisionBoardState(referral: Referral, context: WorkflowContext, state: WorkspaceStateProjection): ReferralBoardState | null {
-  if (referral.stage === "Accepted / Admitted" || referral.workflowStatus === "admitted") {
+  if (referral.stage === "Accepted / Admitted" || referral.workflowStatus === "admitted" || assumedAdmissionDate(referral)) {
     return boardCard(null, "Admitted", context.packetSentAt ? "Open workspace" : "Send Meet the Client", context.packetSentAt ? "chart" : "email");
   }
   if (state.outcome === "declined") return boardCard(null, "Denied", "Open workspace", "workflow");
@@ -82,11 +82,6 @@ function acceptedBoardState(referral: Referral, context: WorkflowContext, state:
   if (outstanding.length > 0) {
     const nextItems = outstanding.slice(0, 3).map((requirement) => requirement.label.trim()).filter(Boolean).join(", ");
     return boardCard("decision", "Accept", nextItems || "Review admission requirements", isDocumentRequirementType(outstanding[0].type) ? "files" : "workflow");
-  }
-  if (assumedAdmissionDate(referral)) {
-    return context.packetSentAt
-      ? boardCard("decision", "Census check pending", "Review admission", "workflow")
-      : boardCard("decision", "Handoff needed · census check pending", "Send Meet the Client", "email");
   }
   return boardCard("decision", "Awaiting admit", "Record admission", "workflow");
 }
@@ -114,7 +109,7 @@ export type ActiveReferralFlowState = (typeof activeReferralFlowStates)[number][
 export type ReferralFlowState = ActiveReferralFlowState | "complete";
 
 export function getReferralWorkflowStatus(referral: Referral): ReferralWorkflowStatus {
-  return referral.workflowStatus ?? resolveReferralWorkflowStatus(referral);
+  return assumedAdmissionDate(referral) ? "admitted" : referral.workflowStatus ?? resolveReferralWorkflowStatus(referral);
 }
 
 export function getReferralFlowState(

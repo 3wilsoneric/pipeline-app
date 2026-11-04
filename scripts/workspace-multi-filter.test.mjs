@@ -56,7 +56,7 @@ test("current work clears closed outcomes while completed and admitted stay retr
   assert.equal(completed.get("workspace"), "all");
   const admitted = directoryModel.buildReferralParams({ kind: "admitted" }, "");
   assert.equal(admitted.get("stage"), "Accepted / Admitted");
-  assert.equal(admitted.has("include_assumed"), false);
+  assert.equal(admitted.get("include_assumed"), "true");
   assert.equal(admitted.get("workspace"), "active");
   assert.equal(directoryModel.buildReferralParams({ kind: "all" }, "Mae Richardson").has("active"), false, "search can recover a completed file");
 });
@@ -115,6 +115,13 @@ async function verifyAdmittedFilter(store) {
   const visible = await store.listReferrals({ stage: "Accepted / Admitted", includeAssumedAdmissions: true, workspaceStatus: "all" });
   assert.deepEqual(visible.referrals.map((row) => row.id).sort((a, b) => a - b), [201, 202]);
   assert.equal(visible.total, 2);
+  const active = await store.listReferrals({ activeOnly: true, workspaceStatus: "all" });
+  assert.equal(active.referrals.some((row) => row.id === 202), false, "due admission is no longer active work");
+  assert.equal(active.referrals.some((row) => row.id === 203), true, "future admission remains active");
+  const completed = await store.listReferrals({ closedOnly: true, workspaceStatus: "all" });
+  assert.equal(completed.referrals.some((row) => row.id === 202), true, "completed directory retrieves date-based admissions");
+  const scoped = await store.listReferrals({ stage: "Accepted / Admitted", includeAssumedAdmissions: true, assignedOwnerId: "other" });
+  assert.equal(scoped.total, 0, "date-based admission never bypasses ownership filtering");
 }
 
 test("admitted workspace filter includes due assumptions without future, cancelled, or declined plans", async () => {

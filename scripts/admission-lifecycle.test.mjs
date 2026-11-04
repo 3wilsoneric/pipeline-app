@@ -7,6 +7,7 @@ const presentation = load("lib/pipeline/workspace-presentation.ts");
 const validation = load("lib/pipeline/referral-validation.ts");
 const sections = load("lib/pipeline/referral-sections.ts");
 const flow = load("lib/pipeline/referral-flow.ts");
+const progress = load("lib/pipeline/referral-progress.ts");
 
 test("workspace provenance keeps stored IDs but hides them in display text", () => {
   assert.equal(presentation.displayWorkspaceSource("Chart from workspace #2718, as of 2026-09-28; verify for this referral"), "Chart from prior workspace, as of 2026-09-28; verify for this referral");
@@ -44,16 +45,27 @@ test("a due admit date is assumed but never recorded as a verified arrival", () 
   assert.equal(dates.assumedAdmissionDate(referral, new Date("2025-12-31T20:00:00Z")), null);
   assert.equal(dates.assumedAdmissionDate(referral, new Date("2026-01-01T20:00:00Z")), "2026-01-01");
   assert.equal(presentation.getWorkspaceAdmissionOutcome(referral).evidence, "assumed");
-  assert.equal(presentation.getWorkspaceAdmissionOutcome(referral).status, "accepted");
-  assert.equal(presentation.getWorkspaceAdmissionOutcome(referral).label, "Admission unconfirmed in this workspace");
+  assert.equal(presentation.getWorkspaceAdmissionOutcome(referral).status, "admitted");
+  assert.equal(presentation.getWorkspaceAdmissionOutcome(referral).label, "Admitted");
   assert.equal(referral.actualAdmissionDate, undefined);
+  assert.equal(flow.getReferralBoardState(referral, {}).location.view, "email", "handoff is still reachable");
+  assert.equal(flow.getReferralWorkflowStatus(referral), "admitted");
+  assert.equal(progress.getReferralProgress(referral, { packetSentAt: "2026-01-01T10:00:00Z" }).waiting, false);
+  for (const changes of [{ plannedAdmissionDate: "2099-01-01" }, { plannedAdmissionDate: "" }, { admissionDecision: undefined }]) {
+    assert.notEqual(presentation.getWorkspaceAdmissionOutcome({ ...referral, ...changes }).status, "admitted");
+  }
+  assert.equal(presentation.getWorkspaceAdmissionOutcome({ ...referral, placementCancellation: { reason: "Placed elsewhere" } }).status, "cancelled");
+  assert.equal(dates.assumedAdmissionDate(referral, new Date("2026-01-01T07:59:59Z")), null, "Pacific day has not begun");
+  assert.equal(dates.assumedAdmissionDate(referral, new Date("2026-01-01T08:00:00Z")), "2026-01-01");
+  assert.equal(dates.assumedAdmissionDate({ ...referral, stage: "Declined" }), null);
+
   assert.equal(dates.assumedAdmissionDate({ ...referral, placementCancellation: { reason: "Did not arrive" } }, new Date("2026-01-02T20:00:00Z")), null);
   assert.equal(dates.assumedAdmissionDate({ ...referral, admissionDecision: { outcome: "declined" } }, new Date("2026-01-02T20:00:00Z")), null);
   assert.equal(dates.assumedAdmissionDate({ ...referral, actualAdmissionDate: "2026-01-02" }, new Date("2026-01-02T20:00:00Z")), null);
   assert.equal(dates.assumedAdmissionDate({ ...referral, plannedAdmissionDate: "01/01/2026" }, new Date("2026-01-02T20:00:00Z")), null, "only canonical saved dates enter the assumed-admission filter");
   assert.equal(dates.isAwaitingAdmission(referral.stage, "accepted", "2026-01-01T10:00:00Z"), true);
-  assert.equal(flow.getReferralBoardState(referral, { assessmentSigned: true, packetSentAt: "2026-01-01T10:00:00Z" }).stage, "decision", "unverified arrivals remain visible for follow-up");
-  assert.equal(flow.getReferralBoardState(referral, { assessmentSigned: true }).stage, "decision", "unsent handoff stays actionable");
+  assert.equal(flow.getReferralBoardState(referral, { assessmentSigned: true, packetSentAt: "2026-01-01T10:00:00Z" }).stage, null, "a due entered date clears active admission work");
+  assert.equal(flow.getReferralBoardState(referral, { assessmentSigned: true }).stage, null, "admitted client leaves the hopper even with an unsent handoff");
   assert.equal(dates.isAwaitingAdmission("Declined", "declined", "2026-01-01T10:00:00Z"), false);
   assert.equal(presentation.getWorkspaceAdmissionOutcome({ ...referral, actualAdmissionDate: "2026-01-02", stage: "Accepted / Admitted" }).status, "admitted");
   const admitted = { ...referral, stage: "Accepted / Admitted", workflowStatus: "admitted" };

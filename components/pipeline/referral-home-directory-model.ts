@@ -127,6 +127,7 @@ export function buildReferralParams(filter: ReferralFilter, searchTerm: string, 
   if (filter.priority) params.set("priority", filter.priority);
   if (filter.kind === "admitted") {
     params.set("stage", "Accepted / Admitted");
+    params.set("include_assumed", "true");
   }
   if (filter.kind === "all" && !query) params.set("active", "true");
   if (filter.kind === "completed") params.set("closed", "true");

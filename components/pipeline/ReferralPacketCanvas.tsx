@@ -27,7 +27,7 @@ import {
 } from "lucide-react";
 
 import { pipelineCommunities, type PipelineCommunity } from "@/lib/pipeline/community-config";
-import { getPlannedAdmissionDate, handoffWorkspaceView } from "@/lib/pipeline/admission-lifecycle";
+import { assumedAdmissionDate, getPlannedAdmissionDate, handoffWorkspaceView } from "@/lib/pipeline/admission-lifecycle";
 import { formatProfileDate } from "@/lib/pipeline/client-profile-presentation";
 import { workflowStatusLabels } from "@/lib/pipeline/workflow-status";
 import { formatPhoneForEntry } from "@/lib/pipeline/phone-display";
@@ -2780,7 +2780,7 @@ export default function ReferralPacketCanvas({
             {renderWorkspaceTools()}
             {/* Notes stay beside preparation and the interview; other steps use the compact button. */}
             {designV2 && loadedReferral && (phone || displayedPage !== 2) && !trainingAssessmentMode && !trainingIntakeMode ? <ClientNotesButton key={loadedReferral.id} inline={phone} referralId={loadedReferral.id} readOnly={permissionReadOnly || historicalReadOnly} /> : null}
-            <WorkspaceStageNavigation chartReferenceRef={setChartReferenceSource} showFiles={hasReferral || displayedPage === "files"} steps={navigableWorkspaceSteps} activePage={railActivePage} onOpen={(page) => void navigatePage(page)} progress={designV2 ? workspaceStepProgress(loadedReferral?.workflowStatus, assessmentSummary) : undefined} details={designV2 ? workspaceStepDetails(loadedReferral, assessmentSummary) : undefined} />
+            <WorkspaceStageNavigation chartReferenceRef={setChartReferenceSource} showFiles={hasReferral || displayedPage === "files"} steps={navigableWorkspaceSteps} activePage={railActivePage} onOpen={(page) => void navigatePage(page)} progress={designV2 ? workspaceStepProgress(loadedReferral && assumedAdmissionDate(loadedReferral) ? "admitted" : loadedReferral?.workflowStatus, assessmentSummary) : undefined} details={designV2 ? workspaceStepDetails(loadedReferral, assessmentSummary) : undefined} />
             {recordStack && stackVisible && editingControlsVisible ? renderSaveCenter() : null}
             {/* Redesign: no "is editing" pills in the rail (owner, 2026-09-26). Saves still refuse and
                 explain conflicting edits (renderWorkspaceConflicts). */}
@@ -3546,7 +3546,7 @@ function workspaceStepDetails(referral: Referral | null, assessment: {
   if (!referral) return {};
   const decision = referral.admissionDecision;
   const plannedDate = getPlannedAdmissionDate(referral);
-  const status = referral.workflowStatus;
+  const status = assumedAdmissionDate(referral) ? "admitted" : referral.workflowStatus;
   const details: StepDetails = {
     3: { label: workflowStatusLabels.ready_to_schedule, date: referral.createdAt },
     workflow: decision
@@ -3555,7 +3555,7 @@ function workspaceStepDetails(referral: Referral | null, assessment: {
     email: referral.placementCancellation
       ? { label: "Did not move in", date: referral.placementCancellation.cancelledAt, neutral: true }
       : status === "admitted"
-        ? { label: workflowStatusLabels.admitted, date: referral.actualAdmissionDate }
+        ? { label: workflowStatusLabels.admitted, date: referral.actualAdmissionDate || assumedAdmissionDate(referral) }
         : status === "closed"
           ? { label: workflowStatusLabels.closed, neutral: true }
           : plannedDate

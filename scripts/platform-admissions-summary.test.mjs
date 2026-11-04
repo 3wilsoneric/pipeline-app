@@ -176,22 +176,30 @@ test("briefing separates actual admissions from planned arrivals and carries eac
   }
 });
 
-test("assumed admission is visible for verification without inflating confirmed admissions or census counts", () => {
+test("entered admission dates count as admitted; later verified dates replace them without double counting", () => {
   const summary = summarize([
-    referral({ clientName: "Assumed arrival", decisionOutcome: "accepted", plannedAdmissionDate: "2026-09-24", assumedAdmissionDate: "2026-09-24", boardColumn: "decision", boardStatus: "Awaiting admit" }),
+    referral({ clientName: "Assumed arrival", decisionOutcome: "accepted", plannedAdmissionDate: "2026-09-24", assumedAdmissionDate: "2026-09-24", boardColumn: null, boardStatus: "Admitted" }),
     referral({ clientName: "Confirmed arrival", decisionOutcome: "accepted", plannedAdmissionDate: "2026-09-18", actualAdmissionDate: "2026-09-18", boardColumn: null, boardStatus: "Admitted" }),
     referral({ clientName: "Future arrival", decisionOutcome: "accepted", plannedAdmissionDate: "2026-09-27", boardColumn: "decision", boardStatus: "Awaiting admit" }),
   ]);
   assert.equal(summary.metrics.awaiting_admission, 1);
   assert.equal(summary.upcoming_admissions.past_planned_date, 0);
-  assert.equal(summary.board.cards.find((row) => row.client_name === "Assumed arrival")?.status, "Admission unconfirmed in this workspace");
+  assert.equal(summary.board.cards.some((row) => row.client_name === "Assumed arrival"), false);
   assert.deepEqual(summary.briefing.admitted_last_week.map((row) => row.client_name), ["Confirmed arrival"]);
   assert.deepEqual(summary.briefing.moving_through.map((row) => [row.client_name, row.status]), [
-    ["Assumed arrival", "Admission unconfirmed in this workspace"],
     ["Future arrival", "Awaiting admit"],
   ]);
-  assert.equal(summary.briefing.moving_through.find((row) => row.client_name === "Assumed arrival")?.phase, "outcome_review");
-  assert.equal(summary.history.month_outcomes.admitted, 1);
+  assert.equal(summary.history.month_outcomes.admitted, 2);
+  const corrected = summarize([
+    referral({ actualAdmissionDate: "2026-09-18", assumedAdmissionDate: "2026-09-24", boardColumn: null }),
+  ]);
+  assert.equal(corrected.history.month_outcomes.admitted, 1);
+  assert.equal(corrected.briefing.admitted_last_week[0].admitted_at, "2026-09-18");
+  const dueLastWeek = summarize([referral({ assumedAdmissionDate: "2026-09-18", boardColumn: null })]);
+  assert.equal(dueLastWeek.briefing.admitted_last_week[0].admitted_at, "2026-09-18");
+  const cancelled = summarize([referral({ assumedAdmissionDate: "2026-09-18", placementCancelled: true, boardColumn: null })]);
+  assert.equal(cancelled.history.month_outcomes.admitted, 0);
+  assert.equal(cancelled.briefing.admitted_last_week.length, 0);
 });
 
 test("accepted clients without an admit date remain visible even after leaving the board, except cancelled placements", () => {

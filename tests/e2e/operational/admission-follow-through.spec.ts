@@ -65,6 +65,62 @@ test.describe("admission follow-through", () => {
     } finally { await context.close(); await assessor.dispose(); await coordinator.dispose(); await admin.dispose(); }
   });
 
+  for (const width of [1440, 390, 320]) test(`entered admit date establishes admission without a verification step at ${width}`, async ({ browser, baseURL }, info) => {
+    const url = requireOperationalBaseURL(baseURL);
+    const api = await actorApiContext("assessorA", url);
+    const { page, context } = await actorPage(browser, "assessorA", url);
+    try {
+      const created = await createOperationalReferral(api, "assessorA", { name: `Synthetic date admission ${randomUUID()}` });
+      const referral = await recordOperationalAcceptance(api, created);
+      const path = `/api/referrals/${referral.id}`;
+      const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Los_Angeles", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+      // Simulate only the existing sent-mail state; all date writes, permissions and directory reads use the real isolated server.
+      await page.route(`**${path}/workflow`, async (route) => {
+        if (route.request().method() !== "GET") return route.continue();
+        const response = await route.fetch();
+        const body = await response.json();
+        body.context.packetSentAt = "2026-01-01T12:00:00Z";
+        await route.fulfill({ response, json: body });
+      });
+      let sends = 0;
+      page.on("request", (request) => {
+        if (request.method() === "POST" && /meet-client-email|outlook-draft/.test(request.url())) sends++;
+      });
+      await page.setViewportSize({ width, height: 850 });
+      await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
+      const handoff = page.getByRole("region", { name: "Handoff follow-through" });
+      const date = handoff.getByLabel("Planned admission date", { exact: true });
+      await date.fill(today);
+      await handoff.getByRole("button", { name: "Save planned date" }).click();
+      await expect(handoff.getByRole("status").filter({ hasText: /^Admitted$/ })).toBeVisible();
+      await expect(handoff).toContainText("Census reconciliation pending");
+      await expect(handoff).not.toContainText("unconfirmed");
+      const saved = (await (await api.get(path)).json()).referral;
+      expect(saved.actualAdmissionDate).toBeUndefined();
+      expect(saved.plannedAdmissionDate).toBe(today);
+      const admitted = await (await api.get(`/api/referrals?stage=Accepted+%2F+Admitted&include_assumed=true&q=${encodeURIComponent(saved.name)}`)).json();
+      expect(admitted.referrals.map((row: { id: number }) => row.id)).toContain(referral.id);
+      const active = await (await api.get(`/api/referrals?active=true&q=${encodeURIComponent(saved.name)}`)).json();
+      expect(active.referrals.map((row: { id: number }) => row.id)).not.toContain(referral.id);
+      const home = await (await api.get("/api/operations/home")).json();
+      expect(home.unavailable_sections).not.toContain("workflow");
+      expect(home.workflow.all_board_items.map((row: { referral_id: number }) => row.referral_id)).not.toContain(referral.id);
+      expect(home.workflow.completion_memo.clients.find((row: { referral_id: number }) => row.referral_id === referral.id)?.status).toBe("admitted");
+
+      await page.reload();
+      await expect(handoff.getByRole("status").filter({ hasText: /^Admitted$/ })).toBeVisible();
+      await page.screenshot({ path: info.outputPath(`admitted-by-date-${width}.png`), fullPage: true });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      // Correcting a prematurely entered date reopens future work; no fabricated arrival must survive.
+      await date.fill("2099-01-01");
+      await handoff.getByRole("button", { name: "Save planned date" }).click();
+      await expect(handoff.getByRole("status").filter({ hasText: /^Admitted$/ })).toHaveCount(0);
+      const future = await (await api.get(`/api/referrals?active=true&q=${encodeURIComponent(saved.name)}`)).json();
+      expect(future.referrals.map((row: { id: number }) => row.id)).toContain(referral.id);
+      expect(sends).toBe(0);
+    } finally { await context.close(); await api.dispose(); }
+  });
+
   test("coordinator records an actual arrival from Placement", async ({ browser, baseURL }) => {
     const url = requireOperationalBaseURL(baseURL);
     const api = await actorApiContext("assessmentCoordinator", url);
