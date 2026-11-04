@@ -11,7 +11,7 @@ for (const width of [1440, 768, 390, 320]) {
       name: `Footer ${randomUUID().replace(/[^a-z]/g, "")}`, owner: "", tags: [], documentName: "", documentStatus: "Missing",
     });
     const created = await page.request.post(`/api/referrals/${referral.id}/assessments`, { data: {
-      client_mutation_id: randomUUID(), data: { secondary_diagnoses: ["Synthetic prepared information"] },
+      client_mutation_id: randomUUID(), data: { assessment_date: "2026-11-04", secondary_diagnoses: ["Synthetic prepared information"] },
     } });
     expect(created.status()).toBe(201);
     const { assessment } = await created.json();
@@ -114,7 +114,7 @@ for (const width of [1440, 390]) {
     const referral = await createOperationalReferral(page.request, "assessmentCoordinator", {
       name: `Optional start ${randomUUID().replace(/[^a-z]/g, "")}`, owner: "", tags: [], documentName: "", documentStatus: "Missing",
     });
-    const created = await page.request.post(`/api/referrals/${referral.id}/assessments`, { data: { client_mutation_id: randomUUID(), data: { secondary_diagnoses: ["Synthetic retained answer"] } } });
+    const created = await page.request.post(`/api/referrals/${referral.id}/assessments`, { data: { client_mutation_id: randomUUID(), data: { assessment_date: "2026-11-04", secondary_diagnoses: ["Synthetic retained answer"] } } });
     expect(created.status()).toBe(201);
     const { assessment } = await created.json();
     await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment`);

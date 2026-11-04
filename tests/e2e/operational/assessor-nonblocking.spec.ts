@@ -43,7 +43,7 @@ test.describe("independent assessor workflow steps", () => {
     const { page, context } = await actorPage(browser, "admin", url);
     try {
       const referral = await incompleteReferral(assessor);
-      const existing = existingDraft ? await createOperationalAssessment(assessor, referral.id) : null;
+      const existing = existingDraft ? await createOperationalAssessment(assessor, referral.id, { assessmentDate: "2026-11-04" }) : null;
       await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=workflow`);
       await page.getByRole("radio", { name: "Accept", exact: true }).check();
       await page.getByRole("button", { name: "Record decision", exact: true }).click();
@@ -56,7 +56,7 @@ test.describe("independent assessor workflow steps", () => {
       expect(accepted.referral.stage).not.toBe("Accepted / Admitted");
       expect(accepted.referral.ehrHandoff?.status ?? "not_ready").toBe("not_ready");
 
-      const draft = existing ?? await createOperationalAssessment(assessor, referral.id);
+      const draft = existing ?? await createOperationalAssessment(assessor, referral.id, { assessmentDate: "2026-11-04" });
       const edited = await assessor.patch(`/api/assessments/${draft.assessment_id}`, { data: {
         if_match: draft.version, client_mutation_id: randomUUID(), patch: { data: { prior_5150_5250_holds: "Added after acceptance with other answers omitted." } },
       } });
@@ -100,7 +100,7 @@ test.describe("independent assessor workflow steps", () => {
     const { page, context } = await actorPage(browser, "assessorA", url);
     try {
       const referral = await incompleteReferral(assessor);
-      const draft = await createOperationalAssessment(assessor, referral.id);
+      const draft = await createOperationalAssessment(assessor, referral.id, { assessmentDate: "2026-11-04" });
       await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentMode=review`);
       await page.getByRole("region", { name: "Placement recommendation", exact: true }).getByRole("combobox", { name: "Working decision", exact: true }).selectOption("accept");
       await expect.poll(async () => (await workflow(assessor, referral.id)).recommendation?.outcome).toBe("accept");

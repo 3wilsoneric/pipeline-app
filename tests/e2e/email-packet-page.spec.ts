@@ -26,6 +26,7 @@ async function referralWithAssessment(page: Page, signed = true) {
   });
   const created = await page.request.post(`/api/referrals/${referral.id}/assessments`, { data: {
     client_mutation_id: randomUUID(), data: {
+      assessment_date: "2026-11-04",
       current_location: 'Synthetic facility <img src=x onerror="alert(1)">', family_involvement: "Sister helps with appointments.",
       medications_at_intake: ["Synthetic recorded medication"], im_injections: "yes", im_injections_details: "Synthetic injection and recorded dose",
       injection_frequency: "Synthetic injection - every 4 weeks", last_injection: "Synthetic injection - date unknown",
