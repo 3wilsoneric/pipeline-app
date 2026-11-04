@@ -50,7 +50,7 @@ export async function packetContentUploadResults() {
     const completion = loadTypeScriptModule(process.cwd(), "lib/assessment/assessment-completion.ts", globals);
     const created = await assessments.createAssessment({
       referral_id: sameName.referral.id, assigned_assessor: actor,
-      data: schema.createEmptyAssessmentToolData(),
+      data: { ...schema.createEmptyAssessmentToolData(), assessment_date: "2026-11-04" },
       field_provenance: { primary_diagnosis: [{ review_status: "pending" }] },
     }, actor, "incomplete-assessment");
     assert.equal(created.ok, true, `Assessment create: ${JSON.stringify(created)}`);

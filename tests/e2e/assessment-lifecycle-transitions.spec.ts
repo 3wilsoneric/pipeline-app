@@ -32,7 +32,7 @@ test("replays an interrupted assessment create without making a second draft", a
 
 test("signing completes while internal tabs remain usable and app exit waits", async ({ page }) => {
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: "Synthetic signing transition", owner: "", tags: [] });
-  const assessment = await createOperationalAssessment(page.request, referral.id);
+  const assessment = await createOperationalAssessment(page.request, referral.id, { assessmentDate: "2026-11-04" });
   await recordOperationalAcceptance(page.request, (await (await page.request.get(`/api/referrals/${referral.id}`)).json()).referral);
   await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceView=email`);
   let release!: () => void;
@@ -64,7 +64,7 @@ test("signing completes while internal tabs remain usable and app exit waits", a
 
 test("a lost sign response replays one signature with the same mutation ID", async ({ page }) => {
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: "Synthetic signature replay", owner: "", tags: [] });
-  const assessment = await createOperationalAssessment(page.request, referral.id);
+  const assessment = await createOperationalAssessment(page.request, referral.id, { assessmentDate: "2026-11-04" });
   const mutationIds: string[] = [];
   await page.route(`**/api/assessments/${assessment.assessment_id}/sign`, async (route) => {
     mutationIds.push((route.request().postDataJSON() as { client_mutation_id: string }).client_mutation_id);
@@ -174,7 +174,7 @@ test("a failed appointment save stays visible and retryable after visiting Files
 
 test("a failed referral refresh after signing does not reopen the signature or block Handoff", async ({ page }) => {
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: "Synthetic signed refresh failure", owner: "", tags: [] });
-  const assessment = await createOperationalAssessment(page.request, referral.id);
+  const assessment = await createOperationalAssessment(page.request, referral.id, { assessmentDate: "2026-11-04" });
   let signed = false;
   let failedRefreshes = 0;
   await page.route(`**/api/referrals/${referral.id}/canvas`, (route) => {

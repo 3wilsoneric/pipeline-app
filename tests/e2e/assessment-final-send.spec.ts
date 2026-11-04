@@ -9,7 +9,7 @@ test("signed answers remain editable and saved; Add note appears only after the 
     name: `Finalsend ${randomUUID().replaceAll(/[^a-z]/g, "")}`, owner: assessor.display_name, tags: [], documentName: "", documentStatus: "Missing",
   }, { assigneeId: assessor.principal_id });
   const created = await page.request.post(`/api/referrals/${referral.id}/assessments`, {
-    data: { client_mutation_id: randomUUID(), data: {} },
+    data: { client_mutation_id: randomUUID(), data: { assessment_date: "2026-11-04" } },
   });
   expect(created.status()).toBe(201);
   const { assessment } = await created.json();

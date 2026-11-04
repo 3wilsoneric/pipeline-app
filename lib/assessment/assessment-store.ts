@@ -1427,7 +1427,9 @@ function initializeInterviewDate(current: PipelineAssessmentRecord, requestedDat
   // and a previously recorded/historical interview date must not be overwritten.
   if (markStarted && !current.started_at && !current.assessment_date && requestedData.assessment_date === undefined) {
     requestedData.assessment_date = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Los_Angeles", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(now));
+    return true;
   }
+  return false;
 }
 
 function prepareAssessmentPatch(
@@ -1470,7 +1472,7 @@ function prepareAssessmentPatch(
     };
   }
   const now = new Date().toISOString();
-  initializeInterviewDate(current, requestedData, patch.mark_started, now);
+  const interviewDateFromStart = initializeInterviewDate(current, requestedData, patch.mark_started, now);
   if (requestedData.resident_name !== undefined && requestedData.resident_name !== current.resident_name) {
     requestedData.resident_name = normalizeClientName(requestedData.resident_name ?? "");
     if (!requestedData.resident_name) throw new Error("Enter a client name before saving.");
@@ -1490,6 +1492,9 @@ function prepareAssessmentPatch(
   }
   const issues = validateAssessmentToolData(nextData);
   if (issues.length > 0) throw new Error(issues[0].message);
+  if (patch.signer && !nextData.assessment_date) {
+    throw new Error("Record the date the assessment was performed before signing.");
+  }
 
   const changedFields = assessmentToolFieldDefinitions
     .filter((definition) => !sameValue(currentData[definition.key], nextData[definition.key]))
@@ -1506,6 +1511,16 @@ function prepareAssessmentPatch(
     const intake = patch.referral_answer_sources?.[key];
     if (prior) appendProvenance(fieldProvenance, key, priorAnswerProvenance(key, prior));
     else if (intake) appendProvenance(fieldProvenance, key, intake);
+    else if (key === "assessment_date" && interviewDateFromStart) {
+      appendProvenance(fieldProvenance, key, {
+        source_field_key: "assessment.started_at",
+        source_file: null,
+        confidence: 1,
+        review_status: "accepted",
+        source_page_no: null,
+        evidence_url: null,
+      });
+    }
     else appendManualProvenance(fieldProvenance, key, patch.workbook_restore);
   }
   const acceptedFields = patch.accept_pending

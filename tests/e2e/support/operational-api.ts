@@ -23,6 +23,7 @@ export type OperationalReferral = {
 export type OperationalAssessment = {
   assessment_id: string;
   version: number;
+  assessment_date?: string | null;
 };
 
 export async function activeOperationalAssessor(context: APIRequestContext) {
@@ -98,12 +99,14 @@ export async function markOperationalPacketReviewed(
 export async function createOperationalAssessment(
   context: APIRequestContext,
   referralId: number,
+  options: { assessmentDate?: string } = {},
 ) {
   const response = await context.post(`/api/referrals/${referralId}/assessments`, {
     data: {
       client_mutation_id: operationalMutationId("assessment"),
       data: {
         current_location: "Synthetic referral source",
+        ...(options.assessmentDate ? { assessment_date: options.assessmentDate } : {}),
       },
     },
   });
@@ -169,6 +172,18 @@ export async function signOperationalAssessment(
   context: APIRequestContext,
   assessment: OperationalAssessment,
 ) {
+  if (!assessment.assessment_date) {
+    const dated = await context.patch(`/api/assessments/${assessment.assessment_id}`, {
+      data: {
+        if_match: assessment.version,
+        client_mutation_id: operationalMutationId("date-assessment"),
+        patch: { data: { assessment_date: new Intl.DateTimeFormat("en-CA", { timeZone: "America/Los_Angeles", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date()) } },
+      },
+    });
+    const datedBody = await dated.text();
+    expect(dated.status(), datedBody.slice(0, 1_000)).toBe(200);
+    assessment = asAssessmentPayload(JSON.parse(datedBody));
+  }
   const response = await context.post(`/api/assessments/${assessment.assessment_id}/sign`, {
     data: {
       if_match: assessment.version,
