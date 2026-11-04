@@ -39,6 +39,7 @@ export default function PipelineWelcome({
   onFinishEditingHome,
   canAccessReports = false,
   canViewApplicationActivity = false,
+  showTeamOnPhone = false,
   initialBriefing,
   viewerId,
 }: {
@@ -54,6 +55,7 @@ export default function PipelineWelcome({
   onFinishEditingHome?: () => void;
   canAccessReports?: boolean;
   canViewApplicationActivity?: boolean;
+  showTeamOnPhone?: boolean;
   initialBriefing?: HomeBriefingSnapshot | null;
   viewerId?: string;
 }) {
@@ -134,7 +136,7 @@ export default function PipelineWelcome({
   };
   const briefingModules = briefing ? {
     "recent-work": <ContinueWorkPanel items={briefing.continuity.resume_items} unavailable={briefing.continuity.unavailable} onOpenPacket={onOpenPacket} onResumeDraft={onResumeDraft} />,
-    "current-work": <CurrentWorkSummary briefing={briefing} onOpenPacket={onOpenPacket} onOpenUpcoming={setUpcomingOrigin} />,
+    "current-work": <CurrentWorkSummary showTeamOnPhone={showTeamOnPhone} briefing={briefing} onOpenPacket={onOpenPacket} onOpenUpcoming={setUpcomingOrigin} />,
     "new-assignments": null,
     "upcoming-assessments": null,
     "scheduling-queue": <SchedulingQueuePanel briefing={briefing} onOpenPacket={onOpenPacket} />,
@@ -217,7 +219,8 @@ function HomeSearchAccess({ visible, searchProps, onClose }: {
   );
 }
 
-function CurrentWorkSummary({ briefing, onOpenPacket, onOpenUpcoming }: {
+function CurrentWorkSummary({ briefing, onOpenPacket, onOpenUpcoming, showTeamOnPhone }: {
+  showTeamOnPhone: boolean;
   briefing: HomeBriefingSnapshot;
   onOpenPacket: ComponentProps<typeof PipelineWelcome>["onOpenPacket"];
   onOpenUpcoming: (origin: HomeDialogOrigin) => void;
@@ -225,7 +228,7 @@ function CurrentWorkSummary({ briefing, onOpenPacket, onOpenUpcoming }: {
   return (
     <section data-guide-target="my-queue" aria-label="Current work" className="bg-white">
       <div id="home-referral-board">
-        <ReferralWorkflowTracker key={briefing.viewer.id} briefing={briefing} onOpenPacket={(referral, location) => onOpenPacket(referral, location, undefined, true)} layout="board"
+        <ReferralWorkflowTracker key={briefing.viewer.id} showTeamOnPhone={showTeamOnPhone} briefing={briefing} onOpenPacket={(referral, location) => onOpenPacket(referral, location, undefined, true)} layout="board"
           clientSpace={{ recentIds: briefing.continuity.recent_referral_ids ?? [],
             unavailable: briefing.continuity.unavailable, onResume: onOpenPacket,
             upcoming: { count: briefing.upcoming.length, unavailable: briefing.unavailable_sections.includes("upcoming"), date: calendarDate(briefing.generated_at) ?? calendarToday(), onOpen: onOpenUpcoming } }} />

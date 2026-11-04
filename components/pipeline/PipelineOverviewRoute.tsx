@@ -170,7 +170,9 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
   const [createdWorkspace, setCreatedWorkspace] = useState<{ id: number; key: string } | null>(null);
   const [assessmentEntry, setAssessmentEntry] = useState<{ referralId: number; action: AssessmentEntryAction } | null>(null);
   const [reportAccess, setReportAccess] = useState<boolean | undefined>(() => initialUser ? canAccessOperationsReports(initialUser) : undefined);
-  const [teamAccess, setTeamAccess] = useState<boolean | undefined>(() => initialUser ? canAccessSupervisorOperations(initialUser.roles) : undefined);
+  const [viewerRoles, setViewerRoles] = useState<readonly string[] | undefined>(() => initialUser?.roles);
+  const teamAccess = viewerRoles === undefined ? undefined : canAccessSupervisorOperations(viewerRoles);
+  const showTeamOnPhone = viewerRoles?.some((role) => role === "admin" || role === "assessment_coordinator") ?? false;
   const [viewerId, setViewerId] = useState(() => initialUser?.id ?? initialBriefing?.viewer.id);
   const [activityAccess, setActivityAccess] = useState(() => canAccessApplicationActivity(initialUser));
   const [entryBriefing, setEntryBriefing] = useState(initialBriefing ?? null);
@@ -253,7 +255,7 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
         setViewerId(user.id);
         setActivityAccess(canAccessApplicationActivity(user));
         setReportAccess(canAccessOperationsReports(user));
-        setTeamAccess(canAccessSupervisorOperations(user.roles));
+        setViewerRoles(user.roles);
         // Warm the first workspace page and complete current census after authentication.
         // GET-only reads use the same cache as navigation; no charts or files
         // are downloaded in bulk and no background user session is created.
@@ -263,7 +265,7 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
         if (!cancelled) {
           setReportAccess(false);
           setActivityAccess(false);
-          setTeamAccess(false);
+          setViewerRoles([]);
         }
       });
     return () => {
@@ -355,6 +357,7 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
         initialBriefing={entryBriefing}
         canAccessReports={reportAccess === true}
         canViewApplicationActivity={activityAccess}
+        showTeamOnPhone={showTeamOnPhone}
         onOpenPacket={(referral, location, action, exact) => navigate("packet", referral, undefined, location, !exact, action)}
         onOpenProfile={(clientId) => navigate("profile", undefined, clientId)}
         onOpenSearchDestination={(destination: PipelineSiteScreen) => navigate(destination)}
@@ -471,6 +474,7 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
         onOpenPacket={(referral) => navigate("packet", referral)}
         onOpenProfile={(clientId) => navigate("profile", undefined, clientId)}
         canViewTeam={teamAccess}
+        showTeamOnPhone={showTeamOnPhone}
       />
     );
   }
