@@ -24,6 +24,10 @@ test.describe("mobile workspace scope", () => {
         expect(handoff.name).toBe(names.handoff);
         await createOperationalAssessment(otherOwner, handoff.id);
         await recordOperationalAcceptance(otherOwner, await readOperationalReferral(otherOwner, handoff.id));
+        // A team list may already contain enough newer records to require scrolling.
+        for (let index = 0; index < 8; index++) {
+          await createOperationalReferral(otherOwner, "assessorB", { name: `Mobile Queue ${String.fromCharCode(65 + index)} ${stamp}`, documentName: "" });
+        }
 
         for (const actor of ["admin", "assessmentCoordinator", "assessorA"] as const) {
           const team = actor !== "assessorA";
@@ -66,6 +70,7 @@ test.describe("mobile workspace scope", () => {
             }
             expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
             await expect(folder.locator("[data-expanded-folder]")).toHaveCSS("opacity", "1");
+            await folder.locator(`[data-client-file="${mine.id}"]`).scrollIntoViewIfNeeded();
             await expect(folder.locator(`[data-client-file="${mine.id}"]`)).toBeInViewport();
             await page.screenshot({ path: info.outputPath(`${engineName}-${actor}-folder.png`), animations: "disabled" });
             await folder.getByRole("button", { name: "Close in progress folder", exact: true }).tap();
