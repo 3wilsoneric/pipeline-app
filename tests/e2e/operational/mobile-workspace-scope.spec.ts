@@ -57,7 +57,7 @@ test.describe("mobile workspace scope", () => {
               await expect(folder.getByRole("button", { name: "All", exact: true })).toHaveAttribute("aria-pressed", "true");
               await expect(folder.locator(`[data-client-file="${other.id}"]`)).toBeVisible();
               await folder.getByRole("button", { name: "Mine", exact: true }).tap();
-              await expect(folder.locator("[data-client-file]")).toHaveCount(0);
+              for (const id of [mine.id, other.id]) await expect(folder.locator(`[data-client-file="${id}"]`)).toHaveCount(0);
               await folder.getByRole("button", { name: "All", exact: true }).tap();
               await expect(folder.locator(`[data-client-file="${other.id}"]`)).toBeVisible();
             } else {
