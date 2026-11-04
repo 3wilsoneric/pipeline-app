@@ -95,6 +95,11 @@ test.describe("Stable visual surfaces", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await openStable(page, "/?view=referrals");
     await expect(page.getByRole("main", { name: "Referral workspaces" })).toBeVisible();
+    const scope = page.getByRole("group", { name: "Workspace scope" });
+    await expect(scope.getByRole("button", { name: "Mine", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await expect(scope.getByRole("button", { name: "All", exact: true })).toBeVisible();
+    await expect(page.getByRole("searchbox", { name: "Search my workspaces" })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await expect(page).toHaveScreenshot("mobile-referrals.png", screenshotOptions());
   });
 
