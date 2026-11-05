@@ -67,17 +67,42 @@ test("denial reopening preserves the signed record, enforces access/conflicts, a
   } finally { await Promise.all([api.dispose(), outsider.dispose()]); }
 });
 
-test("reopen button returns to an editable decision and history survives reload", async ({ browser, baseURL }) => {
+for (const width of [1440, 390]) test(`decision settings reopen safely at ${width}px and history survives reload`, async ({ browser, baseURL }, testInfo) => {
   const { context, page } = await actorPage(browser, "assessorA", baseURL!);
   try {
     const saved = await deniedFixture(context.request);
+    await page.setViewportSize({ width, height: 900 });
     await page.goto(`/?view=referrals&screen=packet&referralId=${saved.referral.id}&workspaceView=workflow`);
-    await page.getByRole("button", { name: "Reopen decision", exact: true }).click();
+    const settings = page.getByRole("button", { name: "Decision settings", exact: true });
+    const drawer = page.getByRole("dialog", { name: "Decision settings", exact: true });
+    await expect(settings).toBeVisible();
+    await expect(page.getByRole("button", { name: "Reopen decision", exact: true })).not.toBeVisible();
+    const target = await settings.boundingBox();
+    expect(target!.height).toBeGreaterThanOrEqual(44);
+    expect(target!.width).toBeGreaterThanOrEqual(44);
+    await page.screenshot({ path: testInfo.outputPath(`decision-${width}.png`) });
+    await settings.focus();
+    await settings.press("Enter");
+    await expect(drawer).toBeVisible();
+    await expect(settings).toHaveAttribute("aria-expanded", "true");
+    await page.keyboard.press("Escape");
+    await expect(drawer).not.toBeVisible();
+    await expect(settings).toBeFocused();
+    await settings.click();
+    await drawer.evaluate(async (element) => { await Promise.all(element.getAnimations().map((animation) => animation.finished)); });
+    await page.screenshot({ path: testInfo.outputPath(`settings-${width}.png`) });
+    const reopenTarget = await drawer.getByRole("button", { name: "Reopen decision", exact: true }).boundingBox();
+    expect(reopenTarget!.height).toBeGreaterThanOrEqual(44);
+    await drawer.getByRole("button", { name: "Reopen decision", exact: true }).click();
     const dialog = page.getByRole("alertdialog", { name: "Reopen decision?" });
     await expect(dialog).toBeVisible();
+    await expect(drawer).not.toBeVisible();
+    await expect.poll(() => dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true);
     await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
-    await expect(page.getByRole("button", { name: "Reopen decision", exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "Reopen decision", exact: true }).click();
+    await expect(settings).toBeFocused();
+    expect((await (await context.request.get(`/api/referrals/${saved.referral.id}/decision`)).json()).decision.outcome).toBe("declined");
+    await settings.click();
+    await drawer.getByRole("button", { name: "Reopen decision", exact: true }).click();
     await dialog.getByRole("button", { name: "Reopen decision", exact: true }).click();
     await expect(page.getByRole("radio", { name: "Accept", exact: true })).toBeVisible();
     await page.reload();

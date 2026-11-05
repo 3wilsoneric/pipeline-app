@@ -15,6 +15,8 @@
   .followUpTrigger { display: inline-flex; align-items: center; justify-content: center; flex: none; width: var(--spacing-control); height: var(--spacing-control); padding: 0; border: 0; border-radius: var(--radius-input); background: transparent; color: var(--color-ink-muted); }
   .followUpTrigger:hover { background: var(--color-card-warm); color: var(--color-ink); }
   .followUpTrigger:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+  .decisionSettingsTrigger { width: auto; gap: .5rem; padding: 0 .875rem; border: 1px solid var(--color-control-border); background: var(--color-card-warm); color: var(--color-ink-2); font-size: var(--text-label); font-weight: var(--text-label--font-weight); }
+  .decisionSettingsTrigger:hover, .decisionSettingsTrigger[aria-expanded="true"] { border-color: var(--color-ink-2); background: var(--color-segment); }
   .followUpDrawer { width: min(520px, 100vw); max-width: none; height: 100dvh; max-height: none; margin: 0 0 0 auto; padding: 0; overflow: hidden; border: 0; border-left: 1px solid var(--color-card-border); background: var(--color-page); box-shadow: var(--shadow-popover); color: var(--color-ink); }
   .followUpDrawer[open] { display: flex; flex-direction: column; }
   .followUpDrawer::backdrop { background: rgb(15 23 42 / 0.28); }
@@ -25,12 +27,14 @@
   .followUpHead button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 1px; }
   .followUpBody { flex: 1; min-height: 0; padding: 24px; overflow-y: auto; overscroll-behavior: contain; }
   .followUpBody > * + * { margin-top: 24px; }
+  .followUpBody > button { min-height: var(--spacing-control); margin-top: 0; }
   .layout { margin-top: 24px; }
   .layout[data-recorded] { display: block; margin-top: 0; }
   .main { min-width: 0; container-type: inline-size; container-name: decision-form; }
   .layout[data-recorded] .main { max-width: none; }
   .main:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 6px; border-radius: var(--radius-chip); }
   .decisionCard, .decisionHeader { max-width: 720px; }
+  .decisionHeader[data-recorded]:not(:empty) { max-width: none; margin-bottom: 1rem; }
   .decisionCard { --note-accent: var(--color-primary); }
   .decisionCard:has(input[value="accept"]:checked) { --note-accent: var(--color-status-done); }
   .decisionCard:has(input[value="decline"]:checked) { --note-accent: var(--color-danger); }
