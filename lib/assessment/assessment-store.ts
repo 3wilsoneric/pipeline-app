@@ -2444,7 +2444,8 @@ function isAssessmentAuditAction(value: string): value is AssessmentAuditAction 
 
 function sqlDate(value: Date | string | null) {
   if (!value) return null;
-  return value instanceof Date ? value.toISOString().slice(0, 10) : String(value).slice(0, 10);
+  // The PostgreSQL driver can return a Date from another JavaScript realm.
+  return typeof value === "string" ? value.slice(0, 10) : value.toISOString().slice(0, 10);
 }
 
 function isoTimestamp(value: Date | string) {
