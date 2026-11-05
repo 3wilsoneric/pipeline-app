@@ -4,7 +4,7 @@ import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react"
 import { fetchCurrentPipelineUser, fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import { usePersonaSwitchSave } from "@/lib/demo/persona-switch-save";
 import { addListRecipients, parseRecipientText, type CommunityRecipientList, type RecipientFields } from "@/lib/pipeline/community-recipient-lists";
-import { emptyMeetClientMessage, type MeetClientMessage } from "@/lib/notifications/meet-client-message";
+import { emptyMeetClientMessage, meetClientLayout, parseMeetClientMessage, type MeetClientLayout, type MeetClientMessage } from "@/lib/notifications/meet-client-message";
 import { parseMeetClientReviewDraft, type MeetClientReviewDraft } from "@/lib/notifications/meet-client-review-draft";
 import type { MedicationReview } from "@/lib/notifications/meet-client-medications";
 import { currentVolatileHandoffRecovery, forgetVolatileHandoffRecovery, registerHandoffEditor, rememberVolatileHandoffRecovery } from "@/lib/pipeline/volatile-recovery";
@@ -12,7 +12,8 @@ import { currentVolatileHandoffRecovery, forgetVolatileHandoffRecovery, register
 type DraftFields = RecipientFields & { message: MeetClientMessage; medicationReview: MedicationReview | null; review: MeetClientReviewDraft };
 const empty = (): DraftFields => ({ to: [], cc: [], message: emptyMeetClientMessage(), medicationReview: null, review: { plannedDate: null, selectedFiles: null } });
 const emptyInput = () => ({ to: "", cc: "" });
-type Session = { key: string; version: number; fields: DraftFields; input: ReturnType<typeof emptyInput>; saved: string; queued: string; queue: Promise<void>; error: string };
+type LayoutSession = { version: number; saved: string; wanted: MeetClientLayout; queue: Promise<void>; error: string };
+type Session = { layout: LayoutSession; key: string; version: number; fields: DraftFields; input: ReturnType<typeof emptyInput>; saved: string; queued: string; queue: Promise<void>; error: string };
 
 export function useHandoffRecipients(referralId: number | undefined, community: string) {
   const [fields, setFields] = useState<DraftFields>(empty);
@@ -22,6 +23,8 @@ export function useHandoffRecipients(referralId: number | undefined, community: 
   const [loadedKey, setLoadedKey] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [layoutStatus, setLayoutStatus] = useState("Your layout is used for new handoffs.");
+  const [layoutError, setLayoutError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
   const loadKey = JSON.stringify([referralId, community, reloadKey]);
   const loading = loadedKey !== loadKey;
@@ -32,19 +35,21 @@ export function useHandoffRecipients(referralId: number | undefined, community: 
   useEffect(() => referralId ? registerHandoffEditor(referralId, community) : undefined, [community, referralId]);
   useEffect(() => {
     const controller = new AbortController();
-    const current: Session = { key: `${referralId}:${community}`, version: 0, fields: empty(), input: emptyInput(), saved: "", queued: "", queue: Promise.resolve(), error: "" };
+    const current: Session = { layout: { version: 0, saved: JSON.stringify(meetClientLayout()), wanted: meetClientLayout(), queue: Promise.resolve(), error: "" }, key: `${referralId}:${community}`, version: 0, fields: empty(), input: emptyInput(), saved: "", queued: "", queue: Promise.resolve(), error: "" };
     session.current = current;
     const load = async () => {
       let templates: CommunityRecipientList[] = [];
       let note = "";
       try { templates = (await fetchPipelineJson<{ lists: CommunityRecipientList[] }>("/api/community-recipient-lists", { cache: "no-store", signal: controller.signal })).lists; }
       catch { note = "Community list unavailable. Add authorized recipients below."; }
-      const stored = endpoint ? await fetchPipelineJson<{ draft: (RecipientFields & { community: string; message?: MeetClientMessage; medicationReview?: MedicationReview | null; review?: MeetClientReviewDraft }) | null; version: number }>(endpoint, { signal: controller.signal }) : { draft: null, version: 0 };
+      const stored = endpoint ? await fetchPipelineJson<{ draft: (RecipientFields & { community: string; message?: MeetClientMessage; medicationReview?: MedicationReview | null; review?: MeetClientReviewDraft }) | null; version: number; layout?: MeetClientLayout; layoutVersion?: number }>(endpoint, { signal: controller.signal }) : { draft: null, version: 0, layout: meetClientLayout(), layoutVersion: 0 };
       if (session.current !== current || controller.signal.aborted) return;
       const template = templates.find((list) => list.community === community);
       const values = stored.draft?.community === community ? stored.draft : template ?? empty();
+      current.layout = { version: stored.layoutVersion ?? 0, saved: JSON.stringify(stored.layout ?? meetClientLayout()), wanted: stored.layout ?? meetClientLayout(), queue: Promise.resolve(), error: "" };
+      setLayoutError(""); setLayoutStatus("Your layout is used for new handoffs.");
       current.version = stored.version;
-      current.fields = { to: values.to, cc: values.cc, message: stored.draft?.message ?? emptyMeetClientMessage(), medicationReview: stored.draft?.medicationReview ?? null, review: parseMeetClientReviewDraft(stored.draft?.community === community ? stored.draft.review : null) ?? empty().review };
+      current.fields = { to: values.to, cc: values.cc, message: parseMeetClientMessage(stored.draft?.message ?? { ...emptyMeetClientMessage(), ...(stored.layoutVersion ? stored.layout : {}) }) ?? emptyMeetClientMessage(), medicationReview: stored.draft?.medicationReview ?? null, review: parseMeetClientReviewDraft(stored.draft?.community === community ? stored.draft.review : null) ?? empty().review };
       current.saved = JSON.stringify(current.fields);
       current.queued = current.saved;
       let volatile = referralId ? await currentVolatileHandoffRecovery(referralId, community) : null;
@@ -98,11 +103,54 @@ export function useHandoffRecipients(referralId: number | undefined, community: 
     save();
   };
   const changeMessage = (next: MeetClientMessage) => {
+    const parsed = parseMeetClientMessage(next);
+    if (!parsed) return;
     const current = session.current;
     if (!current || !endpoint || loading || !current.saved) return;
-    current.fields = { ...current.fields, message: next }; setFields(current.fields); setMessage(current.error ? "Changes not saved. Retry saving." : "Saving handoff draft...");
+    current.fields = { ...current.fields, message: parsed }; setFields(current.fields); setMessage(current.error ? "Changes not saved. Retry saving." : "Saving handoff draft...");
     if (messageSaveTimer.current) clearTimeout(messageSaveTimer.current);
     messageSaveTimer.current = setTimeout(() => { messageSaveTimer.current = null; save(); }, 400);
+  };
+  const saveLayout = (next: MeetClientLayout) => {
+    const current = session.current;
+    if (!current || loading || !current.saved) return;
+    const layout = current.layout;
+    layout.wanted = next;
+    setLayoutStatus("Saving your layout…");
+    layout.queue = layout.queue.catch(() => undefined).then(async () => {
+      if (session.current !== current || layout.error) return;
+      const serialized = JSON.stringify(next);
+      if (serialized === layout.saved) { setLayoutStatus("Your layout is saved for future handoffs."); return; }
+      const result = await fetchPipelineJson<{ version: number }>("/api/me/meet-client-layout", { method: "PUT", body: JSON.stringify({ layout: next, if_match: layout.version }) });
+      layout.version = result.version; layout.saved = serialized;
+      if (session.current === current && serialized === JSON.stringify(layout.wanted)) setLayoutStatus("Your layout is saved for future handoffs.");
+    }).catch((failure) => {
+      layout.error = failure instanceof Error ? failure.message : "Your layout could not be saved.";
+      if (session.current === current) { setLayoutError(layout.error); setLayoutStatus(""); }
+    });
+  };
+  const changeLayout = (next: MeetClientLayout) => {
+    const current = session.current;
+    if (!current || loading || !current.saved) return;
+    const layout = meetClientLayout({ ...emptyMeetClientMessage(), ...next });
+    changeMessage({ ...current.fields.message, ...layout });
+    saveLayout(layout);
+  };
+  const retryLayout = async (useLatest = false) => {
+    const current = session.current;
+    if (!current) return;
+    await current.layout.queue;
+    try {
+      const latest = await fetchPipelineJson<{ layout: MeetClientLayout; version: number }>("/api/me/meet-client-layout", { cache: "no-store" });
+      if (session.current !== current) return;
+      const same = JSON.stringify(latest.layout) === JSON.stringify(current.layout.wanted);
+      if (!useLatest && !same && latest.version !== current.layout.version) {
+        setLayoutError("Your default layout changed elsewhere. Use the latest default before making further layout changes. Your client text is kept."); return;
+      }
+      current.layout.version = latest.version; current.layout.saved = JSON.stringify(latest.layout); current.layout.error = ""; setLayoutError("");
+      if (useLatest) changeLayout(latest.layout);
+      else saveLayout(current.layout.wanted);
+    } catch (failure) { if (session.current === current) setLayoutError(failure instanceof Error ? failure.message : "Your layout could not be loaded."); }
   };
   const changeReview = (next: Partial<MeetClientReviewDraft>) => {
     const current = session.current;
@@ -139,7 +187,8 @@ export function useHandoffRecipients(referralId: number | undefined, community: 
       }
     }
     save();
-    await current?.queue;
+    try { await current?.queue; }
+    finally { await current?.layout.queue; }
   }, [save]);
   const leave = useCallback(async () => {
     try { await flush(); }
@@ -167,7 +216,7 @@ export function useHandoffRecipients(referralId: number | undefined, community: 
       const stored = await fetchPipelineJson<{ draft: DraftFields & { community: string } | null; version: number }>(endpoint, { cache: "no-store" });
       if (session.current !== current) return;
       const persisted = stored.draft?.community === community ? stored.draft : null;
-      if (persisted && JSON.stringify({ to: persisted.to, cc: persisted.cc, message: persisted.message, medicationReview: persisted.medicationReview ?? null, review: parseMeetClientReviewDraft(persisted.review) ?? empty().review }) === JSON.stringify(current.fields)) {
+      if (persisted && JSON.stringify({ to: persisted.to, cc: persisted.cc, message: parseMeetClientMessage(persisted.message), medicationReview: persisted.medicationReview ?? null, review: parseMeetClientReviewDraft(persisted.review) ?? empty().review }) === JSON.stringify(current.fields)) {
         current.version = stored.version;
         current.saved = JSON.stringify(current.fields);
         current.queued = current.saved;
@@ -222,12 +271,12 @@ export function useHandoffRecipients(referralId: number | undefined, community: 
   useEffect(() => {
     const leave = (event: BeforeUnloadEvent) => {
       const current = session.current;
-      if (current && (current.saved !== JSON.stringify(current.fields) || Object.values(current.input).some(value => value.trim()))) event.preventDefault();
+      if (current && (current.saved !== JSON.stringify(current.fields) || current.layout.saved !== JSON.stringify(current.layout.wanted) || Object.values(current.input).some(value => value.trim()))) event.preventDefault();
     };
     window.addEventListener("beforeunload", leave);
     return () => window.removeEventListener("beforeunload", leave);
   }, []);
-  return { fields: loading ? empty() : fields, recipientInput: loading ? emptyInput() : recipientInput, inputError, changeRecipientInput, hasPendingRecipients: !loading && Object.values(recipientInput).some(value => value.trim()), lists: loading ? [] : lists, loading, message: loading ? "Loading recipients..." : message, error: loading ? "" : error, change, changeMessage, changeReview, flush, leave, retry, applyCommunityList, reload: () => setReloadKey((value) => value + 1), editable: Boolean(referralId) && !loading && Boolean(session.current?.saved) };
+  return { layoutStatus, layoutError, changeLayout, retryLayout, fields: loading ? empty() : fields, recipientInput: loading ? emptyInput() : recipientInput, inputError, changeRecipientInput, hasPendingRecipients: !loading && Object.values(recipientInput).some(value => value.trim()), lists: loading ? [] : lists, loading, message: loading ? "Loading recipients..." : message, error: loading ? "" : error, change, changeMessage, changeReview, flush, leave, retry, applyCommunityList, reload: () => setReloadKey((value) => value + 1), editable: Boolean(referralId) && !loading && Boolean(session.current?.saved) };
 }
 
 export type HandoffRecipients = ReturnType<typeof useHandoffRecipients>;

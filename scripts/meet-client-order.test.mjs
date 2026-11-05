@@ -50,3 +50,42 @@ test("custom messages survive as one intact block, with medication reference and
   assert.ok(!rendered.text.includes("Synthetic background"), "An old custom message is not silently replaced by regenerated text");
   assert.deepEqual(Array.from(template.meetClientSections(summary, message), s => s.id), ["medications", "message"]);
 });
+
+test("layout preferences accept formats and order only, never client wording", () => {
+  const message = { subject: "Private subject", body: null, sectionText: { bio: "Client A" }, sectionFormats: { bio: "bullets" }, sectionOrder: [...model.meetClientSectionIds].reverse() };
+  const layout = clean(model.meetClientLayout(message));
+  assert.deepEqual(Object.keys(layout), ["sectionOrder", "sectionFormats"]);
+  assert.deepEqual(clean(model.parseMeetClientLayout(layout)), layout);
+  for (const extra of [{ sectionText: { bio: "Client A" } }, { subject: "Client A" }, { body: "Client A" }, { sectionFormats: { bio: "<b>" } }, { sectionFormats: { unknown: "bullets" } }]) {
+    assert.equal(model.parseMeetClientLayout({ ...layout, ...extra }), null);
+  }
+  for (const sectionText of [{ bio: null }, { bio: 123 }, { bio: "bad\u0000" }, { bio: "x".repeat(10_001), safety: "x".repeat(10_000) }, { unknown: "text" }]) {
+    assert.equal(model.parseMeetClientMessage({ subject: null, body: null, sectionText }), null);
+  }
+});
+
+test("section edits render identically in the preview and email while a reused layout pulls the next client", () => {
+  const message = { subject: null, body: null, sectionText: { bio: "Client A <script>\nSecond paragraph", medications: "Call the referring team", message: "Please call before arrival." }, sectionFormats: { bio: "bullets", safety: "paragraphs" }, sectionOrder: [...model.meetClientSectionIds].reverse() };
+  assert.ok(model.parseMeetClientMessage(message));
+  const rendered = template.renderMeetClientEmail(summary, "Assessor", "preview", ["Original.docx"], message);
+  assert.match(rendered.html, /<li[^>]*>Client A &lt;script&gt;<\/li>/);
+  assert.doesNotMatch(rendered.html, /<script>/);
+  assert.match(rendered.html, /Hello team/);
+  assert.match(rendered.html, /Sender-edited/);
+  assert.match(rendered.text, /Second paragraph/);
+  assert.match(rendered.text, /Please call before arrival/);
+  assert.match(rendered.text, /Refer to the medication list/);
+  assert.match(rendered.html, /Original.docx/);
+  const next = template.renderMeetClientEmail({ ...summary, bio: ["Client B"] }, "Assessor", "preview", [], { subject: null, body: null, ...model.meetClientLayout(message) });
+  assert.match(next.html, /<li[^>]*>Client B<\/li>/);
+  assert.doesNotMatch(next.html, /Client A|Please call before arrival/);
+  assert.deepEqual(summary.bio, ["Synthetic background"]);
+});
+
+test("PostgreSQL key ordering does not change message equality or lost-response recovery", () => {
+  const original = { subject: null, body: null, sectionOrder: [...model.meetClientSectionIds], sectionText: { support: "Help", bio: "Client" }, sectionFormats: { support: "bullets", bio: "paragraphs" } };
+  const reordered = { sectionFormats: { bio: "paragraphs", support: "bullets" }, sectionText: { bio: "Client", support: "Help" }, sectionOrder: original.sectionOrder, body: null, subject: null };
+  assert.equal(JSON.stringify(model.parseMeetClientMessage(original)), JSON.stringify(model.parseMeetClientMessage(reordered)));
+  assert.equal(JSON.stringify(model.meetClientLayout(original)), JSON.stringify(model.meetClientLayout(reordered)));
+  assert.equal(model.parseMeetClientMessage({ subject: null, body: "Legacy message", sectionText: { message: "Conflicting message" } }), null);
+});

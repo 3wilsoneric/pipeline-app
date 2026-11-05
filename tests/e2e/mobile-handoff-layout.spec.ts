@@ -25,10 +25,11 @@ for (const [name, engine] of [["Chromium", chromium], ["WebKit", webkit]] as con
       await openRecipients(page);
       await page.getByRole("combobox", { name: /^To/ }).fill("Synthetic reviewer <reviewer@example.invalid>");
       await page.getByRole("combobox", { name: /^To/ }).press("Enter");
-      const dialog = await confirmRecipients(page);
-      await dialog.getByRole("button", { name: "Edit message", exact: true }).tap();
+      const previewDialog = await confirmRecipients(page);
+      await previewDialog.getByRole("button", { name: "Edit message", exact: true }).tap();
+      const dialog = page.getByRole("dialog", { name: "Edit Meet the Client", exact: true });
       const subject = dialog.getByRole("textbox", { name: "Subject", exact: true });
-      const message = dialog.getByRole("textbox", { name: "Meet the Client message", exact: true });
+      const message = dialog.getByRole("textbox", { name: "Edit Meet the client", exact: true });
 
       for (const width of [390, 320]) {
         await page.setViewportSize({ width, height: 844 });
@@ -46,7 +47,7 @@ for (const [name, engine] of [["Chromium", chromium], ["WebKit", webkit]] as con
         expect(frame.y).toBe(12);
         expect(frame.x).toBeGreaterThanOrEqual(0);
         expect(frame.x + frame.width).toBeLessThanOrEqual(width);
-        for (const action of ["Close email preview", "Finish demo review"]) {
+        for (const action of ["Close email editor", "Done"]) {
           const button = dialog.getByRole("button", { name: action, exact: true });
           const box = (await button.boundingBox())!;
           expect(box.height).toBeGreaterThanOrEqual(44);
@@ -56,8 +57,8 @@ for (const [name, engine] of [["Chromium", chromium], ["WebKit", webkit]] as con
         }
         await message.fill("Synthetic handoff note.\nSecond paragraph retained while the keyboard opens and closes.");
         await message.blur();
-        await dialog.getByRole("button", { name: "Back to email preview", exact: true }).tap();
-        await dialog.getByRole("button", { name: "Edit message", exact: true }).tap();
+        await dialog.getByRole("button", { name: "Preview email", exact: true }).tap();
+        await dialog.getByRole("button", { name: "Back to editing", exact: true }).tap();
         await expect(subject).toHaveValue(`Synthetic mobile handoff ${width}`);
         await expect(message).toHaveValue(/Second paragraph retained/);
         expect(await dialog.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
@@ -69,7 +70,7 @@ for (const [name, engine] of [["Chromium", chromium], ["WebKit", webkit]] as con
         });
         await expect(dialog).toHaveCSS("height", "844px");
       }
-      await dialog.getByRole("button", { name: "Close email preview", exact: true }).tap();
+      await dialog.getByRole("button", { name: "Close email editor", exact: true }).tap();
       await expect(dialog).not.toBeVisible();
       expect(sends).toBe(0);
     } finally { await context.close(); await browser.close(); }

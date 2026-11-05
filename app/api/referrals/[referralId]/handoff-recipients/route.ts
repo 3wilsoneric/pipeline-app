@@ -4,7 +4,7 @@ import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
 import { withApiLogging } from "@/lib/observability/api-logging";
 import { requireMutableReferralAccess, requireReferralAccess } from "@/lib/pipeline/referral-access";
 import { parseRecipientFields, type RecipientFields } from "@/lib/pipeline/community-recipient-lists";
-import { parseMeetClientMessage, type MeetClientMessage } from "@/lib/notifications/meet-client-message";
+import { meetClientLayout, meetClientLayoutKey, parseMeetClientLayout, parseMeetClientMessage, type MeetClientMessage } from "@/lib/notifications/meet-client-message";
 import { parseMedicationReview, type MedicationReview } from "@/lib/notifications/meet-client-medications";
 import { parseMeetClientReviewDraft, type MeetClientReviewDraft } from "@/lib/notifications/meet-client-review-draft";
 import { getUserWorkspaceState, getUserWorkspaceStateReadiness, putUserWorkspaceState } from "@/lib/pipeline/user-workspace-state-store";
@@ -33,7 +33,10 @@ export async function GET(request: Request, context: Context) {
     const record = await getUserWorkspaceState<RecipientDraft>(access.user.id, "referral_email_draft", access.key);
     const draft = record?.payload ?? null;
     if (draft && (!parseRecipientFields(draft) || !parseMeetClientMessage(draft.message) || typeof draft.community !== "string" || (draft.medicationReview != null && !parseMedicationReview(draft.medicationReview)) || !parseMeetClientReviewDraft(draft.review))) return jsonError("The saved handoff draft could not be read.", 409);
-    return Response.json({ draft, version: record?.version ?? 0 }, { headers });
+    const savedLayout = await getUserWorkspaceState(access.user.id, "referral_email_draft", meetClientLayoutKey);
+    const layout = savedLayout ? parseMeetClientLayout(savedLayout.payload) : meetClientLayout();
+    if (!layout) return jsonError("Your saved email layout could not be read.", 409);
+    return Response.json({ draft, version: record?.version ?? 0, layout, layoutVersion: savedLayout?.version ?? 0 }, { headers });
   });
 }
 

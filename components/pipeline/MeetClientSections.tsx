@@ -3,8 +3,8 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, GripVertical } from "lucide-react";
 import type { MeetClientSummary } from "@/lib/assessment/assessment-summary";
-import { meetClientIdentityRows, meetClientSections } from "@/lib/notifications/meet-client-email-template";
-import { meetClientSectionOrder, type MeetClientMessage, type MeetClientSectionId } from "@/lib/notifications/meet-client-message";
+import { meetClientIdentityRows, meetClientSections, meetClientSectionText } from "@/lib/notifications/meet-client-email-template";
+import { meetClientBodyLimit, meetClientSectionOrder, type MeetClientMessage, type MeetClientSectionId, type MeetClientSectionFormat } from "@/lib/notifications/meet-client-message";
 import styles from "./MeetClientSections.module.css";
 import PipelineIllustration, { type PipelineIllustrationKind } from "./PipelineIllustration";
 
@@ -13,11 +13,15 @@ const sectionPictures: Record<MeetClientSectionId, PipelineIllustrationKind> = {
   diet: "diet", billing: "report", support: "connections", message: "conversation",
 };
 
-export default function MeetClientSections({ summary, message, editable, onOrderChange }: {
+export default function MeetClientSections({ summary, message, editable, onOrderChange, editing = false, onTextChange, onFormatChange }: {
   summary: MeetClientSummary; message: MeetClientMessage; editable: boolean;
   onOrderChange: (order: MeetClientSectionId[]) => void;
+  editing?: boolean;
+  onTextChange?: (id: MeetClientSectionId, text: string | undefined) => void;
+  onFormatChange?: (id: MeetClientSectionId, format: MeetClientSectionFormat) => void;
 }) {
   const sections = meetClientSections(summary, message);
+  const original = meetClientSections(summary, { ...message, sectionFormats: undefined, sectionText: undefined });
   const [dragging, setDragging] = useState<MeetClientSectionId | null>(null);
   const [over, setOver] = useState<MeetClientSectionId | null>(null);
   const [announcement, setAnnouncement] = useState("");
@@ -77,14 +81,28 @@ export default function MeetClientSections({ summary, message, editable, onOrder
           <summary aria-label={`Move ${section.title}`} title={`Move ${section.title}`} draggable
             ref={(element) => { if (element) handles.current.set(section.id, element); else handles.current.delete(section.id); }}
             onDragStart={(event) => { event.dataTransfer.setData("text/plain", section.id); event.dataTransfer.effectAllowed = "move"; setDragging(section.id); }}
-            onDragEnd={() => { setDragging(null); setOver(null); }}><GripVertical size={22} aria-hidden="true" /></summary>
+            onDragEnd={() => { setDragging(null); setOver(null); }}
+            onKeyDown={(event) => { if (event.altKey && ["ArrowUp", "ArrowDown"].includes(event.key)) { event.preventDefault(); const target = sections[index + (event.key === "ArrowUp" ? -1 : 1)]; if (target) move(section.id, target.id); } }}><GripVertical size={22} aria-hidden="true" /></summary>
           <div className={styles.moveOptions}>
             <button type="button" disabled={index === 0} onClick={() => move(section.id, sections[index - 1].id)}><ArrowUp size={18} aria-hidden="true" />Move up</button>
             <button type="button" disabled={index === sections.length - 1} onClick={() => move(section.id, sections[index + 1].id)}><ArrowDown size={18} aria-hidden="true" />Move down</button>
           </div>
         </details> : null}
-        {section.id === "bio" && index === 0 ? null : <h3><PipelineIllustration kind={sectionPictures[section.id]} size={40} /><span>{section.title}</span></h3>}
-        {section.kind === "items" ? <dl className={styles.facts}>{section.items.map((item, i) => <div key={`${item.label}:${i}`}><dt>{item.label}</dt><dd>{item.value}</dd></div>)}</dl>
+        {!editing && section.id === "bio" && index === 0 ? null : <h3><PipelineIllustration kind={sectionPictures[section.id]} size={40} /><span>{section.title}</span></h3>}
+        {editing ? <>
+          <div className={styles.editTools}>
+            <label>Format <select aria-label={`Format ${section.title}`} disabled={!editable} value={message.sectionFormats?.[section.id] ?? "default"}
+              onChange={(event) => onFormatChange?.(section.id, event.target.value as MeetClientSectionFormat)}>
+              <option value="default">Default</option><option value="paragraphs">Paragraphs</option><option value="bullets">Bulleted list</option>
+            </select></label>
+            {message.sectionText?.[section.id] !== undefined && section.id !== "message" ? <button type="button" disabled={!editable} onClick={() => onTextChange?.(section.id, undefined)}>Use assessment text</button> : null}
+            {section.id === "message" && message.body == null ? <button type="button" disabled={!editable} onClick={() => onTextChange?.("message", undefined)}>Remove note</button> : null}
+          </div>
+          <textarea className={styles.sectionEditor} aria-label={`Edit ${section.title}`} readOnly={!editable} spellCheck lang="en-US" autoCorrect="off" autoCapitalize="off"
+            rows={Math.min(12, Math.max(3, (message.sectionText?.[section.id] ?? meetClientSectionText(original.find(item => item.id === section.id) ?? section)).split("\n").length + 1))}
+            maxLength={meetClientBodyLimit} value={message.sectionText?.[section.id] ?? meetClientSectionText(original.find(item => item.id === section.id) ?? section)}
+            onChange={(event) => onTextChange?.(section.id, event.target.value)} />
+        </> : section.kind === "items" ? <dl className={styles.facts}>{section.items.map((item, i) => <div key={`${item.label}:${i}`}><dt>{item.label}</dt><dd>{item.value}</dd></div>)}</dl>
           : section.kind === "list" ? <ul>{section.values.map((value, i) => <li key={i}>{value}</li>)}</ul>
           : <p className={styles.message}>{section.text}</p>}
       </section>)}

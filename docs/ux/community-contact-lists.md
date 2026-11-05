@@ -175,3 +175,31 @@ No deployment, production import, live-account check, or email sending occurred.
 The repository-wide `certify:refactor` gate remains blocked by its complexity
 ratchet, including existing UI hotspots and growth in touched handoff owners.
 Focused tests/build do not certify the entire application or authorize deployment.
+
+
+## Personal Meet the Client editor (2026-11-05)
+
+“Edit message” opens a large modal. Assessors can edit individual sections, add or
+remove their own note, choose paragraph or bullet formatting, and reorder sections
+by dragging, the move menu, or Alt+Arrow on a handle. The preview uses the same
+renderer as the delivered email. Closing waits for pending draft and layout writes;
+failed saves retain the edits and offer retry. In the direct-send review, closing
+also regenerates the exact preview before sending becomes available again.
+
+Browser spellcheck is enabled with `autocorrect="off"`; spelling suggestions depend
+on the browser's language and dictionary settings. Pipeline does not replace words.
+
+Order and formatting save to the authenticated user's preferences. New handoffs
+use them; existing handoffs retain their own saved layout and wording. The reusable
+payload accepts only known section IDs and format enums, never subjects, client
+text, or addresses. Client wording stays in the existing private referral draft.
+Version conflicts require reloading the latest preference rather than overwriting
+another session; lost acknowledgments are reconciled against saved state.
+
+This reuses the existing local/PostgreSQL per-user state owner with the reserved
+`referral_email_draft/preferred-layout` key and a 3,650-day lifetime, matching the
+existing long-lived personal-layout pattern. Numeric keys remain referral drafts;
+no migration is required. The editor intentionally supports fixed clinical sections
+and plain text with paragraph/list formatting. If reusable free-form blocks, rich
+inline markup, or a separate preference-retention policy is requested, introduce
+that model at this boundary with its own validation and rendering checks.
