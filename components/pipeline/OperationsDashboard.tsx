@@ -27,22 +27,24 @@ export default function OperationsDashboard({
   onOpenPacket,
   onOpenProfile,
   onOpenProfiles,
+  standaloneReport,
 }: {
   onOpenPacket: (referral: { id: number; name?: string; community?: Referral["community"] }) => void;
   onOpenProfile: (profileId: string) => void;
   onOpenProfiles: () => void;
+  standaloneReport?: OperationsReportId;
 }) {
-  const [filters, setFilters] = useState<OperationsReportFilters>(defaultFilters);
+  const [filters, setFilters] = useState<OperationsReportFilters>(() => defaultFilters(standaloneReport));
   const [response, setResponse] = useState<OperationsReportResponse | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
   const activeRequest = useRef<AbortController | null>(null);
-  const appliedFilters = useRef<OperationsReportFilters>(defaultFilters());
+  const appliedFilters = useRef<OperationsReportFilters>(defaultFilters(standaloneReport));
   const dataGeneration = usePipelineDataGeneration();
   const searchParams = useSearchParams();
   const locationSearch = usePipelineLocationSearch(searchParams?.toString() ?? "");
-  const view: ReportsView = new URLSearchParams(locationSearch).get("reportView") === "exceptions" ? "exceptions" : "reports";
+  const view: ReportsView = !standaloneReport && new URLSearchParams(locationSearch).get("reportView") === "exceptions" ? "exceptions" : "reports";
 
   const loadReport = useCallback(async (nextFilters: OperationsReportFilters, signal?: AbortSignal) => {
     appliedFilters.current = nextFilters;
@@ -127,6 +129,7 @@ export default function OperationsDashboard({
   return (
     <OperationsDashboardView
       view={view}
+      standaloneReport={standaloneReport}
       filters={filters}
       response={response}
       selectedDefinition={selectedDefinition}
@@ -148,6 +151,7 @@ export default function OperationsDashboard({
 
 function OperationsDashboardView({
   view,
+  standaloneReport,
   filters,
   response,
   selectedDefinition,
@@ -165,6 +169,7 @@ function OperationsDashboardView({
   onOpenProfiles,
 }: {
   view: ReportsView;
+  standaloneReport?: OperationsReportId;
   filters: OperationsReportFilters;
   response: OperationsReportResponse | null;
   selectedDefinition: OperationsReportResponse["report"]["definition"] | null;
@@ -185,10 +190,11 @@ function OperationsDashboardView({
     <main aria-label="Reports" className="h-full overflow-y-auto pipeline-page-surface text-[#171917]">
       <div data-testid="operations-workspace" data-guide-target="operations-workspace" data-performance-ready={pipelineSurfaceReady("operations", loading, error)} className="mx-auto w-full max-w-[1500px] px-4 pb-12 pt-2 sm:px-6 lg:px-8">
         <div className="flex items-center py-3">
-          <div role="group" aria-label="Reports view" className="pipeline-segmented inline-flex rounded-md bg-[#eef1ef] p-1">
-            <ViewToggle selected={view === "reports"} onClick={() => onSelectView("reports")}>Reports</ViewToggle>
-            <ViewToggle selected={view === "exceptions"} onClick={() => onSelectView("exceptions")}>Exceptions</ViewToggle>
-          </div>
+          {standaloneReport ? <div className="flex w-full flex-wrap items-center justify-between gap-3"><h1 className="text-[var(--text-section)] font-semibold text-[var(--color-ink)]">Admission flow</h1><button type="button" onClick={() => pushPipelineHistory("/?screen=operations")} className="flex items-center gap-2 font-semibold text-[var(--color-link)]"><ArrowLeft size={16} /> Weekly briefing</button></div> :
+            <div role="group" aria-label="Reports view" className="pipeline-segmented inline-flex rounded-md bg-[#eef1ef] p-1">
+              <ViewToggle selected={view === "reports"} onClick={() => onSelectView("reports")}>Reports</ViewToggle>
+              <ViewToggle selected={view === "exceptions"} onClick={() => onSelectView("exceptions")}>Exceptions</ViewToggle>
+            </div>}
         </div>
 
         {view === "exceptions" ? (
@@ -204,6 +210,7 @@ function OperationsDashboardView({
               exporting={exporting}
               filtersChanged={filtersChanged}
               onSelectReport={onSelectReport}
+              standaloneReport={standaloneReport}
               onSetFilters={onSetFilters}
               onReload={onReload}
               onExport={onExport}
@@ -226,6 +233,7 @@ function ReportsPanel({
   exporting,
   filtersChanged,
   onSelectReport,
+  standaloneReport,
   onSetFilters,
   onReload,
   onExport,
@@ -240,6 +248,7 @@ function ReportsPanel({
   exporting: boolean;
   filtersChanged: boolean;
   onSelectReport: (reportId: OperationsReportId) => void;
+  standaloneReport?: OperationsReportId;
   onSetFilters: Dispatch<SetStateAction<OperationsReportFilters>>;
   onReload: () => void;
   onExport: () => void;
@@ -248,14 +257,14 @@ function ReportsPanel({
 }) {
   return (
     <>
-      <ReportControls filters={filters} response={response} selectedDefinition={selectedDefinition} loading={loading} exporting={exporting} filtersChanged={filtersChanged} error={error} onSelectReport={onSelectReport} onSetFilters={onSetFilters} onReload={onReload} onExport={onExport} />
+      <ReportControls filters={filters} response={response} selectedDefinition={selectedDefinition} loading={loading} exporting={exporting} filtersChanged={filtersChanged} error={error} onSelectReport={onSelectReport} standaloneReport={standaloneReport} onSetFilters={onSetFilters} onReload={onReload} onExport={onExport} />
       {error ? <div role="alert" className="mt-4 flex items-center justify-between gap-4 border-l-[3px] border-[#a9473d] bg-[#fff6f4] px-4 py-3 text-[12px] text-[#723d35]"><span>{error}</span><button type="button" onClick={onReload} className="font-semibold underline underline-offset-2">Retry</button></div> : null}
       <ReportResults key={response ? JSON.stringify(response.filters) : "loading"} response={response} selectedDefinition={selectedDefinition} loading={loading} error={error} onOpenPacket={onOpenPacket} onOpenProfile={onOpenProfile} />
     </>
   );
 }
 
-function ReportControls({ filters, response, selectedDefinition, loading, exporting, filtersChanged, error, onSelectReport, onSetFilters, onReload, onExport }: {
+function ReportControls({ filters, response, selectedDefinition, loading, exporting, filtersChanged, error, onSelectReport, standaloneReport, onSetFilters, onReload, onExport }: {
   filters: OperationsReportFilters;
   response: OperationsReportResponse | null;
   selectedDefinition: OperationsReportResponse["report"]["definition"] | null;
@@ -264,6 +273,7 @@ function ReportControls({ filters, response, selectedDefinition, loading, export
   filtersChanged: boolean;
   error: string;
   onSelectReport: (reportId: OperationsReportId) => void;
+  standaloneReport?: OperationsReportId;
   onSetFilters: Dispatch<SetStateAction<OperationsReportFilters>>;
   onReload: () => void;
   onExport: () => void;
@@ -271,7 +281,7 @@ function ReportControls({ filters, response, selectedDefinition, loading, export
   const fieldProps = { filters, response, selectedDefinition, onSetFilters };
   return (
     <section data-guide-target="operations-summary" aria-label="Report controls" className="pipeline-commands flex flex-wrap items-end gap-3 py-3">
-      <Control label="Report"><select data-guide-target="operations-report-select" aria-label="Report" value={filters.report_id} onChange={(event) => onSelectReport(event.target.value as OperationsReportId)} className={`${selectClass} sm:min-w-[230px]`}>{(response?.catalog ?? [{ id: "clients_by_community", label: "Clients by community" }]).map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></Control>
+      {!standaloneReport ? <Control label="Report"><select data-guide-target="operations-report-select" aria-label="Report" value={filters.report_id} onChange={(event) => onSelectReport(event.target.value as OperationsReportId)} className={`${selectClass} sm:min-w-[230px]`}>{(response?.catalog ?? [{ id: "clients_by_community", label: "Clients by community" }]).map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></Control> : null}
       <ReportClientControl {...fieldProps} />
       <ReportPeriodControls {...fieldProps} />
       <ReportLocationControls {...fieldProps} />
@@ -508,14 +518,14 @@ function ReportSkeleton() {
 
 const selectClass = "h-9 min-w-0 max-w-full rounded border border-[#bcc6c0] bg-white px-3 text-[12px] font-semibold normal-case tracking-normal text-[#202320] outline-none focus:border-[#0f8b73] focus-visible:ring-1 focus-visible:ring-[#0f8b73]";
 
-function defaultFilters(): OperationsReportFilters {
+function defaultFilters(reportId: OperationsReportId = "clients_by_community"): OperationsReportFilters {
   return {
-    report_id: "clients_by_community",
+    report_id: reportId,
     month: "",
     community: "",
     owner: "",
     county: "",
-    client_scope: "current",
+    client_scope: reportId === "admission_flow" ? "all" : "current",
     care_topic: "primary_diagnosis",
   };
 }
