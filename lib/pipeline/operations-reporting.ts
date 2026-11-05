@@ -869,7 +869,7 @@ function reportColumns(reportId: OperationsReportId): OperationsReportColumn[] {
     column("client", "Client"), column("received_date", "Received", "left", "date"),
     column("actual_admission_date", "Actual arrival", "left", "date"),
     column("community", "Community"), column("county", "County"),
-    column("source", "Referral source"), column("owner", "Assessor"), column("state", "Current position"),
+    column("source", "Referral source"), column("owner", "Assigned owner"), column("state", "Current position"),
     column("days_since_receipt", "Open days", "right"),
     column("current_step_days", "In current step", "right"),
     column("first_change_days", "To first change", "right"),
