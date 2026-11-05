@@ -16,6 +16,8 @@ The **Admission flow** report in Pipeline Reports includes admitted, still-open,
 
 The report does not label any duration as avoidable. Readiness, staffed-bed constraints, and client or source holds help the weekly review locate specific delays. Early discharge and other post-arrival balancing outcomes require a verified clinical stay link; the report does not invent them from the referral record.
 
+Recent received-month cohorts are incomplete until their open cases resolve. Compare the admitted-case median with the open count and age before claiming the target has improved.
+
 ## Operating practice
 
 1. Assessors continue the existing interview and signing workflow. They have no admission-flow controls.

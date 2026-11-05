@@ -466,6 +466,7 @@ async function buildReport(
       "First change is the first audited change after creation; it is not proof of first contact with the client or referral source.",
       "Early outcomes after move-in require linked clinical stay data and are not inferred from referral records.",
       "A selected month groups referrals by their received date, including those still open; All dates shows the full accessible history.",
+      "Recent cohorts still contain open cases. Do not treat a shorter admitted-case median alone as faster overall throughput.",
     ] } : {}),
   };
 }

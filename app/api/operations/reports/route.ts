@@ -84,7 +84,7 @@ function authorizeOperationsReportUser(auth: Awaited<ReturnType<typeof requirePi
 }
 
 function requireReportAssessmentStore(filters: OperationsReportFilters) {
-  if (!["assessment_schedule", "assessment_completion"].includes(filters.report_id)) return null;
+  if (!["assessment_schedule", "assessment_completion", "admission_flow"].includes(filters.report_id)) return null;
   const readiness = requireAssessmentStore();
   return readiness.ok ? null : readiness.response;
 }
