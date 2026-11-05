@@ -2,6 +2,7 @@
 
 import { Activity, useEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
+import dynamic from "next/dynamic";
 import { useDesignV2 } from "@/components/design/DesignSwitch";
 
 import ClientProfileDirectory, { preloadCurrentClientDirectory } from "@/components/pipeline/ClientProfileDirectory";
@@ -29,9 +30,10 @@ import {
   resolveClientGender,
 } from "@/lib/pipeline/client-identity-presentation.mjs";
 import type { PipelineSiteScreen } from "@/lib/pipeline/site-search";
-import { canAccessOperationsReports, canAccessSupervisorOperations } from "@/lib/pipeline/report-access";
+import { canAccessExecutiveAdmissionFlow, canAccessOperationsReports, canAccessSupervisorOperations } from "@/lib/pipeline/report-access";
 import type { TrainingAssessmentMode } from "@/lib/training/mock-assessment";
 import { assessmentToolSections, type AssessmentToolSection } from "@/lib/assessment/assessment-tool-schema";
+
 import {
   pushPipelineHistory,
   replacePipelineHistory,
@@ -49,6 +51,8 @@ import {
   type AssessmentEntryAction,
   type PipelineWorkspaceLocation,
 } from "@/lib/pipeline/work-continuity";
+
+const OperationsDashboard = dynamic(() => import("@/components/pipeline/OperationsDashboard"), { loading: () => <DeferredScreenLoading /> });
 
 async function loadDeferredWorkSurfaces() {
   const [profile, referral] = await Promise.all([
@@ -170,6 +174,7 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
   const [createdWorkspace, setCreatedWorkspace] = useState<{ id: number; key: string } | null>(null);
   const [assessmentEntry, setAssessmentEntry] = useState<{ referralId: number; action: AssessmentEntryAction } | null>(null);
   const [reportAccess, setReportAccess] = useState<boolean | undefined>(() => initialUser ? canAccessOperationsReports(initialUser) : undefined);
+  const [admissionFlowAccess, setAdmissionFlowAccess] = useState<boolean | undefined>(() => initialUser ? canAccessExecutiveAdmissionFlow(initialUser) : undefined);
   const [viewerRoles, setViewerRoles] = useState<readonly string[] | undefined>(() => initialUser?.roles);
   const teamAccess = viewerRoles === undefined ? undefined : canAccessSupervisorOperations(viewerRoles);
   const showTeamOnPhone = viewerRoles?.some((role) => role === "admin" || role === "assessment_coordinator") ?? false;
@@ -255,6 +260,7 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
         setViewerId(user.id);
         setActivityAccess(canAccessApplicationActivity(user));
         setReportAccess(canAccessOperationsReports(user));
+        setAdmissionFlowAccess(canAccessExecutiveAdmissionFlow(user));
         setViewerRoles(user.roles);
         // Warm the first workspace page and complete current census after authentication.
         // GET-only reads use the same cache as navigation; no charts or files
@@ -264,6 +270,7 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
       .catch(() => {
         if (!cancelled) {
           setReportAccess(false);
+          setAdmissionFlowAccess(false);
           setActivityAccess(false);
           setViewerRoles([]);
         }
@@ -280,6 +287,13 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
     params.delete("screen");
     replacePipelineHistory(params.size ? `/?${params.toString()}` : "/");
   }, [activeSearchParams, reportAccess, screen]);
+
+  useEffect(() => {
+    if (screen !== "operations" || activeSearchParams.get("report") !== "admission_flow" || admissionFlowAccess !== false) return;
+    const params = new URLSearchParams(activeSearchParams.toString());
+    params.delete("report");
+    replacePipelineHistory(`/?${params.toString()}`);
+  }, [activeSearchParams, admissionFlowAccess, screen]);
 
   const navigationRequestRef = useRef(0);
   const navigate = async (
@@ -459,7 +473,15 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
     page = <WeeklyCompletionMemoPage onBack={() => { void navigate("home"); }}
       onOpenPacket={(referral, location) => { void navigate("packet", referral, undefined, location, false, undefined, true); }} />;
   } else if (screen === "operations") {
-    page = reportAccess === true ? <PipelineCensusBriefing /> : null;
+    const admissionFlow = activeSearchParams.get("report") === "admission_flow";
+    page = reportAccess === true ? admissionFlow
+      ? admissionFlowAccess === true ? <OperationsDashboard
+          standaloneReport="admission_flow"
+          onOpenPacket={(referral) => { void navigate("packet", referral); }}
+          onOpenProfile={(clientId) => { void navigate("profile", undefined, clientId); }}
+          onOpenProfiles={() => { void navigate("profiles"); }}
+        /> : null
+      : <PipelineCensusBriefing showAdmissionFlow={admissionFlowAccess === true} /> : null;
   } else if (screen === "calendar") {
     page = <PipelineCalendar onOpenPacket={(referral, location) => void navigate("packet", referral, undefined, location, false)} />;
   } else if (screen === "trash") {
@@ -532,6 +554,7 @@ function clearDestinationParams(params: URLSearchParams) {
     "referralId",
     "draftId",
     "clientId",
+    "report",
   ]) params.delete(key);
 }
 
