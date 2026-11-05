@@ -8,7 +8,7 @@ import { meetClientBodyLimit, meetClientSectionOrder, type MeetClientMessage, ty
 import styles from "./MeetClientSections.module.css";
 import PipelineIllustration, { type PipelineIllustrationKind } from "./PipelineIllustration";
 
-const sectionPictures: Record<MeetClientSectionId, PipelineIllustrationKind> = {
+export const meetClientSectionPictures: Record<MeetClientSectionId, PipelineIllustrationKind> = {
   coordination: "calendar", bio: "client", medications: "medication", safety: "safety",
   diet: "diet", billing: "report", support: "connections", message: "conversation",
 };
@@ -30,24 +30,31 @@ export default function MeetClientSections({ summary, message, editable, onOrder
   const blocks = useRef<HTMLDivElement>(null);
   const previousPositions = useRef(new Map<string, number>());
   const sectionOrder = sections.map((section) => section.id).join("|");
+  const previousOrder = useRef(sectionOrder);
   // Carelog's reorder motion: the saved order takes effect immediately; only its visual position animates.
   useLayoutEffect(() => {
     const host = blocks.current;
     if (!host) return;
     const next = new Map<string, number>();
+    const reordered = previousOrder.current !== sectionOrder;
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     for (const block of host.querySelectorAll<HTMLElement>("[data-message-section]")) {
       const key = block.dataset.messageSection!;
       const top = block.offsetTop;
       const previous = previousPositions.current.get(key);
       next.set(key, top);
-      if (previous === undefined || Math.abs(previous - top) < 1 || window.matchMedia("(prefers-reduced-motion: reduce)").matches) continue;
-      block.animate([{ transform: `translateY(${previous - top}px)` }, { transform: "none" }], {
+      if (!reordered || reducedMotion) continue;
+      block.getAnimations().forEach(animation => animation.cancel());
+      if (previous !== undefined && Math.abs(previous - top) < 1) continue;
+      block.animate(previous === undefined ? [{ opacity: 0, transform: "translateY(10px)" }, { opacity: 1, transform: "none" }]
+        : [{ transform: `translateY(${previous - top}px)` }, { transform: "none" }], {
         duration: Number.parseFloat(getComputedStyle(host).getPropertyValue("--duration-move")),
         easing: getComputedStyle(host).getPropertyValue("--ease-open").trim(),
       });
     }
     previousPositions.current = next;
-  }, [sectionOrder]);
+    previousOrder.current = sectionOrder;
+  });
   const move = (id: MeetClientSectionId, target: MeetClientSectionId) => {
     if (!editable || id === target) return;
     const order = [...meetClientSectionOrder(message)];
@@ -93,7 +100,7 @@ export default function MeetClientSections({ summary, message, editable, onOrder
           </div>
         </details> : null}
         <div className={styles.sectionHeader}>
-        {!editing && section.id === "bio" && index === 0 ? null : <h3><PipelineIllustration kind={sectionPictures[section.id]} size={40} /><span>{section.title}</span></h3>}
+        {!editing && section.id === "bio" && index === 0 ? null : <h3><PipelineIllustration kind={meetClientSectionPictures[section.id]} size={40} /><span>{section.title}</span></h3>}
         {editing ? <div className={styles.editTools}>
             <label>Format <select aria-label={`Format ${section.title}`} disabled={!editable} value={message.sectionFormats?.[section.id] ?? "default"}
               onChange={(event) => onFormatChange?.(section.id, event.target.value as MeetClientSectionFormat)}>

@@ -24,7 +24,7 @@
 .moveOptions button:hover:enabled { background: var(--color-action-soft); }
 .moveOptions button:disabled { color: var(--color-ink-muted); opacity: .5; }
 .moveMenu :is(summary, button):focus-visible { outline: 2px solid var(--color-focus); outline-offset: -2px; }
-.block[data-dragging] { opacity: .45; }
+.block[data-dragging] { opacity: .45; background: var(--color-primary-soft); }
 .block[data-drop]::after { content: ""; position: absolute; left: 0; right: 0; height: 3px; background: var(--color-primary); }
 .block[data-drop="before"]::after { top: 0; }
 .block[data-drop="after"]::after { bottom: 0; }
@@ -65,6 +65,7 @@
 .editing .sectionHeader h3 { flex: 1; margin: 0; min-width: 200px; min-height: var(--spacing-control); }
 .editing .sectionHeader h3 svg { width: 28px; height: 28px; }
 .editing .moveMenu { top: 26px; }
+.editing .moveMenu summary { transition: color var(--motion-state) ease, background var(--motion-state) ease; }
 .editing .editTools { gap: 4px 8px; margin: 0; }
 .editing .editTools label { gap: 4px; font-size: var(--text-meta); }
 .editing .editTools select { border-color: transparent; font-size: var(--text-label); color: var(--color-ink-muted); }
@@ -91,3 +92,8 @@
 
 .editing .moveOptions { min-width: 220px; }
 .sectionAction { border-top: 1px solid var(--color-paper-rule); margin-top: 4px; }
+
+@keyframes sectionMenuIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: no-preference) {
+  .moveMenu[open] .moveOptions { animation: sectionMenuIn var(--motion-enter) var(--ease-open); }
+}

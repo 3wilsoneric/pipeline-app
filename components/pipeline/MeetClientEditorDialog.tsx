@@ -1,14 +1,15 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { ArrowLeft, Check, ChevronRight, Eye, Plus, Redo2, SpellCheck, Undo2, X } from "lucide-react";
+import { ArrowLeft, Check, ChevronDown, ChevronRight, Eye, Mail, Paperclip, Plus, Redo2, SpellCheck, Undo2, X } from "lucide-react";
 import type { MeetClientSummary } from "@/lib/assessment/assessment-summary";
 import { meetClientLayout, meetClientSubjectLimit, parseMeetClientMessage, type MeetClientMessage, type MeetClientSectionId } from "@/lib/notifications/meet-client-message";
 import { meetClientSections, renderMeetClientEmail } from "@/lib/notifications/meet-client-email-template";
 import { toPipelinePath } from "@/lib/pipeline/base-path";
 import type { HandoffRecipients } from "./useHandoffRecipients";
-import MeetClientSections from "./MeetClientSections";
+import PipelineIllustration from "./PipelineIllustration";
+import MeetClientSections, { meetClientSectionPictures } from "./MeetClientSections";
 import { createEditorHistory, messageKey, recordEditorChange, stepEditorHistory } from "./meet-client-editor-history";
 import { useMobileViewport } from "./use-mobile-viewport";
 import styles from "./MeetClientEditorDialog.module.css";
@@ -20,6 +21,9 @@ export default function MeetClientEditorDialog({ summary, draft, preparedBy, att
 }) {
   const dialog = useMobileViewport<HTMLDialogElement>();
   const title = useRef<HTMLHeadingElement>(null);
+  const outline = useRef<HTMLElement>(null);
+  const closingAnimation = useRef<Animation | null>(null);
+
   const scroll = useRef<HTMLDivElement>(null);
   const lastField = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
   const returnToEdit = useRef<{ top: number; field: HTMLInputElement | HTMLTextAreaElement | null; start: number | null; end: number | null } | null>(null);
@@ -37,17 +41,44 @@ export default function MeetClientEditorDialog({ summary, draft, preparedBy, att
   const sections = meetClientSections(summary, content);
   const navigation = [{ id: "subject" as const, title: "Subject" }, ...sections];
   const activeField = navigation.some(item => item.id === active) ? active : navigation[0].id;
+  const navigationOrder = navigation.map(item => item.id).join("|");
   const rendered = renderMeetClientEmail(summary, preparedBy, "preview", attachments, content, { demo, logoUrl: toPipelinePath("/brand/alamo-health-management.png") });
   useEffect(() => {
     const previous = document.activeElement;
     const element = dialog.current;
     element?.showModal(); title.current?.focus();
-    return () => { element?.close(); if (previous instanceof HTMLElement && previous.isConnected) previous.focus(); };
+    return () => { closingAnimation.current?.cancel(); element?.close(); if (previous instanceof HTMLElement && previous.isConnected) previous.focus(); };
   }, [dialog]);
+  useLayoutEffect(() => {
+    const nav = outline.current;
+    if (!nav) return;
+    const place = () => {
+      const current = nav.querySelector<HTMLElement>("[aria-current]");
+      if (!current || !nav.clientWidth) return;
+      nav.style.setProperty("--section-top", `${current.offsetTop}px`);
+      nav.style.setProperty("--section-height", `${current.offsetHeight}px`);
+    };
+    place();
+    const observer = new ResizeObserver(place);
+    observer.observe(nav);
+    return () => observer.disconnect();
+  }, [activeField, navigationOrder]);
   const close = async () => {
     if (closing) return;
     setClosing(true);
-    try { await draft.flush(); onClose(); }
+    try {
+      await draft.flush();
+      const element = dialog.current;
+      if (element && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        const motion = getComputedStyle(element);
+        const animation = element.animate([{ opacity: 1, transform: motion.transform }, { opacity: 0, transform: "translateY(8px) scale(.99)" }], {
+          duration: parseFloat(motion.getPropertyValue("--motion-state")), easing: motion.getPropertyValue("--ease-open").trim(), fill: "forwards",
+        });
+        closingAnimation.current = animation;
+        await animation.finished.catch(() => undefined);
+      }
+      onClose();
+    }
     catch (failure) { setError(failure instanceof Error ? failure.message : "Your email edits have not saved. Retry saving before closing."); }
     finally { setClosing(false); }
   };
@@ -115,14 +146,14 @@ export default function MeetClientEditorDialog({ summary, draft, preparedBy, att
     }
     setActive(current);
   };
-  return <dialog ref={dialog} data-meet-client-editor className={styles.dialog} aria-labelledby={`${instance}-title`}
+  return <dialog ref={dialog} data-meet-client-editor data-preview={preview} aria-busy={closing} className={styles.dialog} aria-labelledby={`${instance}-title`}
     onKeyDown={(event) => {
       if (preview || event.nativeEvent.isComposing || !(event.metaKey || event.ctrlKey) || event.altKey) return;
       const key = event.key.toLowerCase();
       if (key === "z" || key === "y") { event.preventDefault(); stepHistory(key === "y" || event.shiftKey ? "redo" : "undo"); }
     }} onCancel={(event) => { event.preventDefault(); void close(); }}>
     <header className={styles.header}>
-      <div><h2 id={`${instance}-title`} ref={title} tabIndex={-1}>Edit Meet the Client</h2><p>Layout follows you. Client wording stays here.</p></div>
+      <div className={styles.heading}><PipelineIllustration kind="placement" size={48} /><div><h2 id={`${instance}-title`} ref={title} tabIndex={-1}>Edit Meet the Client</h2><p>Layout follows you. Client wording stays here.</p></div></div>
       <button type="button" className={styles.close} aria-label="Close email editor" disabled={closing} onClick={() => void close()}><X size={22} aria-hidden="true" /></button>
     </header>
     <div className={styles.toolbar}>
@@ -139,9 +170,9 @@ export default function MeetClientEditorDialog({ summary, draft, preparedBy, att
     </div>
     <div className={styles.workspace} hidden={preview}>
       <aside className={styles.outline}>
-        <div className={styles.client}><span>Meet the Client</span><strong>{summary.name}</strong></div>
-        <nav aria-label="Email sections">{navigation.map(item => <button key={item.id} type="button" aria-current={activeField === item.id ? "location" : undefined} onClick={() => focusField(item.id)}>
-          <span>{item.title}</span>{activeField === item.id ? <ChevronRight size={16} aria-hidden="true" /> : null}
+        <div className={styles.client}><span>Meet the Client</span><strong>{summary.name}</strong><span>{summary.community}</span></div>
+        <nav ref={outline} aria-label="Email sections"><span className={styles.currentSection} aria-hidden="true" />{navigation.map(item => <button key={item.id} type="button" aria-current={activeField === item.id ? "location" : undefined} onClick={() => focusField(item.id)}>
+          {item.id === "subject" ? <Mail size={22} aria-hidden="true" /> : <PipelineIllustration kind={meetClientSectionPictures[item.id]} size={26} />}<span>{item.title}</span>{activeField === item.id ? <ChevronRight size={16} aria-hidden="true" /> : null}
         </button>)}</nav>
       </aside>
       <label className={styles.sectionPicker}><span>Section</span><select aria-label="Go to email section" value={activeField} onChange={event => focusField(event.target.value as EditorField)}>{navigation.map(item => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label>
@@ -163,11 +194,20 @@ export default function MeetClientEditorDialog({ summary, draft, preparedBy, att
       </div>
     </div>
     <div id={`${instance}-preview`} className={styles.previewPanel} hidden={!preview}>
-      {preview ? <iframe title="Edited Meet the Client email preview" srcDoc={rendered.html} sandbox="" referrerPolicy="no-referrer" className={styles.preview} /> : null}
+      {preview ? <div className={styles.previewLetter}>
+        <div className={styles.previewEnvelope}>
+          <Mail size={24} aria-hidden="true" />
+          <dl><div><dt>Subject</dt><dd>{rendered.subject}</dd></div></dl>
+          <details className={styles.previewAttachments} onKeyDown={event => { if (event.key === "Escape" && event.currentTarget.open) { event.preventDefault(); event.stopPropagation(); event.currentTarget.open = false; event.currentTarget.querySelector("summary")?.focus(); } }}><summary><Paperclip size={16} aria-hidden="true" />{attachments.length} {attachments.length === 1 ? "attachment" : "attachments"}<ChevronDown size={16} aria-hidden="true" /></summary>
+            <ul>{attachments.map((name, index) => <li key={`${name}:${index}`}><Paperclip size={14} aria-hidden="true" />{name}</li>)}</ul>
+          </details>
+        </div>
+        <iframe title="Edited Meet the Client email preview" srcDoc={rendered.html} sandbox="" referrerPolicy="no-referrer" className={styles.preview} />
+      </div> : null}
     </div>
     <footer className={styles.footer}>
       <div className={styles.saveStatus}>
-        <span role="status" className={styles.draftStatus}>{draft.message === "Handoff draft saved" ? <Check size={16} aria-hidden="true" /> : null}{draft.message}</span>
+        <span role="status" className={styles.draftStatus} data-saved={draft.message === "Handoff draft saved" || undefined}>{draft.message === "Handoff draft saved" ? <Check size={16} aria-hidden="true" /> : null}{draft.message}</span>
         {error || draft.error ? <div role="alert">{error || draft.error} <button type="button" onClick={() => { setError(""); void draft.retry(); }}>Retry saving</button></div> : null}
         {draft.layoutError ? <div role="alert">{draft.layoutError} <button type="button" onClick={() => void draft.retryLayout()}>Retry layout save</button> <button type="button" onClick={() => void draft.retryLayout(true)}>Use latest default</button></div> : <span role="status">{draft.layoutStatus}</span>}
       </div>

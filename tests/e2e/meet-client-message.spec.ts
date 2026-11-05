@@ -20,6 +20,7 @@ async function openEditor(page: Page, referralId: number) {
   await review.getByRole("button", { name: "Edit message", exact: true }).click();
   const editor = page.getByRole("dialog", { name: "Edit Meet the Client", exact: true });
   await expect(editor.getByRole("heading", { name: "Edit Meet the Client", exact: true })).toBeFocused();
+  await expect.poll(() => editor.evaluate(element => element.getAnimations().filter(animation => animation.playState === "running").length)).toBe(0);
   return editor;
 }
 async function resetLayout(page: Page) {
@@ -276,5 +277,56 @@ for (const width of [1440, 834, 390]) test(`document editor visual review at ${w
   await page.screenshot({ path: info.outputPath(`editor-writing-${width}.png`) });
   await editor.getByRole("button", { name: "Preview email", exact: true }).click();
   await expect(editor.frameLocator('iframe[title="Edited Meet the Client email preview"]').getByRole("img", { name: "Alamo Health Management" })).toBeVisible();
+  await expect(editor.locator('iframe').locator('..')).toHaveCSS("opacity", "1");
   await page.screenshot({ path: info.outputPath(`editor-preview-${width}.png`) });
+});
+
+for (const reducedMotion of ["no-preference", "reduce"] as const) test(`editor motion preserves section order, preview and focus with ${reducedMotion}`, async ({ page }) => {
+  await page.emulateMedia({ reducedMotion });
+  await resetLayout(page);
+  const referral = await messageCase(page);
+  const editor = await openEditor(page, referral.id);
+  await editor.getByRole("textbox", { name: "Subject", exact: true }).fill("Arrival details for the care team");
+  const body = editor.getByRole("textbox", { name: "Edit Meet the client", exact: true });
+  await body.fill("Keep this client wording through section moves and preview.");
+  const move = editor.locator('summary[aria-label="Move Meet the client"]');
+  await move.press("Alt+ArrowDown");
+  await move.press("Alt+ArrowDown");
+  await expect.poll(() => editor.locator("[data-message-section]").evaluateAll(elements => elements.slice(0, 3).map(element => element.getAttribute("data-message-section")))).toEqual(["coordination", "medications", "bio"]);
+  await expect(move).toBeFocused();
+  await editor.getByRole("button", { name: "Add a note", exact: true }).click();
+  await editor.getByRole("textbox", { name: "Edit Message", exact: true }).fill("A note at the start of the letter.");
+  await expect(editor.locator("[data-message-section]").first()).toHaveAttribute("data-message-section", "message");
+  const nav = editor.getByRole("navigation", { name: "Email sections" });
+  await nav.getByRole("button", { name: "Meet the client", exact: true }).click();
+  await expect(body).toBeFocused();
+  await expect(nav.locator("[aria-current]")).toHaveCount(1);
+  await expect(nav.getByRole("button", { name: "Meet the client", exact: true })).toHaveAttribute("aria-current", "location");
+  await expect.poll(() => nav.evaluate(element => {
+    const highlight = element.querySelector<HTMLElement>('span[aria-hidden="true"]')!.getBoundingClientRect();
+    const selected = element.querySelector("[aria-current]")!.getBoundingClientRect();
+    return Math.abs(highlight.top - selected.top) + Math.abs(highlight.height - selected.height);
+  })).toBeLessThan(1);
+  if (reducedMotion === "reduce") expect(await editor.evaluate(element => element.getAnimations({ subtree: true }).filter(animation => animation.playState === "running").length)).toBe(0);
+  await expect.poll(() => editor.evaluate(element => element.getAnimations({ subtree: true }).filter(animation => animation.playState === "running").length)).toBe(0);
+  expect(await editor.locator("[data-message-section]").evaluateAll(elements => elements.every((element, index) => !index || element.getBoundingClientRect().top >= elements[index - 1].getBoundingClientRect().bottom - 1))).toBe(true);
+  await editor.getByRole("button", { name: "Preview email", exact: true }).click();
+  const letter = editor.locator("iframe").locator("..");
+  await expect(letter.locator("dd")).toHaveText("[DEMO] Arrival details for the care team");
+  const files = letter.locator("details");
+  await expect(files.locator("summary")).toContainText("1 attachment");
+  await files.locator("summary").click();
+  await expect(files.getByRole("listitem")).toHaveText("Client data sheet.pdf");
+  await page.keyboard.press("Escape");
+  await expect(files).not.toHaveAttribute("open", "");
+  await expect(files.locator("summary")).toBeFocused();
+  await expect(editor).toBeVisible();
+  await expect(letter).toHaveCSS("opacity", "1");
+  await expect(editor.frameLocator("iframe").locator("body")).toContainText("Keep this client wording through section moves and preview.");
+  await editor.getByRole("button", { name: "Back to editing", exact: true }).click();
+  await expect(body).toBeFocused();
+  await expect(body).toHaveValue("Keep this client wording through section moves and preview.");
+  await editor.getByRole("button", { name: "Done", exact: true }).click();
+  await expect(editor).not.toBeVisible();
+  await expect(page.getByRole("button", { name: "Edit message", exact: true })).toBeFocused();
 });

@@ -581,3 +581,25 @@ to the open editor and cannot restore edits across a replacement from another
 session. Escape closes an open section menu before closing the editor. Preserve
 existing draft saving, personal-layout boundaries, exact-preview generation,
 recipient checks and explicit sending. No production deployment is included.
+
+## Meet the Client editor motion and preview (owner, 2026-11-05)
+
+The owner requested another pass on the editor's interface and animation. Reuse
+the existing subject illustrations in the section outline and add a moving
+current-section background. Keep the client and community together above the
+outline. A warm toolbar, white writing page and stage-colored top edge establish
+the document hierarchy without adding another surface or primary action.
+
+Use the existing motion tokens for the editor's entry and exit, preview reveal,
+section menus, reordered sections, inserted notes and saved checkmark. Only
+section changes animate the document; typing does not trigger section motion.
+Keep reorder geometry current after text edits, and cancel interrupted moves
+before starting the next move. Reduced-motion preferences remove these effects.
+Closing still waits for the existing save path, and failed saves keep the editor
+open with its recovery controls.
+
+Preview pairs the canonical rendered email with its actual subject and a
+disclosure of the provided attachment names. Escape closes that disclosure first.
+The list describes the packet; it does not create a second selection or upload
+flow. Preserve the existing return-to-writing position and cursor. This pass
+does not change message generation, packet contents, sending, or persistence.
