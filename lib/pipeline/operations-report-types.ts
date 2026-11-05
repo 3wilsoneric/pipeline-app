@@ -14,6 +14,7 @@ export const operationsReportIds = [
   "decisions",
   "ehr_handoff",
   "supervisor_exceptions",
+  "admission_flow",
 ] as const;
 
 export type OperationsReportId = (typeof operationsReportIds)[number];

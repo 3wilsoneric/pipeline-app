@@ -25,9 +25,11 @@ import {
 import { getSupervisorExceptionSnapshot } from "@/lib/pipeline/operations-snapshot";
 import { canAccessOperationsReports } from "@/lib/pipeline/report-access";
 import { scopeReferralListOptions } from "@/lib/pipeline/referral-access";
-import { getReferralStoreReadiness, listReferralFacets, listReferrals, listReferralFiles } from "@/lib/pipeline/referral-store";
+import { getReferralStoreReadiness, listLocalReferralAuditEvents, listReferralFacets, listReferrals, listReferralFiles } from "@/lib/pipeline/referral-store";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import { workflowStatusLabels } from "@/lib/pipeline/workflow-status";
+import { normalizeCalendarDate } from "@/lib/pipeline/calendar-date";
+import { admissionFlowToday } from "@/lib/pipeline/admission-flow-day";
 import { getConfirmedReferralClinicalIdentities } from "./client-workspace-store";
 import { buildClientDataReport, reviewedReportFields, type ClientReportEvidence } from "./client-data-reports";
 import { listReferralContacts } from "./contact-store";
@@ -135,6 +137,11 @@ const reportCatalog: OperationsReportDefinition[] = [
     filters: ["month", "community", "owner"],
   },
   {
+    id: "admission_flow", label: "Admission flow",
+    description: "Received-to-actual-admission timing, current waits, recorded holds, and date coverage. Planned moves and acceptance are not admissions.",
+    cadence: "Current", audience: "Supervisors", filters: ["community", "owner"], supervisor_only: true,
+  },
+  {
     id: "ehr_handoff",
     label: "ElderMark entry status",
     description: "Accepted referrals and their manually recorded ElderMark entry status.",
@@ -159,6 +166,7 @@ const visibleReportIds: OperationsReportId[] = [
   "assessor_workload",
   "assessment_schedule",
   "decisions",
+  "admission_flow",
 ];
 
 export function getOperationsReportCatalog(user: PipelineUser) {
@@ -451,6 +459,13 @@ async function buildReport(
     row_count: rows.length,
     truncated: false,
     generated_at: new Date().toISOString(),
+    ...(definition.id === "admission_flow" ? { notes: [
+      "Only staff-confirmed actual admission dates count as admissions. Planned dates and accepted decisions do not.",
+      "Assessment and ready dates are shown only when recorded. Blank intervals are excluded, never estimated.",
+      "Hold reasons are coordinator-entered observations, not a complete or automatic measure of avoidable days.",
+      "First change is the first audited change after creation; it is not proof of first contact with the client or referral source.",
+      "Early outcomes after move-in require linked clinical stay data and are not inferred from referral records.",
+    ] } : {}),
   };
 }
 
@@ -464,6 +479,10 @@ async function reportRows(
   if (reportId === "supervisor_exceptions") return supervisorExceptionRows(filters);
 
   const referrals = await loadReportReferrals(user, filters, workspaceScopeForReport(reportId));
+  if (reportId === "admission_flow") {
+    const [assessmentDates, activity] = await Promise.all([admissionFlowAssessmentDates(referrals), admissionFlowAudit(referrals)]);
+    return admissionFlowRows(referrals, assessmentDates, activity);
+  }
   const contexts = await getReferralWorkflowContexts(referrals);
   if (reportId === "active_referrals") return activeReferralRows(referrals, contexts);
   if (reportId === "workspace_inventory") return workspaceInventoryRows(referrals, contexts);
@@ -499,7 +518,7 @@ async function loadReportReferrals(
 }
 
 function workspaceScopeForReport(reportId: OperationsReportId): "active" | "all" {
-  return ["workspace_inventory", "document_coverage", "intake_review", "decisions", "ehr_handoff"].includes(reportId)
+  return ["workspace_inventory", "document_coverage", "intake_review", "decisions", "ehr_handoff", "admission_flow"].includes(reportId)
     ? "all"
     : "active";
 }
@@ -690,6 +709,120 @@ function decisionRows(referrals: Referral[], month: string) {
   }).sort((left, right) => String(right.values.decision_date).localeCompare(String(left.values.decision_date)));
 }
 
+type AdmissionFlowAudit = { firstChange: string | null; lastWorkflowChange: string | null; reschedules: number; handoffs: number };
+
+async function admissionFlowAssessmentDates(referrals: Referral[]) {
+  const dates = new Map<number, string[]>();
+  if (!referrals.length) return dates;
+  if (getReferralStoreReadiness().mode === "postgres") {
+    const sql = getPipelineSql();
+    const rows = await sql<{ referral_id: number | string; assessment_date: Date | string }[]>`
+      select referral_id, assessment_date from pipeline.assessments
+      where referral_id = any(${referrals.map((referral) => referral.id)}::bigint[]) and assessment_date is not null
+      order by referral_id, assessment_date
+    `;
+    for (const row of rows) dates.set(Number(row.referral_id), [...(dates.get(Number(row.referral_id)) ?? []),
+      typeof row.assessment_date === "string" ? row.assessment_date.slice(0, 10) : row.assessment_date.toISOString().slice(0, 10)]);
+    return dates;
+  }
+  await Promise.all(referrals.map(async (referral) => {
+    const assessments = (await listAssessments({ referralId: referral.id, limit: 100 })).assessments;
+    dates.set(referral.id, assessments.map((assessment) => assessment.assessment_date).filter((date): date is string => Boolean(date)).sort());
+  }));
+  return dates;
+}
+
+async function admissionFlowAudit(referrals: Referral[]) {
+  const result = new Map<number, AdmissionFlowAudit>();
+  if (!referrals.length) return result;
+  const ids = referrals.map((referral) => referral.id);
+  if (getReferralStoreReadiness().mode === "postgres") {
+    const sql = getPipelineSql();
+    const rows = await sql<{ referral_id: number | string; first_change: Date | string | null; last_workflow_change: Date | string | null; reschedules: number | string; handoffs: number | string }[]>`
+      select entity_id::bigint as referral_id,
+        min(created_at) filter (where action <> 'referral_created') as first_change,
+        max(created_at) filter (where 'workflowStatus' = any(changed_fields) or action = 'referral_stage_changed') as last_workflow_change,
+        count(*) filter (where action in ('assessment_rescheduled', 'assessment_cancelled', 'assessment_no_show', 'changes_requested')) as reschedules,
+        count(*) filter (where action in ('referral_reassigned', 'referral_unassigned')) as handoffs
+      from pipeline.audit_events
+      where entity_type = 'referral' and entity_id = any(${ids.map(String)}::text[])
+      group by entity_id
+    `;
+    for (const row of rows) result.set(Number(row.referral_id), {
+      firstChange: row.first_change ? new Date(row.first_change).toISOString() : null,
+      lastWorkflowChange: row.last_workflow_change ? new Date(row.last_workflow_change).toISOString() : null,
+      reschedules: Number(row.reschedules), handoffs: Number(row.handoffs),
+    });
+    return result;
+  }
+  await Promise.all(referrals.map(async (referral) => {
+    const events = (await listLocalReferralAuditEvents(referral.id)).sort((a, b) => a.created_at.localeCompare(b.created_at));
+    result.set(referral.id, {
+      firstChange: events.find((event) => event.action !== "referral_created")?.created_at ?? null,
+      lastWorkflowChange: events.filter((event) => event.changed_fields.includes("workflowStatus") || event.action === "referral_stage_changed").at(-1)?.created_at ?? null,
+      reschedules: events.filter((event) => ["assessment_rescheduled", "assessment_cancelled", "assessment_no_show", "changes_requested"].includes(event.action)).length,
+      handoffs: events.filter((event) => ["referral_reassigned", "referral_unassigned"].includes(event.action)).length,
+    });
+  }));
+  return result;
+}
+
+export function admissionFlowRows(referrals: Referral[], assessmentDates: Map<number, string[]>, activity: Map<number, AdmissionFlowAudit>) {
+  const today = admissionFlowToday();
+  return referrals.map((referral) => {
+    const audit = activity.get(referral.id);
+    const received = normalizeCalendarDate(referral.date);
+    const admitted = normalizeCalendarDate(referral.actualAdmissionDate);
+    const assessed = (assessmentDates.get(referral.id) ?? []).map(normalizeCalendarDate)
+      .find((date) => date && (!received || date >= received) && date <= (admitted ?? today)) ?? null;
+    const ready = normalizeCalendarDate(referral.admissionFlow?.readyToMoveInDate);
+    const activeHold = referral.admissionFlow?.holds?.find((hold) => !hold.endedAt);
+    const declined = referral.stage === "Declined" || referral.admissionDecision?.outcome === "declined";
+    const open = !admitted && !referral.placementCancellation && !declined;
+    const state = admitted ? "Admitted" : referral.placementCancellation ? "Did not move in" :
+      declined ? "Declined" : ready ? "Ready, awaiting arrival" :
+      referral.workflowStatus ? workflowStatusLabels[referral.workflowStatus] : referral.stage;
+    const elapsed = (start: string | null, end: string | null) => start && end && end >= start
+      ? Math.round((Date.parse(`${end}T00:00:00Z`) - Date.parse(`${start}T00:00:00Z`)) / 86_400_000) : null;
+    return referralRow(referral, {
+      client: referral.name,
+      community: referral.community,
+      county: referral.county ?? "",
+      source: referral.source ?? "",
+      owner: referral.owner || "Unassigned",
+      state,
+      days_since_receipt: open ? elapsed(received, today) : null,
+      first_change_days: elapsed(received, audit?.firstChange?.slice(0, 10) ?? null),
+      assessment_days: elapsed(received, assessed),
+      assessment_to_arrival_days: elapsed(assessed, admitted),
+      ready_wait_days: ready ? elapsed(ready, admitted ?? (open ? today : null)) : null,
+      ready_to_arrive_days: elapsed(ready, admitted),
+      total_days: elapsed(received, admitted),
+      hold: activeHold ? `${activeHold.reason.replaceAll("_", " ")} · ${activeHold.responsibleParty.replaceAll("_", " ")} · ${elapsed(activeHold.startedAt.slice(0, 10), today) ?? 0} days` : "",
+      rework: `${audit?.reschedules ?? 0} / ${audit?.handoffs ?? 0}`,
+      ready_date: ready,
+      current_step_days: open ? elapsed(audit?.lastWorkflowChange?.slice(0, 10) ?? null, today) : null,
+      received_date: received,
+      actual_admission_date: admitted,
+    });
+  }).sort((a, b) => Number(b.values.days_since_receipt ?? -1) - Number(a.values.days_since_receipt ?? -1)
+    || String(b.values.actual_admission_date ?? "").localeCompare(String(a.values.actual_admission_date ?? "")));
+}
+
+function medianMetric(values: Array<string | number | null>) {
+  const numbers = values.filter((value): value is number => typeof value === "number" && Number.isFinite(value)).sort((a, b) => a - b);
+  if (!numbers.length) return "—";
+  const middle = Math.floor(numbers.length / 2);
+  return String(numbers.length % 2 ? numbers[middle] : Math.round(((numbers[middle - 1] + numbers[middle]) / 2) * 10) / 10);
+}
+
+function distributionMetric(values: Array<string | number | null>, kind: "mean" | "p90") {
+  const numbers = values.filter((value): value is number => typeof value === "number" && Number.isFinite(value)).sort((a, b) => a - b);
+  if (!numbers.length) return "—";
+  if (kind === "p90") return String(numbers[Math.ceil(numbers.length * 0.9) - 1]);
+  return String(Math.round(numbers.reduce((sum, value) => sum + value, 0) / numbers.length * 10) / 10);
+}
+
 function ehrHandoffRows(referrals: Referral[]) {
   return referrals
     .filter((referral) => !referral.placementCancellation && (referral.stage === "Accepted / Admitted" || referral.admissionDecision?.outcome === "accepted"))
@@ -726,6 +859,18 @@ async function supervisorExceptionRows(filters: OperationsReportFilters) {
 }
 
 function reportColumns(reportId: OperationsReportId): OperationsReportColumn[] {
+  if (reportId === "admission_flow") return [
+    column("client", "Client"), column("community", "Community"), column("county", "County"),
+    column("source", "Referral source"), column("owner", "Assessor"), column("state", "Current position"),
+    column("days_since_receipt", "Open days", "right"),
+    column("current_step_days", "In current step", "right"),
+    column("first_change_days", "To first change", "right"),
+    column("assessment_days", "To assessment", "right"),
+    column("assessment_to_arrival_days", "Assessment to arrival", "right"),
+    column("ready_wait_days", "Ready wait", "right"),
+    column("total_days", "Receipt to arrival", "right"),
+    column("hold", "Current hold"), column("rework", "Rework / handoffs", "right"),
+  ];
   if (reportId === "active_referrals") return [
     column("client", "Client"), column("community", "Community"), column("status", "Workflow"),
     column("owner", "Owner"), column("next_action", "Next action"),
@@ -781,9 +926,27 @@ function reportColumns(reportId: OperationsReportId): OperationsReportColumn[] {
   ];
 }
 
-function reportMetrics(reportId: OperationsReportId, rows: OperationsReportRow[]): OperationsReportMetric[] {
+export function reportMetrics(reportId: OperationsReportId, rows: OperationsReportRow[]): OperationsReportMetric[] {
   const sum = (key: string) => rows.reduce((total, row) => total + numericValue(row.values[key]), 0);
   const distinct = (key: string) => new Set(rows.map((row) => String(row.values[key] ?? "").trim()).filter(Boolean)).size;
+  if (reportId === "admission_flow") {
+    const admitted = rows.filter((row) => row.values.state === "Admitted");
+    const open = rows.filter((row) => row.values.state !== "Admitted" && row.values.state !== "Did not move in" && row.values.state !== "Declined");
+    const validArrival = admitted.filter((row) => typeof row.values.total_days === "number");
+    const days = (value: string) => value === "—" ? value : `${value} days`;
+    return [
+      metric("Actual admissions", admitted.length, "Only referrals with a staff-confirmed actual arrival date."),
+      metric("Median receipt to arrival", days(medianMetric(admitted.map((row) => row.values.total_days))), `${validArrival.length} of ${admitted.length} actual admissions have both dates.`),
+      metric("Mean receipt to arrival", days(distributionMetric(admitted.map((row) => row.values.total_days), "mean")), "Completed admissions with both dates; compare with the open queue."),
+      metric("90th percentile", days(distributionMetric(admitted.map((row) => row.values.total_days), "p90")), "Longest tenth of completed waits, nearest-rank method."),
+      metric("Open referrals", open.length, "Includes cases still waiting; they are not omitted from the view."),
+      metric("Open over 14 days", open.filter((row) => numericValue(row.values.days_since_receipt) > 14).length, "Based on the recorded received date."),
+      metric("Assessment date coverage", `${admitted.filter((row) => row.values.assessment_days !== null).length} of ${admitted.length}`, "Recorded performed date among actual admissions."),
+      metric("Ready date coverage", `${admitted.filter((row) => row.values.ready_to_arrive_days !== null).length} of ${admitted.length}`, "Coordinator-recorded ready date among actual admissions."),
+      metric("Current holds", open.filter((row) => row.values.hold !== "").length, "Explicit holds still open."),
+      metric("Did not move in", rows.filter((row) => row.values.state === "Did not move in").length, "Recorded placement cancellations; excluded from admission timing."),
+    ];
+  }
   if (reportId === "active_referrals") return [
     metric("Current work", rows.length, "Every accessible workspace with recorded work still in motion."),
     metric("Unassigned", countValue(rows, "owner", "Unassigned"), "Current work without a recorded assessor."),

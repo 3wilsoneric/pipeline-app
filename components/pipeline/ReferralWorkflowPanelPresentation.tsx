@@ -22,10 +22,11 @@ import {
   type WorkflowResponse,
 } from "@/components/pipeline/referral-workflow-panel-model";
 import { getStageLabel, referralStageDefinitions, type ReferralStage } from "@/lib/pipeline/referral-workflow";
-import type { AdmissionRequirement, AssessmentRecommendation, RequirementStatus } from "@/lib/pipeline/referral-types";
+import type { AdmissionRequirement, AssessmentRecommendation, Referral, RequirementStatus } from "@/lib/pipeline/referral-types";
 import { isRequirementComplete } from "@/lib/pipeline/workflow-records";
 import { assumedAdmissionDate } from "@/lib/pipeline/admission-lifecycle";
 import { calendarToday } from "@/lib/pipeline/calendar-date";
+import { admissionFlowToday } from "@/lib/pipeline/admission-flow-day";
 import styles from "./ReferralDecision.module.css";
 
 type RecommendationDraft = {
@@ -55,6 +56,7 @@ type ReferralWorkflowPanelPresentationProps = {
   onSubmitTransition: (target: ReferralStage) => void;
   onConfirmAdmission: (actualDate: string) => void;
   onSavePlacementCancellation: (reason: string) => Promise<boolean>;
+  onAdmissionFlowAction: (action: "record_ready" | "start_hold" | "end_hold", details?: Record<string, string>) => Promise<boolean>;
   onAuthorizeManualIntake: () => void;
   onConfirmDetail: (detail: string) => void;
   onCloseDetail: () => void;
@@ -89,6 +91,7 @@ export function ReferralWorkflowPanelPresentation({
   onSubmitTransition,
   onConfirmAdmission,
   onSavePlacementCancellation,
+  onAdmissionFlowAction,
   onAuthorizeManualIntake,
   onConfirmDetail,
   onCloseDetail,
@@ -156,6 +159,7 @@ export function ReferralWorkflowPanelPresentation({
       <dialog ref={followUpRef} aria-labelledby="placement-actions-title" className={styles.followUpDrawer} onClose={() => { setFollowUpOpen(false); followUpTriggerRef.current?.focus(); }} onClick={(event) => { if (event.target === event.currentTarget) event.currentTarget.close(); }}>
         <div className={styles.followUpHead}><h2 id="placement-actions-title">Handoff actions</h2><button type="button" aria-label="Close handoff actions" onClick={closeFollowUp}><X size={18} aria-hidden="true" /></button></div>
         <div className={styles.followUpBody}>
+          {workflow.capabilities.can_confirm_admission && view.currentReferral.stage !== "Accepted / Admitted" && !workflow.referral.placementCancellation ? <AdmissionFlowControls referral={workflow.referral} disabled={Boolean(busy)} onAction={onAdmissionFlowAction} /> : null}
           {view.currentReferral.stage !== "Accepted / Admitted" && workflow.capabilities.can_cancel_placement ? <div className={styles.drawerSection}><h3>Placement change</h3><ReferralAdmissionPanel key={workflow.referral.id} referral={workflow.referral} packetSentAt={workflow.context.packetSentAt} admissionDate={admissionDate} disabled={!workflow.capabilities.can_update || Boolean(busy)} onAdmissionDateChange={onAdmissionDateChange} onSaveAdmissionDate={onSaveAdmissionDate} onSavePlacementCancellation={onSavePlacementCancellation} showReviewButton={false} showDateEditor={false} /></div> : null}
           {view.currentReferral.stage !== "Accepted / Admitted" && !workflow.referral.placementCancellation && workflow.capabilities.can_confirm_admission ? <section className={styles.drawerSection} aria-label="Confirm actual admission">
             <h3>Confirm arrival</h3>
@@ -201,6 +205,7 @@ export function ReferralWorkflowPanelPresentation({
         <div className={styles.followUpBody}>
           {followUpOpen && message ? <WorkflowNotice tone="success">{message}</WorkflowNotice> : null}
           {followUpOpen && error ? <WorkflowNotice tone="error">{error}</WorkflowNotice> : null}
+          {workflow.capabilities.can_confirm_admission && !workflow.referral.placementCancellation && workflow.referral.stage !== "Declined" ? <AdmissionFlowControls referral={workflow.referral} disabled={Boolean(busy)} onAction={onAdmissionFlowAction} /> : null}
           <details className={styles.details} data-admin-controls>
           <summary>Administrative controls</summary>
           <p className={styles.adminNote}>For authorized staff. These change the referral&apos;s stage or grant a manual intake exception. They do not record the decision, sign the assessment, or send anything.</p>
@@ -408,6 +413,52 @@ function PrimaryButton({ className, busy, disabled, describedBy, onClick, childr
 
 function SecondaryButton({ disabled, onClick, children }: { disabled?: boolean; onClick: () => void; children: ReactNode }) {
   return <button type="button" disabled={disabled} onClick={onClick} className="mt-3 h-10 rounded-md border border-[#cbd5cf] bg-white px-4 text-[13px] font-semibold text-[#35473c] hover:border-[#08775e] focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-40">{children}</button>;
+}
+
+const holdReasons = [
+  ["source_records", "Records from referral source"],
+  ["client_availability", "Client or family availability"],
+  ["clinical_clearance", "Clinical clearance"],
+  ["payer_authorization", "Payer authorization"],
+  ["admission_paperwork", "Admission paperwork"],
+  ["staffed_bed", "Staffed bed"],
+  ["transport", "Transportation"],
+  ["scheduling", "Scheduling"],
+  ["needs_clarification", "Cause needs clarification"],
+] as const;
+
+const holdOwners = [
+  ["referral_source", "Referral source"], ["client_or_family", "Client or family"],
+  ["pipeline", "Admissions team"], ["community", "Community"],
+  ["external_partner", "External partner"], ["unassigned", "Owner not established"],
+] as const;
+
+function AdmissionFlowControls({ referral, disabled, onAction }: {
+  referral: Referral;
+  disabled: boolean;
+  onAction: (action: "record_ready" | "start_hold" | "end_hold", details?: Record<string, string>) => Promise<boolean>;
+}) {
+  const [readyDate, setReadyDate] = useState(referral.admissionFlow?.readyToMoveInDate ?? admissionFlowToday());
+  const [reason, setReason] = useState<string>(holdReasons[0][0]);
+  const [owner, setOwner] = useState<string>(holdOwners[0][0]);
+  const activeHold = referral.admissionFlow?.holds?.find((hold) => !hold.endedAt);
+  const activeLabel = activeHold && holdReasons.find(([code]) => code === activeHold.reason)?.[1];
+  return <section className={styles.drawerSection} aria-label="Admission timing">
+    <h3>Admission timing</h3>
+    {referral.admissionDecision?.outcome === "accepted" ? <form className="space-y-2" onSubmit={(event) => { event.preventDefault(); void onAction("record_ready", { ready_date: readyDate }); }}>
+      <label className="block text-sm font-semibold" htmlFor="client-ready-date">Client ready to move in</label>
+      <div className="flex flex-wrap items-center gap-2"><input id="client-ready-date" type="date" min={referral.date.slice(0, 10)} max={admissionFlowToday()} value={readyDate} onChange={(event) => setReadyDate(event.target.value)} required disabled={disabled} className="h-10 border border-[var(--pipeline-surface-edge)] bg-white px-2 text-sm" />
+        <button type="submit" disabled={disabled || !readyDate || readyDate === referral.admissionFlow?.readyToMoveInDate} className="min-h-10 border border-[var(--pipeline-green)] px-3 text-sm font-semibold text-[var(--pipeline-green)] disabled:opacity-50">{referral.admissionFlow?.readyToMoveInDate ? "Correct date" : "Record ready date"}</button></div>
+      {referral.admissionFlow?.readyToMoveInDate ? <p className={styles.adminNote}>Recorded: {referral.admissionFlow.readyToMoveInDate}</p> : null}
+    </form> : null}
+    {activeHold ? <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm"><span>Waiting: {activeLabel ?? activeHold.reason} · {holdOwners.find(([code]) => code === activeHold.responsibleParty)?.[1] ?? activeHold.responsibleParty}</span><button type="button" disabled={disabled} onClick={() => void onAction("end_hold")} className="min-h-10 border border-[var(--pipeline-surface-edge)] bg-white px-3 font-semibold disabled:opacity-50">End hold</button></div> : <form className="mt-3 space-y-2" onSubmit={(event) => { event.preventDefault(); void onAction("start_hold", { reason, responsible_party: owner }); }}>
+      <label className="block text-sm font-semibold" htmlFor="admission-hold-reason">If waiting, what is needed?</label>
+      <select id="admission-hold-reason" value={reason} onChange={(event) => setReason(event.target.value)} disabled={disabled} className="h-10 w-full border border-[var(--pipeline-surface-edge)] bg-white px-2 text-sm">{holdReasons.map(([code, label]) => <option key={code} value={code}>{label}</option>)}</select>
+      <label className="block text-sm font-semibold" htmlFor="admission-hold-owner">Who owns the next action?</label>
+      <select id="admission-hold-owner" value={owner} onChange={(event) => setOwner(event.target.value)} disabled={disabled} className="h-10 w-full border border-[var(--pipeline-surface-edge)] bg-white px-2 text-sm">{holdOwners.map(([code, label]) => <option key={code} value={code}>{label}</option>)}</select>
+      <button type="submit" disabled={disabled} className="min-h-10 border border-[var(--pipeline-surface-edge)] bg-white px-3 text-sm font-semibold disabled:opacity-50">Record hold</button>
+    </form>}
+  </section>;
 }
 
 function WorkflowTextArea({ label, value, disabled, onChange }: { label: string; value: string; disabled: boolean; onChange: (value: string) => void }) {

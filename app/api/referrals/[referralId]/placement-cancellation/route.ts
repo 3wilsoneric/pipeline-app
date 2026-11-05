@@ -55,7 +55,10 @@ export async function PUT(request: Request, context: { params: Promise<{ referra
       updatedAt: now,
     };
     const result = await patchReferral(referralId,
-      { placementCancellation, workflowStatus: "closed" },
+      { placementCancellation, workflowStatus: "closed",
+        ...(referral.admissionFlow?.holds?.some((hold) => !hold.endedAt)
+          ? { admissionFlow: { ...referral.admissionFlow, holds: referral.admissionFlow.holds.map((hold) => hold.endedAt ? hold : { ...hold, endedAt: now }) } }
+          : {}) },
       Number(body.value.if_match), actor,
       { workflow: Number(body.value.if_match_section) },
       {

@@ -88,7 +88,7 @@ export function validateReferralCreateInput(
 
   const serverOwnedFields = [
     "id", "version", "sectionVersions", "updatedBy", "ownerId", "owners", "chartSource",
-    "manualIntakeAuthorization", "interview", "assessment", "admissionDecision", "placementCancellation",
+    "manualIntakeAuthorization", "interview", "assessment", "admissionDecision", "placementCancellation", "admissionFlow",
     "assessmentRecommendation", "assessmentReview", "assessmentReviewHistory", "ehrHandoff",
   ] as const;
   if (serverOwnedFields.some((field) => field in value)) {
@@ -160,6 +160,7 @@ export function validateReferralPatch(
     "workflowStatus", "assignedAt", "assignmentDueAt", "assignmentVersion",
     "assessmentRecommendation", "assessmentReview", "assessmentReviewHistory", "admissionDecision", "placementCancellation",
     "manualIntakeAuthorization", "ehrHandoff", "interview", "assessment", "actualAdmissionDate",
+    "admissionFlow",
   ] as const) {
     if (protectedField in value) {
       return invalid(`${protectedField} cannot be changed through a referral patch.`);

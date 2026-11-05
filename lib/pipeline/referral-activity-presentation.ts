@@ -24,6 +24,7 @@ export type ReferralActivityChange = {
 const fieldLabels: Record<string, string> = {
   admissionDecision: "Admission decision",
   admissionDate: "Admission date",
+  admissionFlow: "Admission flow tracking",
   assignedAt: "Assigned at",
   assignmentDueAt: "Assignment due",
   assignmentVersion: "Assignment version",
@@ -62,6 +63,7 @@ const fieldLabels: Record<string, string> = {
 
 const sensitiveValueFields = new Set([
   "assessment",
+  "admissionFlow",
   "assessmentRecommendation",
   "currentMedications",
   "documentHash",
