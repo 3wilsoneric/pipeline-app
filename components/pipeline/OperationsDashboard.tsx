@@ -339,7 +339,7 @@ function ReportResults({ response, selectedDefinition, loading, error, onOpenPac
       <ReportTotals response={response} />
       <section data-guide-target="operations-report-results" className="mt-5" aria-label="Report results">
         {summary ? <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-          <div role="group" aria-label="Report detail" className="pipeline-segmented inline-flex rounded-md bg-[#eef1ef] p-1"><ViewToggle selected={showSummary} onClick={() => { setGroup(null); setResultView("summary"); }}>Summary</ViewToggle><ViewToggle selected={!showSummary} onClick={() => { setGroup(null); setResultView("clients"); }}>Clients</ViewToggle></div>
+          <div role="group" aria-label="Report detail" className="pipeline-segmented inline-flex rounded-md bg-[#eef1ef] p-1"><ViewToggle selected={showSummary} onClick={() => { setGroup(null); setResultView("summary"); }}>{response?.filters.report_id === "admission_flow" ? "Received weeks" : "Summary"}</ViewToggle><ViewToggle selected={!showSummary} onClick={() => { setGroup(null); setResultView("clients"); }}>{response?.filters.report_id === "admission_flow" ? "Referrals" : "Clients"}</ViewToggle></div>
           {group !== null ? <button type="button" onClick={() => { setGroup(null); setResultView("summary"); }} className="flex items-center gap-2 text-[13px] font-semibold text-[#176f60]"><ArrowLeft size={16} />{group}</button> : null}
         </div> : null}
         <ReportResultStatus response={response} loading={loading} error={error} />
@@ -351,9 +351,31 @@ function ReportResults({ response, selectedDefinition, loading, error, onOpenPac
 
 function ReportTotals({ response }: { response: OperationsReportResponse | null }) {
   return (<>
-    {response ? <MetricGrid metrics={response.report.metrics} /> : null}
-    {response?.report.notes?.length ? <div className="mt-3 space-y-1 text-[12px] leading-5 text-[#68706b]">{response.report.notes.map((note) => <p key={note}>{note}</p>)}</div> : null}
+    {response?.filters.report_id === "admission_flow" ? <AdmissionFlowExecutiveSummary metrics={response.report.metrics} /> : response ? <MetricGrid metrics={response.report.metrics} /> : null}
+    {response?.report.notes?.length ? response.filters.report_id === "admission_flow" ? <details className="mt-3 text-[12px] text-[var(--color-ink-muted)]"><summary className="cursor-pointer font-semibold">Definitions and coverage</summary><div className="mt-2 space-y-1 leading-5">{response.report.notes.map((note) => <p key={note}>{note}</p>)}</div></details> : <div className="mt-3 space-y-1 text-[12px] leading-5 text-[#68706b]">{response.report.notes.map((note) => <p key={note}>{note}</p>)}</div> : null}
   </>);
+}
+
+function AdmissionFlowExecutiveSummary({ metrics }: { metrics: OperationsReportMetric[] }) {
+  const byLabel = new Map(metrics.map((item) => [item.label, item]));
+  const value = (label: string) => byLabel.get(label)?.value ?? "—";
+  return <section aria-label="Executive admission flow" className="mt-4 grid gap-3 lg:grid-cols-3">
+    <div className="border-t-[3px] border-[var(--color-slate)] bg-[var(--color-picture-blue-soft)] p-4">
+      <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-[var(--color-slate)]">Waiting now · {value("Open referrals")} open</p>
+      <p className="mt-3 text-[13px] leading-6 text-[var(--color-picture-ink)]">{value("No assessment date recorded")} without a recorded assessment date · {value("Assessment recorded, not ready")} assessed but not recorded ready · {value("Ready, awaiting arrival")} ready and awaiting arrival.</p>
+      <p className="mt-2 text-[12px] text-[var(--color-ink-muted)]">{value("Current holds")} explicit holds · {value("Open over 14 days")} open over 14 days</p>
+    </div>
+    <div className="border-t-[3px] border-[var(--color-stage-manila)] bg-[var(--color-stage-manila-tile)] p-4">
+      <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-[var(--color-stage-manila)]">Confirmed arrivals · {value("Actual admissions")}</p>
+      <p className="mt-3 text-[13px] leading-6 text-[var(--color-ink)]">Median {value("Median receipt to arrival")} from receipt to arrival; {value("90th percentile")} at the 90th percentile.</p>
+      <p className="mt-2 text-[12px] text-[var(--color-ink-muted)]">{value("Arrival share")} of received referrals have arrived. This share is provisional while cases remain open.</p>
+    </div>
+    <div className="border-t-[3px] border-[var(--color-stage-green)] bg-[var(--color-stage-green-tile)] p-4">
+      <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-[var(--color-stage-green)]">Where elapsed time falls</p>
+      <p className="mt-3 text-[13px] leading-6 text-[var(--color-ink)]">Median {value("Median receipt to assessment")} to assessment · {value("Median assessment to ready")} assessment to ready · {value("Median ready to arrival")} ready to arrival.</p>
+      <p className="mt-2 text-[12px] text-[var(--color-ink-muted)]">Assessment dates: {value("Assessment date coverage")} admissions · ready dates: {value("Ready date coverage")}.</p>
+    </div>
+  </section>;
 }
 
 function ReportResultRows({ response, rows, summary, loading, onOpenPacket, onOpenProfile, onOpenGroup }: Pick<Parameters<typeof ReportResults>[0], "response" | "loading" | "onOpenPacket" | "onOpenProfile"> & { rows: OperationsReportRow[]; summary: OperationsReportResponse["report"]["summary"]; onOpenGroup: (group: string) => void }) {

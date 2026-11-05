@@ -15,6 +15,15 @@ const operationsReportPrincipalIds = new Set([
   "b72c34f0-0ee8-4ab4-8359-81c8f7b0d3b2", // Sandeep
 ]);
 
+const executiveAdmissionFlowEmails = new Set([
+  "andrew@aaahealthservices.com",
+  "ericwilsonalamo@outlook.com",
+]);
+const executiveAdmissionFlowPrincipalIds = new Set([
+  "e9f39185-d751-45c0-bcf5-c24d3565bdd9", // Andrew
+  "f73371d5-d2b4-48b4-a32b-1edc7c88869f", // Eric
+]);
+
 type OperationsReportPrincipal = {
   id?: string | null;
   email?: string | null;
@@ -35,6 +44,12 @@ export function canAccessOperationsReports(principal: OperationsReportPrincipal 
   if (!email) return false;
   // Retain the reserved local/demo identity contract; real accounts require the named allowlist.
   return operationsReportEmails.has(email) || Boolean(principal.id && email.endsWith("@pipeline.local"));
+}
+
+export function canAccessExecutiveAdmissionFlow(principal: OperationsReportPrincipal | null | undefined) {
+  if (!canAccessOperationsReports(principal)) return false;
+  return executiveAdmissionFlowPrincipalIds.has(principal?.id?.trim().toLowerCase() ?? "")
+    || executiveAdmissionFlowEmails.has(principal?.email?.trim().toLowerCase() ?? "");
 }
 
 export function canManageCommunityContactLists(principal: OperationsReportPrincipal | null | undefined) {

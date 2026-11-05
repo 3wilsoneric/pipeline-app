@@ -29,6 +29,7 @@ export type WorkflowResponse = {
     can_update: boolean;
     can_cancel_placement: boolean;
     can_confirm_admission: boolean;
+    can_track_admission_flow: boolean;
     can_recommend: boolean;
     can_decide: boolean;
     can_email: boolean;

@@ -4,6 +4,7 @@ import { getAssessment } from "@/lib/assessment/assessment-store";
 import { jsonError } from "@/lib/extraction/contracts";
 import { withApiLogging } from "@/lib/observability/api-logging";
 import { canConfirmAdmission, canRecordAdmissionDecision, requireReferralAccess } from "@/lib/pipeline/referral-access";
+import { canAccessExecutiveAdmissionFlow } from "@/lib/pipeline/report-access";
 import { canCancelPlacement, canModifyReferral } from "@/lib/pipeline/referral-ownership";
 import { getAllowedReferralTargets, getReferralTransitionAlerts, getReferralTransitionBlockers } from "@/lib/pipeline/referral-workflow";
 import { requireReferralStore } from "@/lib/pipeline/referral-store";
@@ -56,6 +57,7 @@ function workflowCapabilities(
     can_update: canUpdate,
     can_cancel_placement: canCancel,
     can_confirm_admission: mutable && canConfirmAdmission(user),
+    can_track_admission_flow: mutable && canConfirmAdmission(user) && canAccessExecutiveAdmissionFlow(user),
     can_recommend: canUpdate && Boolean(assessment) && canWorkAssessment(user, assessment?.assessor_id ?? null),
     can_decide: mutable && canRecordAdmissionDecision(user),
     can_email: canUpdate,

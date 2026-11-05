@@ -28,6 +28,9 @@ test("admission flow uses actual arrival, leaves missing intervals blank, and re
   assert.equal(byId.get(1).assessment_days, 2);
   assert.equal(byId.get(1).assessment_to_arrival_days, 12);
   assert.equal(byId.get(1).ready_wait_days, 4);
+  assert.equal(byId.get(1).assessment_to_ready_days, 8);
+  assert.equal(byId.get(1).waiting_phase, "");
+  assert.equal(byId.get(2).waiting_phase, "No assessment date recorded");
   assert.equal(byId.get(1).rework, "1 / 2");
   assert.equal(byId.get(2).total_days, null);
   assert.notEqual(byId.get(2).state, "Admitted");
@@ -39,6 +42,21 @@ test("admission flow uses actual arrival, leaves missing intervals blank, and re
   assert.equal(metrics.find((item) => item.label === "Median assessment to arrival").value, "12 days");
   assert.equal(metrics.find((item) => item.label === "Assessment date coverage").value, "1 of 2");
   assert.equal(metrics.find((item) => item.label === "Did not move in").value, "1");
+  assert.equal(metrics.find((item) => item.label === "Ready, awaiting arrival").value, "0");
+  assert.equal(metrics.find((item) => item.label === "Arrival share").value, "50%");
+});
+
+test("executive weekly cohorts retain open referrals and show only confirmed arrivals", () => {
+  const rows = reports.admissionFlowRows([
+    referral(1, { date: "2026-10-05", actualAdmissionDate: "2026-10-12" }),
+    referral(2, { date: "2026-10-06", actualAdmissionDate: undefined, stage: "Assessment", admissionDecision: undefined }),
+    referral(3, { date: "2026-10-13", actualAdmissionDate: undefined, stage: "Closed", placementCancellation: { cancelledAt: "2026-10-18T00:00:00Z" } }),
+  ], new Map(), new Map());
+  const summary = reports.admissionFlowWeekSummary(rows);
+  assert.equal(summary.rows.length, 2);
+  const firstWeek = summary.rows.find((row) => row.values.group === "2026-10-05");
+  assert.deepEqual([firstWeek.values.received, firstWeek.values.admitted, firstWeek.values.open, firstWeek.values.arrival_share], [2, 1, 1, "50%"]);
+  assert.equal(summary.rows.find((row) => row.values.group === "2026-10-12").values.closed_without_arrival, 1);
 });
 
 test("received-month cohorts retain open cases and exclude arrivals from older cohorts", () => {
@@ -61,6 +79,7 @@ function routeFor(user, referralRecord, patchCalls) {
     "@/lib/observability/api-logging": { withApiLogging: (_request, _route, work) => work() },
     "@/lib/pipeline/referral-access": { requireMutableReferralAccess: async () => ({ ok: true, referral: referralRecord }),
       canConfirmAdmission: () => user.roles.includes("assessment_coordinator") },
+    "@/lib/pipeline/report-access": { canAccessExecutiveAdmissionFlow: () => user.email === "ericwilsonalamo@outlook.com" },
     "@/lib/pipeline/referral-store": { requireReferralStore: () => ({ ok: true }),
       getReferralMutationReplay: async () => null,
       patchReferral: async (_id, patch) => { patchCalls.push(patch); return { ok: true, referral: { ...referralRecord, ...patch } }; } },
@@ -81,12 +100,14 @@ test("assessors cannot add admission timing work; coordinator records ready date
   assert.equal((await assessor.PUT(request({ action: "start_hold", reason: "source_records", responsible_party: "referral_source" }), context)).status, 403);
   assert.equal(patchCalls.length, 0);
   const coordinator = routeFor({ id: "coordinator", name: "Coordinator", roles: ["assessment_coordinator"] }, referralRecord, patchCalls);
-  assert.equal((await coordinator.PUT(request({ action: "record_ready", ready_date: "2026-10-11" }), context)).status, 200);
+  assert.equal((await coordinator.PUT(request({ action: "record_ready", ready_date: "2026-10-11" }), context)).status, 403);
+  const executive = routeFor({ id: "executive", email: "ericwilsonalamo@outlook.com", name: "Executive", roles: ["assessment_coordinator"] }, referralRecord, patchCalls);
+  assert.equal((await executive.PUT(request({ action: "record_ready", ready_date: "2026-10-11" }), context)).status, 200);
   assert.equal(patchCalls[0].admissionFlow.readyToMoveInDate, "2026-10-11");
   assert.equal(patchCalls[0].admissionFlow.readyDateHistory.length, 1);
-  assert.equal((await coordinator.PUT(request({ action: "start_hold", reason: "staffed_bed", responsible_party: "community" }), context)).status, 200);
+  assert.equal((await executive.PUT(request({ action: "start_hold", reason: "staffed_bed", responsible_party: "community" }), context)).status, 200);
   assert.equal(patchCalls[1].admissionFlow.holds[0].reason, "staffed_bed");
-  assert.equal((await coordinator.PUT(request({ action: "start_hold", reason: "other", responsible_party: "community" }), context)).status, 400);
+  assert.equal((await executive.PUT(request({ action: "start_hold", reason: "other", responsible_party: "community" }), context)).status, 400);
 });
 
 test("coordinator facts persist with workflow versioning, audit, and mutation replay", async () => {

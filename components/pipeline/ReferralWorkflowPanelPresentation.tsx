@@ -159,7 +159,7 @@ export function ReferralWorkflowPanelPresentation({
       <dialog ref={followUpRef} aria-labelledby="placement-actions-title" className={styles.followUpDrawer} onClose={() => { setFollowUpOpen(false); followUpTriggerRef.current?.focus(); }} onClick={(event) => { if (event.target === event.currentTarget) event.currentTarget.close(); }}>
         <div className={styles.followUpHead}><h2 id="placement-actions-title">Handoff actions</h2><button type="button" aria-label="Close handoff actions" onClick={closeFollowUp}><X size={18} aria-hidden="true" /></button></div>
         <div className={styles.followUpBody}>
-          {workflow.capabilities.can_confirm_admission && view.currentReferral.stage !== "Accepted / Admitted" && !workflow.referral.placementCancellation ? <AdmissionFlowControls referral={workflow.referral} disabled={Boolean(busy)} onAction={onAdmissionFlowAction} /> : null}
+          {workflow.capabilities.can_track_admission_flow && view.currentReferral.stage !== "Accepted / Admitted" && !workflow.referral.placementCancellation ? <AdmissionFlowControls referral={workflow.referral} disabled={Boolean(busy)} onAction={onAdmissionFlowAction} /> : null}
           {view.currentReferral.stage !== "Accepted / Admitted" && workflow.capabilities.can_cancel_placement ? <div className={styles.drawerSection}><h3>Placement change</h3><ReferralAdmissionPanel key={workflow.referral.id} referral={workflow.referral} packetSentAt={workflow.context.packetSentAt} admissionDate={admissionDate} disabled={!workflow.capabilities.can_update || Boolean(busy)} onAdmissionDateChange={onAdmissionDateChange} onSaveAdmissionDate={onSaveAdmissionDate} onSavePlacementCancellation={onSavePlacementCancellation} showReviewButton={false} showDateEditor={false} /></div> : null}
           {view.currentReferral.stage !== "Accepted / Admitted" && !workflow.referral.placementCancellation && workflow.capabilities.can_confirm_admission ? <section className={styles.drawerSection} aria-label="Confirm actual admission">
             <h3>Confirm arrival</h3>
@@ -205,7 +205,7 @@ export function ReferralWorkflowPanelPresentation({
         <div className={styles.followUpBody}>
           {followUpOpen && message ? <WorkflowNotice tone="success">{message}</WorkflowNotice> : null}
           {followUpOpen && error ? <WorkflowNotice tone="error">{error}</WorkflowNotice> : null}
-          {workflow.capabilities.can_confirm_admission && !workflow.referral.placementCancellation && workflow.referral.stage !== "Declined" ? <AdmissionFlowControls referral={workflow.referral} disabled={Boolean(busy)} onAction={onAdmissionFlowAction} /> : null}
+          {workflow.capabilities.can_track_admission_flow && !workflow.referral.placementCancellation && workflow.referral.stage !== "Declined" ? <AdmissionFlowControls referral={workflow.referral} disabled={Boolean(busy)} onAction={onAdmissionFlowAction} /> : null}
           <details className={styles.details} data-admin-controls>
           <summary>Administrative controls</summary>
           <p className={styles.adminNote}>For authorized staff. These change the referral&apos;s stage or grant a manual intake exception. They do not record the decision, sign the assessment, or send anything.</p>
