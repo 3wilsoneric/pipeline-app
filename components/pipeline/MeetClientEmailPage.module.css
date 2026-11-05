@@ -102,6 +102,19 @@
   .completedDetails { margin-top: 16px; color: var(--color-ink-muted); font-size: 14px; }
   .completedDetails summary { width: fit-content; min-height: 44px; margin: 0 auto; padding: 12px 4px; cursor: pointer; }
   .completedDetails button { margin-top: 8px; }
+  .completedHandoff { margin: 16px 0 28px; padding: clamp(20px, 3vw, 32px); border: 1px solid var(--color-paper-rule); border-top: 3px solid var(--color-primary); border-radius: var(--radius-sheet); background: var(--color-card-warm); }
+  .completedHeading { display: flex; align-items: flex-start; gap: 18px; }
+  .completedHeading > div { min-width: 0; }
+  .completedIcon { box-sizing: content-box; flex: 0 0 auto; padding: 12px; border: 1px solid var(--color-status-done); border-radius: var(--radius-pill); color: var(--color-status-done); background: var(--color-paper); }
+  .completedHeading h3 { margin: 0; color: var(--color-night); font-size: var(--text-title); line-height: var(--text-title--line-height); font-weight: var(--text-title--font-weight); }
+  .completedHeading p { max-width: 48ch; margin: 6px 0 0; color: var(--color-ink-muted); font-size: var(--text-value); line-height: var(--text-value--line-height); }
+  .completedActions { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; margin-top: 24px; }
+  .completedActions > button { display: inline-flex; align-items: center; justify-content: center; gap: 12px; min-height: var(--spacing-action); max-width: 100%; padding: 12px 24px; border: 2px solid var(--color-night); border-radius: var(--radius-input); font-size: var(--text-value); line-height: var(--text-value--line-height); font-weight: 650; }
+  .sendButton.repeatHandoffButton { border-color: var(--color-primary); background: var(--color-paper); color: var(--color-link); }
+  .sendButton.repeatHandoffButton:hover:enabled { background: var(--color-primary-soft); }
+  .completedActions > button:disabled { opacity: .55; cursor: not-allowed; }
+  .completedHandoff .completedDetails { text-align: left; }
+  .completedHandoff .completedDetails summary { margin-inline: 0; }
   .reviewHeading { margin: 26px 0 0; padding-top: 24px; border-top: 1px solid var(--color-paper-rule); font-size: 24px; font-weight: 650; letter-spacing: -.025em; }
   .reviewActions { position: sticky; bottom: 0; z-index: 5; display: flex; align-items: center; justify-content: space-between; gap: 16px; border-top: 1px solid var(--color-paper-rule); padding: 16px 0; background: #fff; }
   .reviewActions > span { font-size: 14px; color: var(--color-ink-muted); }
@@ -157,6 +170,11 @@
     .guidedTask h3 { font-size: 25px; }
     .guidedTask > p { font-size: 15px; }
     .taskActions .sendButton { width: 100%; padding-inline: 12px; font-size: 15px; }
+    .completedHandoff { margin: 12px 0 24px; padding: 20px 16px; }
+    .completedHeading { gap: 12px; }
+    .completedIcon { width: 24px; height: 24px; padding: 8px; }
+    .completedActions { flex-direction: column; align-items: stretch; gap: 12px; margin-top: 20px; }
+    .completedActions > button { width: 100%; padding-inline: 12px; }
     .reviewHeading { margin-top: 16px; padding-top: 18px; font-size: 22px; }
     .reviewActions { flex-direction: column; align-items: stretch; gap: 8px; padding-bottom: max(12px, env(safe-area-inset-bottom)); }
     .reviewActions > span { font-size: 13px; }
