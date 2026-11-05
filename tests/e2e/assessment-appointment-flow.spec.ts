@@ -29,6 +29,20 @@ test("signing requires a performed date and starting records its source", async 
   expect(signed.status()).toBe(200);
 });
 
+test("confirming an undated chart opens the performed-date field", async ({ page }) => {
+  const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: `Synthetic Date Prompt ${randomUUID()}`, owner: "" });
+  const created = await page.request.post(`/api/referrals/${referral.id}/assessments`, { data: { client_mutation_id: randomUUID(), data: {} } });
+  expect(created.status()).toBe(201);
+  const assessment = (await created.json()).assessment;
+  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment`);
+  await openHandoffConfirmation(page);
+  await page.getByRole("button", { name: "Confirm chart", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Interview date", exact: true });
+  await expect(dialog.getByRole("textbox", { name: "Date assessment performed", exact: true })).toBeVisible();
+  await expect(dialog).toContainText("date the interview took place");
+  expect((await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment.signed_at).toBeNull();
+});
+
 for (const width of [1440, 834, 390, 320]) {
   test(`appointment is separate from answering, resuming and signing at ${width}px`, async ({ page }, info) => {
     await page.setViewportSize({ width, height: width === 320 ? 568 : 900 });
