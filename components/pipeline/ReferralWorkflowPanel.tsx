@@ -510,6 +510,13 @@ export default function ReferralWorkflowPanel({
     return Boolean(saved);
   };
 
+  const saveAdmissionFlow = async (action: "record_ready" | "start_hold" | "end_hold", details: Record<string, string> = {}) => Boolean(await runMutation(
+    `admission-flow:${action}:${currentReferral.version}:${sections.workflow}`,
+    `/api/referrals/${currentReferral.id}/admission-flow`, "PUT",
+    { if_match: currentReferral.version, if_match_section: sections.workflow, action, ...details },
+    action === "record_ready" ? "Ready date recorded" : action === "start_hold" ? "Hold recorded" : "Hold ended",
+  ));
+
   const saveAdmissionDate = async (openPreview = true) => {
     if (currentReferral.placementCancellation) {
       if (openPreview) onOpenEmail();
@@ -632,6 +639,7 @@ export default function ReferralWorkflowPanel({
       onSubmitTransition={submitTransition}
       onConfirmAdmission={(actualDate) => void confirmActualAdmission(actualDate)}
       onSavePlacementCancellation={savePlacementCancellation}
+      onAdmissionFlowAction={saveAdmissionFlow}
       onAuthorizeManualIntake={authorizeManualIntake}
       onConfirmDetail={confirmDetail}
       onCloseDetail={() => setPendingDetail(null)}

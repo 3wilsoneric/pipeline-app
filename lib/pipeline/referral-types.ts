@@ -199,6 +199,35 @@ export type PlacementCancellation = {
   updatedAt: string;
 };
 
+export type AdmissionFlowHoldReason =
+  | "source_records"
+  | "client_availability"
+  | "clinical_clearance"
+  | "payer_authorization"
+  | "admission_paperwork"
+  | "staffed_bed"
+  | "transport"
+  | "scheduling"
+  | "needs_clarification";
+
+export type AdmissionFlowHold = {
+  reason: AdmissionFlowHoldReason;
+  responsibleParty: "referral_source" | "client_or_family" | "pipeline" | "community" | "external_partner" | "unassigned";
+  startedAt: string;
+  endedAt?: string;
+  recordedBy: string;
+  recordedByName: string;
+};
+
+/** Coordinator-owned measurement facts. Assessment work never writes these fields. */
+export type AdmissionFlowTracking = {
+  readyToMoveInDate?: string;
+  readyRecordedAt?: string;
+  readyRecordedBy?: string;
+  readyDateHistory?: Array<{ date: string; recordedAt: string; recordedBy: string }>;
+  holds: AdmissionFlowHold[];
+};
+
 export type EhrHandoffStatus = "not_ready" | "ready" | "queued" | "sent" | "failed";
 
 export type EhrHandoffRecord = {
@@ -344,6 +373,7 @@ export type Referral = {
   admissionDecision?: AdmissionDecision;
   /** A later placement outcome; the accepted decision and sent handoff remain historical evidence. */
   placementCancellation?: PlacementCancellation;
+  admissionFlow?: AdmissionFlowTracking;
   /** Latest assessor recommendation. The supervisor's decision remains authoritative. */
   assessmentRecommendation?: AssessmentRecommendation;
   /** Latest durable supervisor review projection. PostgreSQL stores the authoritative row separately. */

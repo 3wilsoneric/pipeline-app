@@ -399,6 +399,7 @@ export async function transitionReferral(
     {
       stage: targetStage,
       ...(targetStage === "Accepted / Admitted" ? { workflowStatus: "admitted" as const, actualAdmissionDate: normalizeCalendarDate(actualAdmissionDate as string)! } : {}),
+      ...(current && ["Accepted / Admitted", "Declined"].includes(targetStage) ? closeAdmissionHold(current, new Date().toISOString()) : {}),
       ...(targetStage === "Declined" ? { workflowStatus: "declined" as const } : {}),
     },
     expectedVersion,
@@ -406,6 +407,13 @@ export async function transitionReferral(
     { workflow: expectedWorkflowVersion },
     { mutationId, mutationScope: "referral_transition", auditReason },
   );
+}
+
+function closeAdmissionHold(referral: Referral, endedAt: string) {
+  const tracking = referral.admissionFlow;
+  return tracking?.holds?.some((hold) => !hold.endedAt)
+    ? { admissionFlow: { ...tracking, holds: tracking.holds.map((hold) => hold.endedAt ? hold : { ...hold, endedAt }) } }
+    : {};
 }
 
 export async function recordAssessmentRecommendation(
@@ -608,6 +616,7 @@ export async function recordAdmissionDecision(
         } : {}),
         stage: targetStage,
         workflowStatus: input.outcome === "declined" ? "declined" : "approved_for_placement",
+        ...(input.outcome === "declined" ? closeAdmissionHold(snapshot.referral, now) : {}),
       },
       expectedVersion,
       actor,
@@ -1173,6 +1182,7 @@ async function recordPostgresDecision(
           ...data,
           admissionDecision: decision,
           ...(resolvedReview ? { assessmentReview: resolvedReview } : {}),
+          ...(input.outcome === "declined" ? closeAdmissionHold(fallback, decision.decidedAt) : {}),
         })},
         version = version + 1,
         section_versions = ${tx.json(nextSections)},
