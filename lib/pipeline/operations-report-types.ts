@@ -41,7 +41,7 @@ export type OperationsReportDefinition = {
   label: string;
   description: string;
   cadence: "Current" | "Monthly";
-  audience: "Operations" | "Assessment team" | "Supervisors";
+  audience: "Operations" | "Assessment team" | "Supervisors" | "Executives";
   filters: OperationsReportFilterKey[];
   supervisor_only?: boolean;
 };

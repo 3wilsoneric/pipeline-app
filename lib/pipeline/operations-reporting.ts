@@ -23,7 +23,7 @@ import {
   clientDataReportIds,
 } from "@/lib/pipeline/operations-report-types";
 import { getSupervisorExceptionSnapshot } from "@/lib/pipeline/operations-snapshot";
-import { canAccessOperationsReports } from "@/lib/pipeline/report-access";
+import { canAccessExecutiveAdmissionFlow, canAccessOperationsReports } from "@/lib/pipeline/report-access";
 import { scopeReferralListOptions } from "@/lib/pipeline/referral-access";
 import { getReferralStoreReadiness, listLocalReferralAuditEvents, listReferralFacets, listReferrals, listReferralFiles } from "@/lib/pipeline/referral-store";
 import type { Referral } from "@/lib/pipeline/referral-types";
@@ -139,7 +139,7 @@ const reportCatalog: OperationsReportDefinition[] = [
   {
     id: "admission_flow", label: "Admission flow",
     description: "Received-to-actual-admission timing, current waits, recorded holds, and date coverage. Planned moves and acceptance are not admissions.",
-    cadence: "Current", audience: "Supervisors", filters: ["month", "community", "owner"], supervisor_only: true,
+    cadence: "Current", audience: "Executives", filters: ["month", "community", "owner"], supervisor_only: true,
   },
   {
     id: "ehr_handoff",
@@ -171,7 +171,8 @@ const visibleReportIds: OperationsReportId[] = [
 
 export function getOperationsReportCatalog(user: PipelineUser) {
   if (!canAccessOperationsReports(user)) return [];
-  return visibleReportIds.flatMap((id) => reportCatalog.filter((definition) => definition.id === id));
+  return visibleReportIds.flatMap((id) => reportCatalog.filter((definition) => definition.id === id &&
+    (id !== "admission_flow" || canAccessExecutiveAdmissionFlow(user))));
 }
 
 export async function getOperationsReport(
@@ -180,6 +181,7 @@ export async function getOperationsReport(
   options: { export?: boolean; request?: Request } = {},
 ): Promise<OperationsReportResponse> {
   if (!canAccessOperationsReports(user)) throw new ReportAccessError();
+  if (filters.report_id === "admission_flow" && !canAccessExecutiveAdmissionFlow(user)) throw new ReportAccessError();
   const catalog = getOperationsReportCatalog(user);
   const definition = reportCatalog.find((item) => item.id === filters.report_id);
   if (!definition) throw new ReportAccessError();
@@ -233,6 +235,7 @@ export async function recordOperationsReportExport(
   response: OperationsReportResponse,
 ) {
   if (!canAccessOperationsReports(user)) throw new ReportAccessError();
+  if (response.filters.report_id === "admission_flow" && !canAccessExecutiveAdmissionFlow(user)) throw new ReportAccessError();
   if (!getPipelineDatabaseReadiness().ready) return;
   const actor = pipelineAuditActor(user);
   const sql = getPipelineSql();
@@ -455,6 +458,7 @@ async function buildReport(
     definition,
     columns: reportColumns(definition.id),
     metrics: reportMetrics(definition.id, rows),
+    ...(definition.id === "admission_flow" ? { summary: admissionFlowWeekSummary(rows) } : {}),
     rows,
     row_count: rows.length,
     truncated: false,
@@ -462,11 +466,13 @@ async function buildReport(
     ...(definition.id === "admission_flow" ? { notes: [
       "Only staff-confirmed actual admission dates count as admissions. Planned dates and accepted decisions do not.",
       "Assessment and ready dates are shown only when recorded. Blank intervals are excluded, never estimated.",
-      "Hold reasons are coordinator-entered observations, not a complete or automatic measure of avoidable days.",
+      "Hold reasons are manually entered observations, not a complete or automatic measure of avoidable days.",
       "First change is the first audited change after creation; it is not proof of first contact with the client or referral source.",
       "Early outcomes after move-in require linked clinical stay data and are not inferred from referral records.",
       "A selected month groups referrals by their received date, including those still open; All dates shows the full accessible history.",
       "Recent cohorts still contain open cases. Do not treat a shorter admitted-case median alone as faster overall throughput.",
+      "Weekly rows group referrals by received week. Admission share is provisional while a cohort remains open.",
+      "Open waiting phases are inferred from recorded milestone dates; missing dates are shown as missing evidence, not proof a step did not happen.",
     ] } : {}),
   };
 }
@@ -789,6 +795,7 @@ export function admissionFlowRows(referrals: Referral[], assessmentDates: Map<nu
     const state = admitted ? "Admitted" : referral.placementCancellation ? "Did not move in" :
       declined ? "Declined" : ready ? "Ready, awaiting arrival" :
       referral.workflowStatus ? workflowStatusLabels[referral.workflowStatus] : referral.stage;
+    const waitingPhase = !open ? "" : ready ? "Ready, awaiting arrival" : assessed ? "Assessment recorded, not ready" : "No assessment date recorded";
     const elapsed = (start: string | null, end: string | null) => start && end && end >= start
       ? Math.round((Date.parse(`${end}T00:00:00Z`) - Date.parse(`${start}T00:00:00Z`)) / 86_400_000) : null;
     return referralRow(referral, {
@@ -798,10 +805,14 @@ export function admissionFlowRows(referrals: Referral[], assessmentDates: Map<nu
       source: referral.source ?? "",
       owner: referral.owner || "Unassigned",
       state,
+      group: received ? receivedWeek(received) : "Date missing",
+      waiting_phase: waitingPhase,
+      assessment_date: assessed,
       days_since_receipt: open ? elapsed(received, today) : null,
       first_change_days: elapsed(received, audit?.firstChange?.slice(0, 10) ?? null),
       assessment_days: elapsed(received, assessed),
       assessment_to_arrival_days: elapsed(assessed, admitted),
+      assessment_to_ready_days: elapsed(assessed, ready),
       ready_wait_days: ready ? elapsed(ready, admitted ?? (open ? today : null)) : null,
       ready_to_arrive_days: elapsed(ready, admitted),
       total_days: elapsed(received, admitted),
@@ -814,6 +825,39 @@ export function admissionFlowRows(referrals: Referral[], assessmentDates: Map<nu
     });
   }).sort((a, b) => Number(b.values.days_since_receipt ?? -1) - Number(a.values.days_since_receipt ?? -1)
     || String(b.values.actual_admission_date ?? "").localeCompare(String(a.values.actual_admission_date ?? "")));
+}
+
+function receivedWeek(date: string) {
+  const day = new Date(`${date}T00:00:00Z`);
+  day.setUTCDate(day.getUTCDate() - (day.getUTCDay() + 6) % 7);
+  return day.toISOString().slice(0, 10);
+}
+
+export function admissionFlowWeekSummary(rows: OperationsReportRow[]) {
+  const groups = new Map<string, OperationsReportRow[]>();
+  for (const row of rows) {
+    const week = String(row.values.group);
+    if (!groups.has(week)) groups.set(week, []);
+    groups.get(week)!.push(row);
+  }
+  return {
+    columns: [column("group", "Received week", "left", "date"), column("received", "Received", "right"),
+      column("admitted", "Arrived", "right"), column("open", "Still open", "right"),
+      column("closed_without_arrival", "Other outcomes", "right"), column("arrival_share", "Arrival share", "right"),
+      column("median_days", "Median days to arrival", "right"), column("p90_days", "90th percentile", "right")],
+    rows: [...groups].sort(([left], [right]) => right.localeCompare(left)).map(([group, cohort]) => {
+      const admitted = cohort.filter((row) => row.values.state === "Admitted");
+      const open = cohort.filter((row) => row.values.waiting_phase !== "");
+      return {
+        row_id: `received-week:${group}`, referral_id: null, client_name: null, community: null,
+        values: { group, received: cohort.length, admitted: admitted.length, open: open.length,
+          closed_without_arrival: cohort.length - admitted.length - open.length,
+          arrival_share: `${Math.round(admitted.length / cohort.length * 100)}%`,
+          median_days: medianMetric(admitted.map((row) => row.values.total_days)),
+          p90_days: distributionMetric(admitted.map((row) => row.values.total_days), "p90") },
+      };
+    }),
+  };
 }
 
 function medianMetric(values: Array<string | number | null>) {
@@ -868,13 +912,16 @@ async function supervisorExceptionRows(filters: OperationsReportFilters) {
 function reportColumns(reportId: OperationsReportId): OperationsReportColumn[] {
   if (reportId === "admission_flow") return [
     column("client", "Client"), column("received_date", "Received", "left", "date"),
+    column("assessment_date", "Assessment", "left", "date"), column("ready_date", "Ready", "left", "date"),
     column("actual_admission_date", "Actual arrival", "left", "date"),
     column("community", "Community"), column("county", "County"),
     column("source", "Referral source"), column("owner", "Assigned owner"), column("state", "Current position"),
     column("days_since_receipt", "Open days", "right"),
+    column("waiting_phase", "Waiting phase"),
     column("current_step_days", "In current step", "right"),
     column("first_change_days", "To first change", "right"),
     column("assessment_days", "To assessment", "right"),
+    column("assessment_to_ready_days", "Assessment to ready", "right"),
     column("assessment_to_arrival_days", "Assessment to arrival", "right"),
     column("ready_wait_days", "Ready wait", "right"),
     column("total_days", "Receipt to arrival", "right"),
@@ -948,14 +995,20 @@ export function reportMetrics(reportId: OperationsReportId, rows: OperationsRepo
       metric("Median receipt to arrival", days(medianMetric(admitted.map((row) => row.values.total_days))), `${validArrival.length} of ${admitted.length} actual admissions have both dates.`),
       metric("Median receipt to assessment", days(medianMetric(admitted.map((row) => row.values.assessment_days))), "Actual admissions with a recorded performed assessment date."),
       metric("Median assessment to arrival", days(medianMetric(admitted.map((row) => row.values.assessment_to_arrival_days))), "Actual admissions with a recorded performed assessment date."),
+      metric("Median assessment to ready", days(medianMetric(admitted.map((row) => row.values.assessment_to_ready_days))), "Actual admissions with both performed-assessment and manually recorded ready dates."),
+      metric("Median ready to arrival", days(medianMetric(admitted.map((row) => row.values.ready_to_arrive_days))), "Actual admissions with both manually recorded ready and confirmed arrival dates."),
       metric("Mean receipt to arrival", days(distributionMetric(admitted.map((row) => row.values.total_days), "mean")), "Completed admissions with both dates; compare with the open queue."),
       metric("90th percentile", days(distributionMetric(admitted.map((row) => row.values.total_days), "p90")), "Longest tenth of completed waits, nearest-rank method."),
       metric("Open referrals", open.length, "Includes cases still waiting; they are not omitted from the view."),
+      metric("No assessment date recorded", open.filter((row) => row.values.waiting_phase === "No assessment date recorded").length, "Open referrals without a linked performed-assessment date; this does not prove assessment has not occurred."),
+      metric("Assessment recorded, not ready", open.filter((row) => row.values.waiting_phase === "Assessment recorded, not ready").length, "Open referrals with a performed assessment but no manually recorded ready date."),
+      metric("Ready, awaiting arrival", open.filter((row) => row.values.waiting_phase === "Ready, awaiting arrival").length, "Ready date recorded, actual arrival not yet confirmed."),
       metric("Open over 14 days", open.filter((row) => numericValue(row.values.days_since_receipt) > 14).length, "Based on the recorded received date."),
       metric("Assessment date coverage", `${admitted.filter((row) => row.values.assessment_days !== null).length} of ${admitted.length}`, "Recorded performed date among actual admissions."),
-      metric("Ready date coverage", `${admitted.filter((row) => row.values.ready_to_arrive_days !== null).length} of ${admitted.length}`, "Coordinator-recorded ready date among actual admissions."),
+      metric("Ready date coverage", `${admitted.filter((row) => row.values.ready_to_arrive_days !== null).length} of ${admitted.length}`, "Manually recorded ready date among actual admissions."),
       metric("Current holds", open.filter((row) => row.values.hold !== "").length, "Explicit holds still open."),
       metric("Did not move in", rows.filter((row) => row.values.state === "Did not move in").length, "Recorded placement cancellations; excluded from admission timing."),
+      metric("Arrival share", `${rows.length ? Math.round(admitted.length / rows.length * 100) : 0}%`, "Share of received referrals with confirmed actual arrival; provisional while referrals remain open."),
     ];
   }
   if (reportId === "active_referrals") return [

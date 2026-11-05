@@ -6,6 +6,7 @@ import { withApiLogging } from "@/lib/observability/api-logging";
 import { normalizeCalendarDate } from "@/lib/pipeline/calendar-date";
 import { admissionFlowToday } from "@/lib/pipeline/admission-flow-day";
 import { canConfirmAdmission, requireMutableReferralAccess } from "@/lib/pipeline/referral-access";
+import { canAccessExecutiveAdmissionFlow } from "@/lib/pipeline/report-access";
 import { getReferralMutationReplay, patchReferral, requireReferralStore } from "@/lib/pipeline/referral-store";
 import type { AdmissionFlowHold, AdmissionFlowHoldReason, AdmissionFlowTracking } from "@/lib/pipeline/referral-types";
 import { validateClientMutationId } from "@/lib/pipeline/client-mutation-id";
@@ -34,7 +35,7 @@ export async function PUT(request: Request, context: { params: Promise<{ referra
     if (!Number.isSafeInteger(referralId) || referralId < 1) return jsonError("referralId is invalid.");
     const access = await requireMutableReferralAccess(auth.user, referralId);
     if (!access.ok) return access.response;
-    if (!canConfirmAdmission(auth.user)) return jsonError("Only an admissions coordinator or admin can record admission flow facts.", 403);
+    if (!canConfirmAdmission(auth.user) || !canAccessExecutiveAdmissionFlow(auth.user)) return jsonError("Admission flow tracking is not available for this account.", 403);
     const body = await readJsonBody<Record<string, unknown>>(request);
     if (!body.ok) return jsonError(body.message, body.status);
     if (!body.value || typeof body.value !== "object" || Array.isArray(body.value)) return jsonError("The request body must be an object.");

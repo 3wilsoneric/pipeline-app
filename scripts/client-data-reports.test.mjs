@@ -56,6 +56,24 @@ test("named supervisors retain Reports access across Microsoft guest aliases, ne
   }
 });
 
+test("admission flow is restricted to executive principals, including direct report and export access", async () => {
+  const eric = { id: "f73371d5-d2b4-48b4-a32b-1edc7c88869f", email: "guest-alias@tenant.onmicrosoft.com", roles: ["admin"] };
+  const andrew = { email: "andrew@aaahealthservices.com", roles: ["assessment_coordinator"] };
+  const sandeep = { id: "b72c34f0-0ee8-4ab4-8359-81c8f7b0d3b2", email: "sandeep@aaahealthservices.com", roles: ["assessment_coordinator"] };
+  for (const executive of [eric, andrew]) assert.equal(access.canAccessExecutiveAdmissionFlow(executive), true);
+  for (const other of [sandeep, { ...eric, roles: ["viewer"] }, { ...eric, accessScope: "note_lab" }]) {
+    assert.equal(access.canAccessExecutiveAdmissionFlow(other), false);
+  }
+  const reporting = loadEntry("lib/pipeline/operations-reporting.ts", {
+    "./client-workspace-store": {}, "./client-data-reports": {}, "./contact-store": {},
+  });
+  assert.equal(reporting.getOperationsReportCatalog(sandeep).some((item) => item.id === "admission_flow"), false);
+  assert.equal(reporting.getOperationsReportCatalog(eric).some((item) => item.id === "admission_flow"), true);
+  const filters = { report_id: "admission_flow", month: "", community: "", owner: "" };
+  await assert.rejects(reporting.getOperationsReport(sandeep, filters), { name: "ReportAccessError" });
+  await assert.rejects(reporting.recordOperationsReportExport(sandeep, { filters }), { name: "ReportAccessError" });
+});
+
 test("both report routes require Pipeline authentication before reading data or exporting", async () => {
   let authenticationCalls = 0;
   const route = loadEntry("app/api/operations/reports/route.ts", {
