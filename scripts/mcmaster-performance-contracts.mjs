@@ -47,17 +47,14 @@ assert.match(scorecard, /warm_navigation_ms: boundedInteger\("PIPELINE_PERF_WARM
 assert.match(scorecard, /useful_content_ms: boundedInteger\("PIPELINE_PERF_USEFUL_CONTENT_MS", 800/, "Useful referral content must retain a sub-second goal.");
 assert.match(scorecard, /filter_tab_queue_ms: boundedInteger\("PIPELINE_PERF_FILTER_MS", 150/, "Localized interaction goal must remain 150 ms.");
 assert.match(scorecard, /overlay_interaction_ms: boundedInteger\("PIPELINE_PERF_OVERLAY_MS", 150/, "Overlay interaction goal must remain 150 ms.");
-assert.match(scorecard, /guide_interaction_ms: boundedInteger\("PIPELINE_PERF_GUIDE_MS", 150/, "Guide interaction goal must remain 150 ms.");
-assert.match(scorecard, /guideJourneys\.length >= 9/, "The guide certification must retain at least nine current tutorial interactions.");
-for (const journey of ["guide_library_open", "guide_walkthrough_start", "guide_step_advance", "guide_step_back", "guide_pause", "guide_library_reopen", "guide_restart", "guide_return_to_library", "guide_library_close"]) {
-  assert.ok(scorecard.includes(`measureJourney("${journey}", "guide"`), `Current tutorial interaction ${journey} must remain timed.`);
+for (const journey of ["profile_menu_open", "profile_menu_close"]) {
+  assert.ok(scorecard.includes(`measureJourney("${journey}", "overlay"`), `Current profile interaction ${journey} must remain timed.`);
 }
-assert.match(scorecard, /await retainDocumentInteractions\(\);[\s\S]+documentInteractions\.values\(\)/, "Full-document tutorial navigation must retain earlier interaction samples.");
-assert.match(scorecard, /referrals_to_learning_center/, "Learning Center navigation must be timed.");
+assert.doesNotMatch(scorecard, /guided-coach|Open guided tutorials|referrals_to_learning_center|guide_interactions/, "Performance checks must not require removed tutorials.");
+assert.match(scorecard, /await retainDocumentInteractions\(\);[\s\S]+documentInteractions\.values\(\)/, "Full-document navigation must retain earlier interaction samples.");
 assert.match(scorecard, /operations-briefing-header/, "The current briefing must render in the timed Reports journey.");
 assert.match(scorecard, /history_back_to_operations/, "Back and forward navigation must be timed.");
-assert.match(header, /aria-label="Open guided tutorials"[^>]+onClick=\{onOpenGuide\}/, "Help must invoke its guide callback.");
-assert.match(header, /<HeaderSessionControls[^>]+onOpenGuide=\{\(\) => \{[^}]+dispatchOperatorGuide\(\{ type: "open-library" \}\);/, "The profile-menu Help callback must open the in-app Learning Center without a document navigation.");
+assert.doesNotMatch(header, /Open guided tutorials|dispatchOperatorGuide/, "Removed tutorials must not return through the profile menu.");
 assert.doesNotMatch(scorecard, /Filter profiles by admission date|Open Assessor's Workshop presentation|Guided tutorial library|Check team work guided tutorial|Continue where you stopped|End tutorial/, "Performance journeys must exercise current controls, not retired filters, presentations or tutorial controls.");
 assert.match(completeCertification, /PIPELINE_COLLABORATION_USERS[^\n]+"20"/, "Complete certification must exercise twenty simultaneous collaboration identities.");
 assert.match(completeCertification, /scripts\/http-soak-smoke\.mjs/, "Complete certification must include a bounded soak.");
