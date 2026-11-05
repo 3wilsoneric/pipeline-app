@@ -727,7 +727,6 @@ async function exerciseAllSurfaces(
     const page = await context.newPage();
     const backgroundPages = await openBackgroundPages(context, virtualUser);
     let surfaceCount = 0;
-    let guideLatencyMs = 0;
     try {
       for (const route of ["/", "/?view=referrals", "/?screen=calendar"]) {
         const response = await page.goto(route, { waitUntil: "domcontentloaded" });
@@ -735,13 +734,7 @@ async function exerciseAllSurfaces(
         await expect(page.locator("main").first()).toBeVisible({ timeout: 20_000 });
         surfaceCount += 1;
       }
-      const guideStartedAt = Date.now();
-      await page.locator('[data-pipeline-ready="guided-coach"]').waitFor({ state: "attached", timeout: 20_000 });
-      await page.getByRole("button", { name: "Open guided tutorials" }).click();
-      await expect(page.getByRole("dialog", { name: "Guided tutorial library" })).toBeVisible({ timeout: 20_000 });
-      guideLatencyMs = Date.now() - guideStartedAt;
-      await page.getByRole("button", { name: "Close guided tutorials" }).click();
-      surfaceCount += 1;
+      await expect(page.getByRole("button", { name: "Open guided tutorials" })).toHaveCount(0);
       const adminEvidence = await exerciseAdminSurfaces(page, actor, plan, cases);
       surfaceCount += adminEvidence.surfaces;
       for (const createdCase of caseByActor.get(actor.id) ?? []) {
@@ -767,7 +760,6 @@ async function exerciseAllSurfaces(
         cases: caseByActor.get(actor.id)?.length ?? 0,
         surfaces: surfaceCount,
         tabs: backgroundPages.length + 1,
-        guide_latency_ms: guideLatencyMs,
         network_recovery: isOfflineFlap(virtualUser),
         god_mode_profiles: adminEvidence.godModeProfiles,
       };

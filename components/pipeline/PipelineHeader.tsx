@@ -5,7 +5,7 @@ import { canEditWorkspace } from "@/lib/pipeline/referral-ownership";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, ArrowRight, CircleHelp, FlaskConical, ListTodo, LogOut, MoreHorizontal, Settings, Trash2, UserRound, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, FlaskConical, ListTodo, LogOut, MoreHorizontal, Settings, Trash2, UserRound, X } from "lucide-react";
 
 import { ActiveAssessorSessionPill, AssessorSessionMenuAction } from "@/components/pipeline/AssessorSessionControl";
 import PipelineActionNav, { type PipelineNavTarget } from "@/components/pipeline/PipelineActionNav";
@@ -18,7 +18,6 @@ import { usePipelineAuth } from "@/components/auth/PipelineAuthProvider";
 import { pushPipelineHistory, usePipelineLocationSearch } from "@/lib/pipeline/client-navigation";
 import { toPipelinePath } from "@/lib/pipeline/base-path";
 import { canAccessOperationsReports } from "@/lib/pipeline/report-access";
-import { dispatchOperatorGuide } from "@/lib/training/operator-guided-tour-state";
 import DemoPersonaSwitch from "@/components/pipeline/DemoPersonaSwitch";
 import DemoAssessmentLabButton from "@/components/pipeline/DemoAssessmentLabButton";
 import sidebarStyles from "@/components/pipeline/PipelineMobileShell.module.css";
@@ -91,7 +90,6 @@ export default function PipelineHeader({ phone = false }: { phone?: boolean }) {
   const signedInName = user?.name || (auth.account ? getAccountDisplayName(auth.account) : process.env.NEXT_PUBLIC_PIPELINE_PERSONA_DEMO === "true" ? "Account" : "Eric Wilson");
   const profileAppearance = getProfileAppearance(user);
   const trashActive = activeSearchParams.get("screen") === "trash";
-  const hideGlobalGuide = pathname === "/note-lab" || pathname.startsWith("/note-lab/");
 
   const runNavigation = useCallback(async (action: () => void) => {
     try {
@@ -250,11 +248,7 @@ export default function PipelineHeader({ phone = false }: { phone?: boolean }) {
                 <ListTodo size={20} aria-hidden="true" />
                 <span>Follow-up review</span>
               </Link>
-              <HeaderSessionControls user={user} hideGlobalGuide={hideGlobalGuide} onOpenGuide={() => {
-                setIsProfileMenuOpen(false);
-                phoneMenuRef.current?.close();
-                dispatchOperatorGuide({ type: "open-library" });
-              }} />
+              <HeaderSessionControls user={user} />
             </div>
           </div>
         </div>
@@ -284,7 +278,7 @@ export default function PipelineHeader({ phone = false }: { phone?: boolean }) {
         })} />
         <button type="button" className={sidebarStyles.phonePageButton} aria-label={`Open page menu, current page ${pageLabel}`} aria-haspopup="dialog" onClick={(event) => { event.currentTarget.focus(); phoneMenuRef.current?.showModal(); }}><MoreHorizontal size={20} aria-hidden="true" /><span>More</span></button>
       </div>
-      <dialog ref={phoneMenuRef} aria-label="Pipeline pages" className={sidebarStyles.phoneMenu} onClick={(event) => { if (event.target === event.currentTarget || event.target instanceof Element && event.target.closest('[data-guide-target="guided-help"]')) phoneMenuRef.current?.close(); }}>
+      <dialog ref={phoneMenuRef} aria-label="Pipeline pages" className={sidebarStyles.phoneMenu} onClick={(event) => { if (event.target === event.currentTarget) phoneMenuRef.current?.close(); }}>
         <div className={sidebarStyles.phoneMenuHeading}><span>More</span><button type="button" aria-label="Close page menu" onClick={() => phoneMenuRef.current?.close()}><X size={20} /></button></div>
         {navigationContent}
       </dialog>
@@ -292,23 +286,10 @@ export default function PipelineHeader({ phone = false }: { phone?: boolean }) {
   </header>;
 }
 
-function HeaderSessionControls({ user, hideGlobalGuide, onOpenGuide }: { user: PipelineCurrentUser | null; hideGlobalGuide: boolean; onOpenGuide: () => void }) {
+function HeaderSessionControls({ user }: { user: PipelineCurrentUser | null }) {
   return <>
     {user?.demoPersona ? <DemoAssessmentLabButton className="flex items-center text-[#08745f]" ><FlaskConical size={18} aria-hidden="true" /><span>Assessment lab</span></DemoAssessmentLabButton> : null}
     {user?.demoPersona ? <DemoPersonaSwitch persona={user.demoPersona} /> : <ActiveAssessorSessionPill user={user} />}
-    {!hideGlobalGuide ? (
-      <button
-        type="button"
-        aria-label="Open guided tutorials"
-        title="Tutorials"
-        data-guide-target="guided-help"
-        onClick={onOpenGuide}
-        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-[#0f8b73] outline-none hover:bg-[#eff8f5] focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2"
-      >
-        <CircleHelp size={18} strokeWidth={1.8} aria-hidden="true" />
-        <span>Tutorials</span>
-      </button>
-    ) : null}
   </>;
 }
 

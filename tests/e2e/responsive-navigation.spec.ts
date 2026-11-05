@@ -46,7 +46,7 @@ test.describe("Responsive application navigation", () => {
       await expect(page.getByRole("button", { name: "Resume guided tutorial" })).toHaveCount(0);
       await page.getByRole("button", { name: /Open profile menu/ }).click();
       const profile = page.getByRole("dialog", { name: "Profile settings", exact: true });
-      await expect(profile.getByRole("button", { name: "Open guided tutorials" })).toBeVisible();
+      await expect(profile.getByRole("button", { name: "Open guided tutorials" })).toHaveCount(0);
       await page.keyboard.press("Escape");
       await expect(profile).toBeHidden();
 

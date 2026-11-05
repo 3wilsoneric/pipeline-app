@@ -33,6 +33,8 @@ test("Eric can open the admission flow report from the weekly briefing and retur
   await expect(page.getByRole("heading", { name: "Admission flow" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Weekly briefing" })).toBeVisible();
   await expect(page.getByLabel("Report", { exact: true })).toHaveCount(0);
+  await expect(page.getByLabel("Report period")).toHaveValue("all");
+  await expect(page.getByLabel("Report period").getByRole("option", { name: "Since launch", exact: true })).toHaveCount(1);
   await expect.poll(() => reportRequests).toBe(1);
   await page.getByRole("button", { name: "Weekly briefing" }).click();
   await expect(page).toHaveURL(/\?screen=operations$/);

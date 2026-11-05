@@ -1,8 +1,7 @@
-import { showTutorialHelp } from "./support/app-navigation";
 import { expect, test } from "@playwright/test";
 
 test.describe("Pipeline warm navigation and bounded reads", () => {
-  test("leaves the Learning Center without reloading the document or auth shell", async ({ page }) => {
+  test("leaves profile settings without reloading the document or auth shell", async ({ page }) => {
     let documentRequests = 0;
     let authIdentityRequests = 0;
     let sessionExchangeRequests = 0;
@@ -14,9 +13,9 @@ test.describe("Pipeline warm navigation and bounded reads", () => {
     });
 
     await page.goto("/");
-    await (await showTutorialHelp(page)).click();
-    await expect(page.getByRole("dialog", { name: "Tutorials", exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "Close tutorials", exact: true }).click();
+    await page.getByRole("button", { name: /^Open profile menu for/ }).click();
+    await expect(page.getByRole("dialog", { name: "Profile settings", exact: true })).toBeVisible();
+    await page.keyboard.press("Escape");
     const initialDocumentRequests = documentRequests;
 
     await page.getByRole("button", { name: "Open referrals", exact: true }).click();

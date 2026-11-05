@@ -182,7 +182,7 @@ test("shared Home navigation remains usable and saves before leaving the assessm
   await expect(page.locator("main").first()).not.toHaveCSS("isolation", "isolate");
 });
 
-test("profile navigation leaves through the save path and practice help stays in context", async ({ page }) => {
+test("profile navigation leaves through the save path without tutorial controls", async ({ page }) => {
   let assessment = await openWorkingAssessment(page);
   await expectAppNavigation(page);
   await page.getByRole("button", { name: /^Open profile menu for/ }).click();
@@ -192,8 +192,7 @@ test("profile navigation leaves through the save path and practice help stays in
   assessment = await openWorkingAssessment(page);
   await expect(assessment).toHaveAttribute("data-assessment-view", "assessment");
   await page.getByRole("button", { name: /^Open profile menu for/ }).click();
-  await page.getByRole("button", { name: "Open guided tutorials", exact: true }).click();
-  await expect(page.getByRole("dialog", { name: "Tutorials", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Open guided tutorials", exact: true })).toHaveCount(0);
   await expect(assessment).toBeVisible();
 });
 
