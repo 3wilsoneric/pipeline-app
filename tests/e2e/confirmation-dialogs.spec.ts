@@ -15,7 +15,7 @@ for (const scenario of [
     try {
       await page.setViewportSize(scenario);
       const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: "Example Jordan Rivera", community: "San Pablo", owner: "", tags: [] });
-      const assessment = await createOperationalAssessment(page.request, referral.id);
+      const assessment = await createOperationalAssessment(page.request, referral.id, { assessmentDate: "2026-11-04" });
       const assessmentUrl = `/api/assessments/${assessment.assessment_id}`;
       const read = async () => (await (await page.request.get(assessmentUrl)).json()).assessment;
       let signatures = 0;
