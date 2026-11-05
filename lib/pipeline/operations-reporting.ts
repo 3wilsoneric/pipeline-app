@@ -945,6 +945,8 @@ export function reportMetrics(reportId: OperationsReportId, rows: OperationsRepo
     return [
       metric("Actual admissions", admitted.length, "Only referrals with a staff-confirmed actual arrival date."),
       metric("Median receipt to arrival", days(medianMetric(admitted.map((row) => row.values.total_days))), `${validArrival.length} of ${admitted.length} actual admissions have both dates.`),
+      metric("Median receipt to assessment", days(medianMetric(admitted.map((row) => row.values.assessment_days))), "Actual admissions with a recorded performed assessment date."),
+      metric("Median assessment to arrival", days(medianMetric(admitted.map((row) => row.values.assessment_to_arrival_days))), "Actual admissions with a recorded performed assessment date."),
       metric("Mean receipt to arrival", days(distributionMetric(admitted.map((row) => row.values.total_days), "mean")), "Completed admissions with both dates; compare with the open queue."),
       metric("90th percentile", days(distributionMetric(admitted.map((row) => row.values.total_days), "p90")), "Longest tenth of completed waits, nearest-rank method."),
       metric("Open referrals", open.length, "Includes cases still waiting; they are not omitted from the view."),

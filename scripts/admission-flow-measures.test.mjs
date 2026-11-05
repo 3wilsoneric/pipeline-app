@@ -35,6 +35,8 @@ test("admission flow uses actual arrival, leaves missing intervals blank, and re
   assert.equal(byId.get(4).assessment_days, null);
   const metrics = reports.reportMetrics("admission_flow", rows);
   assert.equal(metrics.find((item) => item.label === "Actual admissions").value, "2");
+  assert.equal(metrics.find((item) => item.label === "Median receipt to assessment").value, "2 days");
+  assert.equal(metrics.find((item) => item.label === "Median assessment to arrival").value, "12 days");
   assert.equal(metrics.find((item) => item.label === "Assessment date coverage").value, "1 of 2");
   assert.equal(metrics.find((item) => item.label === "Did not move in").value, "1");
 });
