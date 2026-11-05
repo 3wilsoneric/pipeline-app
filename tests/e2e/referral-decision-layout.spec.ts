@@ -343,8 +343,8 @@ test("administrative stage controls are separate, labeled, and only change the s
   await expect(panel.getByRole("button", { name: "Record decision", exact: true })).toBeDisabled();
   await expect(panel.getByRole("combobox", { name: "Workflow stage" })).not.toBeVisible();
 
-  await panel.getByRole("button", { name: "Administrative controls" }).click();
-  await page.getByRole("dialog", { name: "Administrative controls" }).locator("summary").filter({ hasText: /^Administrative controls$/ }).click();
+  await panel.getByRole("button", { name: "Decision settings" }).click();
+  await page.getByRole("dialog", { name: "Decision settings" }).locator("summary").filter({ hasText: /^Administrative controls$/ }).click();
   await expect(panel).toContainText("They do not record the decision, sign the assessment, or send anything.");
   await panel.getByRole("combobox", { name: "Workflow stage", exact: true }).selectOption("Assessment");
   await expect(panel.getByText("Stage changed to Assessment", { exact: true })).toBeVisible();

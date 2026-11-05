@@ -568,6 +568,7 @@ export async function recordAdmissionDecision(
 ): Promise<WorkflowRecordMutation<AdmissionDecision> | null> {
   const replay = await getReferralMutationReplay(referralId, "admission_decision", mutationId);
   if (replay?.admissionDecision) return { ok: true, record: replay.admissionDecision, referral: replay };
+  if (replay) return { ok: false, conflict: true, referral: replay };
   const snapshot = await getReferralWorkflowSnapshot(referralId);
   if (!snapshot) return null;
   if (normalizeReferralSectionVersions(snapshot.referral.sectionVersions).decision !== expectedDecisionVersion) {
@@ -659,6 +660,98 @@ export async function recordAdmissionDecision(
   const referral = await getReferral(referralId);
   if (!referral) return null;
   return { ok: true, record: result.record, referral };
+}
+
+/** Reopen a denial without changing its assessment, recommendation or documents. */
+export async function reopenAdmissionDecision(
+  referralId: number,
+  decisionId: string,
+  expectedVersion: number,
+  expectedDecisionVersion: number,
+  actor: ReferralActor,
+  mutationId?: string,
+): Promise<WorkflowRecordMutation<AdmissionDecision | null> | null> {
+  const scope = "admission_decision_reopen";
+  const replay = await getReferralMutationReplay(referralId, scope, mutationId);
+  if (replay) return { ok: true, record: replay.admissionDecision ?? null, referral: replay };
+  const snapshot = await getReferralWorkflowSnapshot(referralId);
+  if (!snapshot) return null;
+  const check = (referral: Referral, decision: AdmissionDecision | null, packetSent: boolean): WorkflowRecordMutation<null> | null => {
+    if (referral.version !== expectedVersion
+      || normalizeReferralSectionVersions(referral.sectionVersions).decision !== expectedDecisionVersion
+      || decision?.decisionId !== decisionId) return { ok: false, conflict: true, referral };
+    if (decision.outcome !== "declined" || referral.workspaceStatus === "historical"
+      || referral.placementCancellation || referral.stage === "Accepted / Admitted"
+      || referral.actualAdmissionDate || packetSent) return {
+      ok: false, blocked: true, referral,
+      blockers: [{ code: "decision_not_reopenable", label: "Only a denied referral without an admission or sent handoff can be reopened." }],
+    };
+    return null;
+  };
+  const blocked = check(snapshot.referral, snapshot.decision, Boolean(snapshot.context.packetSentAt));
+  if (blocked) return blocked;
+  const history = (referral: Referral, decision: AdmissionDecision) => [...(referral.admissionDecisionHistory ?? []), decision];
+  if (getReferralStoreReadiness().mode !== "postgres") {
+    const result = await patchReferral(referralId, {
+      admissionDecision: undefined,
+      admissionDecisionHistory: history(snapshot.referral, snapshot.decision!),
+      stage: "Community Review", workflowStatus: "decision_pending",
+    }, expectedVersion, actor, normalizeReferralSectionVersions(snapshot.referral.sectionVersions), {
+      auditAction: "admission_decision_reopened", auditReason: "Reopened for a new decision.",
+      mutationScope: scope, mutationId,
+    });
+    if (!result || !result.ok) return result;
+    return { ok: true, record: result.referral.admissionDecision ?? null, referral: result.referral };
+  }
+  const sql = getPipelineSql();
+  const result = await sql.begin(async (tx): Promise<WorkflowRecordMutation<null>> => {
+    if (await lockWorkflowMutation(tx, scope, mutationId, referralId)) return { ok: true, record: null, referral: snapshot.referral };
+    const rows = await tx<{ version: number; stage: Referral["stage"]; workflow_status: Referral["workflowStatus"]; workspace_status: Referral["workspaceStatus"]; data: unknown; section_versions: unknown }[]>`
+      select version, stage, workflow_status, workspace_status, data, section_versions
+      from pipeline.referrals where referral_id = ${referralId} and deleted_at is null for update
+    `;
+    const row = rows[0];
+    if (!row) return { ok: false, conflict: true, referral: snapshot.referral };
+    const data = isRecord(row.data) ? row.data : {};
+    const current = { ...snapshot.referral, ...data, version: Number(row.version), stage: row.stage,
+      workflowStatus: row.workflow_status, workspaceStatus: row.workspace_status,
+      sectionVersions: normalizeReferralSectionVersions(row.section_versions) } as Referral;
+    const decisions = await tx<DecisionRow[]>`select * from pipeline.admission_decisions where referral_id = ${referralId} for update`;
+    const decision = decisions[0] ? mapDecision(decisions[0]) : current.admissionDecision ?? legacyDecision(current);
+    // Hold the assessment rows until commit so a send cannot race this change.
+    const assessments = await tx<{ meet_client_sent_at: string | null }[]>`
+      select meet_client_sent_at from pipeline.assessments where referral_id = ${referralId} for update
+    `;
+    const invalid = check(current, decision, assessments.some((item) => Boolean(item.meet_client_sent_at)));
+    if (invalid) return invalid;
+    const nextHistory = history(current, decision!);
+    const nextData = { ...data, admissionDecisionHistory: nextHistory };
+    delete (nextData as Record<string, unknown>).admissionDecision;
+    const sections = normalizeReferralSectionVersions(current.sectionVersions);
+    await tx`delete from pipeline.admission_decisions where referral_id = ${referralId}`;
+    await tx`
+      update pipeline.referrals set data = ${tx.json(nextData)}, stage = 'Community Review',
+        workflow_status = 'decision_pending', closed_at = null, version = version + 1,
+        section_versions = ${tx.json({ ...sections, decision: sections.decision + 1, workflow: sections.workflow + 1 })},
+        updated_by = ${actor.id}, updated_by_name = ${actor.name}, updated_at = now()
+      where referral_id = ${referralId}
+    `;
+    await tx`
+      insert into pipeline.audit_events (entity_type, entity_id, action, actor_id, actor_name,
+        from_version, to_version, changed_fields, before_values, after_values, metadata)
+      values ('referral', ${String(referralId)}, 'admission_decision_reopened', ${actor.id}, ${actor.name},
+        ${current.version!}, ${current.version! + 1}, ${["admissionDecision", "admissionDecisionHistory", "stage", "workflowStatus"]},
+        ${tx.json({ admissionDecision: decision!, stage: current.stage, workflowStatus: current.workflowStatus ?? null })},
+        ${tx.json({ admissionDecision: null, stage: "Community Review", workflowStatus: "decision_pending" })},
+        ${tx.json({ reason: "Reopened for a new decision.", previous_decision_id: decisionId })})
+    `;
+    await saveWorkflowMutation(tx, scope, mutationId, referralId);
+    await bumpRevisions(tx);
+    return { ok: true, record: null, referral: current };
+  });
+  const latest = await getReferral(referralId);
+  if (!latest) return null;
+  return result.ok ? { ok: true, record: latest.admissionDecision ?? null, referral: latest } : { ...result, referral: latest };
 }
 
 export async function requestAssessmentReviewChanges(
@@ -1086,6 +1179,7 @@ async function recordPostgresDecision(
       limit 1
     `;
     if (existing[0]) return { ok: true, record: mapDecision(existing[0]), referral: fallback };
+    return { ok: false, conflict: true, referral: fallback };
   }
   const referralRows = await tx<{ version: number; stage: Referral["stage"]; data: unknown; section_versions: unknown }[]>`
     select version, stage, data, section_versions from pipeline.referrals where referral_id = ${referralId} and deleted_at is null for update
@@ -1697,6 +1791,7 @@ function mapReview(row: ReviewRow): AssessmentReview {
 }
 
 function legacyDecision(referral: Referral): AdmissionDecision | null {
+  if (referral.admissionDecisionHistory?.length) return null;
   const value = referral.assessment?.postAssessment;
   if (!value || value.decision === "pending") return null;
   return {

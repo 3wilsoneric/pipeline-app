@@ -243,7 +243,7 @@ export default function ReferralWorkflowPanel({
     if (key.startsWith("admit-date:")) admissionDateDirty.current = false;
   };
 
-  const runMutation = async <T extends { referral?: Referral; decision?: AdmissionDecision }>(
+  const runMutation = async <T extends { referral?: Referral; decision?: AdmissionDecision | null }>(
     key: string,
     url: string,
     method: "PATCH" | "POST" | "PUT",
@@ -306,10 +306,15 @@ export default function ReferralWorkflowPanel({
       if (key.startsWith("recommendation:") && payload.referral && "recommendation" in payload && payload.recommendation) {
         confirmedRecommendation.current = { referral: payload.referral, recommendation: payload.recommendation as AssessmentRecommendation };
       }
+      if (key.startsWith("reopen-decision:")) {
+        confirmedDecision.current = null;
+        recommendationDirty.current = false;
+        setRecordedFeedback(null);
+      }
       setWorkflow((current) => current ? {
         ...current,
         referral: payload.referral ?? current.referral,
-        decision: payload.decision ?? current.decision,
+        decision: payload.decision === undefined ? current.decision : payload.decision,
         ...(key.startsWith("recommendation:") && "recommendation" in payload
           ? { recommendation: payload.recommendation as AssessmentRecommendation } : {}),
       } : current);
@@ -460,6 +465,17 @@ export default function ReferralWorkflowPanel({
     );
     if (saved?.decision) setRecordedFeedback(saved.decision);
     if (saved && outcome === "accepted") onOpenEmail();
+  };
+
+  const reopenDecision = async () => {
+    if (workflow.decision?.outcome !== "declined" || !workflow.capabilities.can_decide) return;
+    if (!await confirm({ title: "Reopen decision?", message: "The previous denial stays in history. You can record a new decision; nothing is sent.", confirmLabel: "Reopen decision" })) return;
+    await runMutation(
+      `reopen-decision:${workflow.decision.decisionId}:${currentReferral.version}`,
+      `/api/referrals/${currentReferral.id}/decision`, "POST",
+      { action: "reopen", decision_id: workflow.decision.decisionId, if_match: currentReferral.version, if_match_section: sections.decision },
+      "Open for a new decision",
+    );
   };
 
   const submitTransition = async (target: ReferralStage) => {
@@ -635,6 +651,7 @@ export default function ReferralWorkflowPanel({
       onManualIntakeReasonChange={setManualIntakeReason}
       onUpdateRequirement={updateRequirement}
       onSubmitDecision={submitDecision}
+      onReopenDecision={() => void reopenDecision()}
       onOpenUnderReviewEmail={() => { if (workflow.recommendation?.outcome === "needs_more_information") { setEmailError(""); setEmailRecommendation(workflow.recommendation); } }}
       onSubmitTransition={submitTransition}
       onConfirmAdmission={(actualDate) => void confirmActualAdmission(actualDate)}
