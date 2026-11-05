@@ -8,7 +8,7 @@ for (const signed of [false, true]) {
       name: `Synthetic decision ${randomUUID().replace(/[^a-z]/g, "")}`,
       owner: "Unassigned", documentStatus: "Missing", documentName: "",
     });
-    const assessment = await createOperationalAssessment(request, referral.id);
+    const assessment = await createOperationalAssessment(request, referral.id, signed ? { assessmentDate: "2026-11-04" } : {});
     if (signed) {
       const response = await request.post(`/api/assessments/${assessment.assessment_id}/sign`, { data: {
         if_match: assessment.version, client_mutation_id: randomUUID(),

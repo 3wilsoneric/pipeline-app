@@ -117,7 +117,7 @@ for (const width of [1440, 390]) {
   test(`one decision keeps admission date and email preview without supervisor review at ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 950 });
     const referral = await createReferral(page);
-    const created = await page.request.post(`/api/referrals/${referral.id}/assessments`, { data: { client_mutation_id: randomUUID(), data: {} } });
+    const created = await page.request.post(`/api/referrals/${referral.id}/assessments`, { data: { client_mutation_id: randomUUID(), data: { assessment_date: "2026-11-04" } } });
     expect(created.status()).toBe(201);
     const { assessment } = await created.json();
     const signed = await page.request.post(`/api/assessments/${assessment.assessment_id}/sign`, { data: { if_match: assessment.version, client_mutation_id: randomUUID() } });
@@ -283,7 +283,7 @@ test("the simplified activity timeline retains file restoration and refreshes it
 for (const outcome of ["Deny", "Under review"] as const) {
   test(`${outcome} is saved without a supervisor review when the assessor is done`, async ({ page }) => {
     const referral = await createReferral(page);
-    const created = await page.request.post(`/api/referrals/${referral.id}/assessments`, { data: { client_mutation_id: randomUUID(), data: {} } });
+    const created = await page.request.post(`/api/referrals/${referral.id}/assessments`, { data: { client_mutation_id: randomUUID(), data: { assessment_date: "2026-11-04" } } });
     expect(created.status()).toBe(201);
     const { assessment } = await created.json();
     const signed = await page.request.post(`/api/assessments/${assessment.assessment_id}/sign`, { data: { if_match: assessment.version, client_mutation_id: randomUUID() } });

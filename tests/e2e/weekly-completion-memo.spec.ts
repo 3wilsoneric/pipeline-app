@@ -122,8 +122,13 @@ test("a coordinator can filter the client list by assessor", async ({ page }) =>
 
 test("a sent assessment opens the next sourced answer without resending Meet the Client", async ({ page }) => {
   const { referral, assessment, client, home } = await setupMemo(page);
+  const datedResponse = await page.request.patch(`/api/assessments/${assessment.assessment_id}`, {
+    data: { if_match: assessment.version, client_mutation_id: randomUUID(), patch: { data: { assessment_date: "2026-11-04" } } },
+  });
+  expect(datedResponse.status()).toBe(200);
+  const dated = (await datedResponse.json()).assessment;
   const signedResponse = await page.request.post(`/api/assessments/${assessment.assessment_id}/sign`, {
-    data: { if_match: assessment.version, client_mutation_id: randomUUID() },
+    data: { if_match: dated.version, client_mutation_id: randomUUID() },
   });
   expect(signedResponse.status()).toBe(200);
   const signed = (await signedResponse.json()).assessment;

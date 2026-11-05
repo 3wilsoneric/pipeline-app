@@ -183,7 +183,7 @@ test("folder tabs support keyboard, small screens and reduced motion", async ({ 
 
 test("signed answers stay editable until sent, then become read only", async ({ page }) => {
   const referral = await createReferral(page);
-  const created = await page.request.post(`/api/referrals/${referral.id}/assessments`, { data: { client_mutation_id: randomUUID(), data: { secondary_diagnoses: ["Signed synthetic diagnosis"] } } });
+  const created = await page.request.post(`/api/referrals/${referral.id}/assessments`, { data: { client_mutation_id: randomUUID(), data: { assessment_date: "2026-11-04", secondary_diagnoses: ["Signed synthetic diagnosis"] } } });
   const { assessment } = await created.json();
   const signed = await page.request.post(`/api/assessments/${assessment.assessment_id}/sign`, { data: { if_match: assessment.version, client_mutation_id: randomUUID() } });
   expect(signed.status()).toBe(200);

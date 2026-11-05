@@ -3,6 +3,46 @@ import { randomUUID } from "node:crypto";
 import { createOperationalReferral } from "./support/operational-api";
 import { openHandoffConfirmation, waitForAssessmentReady } from "./support/assessment-navigation";
 
+test("signing requires a performed date and starting records its source", async ({ page }) => {
+  const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: `Synthetic Timing ${randomUUID()}`, owner: "" });
+  const created = await page.request.post(`/api/referrals/${referral.id}/assessments`, { data: { client_mutation_id: randomUUID(), data: {} } });
+  expect(created.status()).toBe(201);
+  const assessment = (await created.json()).assessment;
+  const signUrl = `/api/assessments/${assessment.assessment_id}/sign`;
+  const undated = await page.request.post(signUrl, { data: { if_match: assessment.version, client_mutation_id: randomUUID() } });
+  expect(undated.status()).toBe(422);
+  expect((await undated.json()).error).toContain("date the assessment was performed");
+
+  const booked = await page.request.post(`/api/assessments/${assessment.assessment_id}/schedule`, { data: {
+    if_match: assessment.version,
+    client_mutation_id: randomUUID(),
+    schedule: { status: "scheduled", start_at: "2026-11-05T18:00:00.000Z", duration_minutes: 60, method: "phone", location: "Synthetic appointment" },
+  } });
+  expect(booked.status()).toBe(200);
+  const scheduled = (await booked.json()).assessment;
+  const start = await page.request.post(`/api/assessments/${assessment.assessment_id}/start`, { data: { if_match: scheduled.version, client_mutation_id: randomUUID() } });
+  expect(start.status()).toBe(200);
+  const started = (await start.json()).assessment;
+  expect(started.assessment_date).toBe(new Intl.DateTimeFormat("en-CA", { timeZone: "America/Los_Angeles", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(started.started_at)));
+  expect(started.field_provenance.assessment_date.at(-1).source_field_key).toBe("assessment.started_at");
+  const signed = await page.request.post(signUrl, { data: { if_match: started.version, client_mutation_id: randomUUID() } });
+  expect(signed.status()).toBe(200);
+});
+
+test("confirming an undated chart opens the performed-date field", async ({ page }) => {
+  const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: `Synthetic Date Prompt ${randomUUID()}`, owner: "" });
+  const created = await page.request.post(`/api/referrals/${referral.id}/assessments`, { data: { client_mutation_id: randomUUID(), data: {} } });
+  expect(created.status()).toBe(201);
+  const assessment = (await created.json()).assessment;
+  await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment`);
+  await openHandoffConfirmation(page);
+  await page.getByRole("button", { name: "Confirm chart", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Interview date", exact: true });
+  await expect(dialog.getByRole("textbox", { name: "Date assessment performed", exact: true })).toBeVisible();
+  await expect(dialog).toContainText("date the interview took place");
+  expect((await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment.signed_at).toBeNull();
+});
+
 for (const width of [1440, 834, 390, 320]) {
   test(`appointment is separate from answering, resuming and signing at ${width}px`, async ({ page }, info) => {
     await page.setViewportSize({ width, height: width === 320 ? 568 : 900 });

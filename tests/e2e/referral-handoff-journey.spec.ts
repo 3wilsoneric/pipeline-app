@@ -250,7 +250,7 @@ test("reviewed handoffs prepare an exact email preview without sending automatic
 
 test("a failed signature or decision stays in place; retry advances only after saving", async ({ page }) => {
   const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: "Synthetic Recovery", owner: "", tags: [] });
-  const assessment = await createOperationalAssessment(page.request, referral.id);
+  const assessment = await createOperationalAssessment(page.request, referral.id, { assessmentDate: "2026-11-04" });
   const read = async () => (await (await page.request.get(`/api/assessments/${assessment.assessment_id}`)).json()).assessment;
   let sends = 0;
   page.on("request", (request) => { if (request.method() === "POST" && request.url().endsWith("/meet-client-email")) sends++; });
@@ -336,7 +336,7 @@ test("iPad WebKit keeps signing and finishing in the same folder", async ({ base
   try {
     const page = await browser.newPage({ baseURL, viewport: { width: 834, height: 1194 }, hasTouch: true, isMobile: true });
     const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: "Synthetic Tablet", owner: "", tags: [] });
-    await createOperationalAssessment(page.request, referral.id);
+    await createOperationalAssessment(page.request, referral.id, { assessmentDate: "2026-11-04" });
     await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}&workspaceStage=assessment&assessmentMode=review`);
     await expect(page.getByRole("heading", { name: "Review assessment", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Continue to decision", exact: true }).tap();

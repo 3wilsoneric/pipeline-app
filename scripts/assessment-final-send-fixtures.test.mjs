@@ -71,7 +71,8 @@ for (const mode of ["local_file", "postgres"]) {
       }, "final-send-referral", actor);
       phase = "create assessment";
       let current = (await store.createAssessment({
-        referral_id: referral.id, assigned_assessor: actor, data: schema.createEmptyAssessmentToolData(),
+        referral_id: referral.id, assigned_assessor: actor,
+        data: { ...schema.createEmptyAssessmentToolData(), assessment_date: "2026-09-17" },
       }, actor, "final-send-assessment")).assessment;
       const id = current.assessment_id;
       phase = "correct assessment name across workspace records";

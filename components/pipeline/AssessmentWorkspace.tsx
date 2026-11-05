@@ -2622,7 +2622,15 @@ export default function AssessmentWorkspace({
   );
 
   const renderSignedAction = () => (onContinueToWorkflow && !trainingAssessmentMode ? <button type="button" onClick={onDecisionReviewTarget && !isAssessmentFinalized(selected) ? () => void reviewChart() : continueToWorkflow} disabled={isBusy || isClosing || isRecommendationPending}>{isAssessmentFinalized(selected) ? "View admission" : onDecisionReviewTarget ? "Review assessment" : "Continue to decision"}<ChevronRight size={14} /></button> : <span className="text-[12px] font-semibold text-[#0f6f5e]">{isAssessmentFinalized(selected) ? "Sent" : "Signed"}</span>);
-  const renderSignAction = () => (<button type="button" data-guide-target="assessment-sign" onClick={async (event) => { event.currentTarget.focus({ preventScroll: true }); if (await confirm({ title: "Everything correct and included?", message: "Confirm the chart is ready for Meet the Client.", confirmLabel: "Confirm & continue", illustration: "assessment" })) void signAssessment(selected.assessment_id); }} disabled={isBusy || isClosing || isRecommendationPending}>{isRecommendationPending ? recommendationSaveFailed ? "Working decision not saved" : "Saving recommendation..." : onContinueToWorkflow && !trainingAssessmentMode && !onDecisionReviewTarget && !signInHandoff ? "Confirm & continue to decision" : "Confirm chart"}</button>);
+  const renderSignAction = () => (<button type="button" data-guide-target="assessment-sign" onClick={async (event) => {
+    event.currentTarget.focus({ preventScroll: true });
+    if (!trainingAssessmentMode && !draftRef.current.assessment_date) {
+      setError("Record the date the assessment was performed before signing.");
+      setShowInterviewDate(true);
+      return;
+    }
+    if (await confirm({ title: "Everything correct and included?", message: "Confirm the chart is ready for Meet the Client.", confirmLabel: "Confirm & continue", illustration: "assessment" })) void signAssessment(selected.assessment_id);
+  }} disabled={isBusy || isClosing || isRecommendationPending}>{isRecommendationPending ? recommendationSaveFailed ? "Working decision not saved" : "Saving recommendation..." : onContinueToWorkflow && !trainingAssessmentMode && !onDecisionReviewTarget && !signInHandoff ? "Confirm & continue to decision" : "Confirm chart"}</button>);
 
   const renderScheduleAction = (textOnly = false, guideTarget = true) => (
     <button type="button" aria-label={hasActiveAssessmentSchedule(selected) ? "Edit assessment appointment" : undefined} data-guide-target={showScheduleDialog || !guideTarget ? undefined : "assessment-schedule-open"} onClick={(event) => { event.currentTarget.focus({ preventScroll: true }); openScheduleDialog(); }} disabled={isBusy || isClosing || (buildingAssessment && resolvedPositionFor !== selectedId)}>{textOnly ? hasActiveAssessmentSchedule(selected) ? "Edit assessment appointment" : "Schedule interview" : hasActiveAssessmentSchedule(selected) ? (designV2 ? <><CalendarClock size={15} aria-hidden="true" />Edit</> : "Edit") : <><CalendarClock size={15} aria-hidden="true" />Schedule interview</>}</button>
