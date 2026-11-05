@@ -65,7 +65,7 @@ export default function PipelineCensusBriefing() {
       </> : null}
 
       <footer data-guide-target="operations-briefing-source" className={styles.source}>
-        Pipeline referral records{admissions ? ` updated ${formatTimestamp(admissions.generated_at)}` : ""} · Alamo Platform clinical snapshot{census ? ` dated ${formatDate(census.data_as_of)}` : ""}. A planned date alone does not establish whether a client was admitted.
+        Pipeline referral records{admissions ? ` updated ${formatTimestamp(admissions.generated_at)}` : ""} · Alamo Platform clinical snapshot{census ? ` dated ${formatDate(census.data_as_of)}` : ""}. Admissions use the entered admit date, then reconcile with census. Census totals reflect the clinical snapshot.
       </footer>
     </article>
   </main>;

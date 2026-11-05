@@ -7,7 +7,7 @@ import { assumedAdmissionDate } from "./admission-lifecycle";
 
 export type WorkspaceAdmissionOutcome = {
   status: "admitted" | "accepted" | "denied" | "cancelled" | "pending" | "unknown";
-  label: "Admitted" | "Admission unconfirmed in this workspace" | "Accepted" | "Denied" | "Did not move in" | "In progress" | "Outcome not recorded";
+  label: "Admitted" | "Accepted" | "Denied" | "Did not move in" | "In progress" | "Outcome not recorded";
   evidence: "recorded" | "census_match" | "assumed" | "open" | "historical";
   explanation: string;
 };
@@ -114,10 +114,10 @@ export function getWorkspaceAdmissionOutcome(referral: Referral): WorkspaceAdmis
 
   if (assumedAdmissionDate(referral)) {
     return {
-      status: "accepted",
-      label: "Admission unconfirmed in this workspace",
+      status: "admitted",
+      label: "Admitted",
       evidence: "assumed",
-      explanation: "The planned admit date has arrived, but this workspace has no confirmed arrival. This does not mean the client was not admitted; review the admission record before changing the outcome.",
+      explanation: "Admitted using the entered admission date. ElderMark reconciliation is pending.",
     };
   }
 

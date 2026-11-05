@@ -1,5 +1,7 @@
 "use client";
 
+import { assumedAdmissionDate, getPlannedAdmissionDate } from "@/lib/pipeline/admission-lifecycle";
+
 import { Children, useEffect, useState, type ReactNode } from "react";
 import { ArrowRight, Check, ChevronDown, Circle, Minus } from "lucide-react";
 
@@ -74,6 +76,7 @@ export function ReferralStandingGlance({ referralId, children }: { referralId: n
   if (!workflow) return children ? <section className={styles.glance}><div className={styles.appointment}>{children}</div></section> : null;
   const steps = decisionProgressSteps(workflow);
   const { recommendation, decision, referral } = workflow;
+  const plannedDate = getPlannedAdmissionDate(referral);
   return <section aria-labelledby={`standing-${referralId}`} className={styles.glance} data-chart-standing>
     <header className={styles.header}><div><h2 id={`standing-${referralId}`}>Where this referral stands</h2></div></header>
     <ol className={styles.steps}>
@@ -86,10 +89,10 @@ export function ReferralStandingGlance({ referralId, children }: { referralId: n
         </span>
       </li>)}
     </ol>
-    {recommendation || referral.admissionDate || referral.actualAdmissionDate ? <dl className={styles.facts}>
+    {recommendation || plannedDate || referral.actualAdmissionDate ? <dl className={styles.facts}>
       {recommendation ? <div><dt>Placement recommendation</dt><dd>{recommendation.outcome === "accept" ? "Accept" : recommendation.outcome === "decline" ? "Deny" : "Under review"}{recommendation.reasonNote ? <span>{recommendation.reasonNote}</span> : null}</dd></div> : null}
       {decision?.reasonNote ? <div><dt>Decision reason</dt><dd>{decision.reasonNote}</dd></div> : null}
-      {referral.admissionDate ? <div><dt>Planned admission date</dt><dd>{formatProfileDate(referral.admissionDate) ?? referral.admissionDate}</dd></div> : null}
+      {plannedDate ? <div><dt>{assumedAdmissionDate(referral) ? "Admission date" : "Planned admission date"}</dt><dd>{formatProfileDate(plannedDate) ?? plannedDate}</dd></div> : null}
       {referral.stage === "Accepted / Admitted" && referral.actualAdmissionDate ? <div><dt>Actual admission date</dt><dd>{formatProfileDate(referral.actualAdmissionDate) ?? referral.actualAdmissionDate}</dd></div> : null}
     </dl> : null}
     {children ? <div className={styles.appointment}>{children}</div> : null}
@@ -157,6 +160,8 @@ export function ChartProcess({ referralId, assessment, record, entry, appointmen
   const decisionFiled = decided?.state === "done";
   const referral = workflow?.referral;
   const accepted = workflow?.decision?.outcome === "accepted";
+  const plannedDate = referral ? getPlannedAdmissionDate(referral) : "";
+  const admitted = referral && (referral.stage === "Accepted / Admitted" || Boolean(assumedAdmissionDate(referral)));
   return <div className={styles.process} data-chart-process>
     <ChartStage id={`chart-assessment-${referralId}`} title="Assessment" filed={assessmentFiled}
       status={assessmentFiled ? `Assessment signed ${formatProfileDate(assessment?.signed_at ?? null) ?? ""}`.trim() : signed?.label}
@@ -173,11 +178,11 @@ export function ChartProcess({ referralId, assessment, record, entry, appointmen
         {workflow.decision?.reasonNote ? <div><dt>Decision reason</dt><dd>{workflow.decision.reasonNote}</dd></div> : null}
       </dl> : null}
     </ChartStage> : null}
-    {accepted || packet?.state === "done" ? <ChartStage id={`chart-finish-${referralId}`} title="Handoff" filed={referral?.stage === "Accepted / Admitted" || Boolean(referral?.placementCancellation)}
-      status={referral?.placementCancellation ? "Did not move in" : referral?.stage === "Accepted / Admitted" ? "Admitted" : packet ? (packet.state === "done" ? `${packet.label} · ${packet.detail}` : packet.label) : undefined}
+    {accepted || packet?.state === "done" ? <ChartStage id={`chart-finish-${referralId}`} title="Handoff" filed={Boolean(admitted || referral?.placementCancellation)}
+      status={referral?.placementCancellation ? "Did not move in" : admitted ? "Admitted" : packet ? (packet.state === "done" ? `${packet.label} · ${packet.detail}` : packet.label) : undefined}
       action={onOpenFinish ? <button type="button" onClick={onOpenFinish} className={styles.open}>Open handoff<ArrowRight size={16} aria-hidden="true" /></button> : null}>
-      {referral?.admissionDate || referral?.actualAdmissionDate ? <dl className={styles.facts}>
-        {referral?.admissionDate ? <div><dt>Planned admission date</dt><dd>{formatProfileDate(referral.admissionDate) ?? referral.admissionDate}</dd></div> : null}
+      {plannedDate || referral?.actualAdmissionDate ? <dl className={styles.facts}>
+        {plannedDate ? <div><dt>{referral && assumedAdmissionDate(referral) ? "Admission date" : "Planned admission date"}</dt><dd>{formatProfileDate(plannedDate) ?? plannedDate}</dd></div> : null}
         {referral?.stage === "Accepted / Admitted" && referral.actualAdmissionDate ? <div><dt>Actual admission date</dt><dd>{formatProfileDate(referral.actualAdmissionDate) ?? referral.actualAdmissionDate}</dd></div> : null}
       </dl> : null}
     </ChartStage> : null}

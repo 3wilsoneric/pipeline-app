@@ -1401,29 +1401,10 @@ async function listPostgresReferrals(options: ReferralListOptions = {}): Promise
   const limit = clampPageSize(options.limit);
   const includeTotal = options.includeTotal !== false;
   const rows = await sql<ReferralRow[]>`
-    with filtered as (
-      select r.*, p.external_client_id, p.display_name,
-        to_char(r.updated_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as cursor_time,
-        to_char(r.created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as cursor_created_time,
-        lower(case
-          when lower(coalesce(nullif(trim(r.owner_name), ''), 'unassigned')) in ('unassigned', 'unknown', 'pending')
-            then 'Unassigned'
-          else trim(r.owner_name)
-        end) as sort_owner,
-        lower(trim(r.community::text)) as sort_community,
-        lower(trim(p.display_name)) as sort_client,
-        coalesce(r.received_date, (r.created_at at time zone 'UTC')::date) as sort_received,
-        to_char(coalesce(r.received_date, (r.created_at at time zone 'UTC')::date), 'YYYY-MM-DD') as cursor_received_date
-      from pipeline.referrals r
-      join pipeline.people p on p.person_id = r.person_id
-      where r.deleted_at is null
-        and ((${queryTokens.length === 0}) or not exists (
-          select 1 from unnest(${queryTokens}::text[]) as search_term(value)
-          where r.search_text not ilike ('%' || search_term.value || '%')
-        ))
-        and (${stage}::text is null or r.stage = ${stage} or (
-          ${includeAssumedAdmissions} and r.workspace_origin = 'pipeline' and r.workspace_status = 'active'
-          and r.stage <> 'Declined' and r.data->'admissionDecision'->>'outcome' = 'accepted'
+    with admission_state as (
+      select r.*, coalesce((
+          r.workspace_origin = 'pipeline' and r.workspace_status = 'active'
+          and r.stage not in ('Declined', 'Accepted / Admitted') and r.data->'admissionDecision'->>'outcome' = 'accepted'
           and coalesce(r.data->>'actualAdmissionDate', '') = ''
           and (r.data->'placementCancellation' is null or r.data->'placementCancellation' = 'null'::jsonb)
           and case
@@ -1441,6 +1422,30 @@ async function listPostgresReferrals(options: ReferralListOptions = {}): Promise
               and coalesce(r.data->>'plannedAdmissionDate', r.data->>'admissionDate', '') <= to_char(now() at time zone 'America/Los_Angeles', 'YYYY-MM-DD')
             else false
           end
+      ), false) as assumed_admitted
+      from pipeline.referrals r
+    ), filtered as (
+      select r.*, p.external_client_id, p.display_name,
+        to_char(r.updated_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as cursor_time,
+        to_char(r.created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as cursor_created_time,
+        lower(case
+          when lower(coalesce(nullif(trim(r.owner_name), ''), 'unassigned')) in ('unassigned', 'unknown', 'pending')
+            then 'Unassigned'
+          else trim(r.owner_name)
+        end) as sort_owner,
+        lower(trim(r.community::text)) as sort_community,
+        lower(trim(p.display_name)) as sort_client,
+        coalesce(r.received_date, (r.created_at at time zone 'UTC')::date) as sort_received,
+        to_char(coalesce(r.received_date, (r.created_at at time zone 'UTC')::date), 'YYYY-MM-DD') as cursor_received_date
+      from admission_state r
+      join pipeline.people p on p.person_id = r.person_id
+      where r.deleted_at is null
+        and ((${queryTokens.length === 0}) or not exists (
+          select 1 from unnest(${queryTokens}::text[]) as search_term(value)
+          where r.search_text not ilike ('%' || search_term.value || '%')
+        ))
+        and (${stage}::text is null or r.stage = ${stage} or (
+          ${includeAssumedAdmissions} and r.assumed_admitted
         ))
         and (${options.nameInitial ?? null}::text is null or left(lower(trim(p.display_name)), 1) = lower(${options.nameInitial ?? null}))
         and (${communities.length === 0} or r.community = any(${communities}::text[]))
@@ -1477,8 +1482,8 @@ async function listPostgresReferrals(options: ReferralListOptions = {}): Promise
           )
         )
         and (${workflowStatus}::text is null or r.workflow_status = ${workflowStatus})
-        and (${activeOnly} = false or r.closed_at is null)
-        and (${closedOnly} = false or r.closed_at is not null)
+        and (${activeOnly} = false or (r.closed_at is null and not r.assumed_admitted))
+        and (${closedOnly} = false or r.closed_at is not null or r.assumed_admitted)
         and (${placementCancelled} = false or jsonb_typeof(r.data->'placementCancellation') = 'object')
         and (
           ${postOutcomeAssessment} = false
@@ -3257,8 +3262,8 @@ function matchesReferralWork(referral: Referral, options: ReferralListOptions) {
     referral.actualAdmissionDate > options.pipelineAdmittedBetween.through
   )) return false;
   if (options.workflowStatus && referral.workflowStatus !== options.workflowStatus) return false;
-  if (options.activeOnly && (isClosedStage(referral.stage) || referral.workflowStatus === "closed")) return false;
-  if (options.closedOnly && !isClosedStage(referral.stage) && referral.workflowStatus !== "closed") return false;
+  if (options.activeOnly && (isClosedStage(referral.stage) || referral.workflowStatus === "closed" || assumedAdmissionDate(referral))) return false;
+  if (options.closedOnly && !isClosedStage(referral.stage) && referral.workflowStatus !== "closed" && !assumedAdmissionDate(referral)) return false;
   if (options.placementCancelled && !referral.placementCancellation) return false;
   if (options.postOutcomeAssessment && !hasPostOutcomeAssessment(referral)) return false;
   if (options.queue && !matchesReferralQueue(referral, options.queue)) return false;
