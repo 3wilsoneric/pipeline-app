@@ -39,6 +39,16 @@ test("admission flow uses actual arrival, leaves missing intervals blank, and re
   assert.equal(metrics.find((item) => item.label === "Did not move in").value, "1");
 });
 
+test("received-month cohorts retain open cases and exclude arrivals from older cohorts", () => {
+  const all = [
+    referral(1, { date: "2026-09-28", actualAdmissionDate: "2026-10-15" }),
+    referral(2, { date: "2026-10-01", actualAdmissionDate: undefined, stage: "Assessment" }),
+    referral(3, { date: "2026-10-05", actualAdmissionDate: "2026-10-22" }),
+  ];
+  assert.deepEqual(reports.admissionFlowCohort(all, "2026-10").map((item) => item.id), [2, 3]);
+  assert.equal(reports.admissionFlowCohort(all, "").length, 3);
+});
+
 function routeFor(user, referralRecord, patchCalls) {
   return loadEntry("app/api/referrals/[referralId]/admission-flow/route.ts", {
     "@/lib/auth/pipeline-auth": { requirePipelineUser: async () => ({ ok: true, user }) },

@@ -139,7 +139,7 @@ const reportCatalog: OperationsReportDefinition[] = [
   {
     id: "admission_flow", label: "Admission flow",
     description: "Received-to-actual-admission timing, current waits, recorded holds, and date coverage. Planned moves and acceptance are not admissions.",
-    cadence: "Current", audience: "Supervisors", filters: ["community", "owner"], supervisor_only: true,
+    cadence: "Current", audience: "Supervisors", filters: ["month", "community", "owner"], supervisor_only: true,
   },
   {
     id: "ehr_handoff",
@@ -465,6 +465,7 @@ async function buildReport(
       "Hold reasons are coordinator-entered observations, not a complete or automatic measure of avoidable days.",
       "First change is the first audited change after creation; it is not proof of first contact with the client or referral source.",
       "Early outcomes after move-in require linked clinical stay data and are not inferred from referral records.",
+      "A selected month groups referrals by their received date, including those still open; All dates shows the full accessible history.",
     ] } : {}),
   };
 }
@@ -480,8 +481,9 @@ async function reportRows(
 
   const referrals = await loadReportReferrals(user, filters, workspaceScopeForReport(reportId));
   if (reportId === "admission_flow") {
-    const [assessmentDates, activity] = await Promise.all([admissionFlowAssessmentDates(referrals), admissionFlowAudit(referrals)]);
-    return admissionFlowRows(referrals, assessmentDates, activity);
+    const cohort = admissionFlowCohort(referrals, filters.month);
+    const [assessmentDates, activity] = await Promise.all([admissionFlowAssessmentDates(cohort), admissionFlowAudit(cohort)]);
+    return admissionFlowRows(cohort, assessmentDates, activity);
   }
   const contexts = await getReferralWorkflowContexts(referrals);
   if (reportId === "active_referrals") return activeReferralRows(referrals, contexts);
@@ -492,6 +494,10 @@ async function reportRows(
   if (reportId === "missing_documents") return missingDocumentRows(referrals, contexts);
   if (reportId === "decisions") return decisionRows(referrals, filters.month);
   return ehrHandoffRows(referrals);
+}
+
+export function admissionFlowCohort(referrals: Referral[], receivedMonth: string) {
+  return receivedMonth ? referrals.filter((referral) => normalizeCalendarDate(referral.date)?.startsWith(receivedMonth)) : referrals;
 }
 
 async function loadReportReferrals(
@@ -860,7 +866,9 @@ async function supervisorExceptionRows(filters: OperationsReportFilters) {
 
 function reportColumns(reportId: OperationsReportId): OperationsReportColumn[] {
   if (reportId === "admission_flow") return [
-    column("client", "Client"), column("community", "Community"), column("county", "County"),
+    column("client", "Client"), column("received_date", "Received", "left", "date"),
+    column("actual_admission_date", "Actual arrival", "left", "date"),
+    column("community", "Community"), column("county", "County"),
     column("source", "Referral source"), column("owner", "Assessor"), column("state", "Current position"),
     column("days_since_receipt", "Open days", "right"),
     column("current_step_days", "In current step", "right"),

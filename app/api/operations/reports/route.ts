@@ -112,12 +112,12 @@ function parseFilters(input: Record<string, unknown>):
 }
 
 function defaultReportInputs(input: Record<string, unknown>, reportId: OperationsReportFilters["report_id"]) {
-  return { month: input.month ?? (isClientDataReport(reportId) ? "" : currentOperationalMonth()), community: input.community ?? "", owner: input.owner ?? "", county: input.county ?? "", client_scope: input.client_scope ?? "all", care_topic: input.care_topic ?? "primary_diagnosis" };
+  return { month: input.month ?? (isClientDataReport(reportId) || reportId === "admission_flow" ? "" : currentOperationalMonth()), community: input.community ?? "", owner: input.owner ?? "", county: input.county ?? "", client_scope: input.client_scope ?? "all", care_topic: input.care_topic ?? "primary_diagnosis" };
 }
 
 function reportMonthError(month: unknown, reportId: OperationsReportFilters["report_id"]) {
   if (typeof month !== "string") return "month must use YYYY-MM.";
-  if (isClientDataReport(reportId) && month === "") return "";
+  if ((isClientDataReport(reportId) || reportId === "admission_flow") && month === "") return "";
   return /^(?:20|21|22)\d{2}-(?:0[1-9]|1[0-2])$/.test(month) ? "" : "month must use YYYY-MM.";
 }
 

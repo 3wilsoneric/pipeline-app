@@ -83,7 +83,7 @@ export default function OperationsDashboard({
   const filtersChanged = response ? !sameFilters(filters, response.filters) : false;
 
   const selectReport = (reportId: OperationsReportId) => {
-    const next: OperationsReportFilters = { ...filters, report_id: reportId, community: "", owner: "", county: "", month: isClientDataReport(reportId) ? "" : currentMonth(), client_scope: reportId === "clients_by_community" || reportId === "client_care_needs" ? "current" : "all" };
+    const next: OperationsReportFilters = { ...filters, report_id: reportId, community: "", owner: "", county: "", month: supportsAllDates(reportId) ? "" : currentMonth(), client_scope: reportId === "clients_by_community" || reportId === "client_care_needs" ? "current" : "all" };
     setFilters(next);
     void loadReport(next);
   };
@@ -291,9 +291,13 @@ function ReportClientControl({ filters, selectedDefinition, onSetFilters }: Repo
 
 function ReportPeriodControls({ filters, selectedDefinition, onSetFilters }: ReportFilterControlProps) {
   return (<>
-      {selectedDefinition?.filters.includes("month") && isClientDataReport(filters.report_id) ? <Control label="Period"><select aria-label="Report period" value={filters.month ? "month" : "all"} onChange={(event) => onSetFilters((current) => ({ ...current, month: event.target.value === "all" ? "" : currentMonth() }))} className={selectClass}><option value="all">All dates</option><option value="month">By month</option></select></Control> : null}
-      {selectedDefinition?.filters.includes("month") && (!isClientDataReport(filters.report_id) || filters.month) ? <Control label={filters.report_id === "clients_by_community" ? "Admission month" : "Month"}><input data-guide-target="operations-report-month" aria-label="Report month" type="month" value={filters.month} onChange={(event) => onSetFilters((current) => ({ ...current, month: event.target.value }))} className={selectClass} /></Control> : null}
+      {selectedDefinition?.filters.includes("month") && supportsAllDates(filters.report_id) ? <Control label="Period"><select aria-label="Report period" value={filters.month ? "month" : "all"} onChange={(event) => onSetFilters((current) => ({ ...current, month: event.target.value === "all" ? "" : currentMonth() }))} className={selectClass}><option value="all">All dates</option><option value="month">By month</option></select></Control> : null}
+      {selectedDefinition?.filters.includes("month") && (!supportsAllDates(filters.report_id) || filters.month) ? <Control label={filters.report_id === "clients_by_community" ? "Admission month" : filters.report_id === "admission_flow" ? "Received month" : "Month"}><input data-guide-target="operations-report-month" aria-label="Report month" type="month" value={filters.month} onChange={(event) => onSetFilters((current) => ({ ...current, month: event.target.value }))} className={selectClass} /></Control> : null}
   </>);
+}
+
+function supportsAllDates(reportId: OperationsReportId) {
+  return isClientDataReport(reportId) || reportId === "admission_flow";
 }
 
 function ReportLocationControls({ filters, response, selectedDefinition, onSetFilters }: ReportFilterControlProps) {
