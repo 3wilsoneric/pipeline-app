@@ -165,8 +165,16 @@
   .placementHeading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 20px; }
   .placementIntro h3 { font-size: var(--text-title); font-weight: var(--text-title--font-weight); }
   .placementIntro p, .placementNotice { margin: 0; color: var(--decision-muted); font-size: var(--text-label); line-height: var(--text-label--line-height); }
-  .placementPlan { padding: 16px 0; }
-  .placementPlan h4 { margin-bottom: 12px; font-size: 19px; font-weight: 700; letter-spacing: -.02em; }
+  .placementPlan { display: grid; grid-template-columns: minmax(130px, .35fr) minmax(0, 1fr); align-items: start; gap: 12px 24px; padding: 20px 0; }
+  .placementPlan h4 { margin: 0; font-size: var(--text-section); line-height: var(--text-section--line-height); font-weight: var(--text-section--font-weight); }
+  .placementPlan > section { min-width: 0; }
+  .placementPlan input[type="date"] { max-width: 280px; min-height: var(--spacing-control); border-color: var(--color-control-border); border-radius: var(--radius-input); color: var(--color-night); font-size: var(--text-value); }
+  .placementPlan label { color: var(--color-ink-muted); font-size: var(--text-label); }
+  .placementPlan p { max-width: 64ch; color: var(--color-ink-muted); font-size: var(--text-label); line-height: var(--text-label--line-height); }
+  @media (max-width: 640px) {
+    .placementPlan { grid-template-columns: minmax(0, 1fr); padding-block: 16px; }
+    .placementPlan input[type="date"] { max-width: none; }
+  }
   .placementHandoff { min-width: 0; }
   .placementMain { min-width: 0; width: 100%; }
   .page:has(.placementMain) { padding: 0; }

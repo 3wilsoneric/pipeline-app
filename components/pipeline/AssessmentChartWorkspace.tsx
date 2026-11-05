@@ -441,17 +441,23 @@ function HandoffOverview({ existingDraft, payload, sent, exampleReviewed, finish
   useEffect(() => {
     if (complete && !composerOpen) finishRef.current?.querySelector("button")?.focus();
   }, [complete, composerOpen]);
-  const previewButton = <button type="button" data-guide-target={composerOpen ? undefined : ["chart-email-handoff", "packet-open-email"].join(" ")} className={styles.sendButton}
+  const previewButton = <button type="button" data-guide-target={composerOpen ? undefined : ["chart-email-handoff", "packet-open-email"].join(" ")} className={`${styles.sendButton}${complete ? ` ${styles.repeatHandoffButton}` : ""}`}
     onClick={(event) => { event.currentTarget.focus(); onPreviewEmail(); }}>
     {handoffReviewLabel(complete, reviewedCount, existingDraft)}<ArrowRight size={18} aria-hidden="true" />
   </button>;
 
-  if (complete) return <section className={styles.guidedTask} aria-label="Handoff readiness">
-    <Check className={styles.taskIcon} size={32} aria-hidden="true" />
-    <h3>{sent ? "Handoff sent" : "Demo review complete"}</h3>
-    <p>{sent ? "The handoff is recorded as sent. Recipient delivery is not tracked." : "No email was sent."}</p>
-    <footer ref={finishRef} aria-label="Handoff actions" className={styles.taskActions}>{finishActions}</footer>
-    {existingDraft ? previewButton : sent && onPrepareAnother ? <button type="button" className={styles.sendButton} onClick={onPrepareAnother}>Send another handoff<ArrowRight size={18} aria-hidden="true" /></button> : null}
+  if (complete) return <section className={styles.completedHandoff} aria-label="Handoff readiness">
+    <div className={styles.completedHeading}>
+      <Check className={styles.completedIcon} size={28} aria-hidden="true" />
+      <div>
+        <h3>{sent ? "Handoff sent" : "Demo review complete"}</h3>
+        <p>{sent ? "The handoff is recorded as sent. Recipient delivery is not tracked." : "No email was sent."}</p>
+      </div>
+    </div>
+    <footer ref={finishRef} aria-label="Handoff actions" className={styles.completedActions}>
+      {finishActions}
+      {existingDraft ? previewButton : sent && onPrepareAnother ? <button type="button" className={`${styles.sendButton} ${styles.repeatHandoffButton}`} onClick={onPrepareAnother}>Send another handoff<ArrowRight size={18} aria-hidden="true" /></button> : null}
+    </footer>
     {email.example_only ? <details className={styles.completedDetails}><summary>Review email again</summary>{previewButton}</details> : null}
   </section>;
 
