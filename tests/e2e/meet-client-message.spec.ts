@@ -162,3 +162,119 @@ test("message draft validation and optimistic versions preserve the saved handof
   expect(saved.draft.message).toEqual(draft.message);
   expect((await page.request.post(`/api/referrals/${referral.id}/meet-client-email`, { data: { if_match: referral.version, confirmed: true, recipients: ["care@example.invalid"], message: draft.message, client_mutation_id: randomUUID() } })).status()).toBe(403);
 });
+
+test("section navigation, expanding text and preview preserve the writing position", async ({ page }, info) => {
+  const referral = await messageCase(page);
+  const editor = await openEditor(page, referral.id);
+  const outline = editor.getByRole("navigation", { name: "Email sections" });
+  await outline.getByRole("button", { name: "Meet the client", exact: true }).click();
+  const body = editor.getByRole("textbox", { name: "Edit Meet the client", exact: true });
+  await expect(body).toBeFocused();
+  const text = Array.from({ length: 14 }, (_, index) => `Synthetic paragraph ${index + 1}: This long section remains fully readable without scrolling inside the writing field.`).join("\n\n");
+  await body.fill(text);
+  await expect.poll(() => body.evaluate(element => element.scrollHeight - element.clientHeight)).toBeLessThanOrEqual(2);
+  await body.evaluate((element: HTMLTextAreaElement) => { element.focus(); element.setSelectionRange(24, 53); });
+  const position = await editor.locator('[data-editor-field="bio"]').evaluate(element => {
+    let parent = element.parentElement!;
+    while (getComputedStyle(parent).overflowY !== "auto") parent = parent.parentElement!;
+    return parent.scrollTop;
+  });
+  await editor.getByRole("button", { name: "Preview email", exact: true }).click();
+  await expect(editor.frameLocator('iframe[title="Edited Meet the Client email preview"]').locator("body")).toContainText("Synthetic paragraph 14");
+  await editor.getByRole("button", { name: "Back to editing", exact: true }).click();
+  await expect(body).toBeFocused();
+  expect(await body.evaluate((element: HTMLTextAreaElement) => [element.selectionStart, element.selectionEnd])).toEqual([24, 53]);
+  expect(await body.evaluate(element => {
+    let parent = element.parentElement!;
+    while (getComputedStyle(parent).overflowY !== "auto") parent = parent.parentElement!;
+    return parent.scrollTop;
+  })).toBe(position);
+  const move = editor.locator('summary[aria-label="Move Meet the client"]');
+  await move.click();
+  await page.keyboard.press("Escape");
+  await expect(editor).toBeVisible();
+  await expect(move.locator("..")).not.toHaveAttribute("open", "");
+  await expect(move).toBeFocused();
+  await outline.getByRole("button", { name: "Med room", exact: true }).click();
+  await expect(editor.getByRole("textbox", { name: "Edit Med room", exact: true })).toBeFocused();
+  await expect(outline.getByRole("button", { name: "Med room", exact: true })).toHaveAttribute("aria-current", "location");
+  await page.screenshot({ path: info.outputPath("section-navigation.png") });
+});
+
+test("undo and redo restore wording, resets, formats, order and removed notes through the real save path", async ({ page }) => {
+  await resetLayout(page);
+  const referral = await messageCase(page);
+  const editor = await openEditor(page, referral.id);
+  const body = editor.getByRole("textbox", { name: "Edit Meet the client", exact: true });
+  const section = editor.locator('[data-message-section="bio"]');
+  const original = await body.inputValue();
+  await body.fill("Synthetic edited introduction.");
+  await section.locator("summary").click();
+  await section.getByRole("button", { name: "Use assessment text", exact: true }).click();
+  await expect(body).toHaveValue(original);
+  await editor.getByRole("button", { name: "Undo", exact: true }).click();
+  await expect(body).toHaveValue("Synthetic edited introduction.");
+  await editor.getByRole("button", { name: "Redo", exact: true }).click();
+  await expect(body).toHaveValue(original);
+  await body.press("ControlOrMeta+z");
+  await expect(body).toHaveValue("Synthetic edited introduction.");
+  const format = editor.getByRole("combobox", { name: "Format Meet the client", exact: true });
+  await format.selectOption("bullets");
+  await editor.getByRole("button", { name: "Undo", exact: true }).click();
+  await expect(format).toHaveValue("default");
+  await editor.getByRole("button", { name: "Redo", exact: true }).click();
+  await expect(format).toHaveValue("bullets");
+  await editor.locator('summary[aria-label="Move Meet the client"]').press("Alt+ArrowDown");
+  await expect(editor.locator("[data-message-section]").first()).toHaveAttribute("data-message-section", "coordination");
+  await editor.getByRole("button", { name: "Undo", exact: true }).click();
+  await expect(editor.locator("[data-message-section]").first()).toHaveAttribute("data-message-section", "bio");
+  await editor.getByRole("button", { name: "Add a note", exact: true }).click();
+  await editor.getByRole("textbox", { name: "Edit Message", exact: true }).fill("A note to recover.");
+  await editor.locator('summary[aria-label="Move Message"]').click();
+  await editor.getByRole("button", { name: "Remove note", exact: true }).click();
+  await expect(editor.getByRole("textbox", { name: "Edit Message", exact: true })).toHaveCount(0);
+  await editor.getByRole("button", { name: "Undo", exact: true }).click();
+  await expect(editor.getByRole("textbox", { name: "Edit Message", exact: true })).toHaveValue("A note to recover.");
+  await editor.getByRole("button", { name: "Redo", exact: true }).click();
+  await expect(editor.getByRole("textbox", { name: "Edit Message", exact: true })).toHaveCount(0);
+  await expect(editor.getByRole("textbox", { name: "Subject", exact: true })).toBeFocused();
+  await editor.getByRole("button", { name: "Undo", exact: true }).click();
+  await expect(editor.getByRole("textbox", { name: "Edit Message", exact: true })).toHaveValue("A note to recover.");
+  await editor.getByRole("button", { name: "Done", exact: true }).click();
+  await openEditor(page, referral.id);
+  await expect(body).toHaveValue("Synthetic edited introduction.");
+  await expect(format).toHaveValue("bullets");
+  await expect(editor.getByRole("textbox", { name: "Edit Message", exact: true })).toHaveValue("A note to recover.");
+  await expect(editor.getByRole("button", { name: "Undo", exact: true })).toBeDisabled();
+});
+
+for (const width of [1440, 834, 390]) test(`document editor visual review at ${width}`, async ({ page }, info) => {
+  await page.setViewportSize({ width, height: 900 });
+  await resetLayout(page);
+  const referral = await createOperationalReferral(page.request, "assessmentCoordinator", { name: "Jordan Rivera — sample", community: "San Pablo", owner: "", plannedAdmissionDate: "2026-11-12" });
+  await signOperationalAssessment(page.request, await createOperationalAssessment(page.request, referral.id));
+  await recordOperationalAcceptance(page.request, await readOperationalReferral(page.request, referral.id));
+  const editor = await openEditor(page, referral.id);
+  const body = editor.getByRole("textbox", { name: "Edit Meet the client", exact: true });
+  await body.fill("Jordan enjoys music, morning walks, and small group activities. A calm introduction and a consistent routine help them settle in.\n\nOffer a tour of the community on arrival and introduce the team one person at a time.");
+  await editor.getByRole("textbox", { name: "Edit Admission & coordination", exact: true }).fill("Planned arrival: November 12, in the morning.\nPrimary contact: the referring care coordinator.\nPlease confirm transportation before arrival.");
+  if (width < 768) {
+    await editor.getByRole("combobox", { name: "Go to email section", exact: true }).selectOption("bio");
+  } else {
+    await editor.getByRole("navigation", { name: "Email sections" }).getByRole("button", { name: "Meet the client", exact: true }).click();
+  }
+  await expect(body).toBeFocused();
+  await expect(editor.getByRole("status").filter({ hasText: "Handoff draft saved" })).toBeVisible();
+  expect(await editor.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+  expect(await editor.evaluate(element => element.scrollTop)).toBe(0);
+  const frame = (await editor.boundingBox())!;
+  const heading = (await editor.getByRole("heading", { name: "Edit Meet the Client", exact: true }).boundingBox())!;
+  const done = (await editor.getByRole("button", { name: "Done", exact: true }).boundingBox())!;
+  expect(heading.y).toBeGreaterThanOrEqual(frame.y);
+  expect(done.y + done.height).toBeLessThanOrEqual(frame.y + frame.height);
+  expect(done.y + done.height).toBeGreaterThan(frame.y + frame.height - 40);
+  await page.screenshot({ path: info.outputPath(`editor-writing-${width}.png`) });
+  await editor.getByRole("button", { name: "Preview email", exact: true }).click();
+  await expect(editor.frameLocator('iframe[title="Edited Meet the Client email preview"]').getByRole("img", { name: "Alamo Health Management" })).toBeVisible();
+  await page.screenshot({ path: info.outputPath(`editor-preview-${width}.png`) });
+});

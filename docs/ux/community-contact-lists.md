@@ -203,3 +203,10 @@ no migration is required. The editor intentionally supports fixed clinical secti
 and plain text with paragraph/list formatting. If reusable free-form blocks, rich
 inline markup, or a separate preference-retention policy is requested, introduce
 that model at this boundary with its own validation and rendering checks.
+
+The subsequent interaction pass adds section navigation, content-sized native
+inputs, and undo/redo for this open editor. Continuous typing in one field is
+grouped within 800 ms, with at most 50 undo snapshots; reopening starts a fresh
+history and adopting an external draft/layout invalidates the prior history.
+No undo content is stored in browser storage or reusable preferences. Preview
+keeps the writing DOM mounted and restores its selection and scroll position.

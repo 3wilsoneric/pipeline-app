@@ -61,6 +61,11 @@ for (const [name, engine] of [["Chromium", chromium], ["WebKit", webkit]] as con
         await dialog.getByRole("button", { name: "Back to editing", exact: true }).tap();
         await expect(subject).toHaveValue(`Synthetic mobile handoff ${width}`);
         await expect(message).toHaveValue(/Second paragraph retained/);
+        await expect(message).toBeFocused();
+        const writing = (await message.boundingBox())!;
+        const finish = (await dialog.getByRole("button", { name: "Done", exact: true }).boundingBox())!;
+        expect(writing.y).toBeLessThan(finish.y);
+        expect(writing.y + writing.height).toBeGreaterThan(frame.y + 160);
         expect(await dialog.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
         await page.screenshot({ path: info.outputPath(`handoff-keyboard-${name}-${width}.png`) });
         await page.evaluate(() => {
