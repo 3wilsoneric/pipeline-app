@@ -371,6 +371,8 @@ export type Referral = {
   additionalDocuments?: Array<{ id: string; name: string; uploadedAt: string }>;
   /** Synchronized decision projection. PostgreSQL stores the authoritative row separately. */
   admissionDecision?: AdmissionDecision;
+  /** Prior decisions retained when a denial is explicitly reopened. */
+  admissionDecisionHistory?: AdmissionDecision[];
   /** A later placement outcome; the accepted decision and sent handoff remain historical evidence. */
   placementCancellation?: PlacementCancellation;
   admissionFlow?: AdmissionFlowTracking;

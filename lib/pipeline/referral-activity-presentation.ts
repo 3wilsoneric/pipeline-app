@@ -119,6 +119,7 @@ const actionLabels: Record<string, string> = {
   assessment_addendum_added: "Assessment addendum added",
   assessment_recommendation_submitted: "Recommendation submitted",
   admission_decision_recorded: "Admission decision recorded",
+  admission_decision_reopened: "Decision reopened",
   admission_decision_overridden: "Admission decision changed",
   admission_declined: "Admission denied",
   meet_client_email_preview_saved: "Email preview and packet saved",

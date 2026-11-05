@@ -52,6 +52,7 @@ type ReferralWorkflowPanelPresentationProps = {
   onManualIntakeReasonChange: (value: string) => void;
   onUpdateRequirement: (item: AdmissionRequirement, status: RequirementStatus) => void;
   onSubmitDecision: (confirmedInReview?: boolean) => void;
+  onReopenDecision?: () => void;
   onOpenUnderReviewEmail?: () => void;
   onSubmitTransition: (target: ReferralStage) => void;
   onConfirmAdmission: (actualDate: string) => void;
@@ -87,6 +88,7 @@ export function ReferralWorkflowPanelPresentation({
   onSaveAdmissionDate,
   onManualIntakeReasonChange,
   onSubmitDecision,
+  onReopenDecision,
   onOpenUnderReviewEmail,
   onSubmitTransition,
   onConfirmAdmission,
@@ -190,6 +192,8 @@ export function ReferralWorkflowPanelPresentation({
       <div className={styles.layout} data-recorded={Boolean(workflow.decision) || undefined}>
         <div className={styles.main} ref={resultRef} {...recordedDecisionAttributes(workflow)}>
           <DecisionCard confirmRecommendation={confirmRecommendation} workflow={workflow} busy={busy} recommendation={recommendation} onRecommendationChange={onRecommendationChange} onSubmitDecision={onSubmitDecision} onOpenUnderReviewEmail={onOpenUnderReviewEmail} onOpenAssessment={onOpenAssessment} />
+          {workflow.decision?.outcome === "declined" && workflow.capabilities.can_decide && onReopenDecision && !workflow.referral.placementCancellation && !workflow.referral.actualAdmissionDate && !workflow.context.packetSentAt ? <div className={styles.decisionNext}><SecondaryButton disabled={Boolean(busy)} onClick={onReopenDecision}>Reopen decision</SecondaryButton></div> : null}
+          {workflow.referral.admissionDecisionHistory?.length ? <details className={styles.details}><summary>Previous decisions</summary>{workflow.referral.admissionDecisionHistory.map((decision) => <RecordSummary key={decision.decisionId} title={decision.outcome === "accepted" ? "Accepted" : "Denied"} actor={decision.decidedByName} date={decision.decidedAt} note={decision.reasonNote} />)}</details> : null}
           {workflow.decision?.outcome === "accepted" && onOpenPlacement ? <div className={styles.decisionNext}><PrimaryButton disabled={Boolean(busy)} onClick={onOpenPlacement}>Continue to Handoff <ArrowRight size={17} aria-hidden="true" /></PrimaryButton></div> : null}
           {showDecisionDone(workflow) && onDone ? (
             <div className={styles.done}>

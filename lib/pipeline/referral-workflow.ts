@@ -272,6 +272,7 @@ function isAssessmentComplete(referral: Referral, context: WorkflowContext) {
 function getDecisionOutcome(referral: Referral, context: WorkflowContext) {
   const decision = context.decision ?? referral.admissionDecision;
   if (decision?.outcome) return decision.outcome;
+  if (referral.admissionDecisionHistory?.length) return null;
   if (referral.assessment?.postAssessment.decision === "accepted") return "accepted";
   if (referral.assessment?.postAssessment.decision === "not-accepted") return "declined";
   return null;
