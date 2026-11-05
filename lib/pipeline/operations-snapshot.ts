@@ -841,12 +841,13 @@ function toWorkItem(
       assessmentTime.getTime() <= now.getTime() + 72 * 36e5,
   );
   const normalizedOwner = normalizeOwnerName(referral.owner);
-  const storedWorkflowStatus = referral.workflowStatus ?? resolveReferralWorkflowStatus(referral);
+  const storedWorkflowStatus = assumedAdmissionDate(referral, now) ? "admitted" : referral.workflowStatus ?? resolveReferralWorkflowStatus(referral);
   const workflowStatus = !["approved_for_placement", "accepted", "admitted", "declined", "closed"].includes(storedWorkflowStatus)
     && (normalizedOwner === "Unassigned" || !referral.ownerId?.trim())
       ? "intake_unassigned"
       : storedWorkflowStatus;
-  const flowState = referralFlowStateForWorkspaceFocus(progress.state.focus);
+  const board = getReferralBoardState(referral, context, progress.state);
+  const flowState = workflowStatus === "admitted" && board.stage === null ? "complete" : referralFlowStateForWorkspaceFocus(progress.state.focus);
   const assignmentDeadlineApplies = [
     "intake_unassigned",
     "intake_documents_needed",
@@ -859,7 +860,7 @@ function toWorkItem(
     && assignmentDueTime >= now.getTime()
     && assignmentDueTime <= now.getTime() + 72 * 36e5;
   return {
-    board: getReferralBoardState(referral, context, progress.state),
+    board,
     referral_id: referral.id,
     client_id: referral.clientId,
     client_name: referral.name,
@@ -903,7 +904,7 @@ async function loadOperationalReferrals(user?: PipelineUser) {
   const scope = user ? scopeReferralListOptions(user, {}) : {};
   const [active, accepted, declined, reassessments, cancelled] = await Promise.all([
     loadReferralPages({ ...scope, activeOnly: true }),
-    loadReferralPages({ ...scope, stage: "Accepted / Admitted" }),
+    loadReferralPages({ ...scope, stage: "Accepted / Admitted", includeAssumedAdmissions: true }),
     loadReferralPages({ ...scope, stage: "Declined" }),
     loadReferralPages({ ...scope, postOutcomeAssessment: true }),
     loadReferralPages({ ...scope, placementCancelled: true }),

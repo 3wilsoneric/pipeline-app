@@ -24,6 +24,7 @@ import {
 import { getStageLabel, referralStageDefinitions, type ReferralStage } from "@/lib/pipeline/referral-workflow";
 import type { AdmissionRequirement, AssessmentRecommendation, RequirementStatus } from "@/lib/pipeline/referral-types";
 import { isRequirementComplete } from "@/lib/pipeline/workflow-records";
+import { assumedAdmissionDate } from "@/lib/pipeline/admission-lifecycle";
 import { calendarToday } from "@/lib/pipeline/calendar-date";
 import styles from "./ReferralDecision.module.css";
 
@@ -143,7 +144,7 @@ export function ReferralWorkflowPanelPresentation({
       {workflow.decision ? <p className={styles.placementNotice}>This referral was denied. Its decision remains in the record.</p> : null}
       {placementContent ? <div className={styles.placementHandoff}>{placementContent}</div> : onOpenDecision ? <SecondaryButton onClick={onOpenDecision}>Open decision</SecondaryButton> : null}
     </> : <>
-      <div className={styles.placementIntro}><div className={styles.placementHeading}><div><h3 className="sr-only">Meet the Client</h3><p role="status">{workflow.referral.placementCancellation ? "Did not move in" : view.currentReferral.stage === "Accepted / Admitted" ? "Admitted" : workflow.context.packetSentAt ? "Sent · Awaiting verified admission" : "Accepted · Not sent"}</p></div><button ref={followUpTriggerRef} type="button" aria-label="Handoff actions" title="Handoff actions" aria-haspopup="dialog" aria-expanded={followUpOpen} className={styles.followUpTrigger} onClick={openFollowUp}><SlidersHorizontal size={18} aria-hidden="true" /></button></div></div>
+      <div className={styles.placementIntro}><div className={styles.placementHeading}><div><h3 className="sr-only">Meet the Client</h3><p role="status">{workflow.referral.placementCancellation ? "Did not move in" : (view.currentReferral.stage === "Accepted / Admitted" || assumedAdmissionDate(view.currentReferral)) ? "Admitted" : workflow.context.packetSentAt ? "Sent · Awaiting admission" : "Accepted · Not sent"}</p></div><button ref={followUpTriggerRef} type="button" aria-label="Handoff actions" title="Handoff actions" aria-haspopup="dialog" aria-expanded={followUpOpen} className={styles.followUpTrigger} onClick={openFollowUp}><SlidersHorizontal size={18} aria-hidden="true" /></button></div></div>
       <div className={styles.placementMain}>
         {workflow.context.packetSentAt && view.currentReferral.stage !== "Accepted / Admitted" ? <div className={styles.placementPlan}>
           <h4>Planned arrival</h4>

@@ -175,6 +175,12 @@ function arrivalNeedsReview(referral: PlatformSummaryReferral, today: string) {
     !referral.placementCancelled && Boolean(planned && planned < today);
 }
 
+// Entered dates establish operational admission; later recorded arrival takes precedence.
+// Census totals still come only from the governed clinical snapshot.
+function admissionDate(referral: PlatformSummaryReferral) {
+  return referral.placementCancelled ? null : referral.actualAdmissionDate || referral.assumedAdmissionDate || null;
+}
+
 function isActiveReferral(referral: PlatformSummaryReferral) {
   const status = leadershipStatus[referral.boardStatus] ?? referral.boardStatus.trim();
   return referral.decisionOutcome !== "declined" && status.toLowerCase() !== "declined";
@@ -192,7 +198,7 @@ export function buildPlatformAdmissionsSummary(input: PlatformAdmissionsSummaryI
   for (const referral of input.referrals) {
     const received = dayKey(referral.receivedDate);
     const decided = dayKey(referral.decidedAt);
-    const admitted = dayKey(referral.actualAdmissionDate);
+    const admitted = dayKey(admissionDate(referral));
     if (received) observedMonths.add(received.slice(0, 7));
     if (decided) observedMonths.add(decided.slice(0, 7));
     if (admitted) observedMonths.add(admitted.slice(0, 7));
@@ -219,7 +225,7 @@ export function buildPlatformAdmissionsSummary(input: PlatformAdmissionsSummaryI
         referral_id: referral.referralId,
         client_name: referral.clientName.trim() || "Name not recorded",
         column: referral.boardColumn as PlatformBoardColumn,
-        status: referral.assumedAdmissionDate ? "Admission unconfirmed in this workspace" : leadershipStatus[referral.boardStatus] ?? referral.boardStatus,
+        status: admissionDate(referral) ? "Admitted" : leadershipStatus[referral.boardStatus] ?? referral.boardStatus,
         next_action: referral.nextAction,
         community: referral.community.trim() || "Unassigned",
         owner: referral.unassigned ? "Unassigned" : referral.owner,
@@ -269,7 +275,7 @@ export function buildPlatformAdmissionsSummary(input: PlatformAdmissionsSummaryI
   const recentStart = addDays(today, -13);
   const briefingStatus = (referral: PlatformSummaryReferral) =>
     referral.placementCancelled ? "Did not move in" :
-    referral.assumedAdmissionDate ? "Admission unconfirmed in this workspace" :
+    admissionDate(referral) ? "Admitted" :
     arrivalNeedsReview(referral, today) ? "Planned date passed · admission unconfirmed here" :
     (leadershipStatus[referral.boardStatus] ?? referral.boardStatus.trim()) ||
     (referral.actualAdmissionDate ? "Admitted" : referral.decisionOutcome === "accepted" ? "Accepted" : referral.decisionOutcome === "declined" ? "Declined" : "Closed");
@@ -323,11 +329,11 @@ export function buildPlatformAdmissionsSummary(input: PlatformAdmissionsSummaryI
     }))
     .sort((left, right) => left.planned_at.localeCompare(right.planned_at) || left.client_name.localeCompare(right.client_name));
   const admittedLastWeek = input.referrals
-    .filter((referral) => inWindow(referral.actualAdmissionDate, lastWeekStart, lastWeekEnd))
+    .filter((referral) => inWindow(admissionDate(referral), lastWeekStart, lastWeekEnd))
     .map((referral) => ({
       referral_id: referral.referralId,
       client_name: referral.clientName.trim() || "Name not recorded",
-      admitted_at: referral.actualAdmissionDate!,
+      admitted_at: admissionDate(referral)!,
       community: referral.community.trim() || "Unassigned",
       source_name: boundedText(referral.managementProfile.referralSource, 160),
       referring_county: boundedText(referral.managementProfile.referringCounty, 120),
@@ -352,14 +358,14 @@ export function buildPlatformAdmissionsSummary(input: PlatformAdmissionsSummaryI
     }))
     .sort((left, right) => right.cancelled_at.localeCompare(left.cancelled_at) || left.client_name.localeCompare(right.client_name));
   const movingThrough = input.referrals
-    .filter((referral) => referral.currentWorkspace && !referral.placementCancelled && !referral.actualAdmissionDate &&
+    .filter((referral) => referral.currentWorkspace && !referral.placementCancelled && !admissionDate(referral) &&
       (referral.decisionOutcome === "accepted" || (referral.boardColumn && isActiveReferral(referral))))
     .map((referral) => ({
       referral_id: referral.referralId,
       client_name: referral.clientName.trim() || "Name not recorded",
       stage: referral.boardColumn ?? "decision",
       phase: referral.decisionOutcome === "accepted"
-        ? referral.assumedAdmissionDate ? "outcome_review" : referral.plannedAdmissionDate ? "awaiting_arrival" : "needs_date"
+        ? referral.plannedAdmissionDate ? "awaiting_arrival" : "needs_date"
         : referral.boardColumn === "decision" ? "decision_pending" : "intake_assessment",
       planned_at: dayKey(referral.plannedAdmissionDate),
       status: referral.decisionOutcome === "accepted" && !referral.plannedAdmissionDate

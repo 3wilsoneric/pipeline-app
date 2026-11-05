@@ -23,7 +23,7 @@ export function assumedAdmissionDate(
   now = new Date(),
 ): string | null {
   if (referral.workspaceOrigin !== "pipeline" || (referral.workspaceStatus && referral.workspaceStatus !== "active")
-    || referral.placementCancellation || referral.actualAdmissionDate || referral.stage === "Accepted / Admitted"
+    || referral.placementCancellation || referral.actualAdmissionDate || referral.stage === "Accepted / Admitted" || referral.stage === "Declined"
     || referral.admissionDecision?.outcome !== "accepted") return null;
   const recordedPlan = getPlannedAdmissionDate(referral);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(recordedPlan)) return null;

@@ -13,7 +13,7 @@ function fixtures() {
   const referral = {
     id: 42, version: 3, sectionVersions: { workflow: 2 }, clientId: "client-42",
     createdAt: `${yesterday}T08:00:00Z`, name: "Synthetic Client", dob: "1970-01-01",
-    stage: "Community Review", community: "San Pablo", workspaceStatus: "active",
+    stage: "Community Review", community: "San Pablo", workspaceStatus: "active", workspaceOrigin: "pipeline",
     plannedAdmissionDate: yesterday,
     admissionDecision: { outcome: "accepted", decidedAt: `${yesterday}T12:00:00Z` },
   };
