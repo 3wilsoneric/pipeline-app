@@ -2984,6 +2984,7 @@ function sanitizePatch(patch: ReferralPatch): ReferralPatch {
     "assessmentReview",
     "assessmentReviewHistory",
     "admissionDecision",
+    "admissionDecisionHistory",
     "placementCancellation",
     "admissionFlow",
     "ehrHandoff",

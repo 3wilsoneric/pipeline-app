@@ -3,7 +3,7 @@ import { pipelineAccountableActor } from "@/lib/auth/assessor-session-policy";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
 import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
 import { requireReferralStore } from "@/lib/pipeline/referral-store";
-import { getReferralWorkflowSnapshot, recordAdmissionDecision } from "@/lib/pipeline/workflow-store";
+import { getReferralWorkflowSnapshot, recordAdmissionDecision, reopenAdmissionDecision } from "@/lib/pipeline/workflow-store";
 import { withApiLogging } from "@/lib/observability/api-logging";
 import {
   canRecordAdmissionDecision,
@@ -93,6 +93,42 @@ export async function PUT(
     if (!result.ok) {
       return Response.json({ error: result.blockers[0]?.label ?? "The admission decision is blocked.", ...result }, { status: 422 });
     }
+    return Response.json({ ok: true, decision: result.record, referral: result.referral }, { headers: privateHeaders() });
+  });
+}
+
+export async function POST(
+  request: Request,
+  context: { params: Promise<{ referralId: string }> },
+) {
+  return withApiLogging(request, "/api/referrals/[referralId]/decision", async () => {
+    const auth = await requirePipelineUser(request);
+    if (!auth.ok) return auth.response;
+    const originFailure = requireSameOriginMutation(request);
+    if (originFailure) return originFailure;
+    const readiness = requireReferralStore();
+    if (!readiness.ok) return readiness.response;
+    const referralId = await parseReferralId(context);
+    if (!referralId) return jsonError("referralId is invalid.");
+    const access = await requireMutableReferralAccess(auth.user, referralId);
+    if (!access.ok) return access.response;
+    if (!canRecordAdmissionDecision(auth.user)) return jsonError("You cannot change this decision.", 403);
+    const body = await readJsonBody(request);
+    if (!body.ok) return jsonError(body.message, body.status);
+    if (!isRecord(body.value) || body.value.action !== "reopen") return jsonError("action must be reopen.");
+    if (typeof body.value.decision_id !== "string" || !body.value.decision_id.trim() || body.value.decision_id.length > 128) {
+      return jsonError("decision_id is invalid.");
+    }
+    for (const field of ["if_match", "if_match_section"] as const) {
+      if (!Number.isInteger(body.value[field]) || Number(body.value[field]) < 1) return jsonError(`${field} must be a positive version number.`);
+    }
+    const mutationId = validateClientMutationId(body.value.client_mutation_id);
+    if (!mutationId.ok) return jsonError(mutationId.message);
+    const result = await reopenAdmissionDecision(referralId, body.value.decision_id,
+      Number(body.value.if_match), Number(body.value.if_match_section), pipelineAccountableActor(auth.user), mutationId.value);
+    if (!result) return jsonError("Referral not found.", 404);
+    if (!result.ok && "conflict" in result) return Response.json({ error: "The decision changed. Review the latest record before reopening.", ...result }, { status: 409 });
+    if (!result.ok) return Response.json({ error: result.blockers[0]?.label, ...result }, { status: 422 });
     return Response.json({ ok: true, decision: result.record, referral: result.referral }, { headers: privateHeaders() });
   });
 }

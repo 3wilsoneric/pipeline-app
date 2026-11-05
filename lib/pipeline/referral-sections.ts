@@ -54,6 +54,7 @@ const sectionByField = {
   workflowStatus: "workflow",
   requirements: "workflow",
   admissionDecision: "decision",
+  admissionDecisionHistory: "decision",
   placementCancellation: "workflow",
   admissionFlow: "workflow",
   assessmentRecommendation: "decision",
