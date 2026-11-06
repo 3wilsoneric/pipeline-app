@@ -23,6 +23,16 @@ database schema. Route re-exports are an explicit coverage exclusion.
 
 ## Current case context
 
+`GET /api/referrals/{referralId}/workflow?representation=context`
+
+The referral representation preserves the complete workflow response: intake and
+identity, assignment, document references, work items/blockers, recommendation,
+decision, review history, transitions and the current user's capabilities. It
+includes the full linked assessment context and checks that the assessment belongs
+to the same referral. Capabilities describe the existing user; they are not an
+agent grant. A missing linked assessment is reported explicitly. These are separate
+source reads, not a claimed atomic or complete historical snapshot.
+
 `GET /api/assessments/{assessmentId}?representation=context`
 
 This representation uses the existing assessment GET's sign-in, store readiness
@@ -60,6 +70,10 @@ review the diff, commit it and refresh ProForma's pinned import. ProForma's grap
 and maintenance loop compare linked definitions; source changes propose review
 and never silently rewrite approved guidance. No scheduled importer is enabled.
 
-Run `node --test scripts/assessment-context.test.mjs scripts/export-proforma-catalog.test.mjs`,
-TypeScript, lint and the normal build. Fixtures are fictional and no operational
+Run `npm run check:proforma`, TypeScript, lint and the normal build. The catalog
+freshness check compares the committed source inventory and evaluated definitions,
+ignoring only the commit ID itself. An unrelated documentation commit does not
+force regeneration; a changed source or a new route does. Domain excerpts include
+file hashes so a changed implementation is visible even when its route name stays
+the same. Fixtures are fictional and no operational
 assessment is read. Live deployment and delegated Ally activation remain separate.

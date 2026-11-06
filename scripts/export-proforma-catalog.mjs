@@ -76,6 +76,7 @@ export async function capturePipelineCatalog({ repository, ref }) {
     definitionSources: definitionFiles.map((file) => location(file)),
     domains: domains.map(([id, title, pattern]) => ({ id, title, grounding: "inferred-path-relevance",
       sourcePaths: paths.filter((file) => new RegExp(pattern).test(file)),
+      sourceHashes: Object.fromEntries(sources.filter((source) => new RegExp(pattern).test(source.path)).map((source) => [source.path, source.hash])),
       endpointIds: endpoints.filter((endpoint) => new RegExp(pattern).test(endpoint.path)).map((endpoint) => endpoint.id) })),
     models, endpoints, sources,
     coverage: {
@@ -91,8 +92,15 @@ export async function capturePipelineCatalog({ repository, ref }) {
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const args = process.argv.slice(2);
-  if (args.length !== 4 || args[0] !== "--ref" || args[2] !== "--output") throw new Error("Use --ref <commit> --output <file>.");
+  if (args.length !== 4 || args[0] !== "--ref" || !["--output", "--check"].includes(args[2])) throw new Error("Use --ref <commit> --output <file> or --check <file>.");
   const value = await capturePipelineCatalog({ repository: process.cwd(), ref: args[1] });
+  if (args[2] === "--check") {
+    const { readFile } = await import("node:fs/promises");
+    const saved = JSON.parse(await readFile(args[3], "utf8"));
+    if (JSON.stringify({ ...saved, revision: null }) !== JSON.stringify({ ...value, revision: null })) throw new Error("Pipeline catalog is stale. Regenerate from the committed source and review the diff.");
+    console.log("Pipeline catalog matches the committed definitions and source inventory.");
+    process.exit(0);
+  }
   const output = path.resolve(args[3]), pending = `${output}.${randomUUID()}.tmp`;
   await mkdir(path.dirname(output), { recursive: true });
   try { await writeFile(pending, `${JSON.stringify(value, null, 2)}\n`, { flag: "wx" }); await rename(pending, output); }
