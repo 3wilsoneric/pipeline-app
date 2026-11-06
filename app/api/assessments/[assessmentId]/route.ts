@@ -17,6 +17,7 @@ import type { AssessmentPatchInput } from "@/lib/assessment/assessment-records";
 import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
 import { withApiLogging } from "@/lib/observability/api-logging";
 import { requireMutableReferralAccess, requireReferralAccess } from "@/lib/pipeline/referral-access";
+import { buildAssessmentContext } from "@/lib/assessment/assessment-context";
 
 export const runtime = "nodejs";
 
@@ -35,6 +36,14 @@ export async function GET(
     if (!assessment) return jsonError("Assessment not found.", 404);
     const access = await requireReferralAccess(auth.user, assessment.referral_id);
     if (!access.ok) return access.response;
+    if (new URL(request.url).searchParams.get("representation") === "context") {
+      const body = JSON.stringify(buildAssessmentContext(assessment));
+      if (Buffer.byteLength(body, "utf8") > 1024 * 1024) {
+        return Response.json({ error: "Assessment context exceeds 1 MiB. Retrieve the source record directly; no evidence was truncated." },
+          { status: 413, headers: privateHeaders() });
+      }
+      return new Response(body, { headers: { ...privateHeaders(), "Content-Type": "application/json" } });
+    }
     return Response.json({ assessment }, { headers: privateHeaders() });
   });
 }
