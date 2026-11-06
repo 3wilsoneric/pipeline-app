@@ -1,9 +1,8 @@
 // Runs inside the private Azure network. Never emits connection details or rows.
-const postgres = require('postgres');
-const { createHash } = require('node:crypto');
-const { readdirSync, readFileSync } = require('node:fs');
-
 (async () => {
+  const { default: postgres } = await import('postgres');
+  const { createHash } = await import('node:crypto');
+  const { readdirSync, readFileSync } = await import('node:fs');
   const url = new URL(process.env.SOURCE_DATABASE_URL);
   const target = process.env.RESTORED_HOST;
   if (target !== 'pipeline-readiness-drill-20260919.postgres.database.azure.com' || url.hostname === target) throw Error('target_guard');

@@ -6,6 +6,8 @@
     "node": ">=22"
   },
   "scripts": {
+    "export:proforma": "node scripts/export-proforma-catalog.mjs",
+    "check:proforma": "node --test scripts/assessment-context.test.mjs scripts/referral-context.test.mjs scripts/export-proforma-catalog.test.mjs && node scripts/export-proforma-catalog.mjs --ref HEAD --check content/proforma/pipeline-catalog.v1.json",
     "demo:personas": "node scripts/persona-demo.mjs",
     "academy:atlas": "node scripts/academy-atlas.mjs",
     "academy:atlas:check": "node scripts/academy-atlas.mjs --check",
