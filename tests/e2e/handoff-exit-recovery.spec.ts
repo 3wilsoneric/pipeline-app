@@ -58,7 +58,7 @@ test("failed message saves remain visible and can be retried from the email prev
   await page.unroute(endpoint);
   await editor.getByRole("button", { name: "Retry saving", exact: true }).click();
   await expect(editor.getByRole("alert")).toHaveCount(0);
-  await expect.poll(async () => (await (await page.request.get(`/api/referrals/${referral.id}/handoff-recipients`)).json()).draft.message.sectionText.bio)
+  await expect.poll(async () => (await (await page.request.get(`/api/referrals/${referral.id}/handoff-recipients`)).json()).draft.message.sectionEdits.bio.text)
     .toBe("Corrected while the save was unavailable.");
   await editor.getByRole("button", { name: "Done", exact: true }).click();
   await expect(page.frameLocator('iframe[title="Meet the Client email preview"]').locator("body")).toContainText("Corrected while the save was unavailable.");

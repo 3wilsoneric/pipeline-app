@@ -106,6 +106,11 @@ export default function MeetClientEditorDialog({ summary, draft, preparedBy, att
   };
   const changeText = (id: MeetClientSectionId, value: string | undefined) => {
     if (id === "message" && content.body != null) { change({ ...content, body: value ?? "" }, id, value !== undefined); return; }
+    if (id === "message") {
+      change({ ...content, note: value }, id, value !== undefined);
+      if (value === undefined) focusField("subject");
+      return;
+    }
     const sectionEdits = { ...content.sectionEdits };
     const source = meetClientSourceSections(summary, content).find(section => section.id === id);
     if (value === undefined) delete sectionEdits[id];
@@ -163,8 +168,8 @@ export default function MeetClientEditorDialog({ summary, draft, preparedBy, att
         <button type="button" aria-label="Undo" title="Undo (Ctrl/⌘ Z)" disabled={preview || !canUndo} onClick={() => stepHistory("undo")}><Undo2 size={19} aria-hidden="true" /></button>
         <button type="button" aria-label="Redo" title="Redo (Ctrl/⌘ Shift Z)" disabled={preview || !canRedo} onClick={() => stepHistory("redo")}><Redo2 size={19} aria-hidden="true" /></button>
       </div>
-      <button type="button" className={styles.addNote} aria-label="Add a note" title="Add a note" disabled={preview || !editable || content.body != null || content.sectionEdits?.message !== undefined}
-        onClick={() => { change({ ...content, sectionEdits: { ...content.sectionEdits, message: { text: "", source: "" } } }, "message"); focusField("message"); }}><Plus size={18} aria-hidden="true" /><span>Add a note</span></button>
+      <button type="button" className={styles.addNote} aria-label="Add a note" title="Add a note" disabled={preview || !editable || content.body != null || content.note !== undefined}
+        onClick={() => { change({ ...content, note: "" }, "message"); focusField("message"); }}><Plus size={18} aria-hidden="true" /><span>Add a note</span></button>
       <span className={styles.spelling} title="Spellcheck on · autocorrect off"><SpellCheck size={18} aria-hidden="true" /><span>Spellcheck on · autocorrect off</span></span>
       <button type="button" className={styles.previewToggle} aria-pressed={preview} aria-controls={`${instance}-preview`} onClick={togglePreview}>
         {preview ? <ArrowLeft size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}{preview ? "Back to editing" : "Preview email"}

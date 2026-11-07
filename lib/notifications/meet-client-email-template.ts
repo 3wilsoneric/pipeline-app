@@ -73,7 +73,6 @@ export function meetClientSectionConflicts(summary: MeetClientSummary, message?:
   if (message?.body != null) return [];
   const sources = meetClientSourceSections(summary, message);
   return Object.entries(message?.sectionEdits ?? {}).filter(([id, edit]) => {
-    if (id === "message") return false;
     const source = sources.find(section => section.id === id);
     return !source || edit.source !== meetClientSectionText(source);
   }).map(([id]) => id as MeetClientSectionId);
@@ -81,6 +80,7 @@ export function meetClientSectionConflicts(summary: MeetClientSummary, message?:
 
 export function meetClientSections(summary: MeetClientSummary, message?: MeetClientMessage): MeetClientSection[] {
   const sections = sourceSections(summary, message);
+  if (message?.body == null && message?.note !== undefined) sections.push({ id: "message", title: "Message", kind: "message", text: message.note });
   // Preserve an edit even if its source section disappears; the sender must resolve it.
   if (message?.body == null) for (const id of meetClientSectionOrder(message)) {
     if (message?.sectionEdits?.[id] && !sections.some(section => section.id === id)) {
@@ -102,7 +102,7 @@ export function meetClientSections(summary: MeetClientSummary, message?: MeetCli
 
 function meetClientContent(summary: MeetClientSummary, attachmentNames: string[], message?: MeetClientMessage) {
   const customBody = message?.body != null;
-  const edited = customBody || Boolean(Object.keys(message?.sectionEdits ?? {}).length);
+  const edited = customBody || message?.note !== undefined || Boolean(Object.keys(message?.sectionEdits ?? {}).length);
   const sections = meetClientSections(summary, message);
   const html = sections.map((section, index) => section.kind === "items" ? emailItemSection(section.title, section.items)
     : section.kind === "list" ? emailSection(section.id === "bio" && index === 0 ? "" : section.title, section.values)

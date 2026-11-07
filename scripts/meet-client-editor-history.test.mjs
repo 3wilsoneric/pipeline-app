@@ -20,11 +20,11 @@ test("typing groups undo together; layout, reset and note changes stay reversibl
   assert.equal(messageKey(history.present.message), messageKey(initial));
   history = stepEditorHistory(stepEditorHistory(history, "redo"), "redo");
   assert.equal(messageKey(history.present.message), messageKey(formatted));
-  const note = { ...formatted, sectionEdits: { ...formatted.sectionEdits, message: { text: "Keep this clinical note.", source: "" } } };
+  const note = { ...formatted, note: "Keep this clinical note." };
   history = recordEditorChange(history, formatted, note, "message");
   history = recordEditorChange(history, note, formatted, "message");
   history = stepEditorHistory(history, "undo");
-  assert.equal(history.present.message.sectionEdits.message.text, note.sectionEdits.message.text);
+  assert.equal(history.present.message.note, note.note);
 });
 
 test("history stops at external updates and bounds retained edits without persisting them", () => {
