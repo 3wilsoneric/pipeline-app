@@ -7,7 +7,7 @@ import styles from "./CommunicationHistory.module.css";
 
 export default function DirectHandoffPreview({ prepare, onBack, onDone, editor, ready, sending, readinessReasons, refresh }: {
   prepare: (snapshotId?: string) => Promise<CommunicationView>;
-  onBack: () => void; onDone: () => void; editor: ReactNode; ready: boolean; sending: boolean;
+  onBack: () => void; onDone: () => void; editor: (done: () => void) => ReactNode; ready: boolean; sending: boolean;
   readinessReasons: string[]; refresh: ReactNode;
 }) {
   const [record, setRecord] = useState<CommunicationView | null>(null);
@@ -41,7 +41,7 @@ export default function DirectHandoffPreview({ prepare, onBack, onDone, editor, 
     if (completed) onDone();
   };
   return <div>
-    {editing ? editor : record ? <CommunicationRecord record={record} history={record.status !== "ready"} /> : !ready ? <div role="status"><h3>Finish preparing the packet</h3><ul>{readinessReasons.map(reason => <li key={reason}>{reason}</li>)}</ul></div> : !error ? <p className={styles.muted} role="status">Preparing the exact email and preserving every attachment…</p> : null}
+    {editing ? editor(() => void run()) : record ? <CommunicationRecord record={record} history={record.status !== "ready"} /> : !ready ? <div role="status"><h3>Finish preparing the packet</h3><ul>{readinessReasons.map(reason => <li key={reason}>{reason}</li>)}</ul></div> : !error ? <p className={styles.muted} role="status">Preparing the exact email and preserving every attachment…</p> : null}
     {error ? <p className={styles.error} role="alert">{error}</p> : null}
     {error || !ready || record?.status === "not_sent" ? refresh : null}
     {record?.status === "ready" && !editing ? <p className={styles.muted}>This email and these files will be sent from Alamo Admissions. The assessor receives a copy and replies.</p> : null}

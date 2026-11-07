@@ -36,29 +36,31 @@ test("failed message saves remain visible and can be retried from the email prev
   await page.route(endpoint, route => route.request().method() === "PUT"
     ? route.fulfill({ status: 503, json: { error: "Synthetic message save interrupted" } }) : route.continue());
   await preview.getByRole("button", { name: "Edit message", exact: true }).click();
-  const message = preview.getByRole("textbox", { name: "Meet the Client message", exact: true });
+  const editor = page.getByRole("dialog", { name: "Edit Meet the Client", exact: true });
+  const message = editor.getByRole("textbox", { name: "Edit Meet the client", exact: true });
   await message.fill("Synthetic message must survive a failed save.");
   await message.blur();
-  await expect(preview.getByRole("alert")).toContainText("Synthetic message save interrupted");
+  await expect(editor.getByRole("alert")).toContainText("Synthetic message save interrupted");
   await expect(message).toHaveValue("Synthetic message must survive a failed save.");
   await message.fill("Corrected while the save was unavailable.");
   await message.blur();
   await expect(message).toHaveValue("Corrected while the save was unavailable.");
-  await expect(preview.getByRole("status").filter({ hasText: "Changes not saved. Retry saving." })).toBeVisible();
-  await expect(preview.getByRole("button", { name: "Finish demo review", exact: true })).toBeDisabled();
+  await expect(editor.getByRole("status").filter({ hasText: "Changes not saved. Retry saving." })).toBeVisible();
+  await editor.getByRole("button", { name: "Done", exact: true }).click();
+  await expect(editor).toBeVisible();
   await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
   const violations = await page.evaluate(async () => {
     const axe = (window as unknown as { axe: { run: (selector: string, options: object) => Promise<AxeResults> } }).axe;
-    return (await axe.run('dialog[aria-label="Meet the Client email"]', { runOnly: ["wcag2a", "wcag2aa", "wcag21aa"] })).violations.map(({ id }) => id);
+    return (await axe.run('dialog[data-meet-client-editor]', { runOnly: ["wcag2a", "wcag2aa", "wcag21aa"] })).violations.map(({ id }) => id);
   });
   expect(violations).toEqual([]);
   await page.screenshot({ path: info.outputPath("message-save-recovery.png"), animations: "disabled" });
   await page.unroute(endpoint);
-  await preview.getByRole("button", { name: "Retry saving", exact: true }).click();
-  await expect(preview.getByRole("alert")).toHaveCount(0);
-  await expect.poll(async () => (await (await page.request.get(`/api/referrals/${referral.id}/handoff-recipients`)).json()).draft.message.body)
+  await editor.getByRole("button", { name: "Retry saving", exact: true }).click();
+  await expect(editor.getByRole("alert")).toHaveCount(0);
+  await expect.poll(async () => (await (await page.request.get(`/api/referrals/${referral.id}/handoff-recipients`)).json()).draft.message.sectionEdits.bio.text)
     .toBe("Corrected while the save was unavailable.");
-  await preview.getByRole("button", { name: "Back to email preview", exact: true }).click();
+  await editor.getByRole("button", { name: "Done", exact: true }).click();
   await expect(page.frameLocator('iframe[title="Meet the Client email preview"]').locator("body")).toContainText("Corrected while the save was unavailable.");
 });
 

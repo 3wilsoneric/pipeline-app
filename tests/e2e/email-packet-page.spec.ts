@@ -410,9 +410,10 @@ test("recipient changes clear authorization and preview edits persist without ch
   await page.getByRole("button", { name: "Remove other@example.invalid from To", exact: true }).click();
   const composer = await confirmRecipients(page);
   await composer.getByRole("button", { name: "Edit message", exact: true }).click();
-  await composer.getByRole("textbox", { name: "Subject", exact: true }).fill("Demo arrival coordination");
-  await composer.getByRole("textbox", { name: "Meet the Client message", exact: true }).fill("Hello team,\nPlease prepare a quiet welcome. Synthetic example only.");
-  await composer.getByRole("button", { name: "Back to email preview", exact: true }).click();
+  const editor = page.getByRole("dialog", { name: "Edit Meet the Client", exact: true });
+  await editor.getByRole("textbox", { name: "Subject", exact: true }).fill("Demo arrival coordination");
+  await editor.getByRole("textbox", { name: "Edit Meet the client", exact: true }).fill("Hello team,\nPlease prepare a quiet welcome. Synthetic example only.");
+  await editor.getByRole("button", { name: "Done", exact: true }).click();
   await expect(page.frameLocator('iframe[title="Meet the Client email preview"]').locator("body")).toContainText("Please prepare a quiet welcome.");
   await composer.getByRole("button", { name: "Back", exact: true }).click();
   await expect(verified).toBeChecked();
@@ -759,8 +760,9 @@ test.describe("direct email history", () => {
     await expect(page.getByRole("button", { name: "Connect Outlook", exact: true })).toHaveCount(0);
     if (width === 1440) {
       await composer.getByRole("button", { name: "Edit message", exact: true }).click();
-      await composer.getByRole("textbox", { name: "Meet the Client message", exact: true }).fill("A revised message reviewed before sending.");
-      await composer.getByRole("button", { name: "Save & preview email", exact: true }).click();
+      const editor = page.getByRole("dialog", { name: "Edit Meet the Client", exact: true });
+      await editor.getByRole("textbox", { name: "Edit Meet the client", exact: true }).fill("A revised message reviewed before sending.");
+      await editor.getByRole("button", { name: "Done", exact: true }).click();
       await expect(page.frameLocator('iframe[title="Exact email preview"]').locator("body")).toContainText("A revised message reviewed before sending.");
       expect(preparations).toBe(2);
     }

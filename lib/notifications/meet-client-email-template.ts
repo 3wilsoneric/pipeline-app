@@ -80,6 +80,7 @@ export function meetClientSectionConflicts(summary: MeetClientSummary, message?:
 
 export function meetClientSections(summary: MeetClientSummary, message?: MeetClientMessage): MeetClientSection[] {
   const sections = sourceSections(summary, message);
+  if (message?.body == null && message?.note !== undefined) sections.push({ id: "message", title: "Message", kind: "message", text: message.note });
   // Preserve an edit even if its source section disappears; the sender must resolve it.
   if (message?.body == null) for (const id of meetClientSectionOrder(message)) {
     if (message?.sectionEdits?.[id] && !sections.some(section => section.id === id)) {
@@ -89,16 +90,19 @@ export function meetClientSections(summary: MeetClientSummary, message?: MeetCli
   }
   return [...sections].sort((a, b) => meetClientSectionOrder(message).indexOf(a.id) - meetClientSectionOrder(message).indexOf(b.id)).map(section => {
     const edit = message?.body == null ? message?.sectionEdits?.[section.id] : undefined;
-    if (!edit) return section;
-    const text = section.id === "medications" && !edit.text.includes(medicationAttachmentReference)
-      ? `${edit.text}\n\n${medicationAttachmentReference}` : edit.text;
-    return { id: section.id, title: section.title, kind: "message" as const, text };
+    const format = message?.sectionFormats?.[section.id] ?? "default";
+    if (!edit && format === "default") return section;
+    let text = edit?.text ?? meetClientSectionText(section);
+    if (section.id === "medications" && !text.includes(medicationAttachmentReference)) text += `\n\n${medicationAttachmentReference}`;
+    return { id: section.id, title: section.title, ...(format === "bullets"
+      ? { kind: "list" as const, values: text.split(/\r?\n/u).filter(line => line.trim()) }
+      : { kind: "message" as const, text }) };
   });
 }
 
 function meetClientContent(summary: MeetClientSummary, attachmentNames: string[], message?: MeetClientMessage) {
   const customBody = message?.body != null;
-  const edited = customBody || Boolean(Object.keys(message?.sectionEdits ?? {}).length);
+  const edited = customBody || message?.note !== undefined || Boolean(Object.keys(message?.sectionEdits ?? {}).length);
   const sections = meetClientSections(summary, message);
   const html = sections.map((section, index) => section.kind === "items" ? emailItemSection(section.title, section.items)
     : section.kind === "list" ? emailSection(section.id === "bio" && index === 0 ? "" : section.title, section.values)

@@ -808,7 +808,7 @@ function MeetClientEmailPreview({ preparedDraft, onExistingDraft, email, report,
   const readinessReasons = handoffReadinessReasons(email, referral, selectedFileIds, emailDraft, confirmed, sending);
   if (!preparedDraft && !email.example_only) return <div className={styles.composeScroll} style={{ padding: "20px 24px" }}>
     <DirectHandoffPreview refresh={refresh} prepare={onPrepareDirect} onBack={onBack} onDone={onReviewComplete} ready={readinessReasons.length === 0} sending={sending} readinessReasons={readinessReasons}
-      editor={<MeetClientMessageEditor initialEditing summary={report?.meetClient} preview={email.preview} preparedBy={email.prepared_by ?? ""}
+      editor={done => <MeetClientMessageEditor initialEditing onEditComplete={done} summary={report?.meetClient} preview={email.preview} preparedBy={email.prepared_by ?? ""}
         attachments={selectedNames} draft={emailDraft} admissionDate={getPlannedAdmissionDate(referral)} disabled={sending} />} />
   </div>;
   const composerReadOnly = [!email.can_edit_recipients, sending, sent, Boolean(preparedDraft)].some(Boolean);

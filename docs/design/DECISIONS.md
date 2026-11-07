@@ -561,3 +561,45 @@ The owner approved deployment of a single white sign-in panel with the existing 
 Show “Type / for headings and bullets” as a muted line below the Notes header when editing is available. Associate it with the first writing field; preserve the slash menu and save behavior.
 
 Remove the grip and separate dock/hide/close icons from the desktop header. Its text remains the drag handle. One return-arrow control restores the floating note to its original size and position, docking it beside the questions when it began there. Escape still closes or docks Notes, and can collapse the preparation notebook; the existing Notes trigger reopens it. Keep the resize handle at the bottom right. Phones retain one close control and their fitted panel, with no resize/reset controls. This supersedes the earlier size-only reset that preserved a moved position.
+
+## Meet the Client writing workspace (owner, 2026-11-05)
+
+The owner requested a deeper interaction and visual pass on the larger editor.
+Keep one white document in the existing Alamo palette, a quiet section outline
+on larger screens, and a compact section picker on phones. Keep client identity
+available in the outline. The current writing field carries the focus boundary;
+formatting tools reveal on hover/focus and remain visible on touch. Revert-to-source
+and note removal belong in the section's grip menu, alongside its move controls.
+Done is the single filled action and stays in the footer; preview remains separate.
+
+Use native spelling-enabled inputs with autocorrect off. Text areas expand with
+content so the document has one reading scroll. The dialog frame cannot scroll
+when focus or section navigation moves; its header, tools and footer stay fixed.
+Preview preserves the mounted editor, writing selection and scroll position.
+Undo/redo covers text, formatting, order, resets and note removal; it remains local
+to the open editor and cannot restore edits across a replacement from another
+session. Escape closes an open section menu before closing the editor. Preserve
+existing draft saving, personal-layout boundaries, exact-preview generation,
+recipient checks and explicit sending. No production deployment is included.
+
+## Meet the Client editor motion and preview (owner, 2026-11-05)
+
+The owner requested another pass on the editor's interface and animation. Reuse
+the existing subject illustrations in the section outline and add a moving
+current-section background. Keep the client and community together above the
+outline. A warm toolbar, white writing page and stage-colored top edge establish
+the document hierarchy without adding another surface or primary action.
+
+Use the existing motion tokens for the editor's entry and exit, preview reveal,
+section menus, reordered sections, inserted notes and saved checkmark. Only
+section changes animate the document; typing does not trigger section motion.
+Keep reorder geometry current after text edits, and cancel interrupted moves
+before starting the next move. Reduced-motion preferences remove these effects.
+Closing still waits for the existing save path, and failed saves keep the editor
+open with its recovery controls.
+
+Preview pairs the canonical rendered email with its actual subject and a
+disclosure of the provided attachment names. Escape closes that disclosure first.
+The list describes the packet; it does not create a second selection or upload
+flow. Preserve the existing return-to-writing position and cursor. This pass
+does not change message generation, packet contents, sending, or persistence.

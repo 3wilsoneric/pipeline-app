@@ -24,7 +24,7 @@
 .moveOptions button:hover:enabled { background: var(--color-action-soft); }
 .moveOptions button:disabled { color: var(--color-ink-muted); opacity: .5; }
 .moveMenu :is(summary, button):focus-visible { outline: 2px solid var(--color-focus); outline-offset: -2px; }
-.block[data-dragging] { opacity: .45; }
+.block[data-dragging] { opacity: .45; background: var(--color-primary-soft); }
 .block[data-drop]::after { content: ""; position: absolute; left: 0; right: 0; height: 3px; background: var(--color-primary); }
 .block[data-drop="before"]::after { top: 0; }
 .block[data-drop="after"]::after { bottom: 0; }
@@ -45,7 +45,59 @@
 .facts { grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); gap: 18px 28px; }
 .block { scroll-margin-top: 24px; }
 .block[data-section-id="bio"] { font-size: var(--text-value); }
-.sectionEditor textarea { display: block; width: 100%; min-height: calc(var(--spacing-control) * 3); padding: 12px; resize: vertical; border: 1px solid var(--color-control-border); border-radius: var(--radius-input); background: var(--color-paper); color: var(--color-ink); font-size: var(--text-value); line-height: 1.65; }
+
+.editTools { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 12px; font-size: var(--text-label); color: var(--color-ink-muted); }
+.editTools label { display: flex; align-items: center; gap: 8px; }
+.editTools select, .editTools button { min-height: var(--spacing-control); padding: 8px; border-radius: var(--radius-input); background: var(--color-paper); color: var(--color-ink); }
+.editTools select { border: 1px solid var(--color-control-border); }
+.sectionEditor { display: block; width: 100%; min-height: 100px; padding: 12px; resize: vertical; border: 1px solid var(--color-control-border); border-radius: var(--radius-input); background: var(--color-paper); color: var(--color-ink-body); font: inherit; font-size: var(--text-value); line-height: 1.75; }
+.editTools :focus-visible, .sectionEditor:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+
+/* Editing reads as a document. Tools sit beside their section, and the active
+   writing field has the strongest boundary instead of every field competing. */
+.editing .title { font-size: var(--text-section); line-height: var(--text-section--line-height); margin-bottom: 12px; }
+.editing .identity { gap: 12px 24px; padding-bottom: 24px; }
+.editing .identity > div:first-child dd { color: var(--color-ink); }
+.editing .block { padding-block: 24px; scroll-margin-top: 0; }
+.editing .block + .block { border-top: 1px solid var(--color-paper-rule); }
+.editing .block:hover, .editing .block:focus-within { background: var(--color-paper); }
+.editing .sectionHeader { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 16px; margin-bottom: 8px; }
+.editing .sectionHeader h3 { flex: 1; margin: 0; min-width: 200px; min-height: var(--spacing-control); }
+.editing .sectionHeader h3 svg { width: 28px; height: 28px; }
+.editing .moveMenu { top: 26px; }
+.editing .moveMenu summary { transition: color var(--motion-state) ease, background var(--motion-state) ease; }
+.editing .editTools { gap: 4px 8px; margin: 0; }
+.editing .editTools label { gap: 4px; font-size: var(--text-meta); }
+.editing .editTools select { border-color: transparent; font-size: var(--text-label); color: var(--color-ink-muted); }
+.editing .editTools button { color: var(--color-link); font-size: var(--text-meta); padding-inline: 8px; }
+.editing .editTools select:hover { background: var(--color-sheet); }
+.editing .sectionEditor { padding: 12px; margin-inline: -12px; width: calc(100% + 24px); min-height: 76px; border-color: transparent; resize: none; overflow: hidden; line-height: 1.75; }
+.editing .sectionEditor:hover { background: var(--color-card-warm); }
+.editing .sectionEditor:focus { background: var(--color-paper); border-color: var(--color-control-border); }
+@media (hover: hover) and (pointer: fine) {
+  .editing .editTools { opacity: 0; transition: opacity var(--motion-state) ease; }
+  .editing .block:is(:hover, :focus-within, [data-active]) .editTools { opacity: 1; }
+}
+@media (max-width: 767px) {
+  .editing .editTools { opacity: 1; }
+  .editing .identity { padding-inline: 16px; }
+  .editing .title { margin-inline: 16px; }
+  .editing .block { padding-right: 20px; }
+  .editing .sectionHeader { gap: 0; }
+  .editing .sectionHeader h3 { min-width: 100%; }
+}
+@media (forced-colors: active) {
+  .editing .sectionEditor { border-color: CanvasText; }
+}
+
+.editing .moveOptions { min-width: 220px; }
+.sectionAction { border-top: 1px solid var(--color-paper-rule); margin-top: 4px; }
+
+@keyframes sectionMenuIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: no-preference) {
+  .moveMenu[open] .moveOptions { animation: sectionMenuIn var(--motion-enter) var(--ease-open); }
+}
+
 .editActions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 .editActions button { min-height: var(--spacing-control); padding: 8px 12px; color: var(--color-primary); font-size: var(--text-label); font-weight: 600; border-radius: var(--radius-input); }
 .editActions button:hover { background: var(--color-action-soft); }

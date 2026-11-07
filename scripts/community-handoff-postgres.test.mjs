@@ -48,6 +48,13 @@ test("recipient drafts: migrated PostgreSQL persistence, private ownership, conc
     const outcomes = await Promise.all([store.putUserWorkspaceState({ ...input, expectedVersion: 1 }), owner().putUserWorkspaceState({ ...input, expectedVersion: 1 })]);
     assert.equal(outcomes.filter((item) => item.ok).length, 1);
     assert.equal((await owner().getUserWorkspaceState(input.principalId, input.kind, input.key)).version, 2);
+    const layout = { sectionOrder: ["support", "message", "bio", "coordination", "medications", "safety", "diet", "billing"], sectionFormats: { bio: "bullets" } };
+    const preferred = { ...input, key: "preferred-layout", payload: layout, ttlDays: 3_650 };
+    assert.equal((await store.putUserWorkspaceState(preferred)).ok, true);
+    assert.deepEqual(JSON.parse(JSON.stringify((await owner().getUserWorkspaceState("synthetic-a", input.kind, preferred.key)).payload)), layout);
+    assert.equal(await store.getUserWorkspaceState("synthetic-b", input.kind, preferred.key), null);
+    assert.equal((await store.putUserWorkspaceState(preferred)).ok, false);
+    assert.equal((await store.getUserWorkspaceState(input.principalId, input.kind, input.key)).version, 2);
     const rollback = join(root, "database/rollbacks/0040_referral_email_drafts.sql");
     assert.throws(() => execFileSync(binary("psql"), [url, "-v", "ON_ERROR_STOP=1", "-f", rollback], { stdio: "pipe" }));
     assert.equal((await store.getUserWorkspaceState(input.principalId, input.kind, input.key)).version, 2);

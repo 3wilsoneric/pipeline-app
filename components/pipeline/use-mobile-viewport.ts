@@ -4,8 +4,8 @@ import { useEffect, useRef } from "react";
 
 // Keep the existing shell and its scroll owners. Mobile keyboards resize the
 // visual viewport, not necessarily 100dvh. Never resize the UI during pinch zoom.
-export function useMobileViewport() {
-  const ref = useRef<HTMLDivElement>(null);
+export function useMobileViewport<T extends HTMLElement = HTMLDivElement>() {
+  const ref = useRef<T>(null);
   useEffect(() => {
     const shell = ref.current;
     const viewport = window.visualViewport;
@@ -28,7 +28,7 @@ export function useMobileViewport() {
         shell.dataset.mobileKeyboard = String(editing && !active.closest("[data-pipeline-header]")
           && window.innerHeight - viewport.height > 120);
         if (revealFocus && active instanceof HTMLElement && shell.contains(active)
-          && active.closest("[data-assessment-view], [data-assessment-scheduling], [data-guide-target='packet-workspace']") && editing) {
+          && active.closest("[data-meet-client-editor], [data-assessment-view], [data-assessment-scheduling], [data-guide-target='packet-workspace']") && editing) {
           active.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "instant" });
         }
       }
