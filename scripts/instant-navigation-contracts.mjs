@@ -210,6 +210,7 @@ const rootStubs = {
   "@/components/pipeline/referral-home-directory-model": { buildReferralParams: () => "kind=all" },
   "@/lib/pipeline/report-access": {
     canAccessOperationsReports: (principal) => principal?.roles.includes("admin"),
+    canAccessExecutiveAdmissionFlow: (principal) => principal?.roles.includes("admin"),
     canAccessSupervisorOperations: (roles) => roles.includes("admin"),
   },
 };

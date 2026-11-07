@@ -39,8 +39,9 @@ test("recipient drafts: migrated PostgreSQL persistence, private ownership, conc
     };
     const owner = () => loadEntry("lib/pipeline/user-workspace-state-store.ts", dependencies, { process: { ...process, env: { NEXT_PUBLIC_PIPELINE_AUTH_REQUIRED: "true" } } });
     const store = owner();
-    const input = { principalId: "synthetic-a", kind: "referral_email_draft", key: "7", payload: { community: "San Pablo", to: [{ name: "Team", email: "team@example.invalid" }], cc: [] }, expectedVersion: 0, ttlDays: 30 };
+    const input = { principalId: "synthetic-a", kind: "referral_email_draft", key: "7", payload: { community: "San Pablo", to: [{ name: "Team", email: "team@example.invalid" }], cc: [], message: { subject: null, body: null, sectionEdits: { bio: { text: "Synthetic edited handoff", source: "Synthetic original chart" } } } }, expectedVersion: 0, ttlDays: 30 };
     assert.equal((await store.putUserWorkspaceState(input)).ok, true);
+    assert.deepEqual(JSON.parse(JSON.stringify((await owner().getUserWorkspaceState(input.principalId, input.kind, input.key)).payload)), input.payload);
     assert.equal((await owner().getUserWorkspaceState(input.principalId, input.kind, input.key)).version, 1);
     assert.equal(await store.getUserWorkspaceState("synthetic-b", input.kind, input.key), null);
     assert.equal((await store.putUserWorkspaceState(input)).ok, false);

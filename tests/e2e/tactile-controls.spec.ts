@@ -149,8 +149,8 @@ for (const width of [1440, 834]) {
     expect(control.height).toBeGreaterThanOrEqual(44);
     expect(control.fontSize).toBeGreaterThanOrEqual(14);
     await page.getByRole("navigation", { name: "Workspace stages" }).getByRole("button", { name: "Decision", exact: true }).click();
-    await decision.getByRole("button", { name: "Administrative controls" }).click();
-    await page.getByRole("dialog", { name: "Administrative controls" }).locator("summary").filter({ hasText: /^Administrative controls$/ }).click();
+    await decision.getByRole("button", { name: "Decision settings" }).click();
+    await page.getByRole("dialog", { name: "Decision settings" }).locator("summary").filter({ hasText: /^Administrative controls$/ }).click();
     const stage = decision.getByRole("combobox", { name: "Workflow stage", exact: true });
     expect((await stage.boundingBox())!.height).toBeGreaterThanOrEqual(44);
     // Saving instructions and workflow distinctions stay readable.

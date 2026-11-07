@@ -42,6 +42,10 @@ import {
 
 const previewLimit = 500;
 const exportLimit = 5_000;
+// Reporting cutoff inferred from the first nonhistorical Pipeline workspace.
+// Audited November 5, 2026: 93 native workspaces from September 18 onward;
+// the earlier native charts and later legacy imports are historical records.
+const admissionFlowStartDate = "2026-09-18";
 
 const reportCatalog: OperationsReportDefinition[] = [
   {
@@ -464,12 +468,13 @@ async function buildReport(
     truncated: false,
     generated_at: new Date().toISOString(),
     ...(definition.id === "admission_flow" ? { notes: [
+      `Since launch includes all Pipeline workspaces created from ${admissionFlowStartDate}, regardless of outcome. Imported and historical charts are excluded; new referrals started from older charts are included.`,
       "Only staff-confirmed actual admission dates count as admissions. Planned dates and accepted decisions do not.",
       "Assessment and ready dates are shown only when recorded. Blank intervals are excluded, never estimated.",
       "Hold reasons are manually entered observations, not a complete or automatic measure of avoidable days.",
       "First change is the first audited change after creation; it is not proof of first contact with the client or referral source.",
       "Early outcomes after move-in require linked clinical stay data and are not inferred from referral records.",
-      "A selected month groups referrals by their received date, including those still open; All dates shows the full accessible history.",
+      "A selected month groups this cohort by its original received dates, including referrals still open. Earlier received dates remain intact for wait-time calculations; they do not determine whether a workspace is included.",
       "Recent cohorts still contain open cases. Do not treat a shorter admitted-case median alone as faster overall throughput.",
       "Weekly rows group referrals by received week. Admission share is provisional while a cohort remains open.",
       "Open waiting phases are inferred from recorded milestone dates; missing dates are shown as missing evidence, not proof a step did not happen.",
@@ -488,9 +493,8 @@ async function reportRows(
 
   const referrals = await loadReportReferrals(user, filters, workspaceScopeForReport(reportId));
   if (reportId === "admission_flow") {
-    const cohort = admissionFlowCohort(referrals, filters.month);
-    const [assessmentDates, activity] = await Promise.all([admissionFlowAssessmentDates(cohort), admissionFlowAudit(cohort)]);
-    return admissionFlowRows(cohort, assessmentDates, activity);
+    const [assessmentDates, activity] = await Promise.all([admissionFlowAssessmentDates(referrals), admissionFlowAudit(referrals)]);
+    return admissionFlowRows(referrals, assessmentDates, activity);
   }
   const contexts = await getReferralWorkflowContexts(referrals);
   if (reportId === "active_referrals") return activeReferralRows(referrals, contexts);
@@ -504,7 +508,12 @@ async function reportRows(
 }
 
 export function admissionFlowCohort(referrals: Referral[], receivedMonth: string) {
-  return receivedMonth ? referrals.filter((referral) => normalizeCalendarDate(referral.date)?.startsWith(receivedMonth)) : referrals;
+  return referrals.filter((referral) => {
+    if (referral.workspaceOrigin !== "pipeline" || referral.workspaceStatus === "historical" || referral.deletedAt) return false;
+    const created = new Date(referral.createdAt);
+    if (!Number.isFinite(created.getTime()) || admissionFlowToday(created) < admissionFlowStartDate) return false;
+    return !receivedMonth || Boolean(normalizeCalendarDate(referral.date)?.startsWith(receivedMonth));
+  });
 }
 
 async function loadReportReferrals(
@@ -523,7 +532,9 @@ async function loadReportReferrals(
       limit: 200,
       cursor,
     }));
-    referrals.push(...page.referrals);
+    referrals.push(...(filters.report_id === "admission_flow"
+      ? admissionFlowCohort(page.referrals, filters.month)
+      : page.referrals));
     cursor = page.next_cursor;
   } while (cursor && referrals.length < exportLimit);
   if (cursor) throw new Error("This report exceeds the 5,000-row export limit. Narrow the filters and run it again.");

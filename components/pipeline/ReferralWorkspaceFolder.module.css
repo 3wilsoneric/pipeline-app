@@ -297,15 +297,16 @@
   }
 
   @media (max-width: 1100px) {
-    .connectedFolder > div { padding: 4px; }
+    /* Preserve the phone intake geometry regardless of CSS chunk/import order. */
+    .connectedFolder.connectedFolder > div { padding: 4px; }
     .connectedFolder > div > div { padding: 0; border: 0; box-shadow: none; }
     .connectedFolder [aria-label="Document checklist"] { margin-bottom: 4px; }
     .connectedFolder [data-testid="document-checklist-toggle"] { min-height: 44px; padding: 6px 10px; gap: 8px; }
     .connectedFolder [data-testid="document-checklist-toggle"] > div:last-child { gap: 8px; }
     .connectedFolder [data-testid="document-checklist-toggle"] h2 { font-size: 13px; }
     .connectedFolder article[aria-label="Referral intake chart"] > header { display: flex; align-items: center; justify-content: space-between; }
-    .connectedFolder article[aria-label="Referral intake chart"] > header > div { padding: 8px 10px; border: 0; }
-    .connectedFolder article[aria-label="Referral intake chart"] > header h1 { font-size: 15px; }
+    .connectedFolder.connectedFolder article[aria-label="Referral intake chart"] > header > div { padding: 8px 10px; border: 0; }
+    .connectedFolder.connectedFolder article[aria-label="Referral intake chart"] > header h1 { font-size: 15px; }
     .connectedFolder [data-guide-target="intake-identity"] h2 { padding: 8px 10px; font-size: 11px; }
     .connectedFolder [data-workspace-field] { padding: 8px 10px; min-height: 76px; }
     .connectedFolder [data-workspace-field] label { font-size: 11px; }

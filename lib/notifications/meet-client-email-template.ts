@@ -41,7 +41,7 @@ export type MeetClientSection = {
   | { kind: "message"; text: string });
 
 /** One source for the working page, HTML email, and plain-text email. No sections can be removed by ordering. */
-export function meetClientSections(summary: MeetClientSummary, message?: MeetClientMessage): MeetClientSection[] {
+function sourceSections(summary: MeetClientSummary, message?: MeetClientMessage): MeetClientSection[] {
   const sections: MeetClientSection[] = message?.body != null ? [
     { id: "message", title: "Message", kind: "message", text: message.body },
     ...(message.body.includes(medicationAttachmentReference) ? [] : [{ id: "medications" as const, title: "Medications", kind: "list" as const, values: [medicationAttachmentReference] }]),
@@ -54,36 +54,64 @@ export function meetClientSections(summary: MeetClientSummary, message?: MeetCli
     { id: "billing", title: "Billing team", kind: "items", items: summary.billingNotes ?? [] },
     { id: "support", title: "Support snapshot", kind: "items", items: summary.supportSnapshot },
   ];
-  if (message?.body == null && message?.sectionText?.message !== undefined) sections.push({ id: "message", title: "Message", kind: "message", text: message.sectionText.message });
   return meetClientSectionOrder(message).flatMap((id) => {
     const section = sections.find((item) => item.id === id);
-    if (!section) return [];
-    const override = message?.sectionText?.[id];
-    const format = message?.sectionFormats?.[id] ?? "default";
-    if (override !== undefined || format !== "default") {
-      let text = override ?? meetClientSectionText(section);
-      if (id === "medications" && !text.includes(medicationAttachmentReference)) text += `\n\n${medicationAttachmentReference}`;
-      return [{ id, title: section.title, ...(format === "bullets" ? { kind: "list" as const, values: text.split(/\r?\n/u).filter(line => line.trim()) } : { kind: "message" as const, text }) }];
-    }
-    return section.kind === "message" || (section.kind === "items" ? section.items.length : section.values.length) ? [section] : [];
+    return section && (section.kind === "message" || (section.kind === "items" ? section.items.length : section.values.length)) ? [section] : [];
   });
 }
 
 export function meetClientSectionText(section: MeetClientSection): string {
-  return section.kind === "message" ? section.text : section.kind === "list" ? section.values.join("\n") : section.items.map(({ label, value }) => `${label}: ${value}`).join("\n\n");
+  return section.kind === "message" ? section.text : section.kind === "list" ? section.values.join("\n")
+    : section.items.map(({ label, value }) => `${label}: ${value}`).join("\n");
+}
+
+export function meetClientSourceSections(summary: MeetClientSummary, message?: MeetClientMessage) {
+  return sourceSections(summary, { ...message, subject: message?.subject ?? null, body: null });
+}
+
+export function meetClientSectionConflicts(summary: MeetClientSummary, message?: MeetClientMessage): MeetClientSectionId[] {
+  if (message?.body != null) return [];
+  const sources = meetClientSourceSections(summary, message);
+  return Object.entries(message?.sectionEdits ?? {}).filter(([id, edit]) => {
+    if (id === "message") return false;
+    const source = sources.find(section => section.id === id);
+    return !source || edit.source !== meetClientSectionText(source);
+  }).map(([id]) => id as MeetClientSectionId);
+}
+
+export function meetClientSections(summary: MeetClientSummary, message?: MeetClientMessage): MeetClientSection[] {
+  const sections = sourceSections(summary, message);
+  // Preserve an edit even if its source section disappears; the sender must resolve it.
+  if (message?.body == null) for (const id of meetClientSectionOrder(message)) {
+    if (message?.sectionEdits?.[id] && !sections.some(section => section.id === id)) {
+      const titles: Record<MeetClientSectionId, string> = { bio: "Meet the client", coordination: "Admission & coordination", medications: "Med room", safety: "Behavior & safety", diet: "Allergies & diet", billing: "Billing team", support: "Support snapshot", message: "Message" };
+      sections.push({ id, title: titles[id], kind: "message", text: "" });
+    }
+  }
+  return [...sections].sort((a, b) => meetClientSectionOrder(message).indexOf(a.id) - meetClientSectionOrder(message).indexOf(b.id)).map(section => {
+    const edit = message?.body == null ? message?.sectionEdits?.[section.id] : undefined;
+    const format = message?.sectionFormats?.[section.id] ?? "default";
+    if (!edit && format === "default") return section;
+    let text = edit?.text ?? meetClientSectionText(section);
+    if (section.id === "medications" && !text.includes(medicationAttachmentReference)) text += `\n\n${medicationAttachmentReference}`;
+    return { id: section.id, title: section.title, ...(format === "bullets"
+      ? { kind: "list" as const, values: text.split(/\r?\n/u).filter(line => line.trim()) }
+      : { kind: "message" as const, text }) };
+  });
 }
 
 function meetClientContent(summary: MeetClientSummary, attachmentNames: string[], message?: MeetClientMessage) {
-  const edited = message?.body != null || Boolean(Object.keys(message?.sectionText ?? {}).length);
+  const customBody = message?.body != null;
+  const edited = customBody || Boolean(Object.keys(message?.sectionEdits ?? {}).length);
   const sections = meetClientSections(summary, message);
   const html = sections.map((section, index) => section.kind === "items" ? emailItemSection(section.title, section.items)
     : section.kind === "list" ? emailSection(section.id === "bio" && index === 0 ? "" : section.title, section.values)
-    : `${section.id === "message" ? "" : `<h2 style="margin:30px 0 12px;font-size:21px;line-height:1.3">${escapeHtml(section.title)}</h2>`}<div style="white-space:pre-wrap">${escapeHtml(section.text)}</div>`).join("");
+    : `${section.id === "message" || (section.id === "bio" && index === 0) ? "" : `<h2 style="margin:30px 0 12px;font-size:21px;line-height:1.3">${escapeHtml(section.title)}</h2>`}<div style="white-space:pre-wrap">${escapeHtml(section.text)}</div>`).join("");
   const text = sections.map((section) => section.kind === "message" ? `${section.id === "message" ? "" : `${section.title}\n`}${section.text}`
     : `${section.title}\n${section.kind === "items" ? section.items.map(({ label, value }) => `${label}: ${value}`).join("\n") : section.values.join("\n")}`).join("\n\n");
   return {
-    html: `${message?.body != null ? "" : admissionIntroduction(summary)}<h1 style="margin:8px 0 24px;font-size:30px;line-height:1.2">Meet the Client</h1>${table(meetClientIdentityRows(summary))}${html}${emailSection("Admission packet", attachmentNames)}`,
-    text: message?.body != null ? text : `Hello team,\n\nPlease review the handoff details below and the admission packet.\n\n${text}`,
+    html: `${customBody ? "" : admissionIntroduction(summary)}<h1 style="margin:8px 0 24px;font-size:30px;line-height:1.2">Meet the Client</h1>${table(meetClientIdentityRows(summary))}${html}${emailSection("Admission packet", attachmentNames)}`,
+    text: customBody ? text : `Hello team,\n\nPlease review the handoff details below and the admission packet.\n\n${text}`,
     edited,
   };
 }

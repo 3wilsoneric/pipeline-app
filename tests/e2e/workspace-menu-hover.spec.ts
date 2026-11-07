@@ -60,7 +60,7 @@ for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]]
         const bounds = (await profile.boundingBox())!;
         expect(bounds.x).toBeGreaterThanOrEqual(104);
         expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
-        await expect(profile.getByRole("button", { name: "Open guided tutorials" })).toBeVisible();
+        await expect(profile.getByRole("button", { name: "Open guided tutorials" })).toHaveCount(0);
         await page.keyboard.press("Escape");
         await expect(profile).toBeHidden();
         await expect(trigger).toBeFocused();

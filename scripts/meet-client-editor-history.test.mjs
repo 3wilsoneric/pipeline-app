@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { loadEntry } from "./contact-import-fixtures.mjs";
 const { createEditorHistory, messageKey, recordEditorChange, stepEditorHistory } = loadEntry("components/pipeline/meet-client-editor-history.ts");
-const message = text => ({ subject: null, body: null, sectionText: { bio: text } });
+const message = text => ({ subject: null, body: null, sectionEdits: { bio: { text, source: "Original" } } });
 
 test("typing groups undo together; layout, reset and note changes stay reversible", () => {
   const initial = message("Original");
@@ -14,17 +14,17 @@ test("typing groups undo together; layout, reset and note changes stay reversibl
   history = recordEditorChange(history, history.present.message, formatted, "bio", "", 1300);
   assert.equal(history.past.length, 2);
   history = stepEditorHistory(history, "undo");
-  assert.equal(history.present.message.sectionText.bio, "AB");
+  assert.equal(history.present.message.sectionEdits.bio.text, "AB");
   assert.equal(history.present.message.sectionFormats, undefined);
   history = stepEditorHistory(history, "undo");
   assert.equal(messageKey(history.present.message), messageKey(initial));
   history = stepEditorHistory(stepEditorHistory(history, "redo"), "redo");
   assert.equal(messageKey(history.present.message), messageKey(formatted));
-  const note = { ...formatted, sectionText: { ...formatted.sectionText, message: "Keep this clinical note." } };
+  const note = { ...formatted, sectionEdits: { ...formatted.sectionEdits, message: { text: "Keep this clinical note.", source: "" } } };
   history = recordEditorChange(history, formatted, note, "message");
   history = recordEditorChange(history, note, formatted, "message");
   history = stepEditorHistory(history, "undo");
-  assert.equal(history.present.message.sectionText.message, note.sectionText.message);
+  assert.equal(history.present.message.sectionEdits.message.text, note.sectionEdits.message.text);
 });
 
 test("history stops at external updates and bounds retained edits without persisting them", () => {

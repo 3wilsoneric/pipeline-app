@@ -103,34 +103,6 @@ test("dismisses native scheduling pickers before closing the appointment", async
   await expect(dialog).toHaveCount(0);
 });
 
-test("the referral walkthrough keeps its nonmodal appointment keyboard controls usable", async ({ page }) => {
-  await page.goto("/tutorials/referral?task=start-assessment");
-  const guide = page.getByRole("complementary", { name: "Tutorial steps", exact: true });
-  await expect(guide.getByRole("heading", { name: "Schedule", exact: true })).toBeVisible();
-  const dialog = page.getByRole("dialog", { name: "Schedule interview", exact: true });
-  const date = dialog.getByLabel("Assessment date and time");
-  await date.fill("2027-09-14T09:30");
-  await dialog.getByLabel("Assessment duration").selectOption("90");
-  await dialog.getByLabel("Assessment method").selectOption("zoom");
-  await dialog.getByLabel("Zoom meeting link").fill("https://example.invalid/tutorial-focus");
-  const save = dialog.getByRole("button", { name: "Schedule interview", exact: true });
-  const close = dialog.getByRole("button", { name: "Close schedule", exact: true });
-  await expect(dialog).toHaveAttribute("aria-modal", "false");
-  await expect(save).toBeEnabled();
-  await save.focus();
-  await page.keyboard.press("Shift+Tab");
-  await expect(dialog.getByRole("button", { name: "Back to assessment", exact: true })).toBeFocused();
-  await page.keyboard.press("Tab");
-  await expect(save).toBeFocused();
-  await close.focus();
-  await page.keyboard.press("Tab");
-  await expect(date).toBeFocused();
-  await close.click();
-  await expect(dialog).toHaveCount(0);
-  await expect(guide.getByRole("heading", { name: "Assessment", exact: true })).toBeVisible();
-  await expect(guide.getByRole("button", { name: "Next: Review & sign", exact: true })).toBeEnabled();
-});
-
 async function dismissSchedulingPickers(page: Page, dialog: Locator) {
   for (const label of ["Assessment method", "Assessment duration"]) {
     const picker = dialog.getByLabel(label);

@@ -9,6 +9,7 @@ import { canCancelPlacement, canModifyReferral } from "@/lib/pipeline/referral-o
 import { getAllowedReferralTargets, getReferralTransitionAlerts, getReferralTransitionBlockers } from "@/lib/pipeline/referral-workflow";
 import { requireReferralStore } from "@/lib/pipeline/referral-store";
 import { getReferralWorkflowSnapshot } from "@/lib/pipeline/workflow-store";
+import { buildReferralContext } from "@/lib/pipeline/referral-context";
 
 export const runtime = "nodejs";
 
@@ -32,7 +33,7 @@ export async function GET(
       ? await getAssessment(snapshot.context.assessmentId)
       : null;
 
-    return Response.json({
+    const workflow = {
       ...snapshot,
       transitions: getAllowedReferralTargets(snapshot.referral.stage).map((target) => ({
         target,
@@ -42,7 +43,19 @@ export async function GET(
       capabilities: workflowCapabilities(auth.user, assessment,
         access.referral.workspaceStatus !== "historical" && canModifyReferral(access.referral, auth.user),
         access.referral.workspaceStatus !== "historical" && canCancelPlacement(access.referral, auth.user)),
-    }, { headers: { "Cache-Control": "private, no-store, max-age=0" } });
+    };
+    const headers = { "Cache-Control": "private, no-store, max-age=0" };
+    if (new URL(request.url).searchParams.get("representation") === "context") {
+      if (assessment && (assessment.referral_id !== referralId || assessment.assessment_id !== snapshot.context.assessmentId)) {
+        return Response.json({ error: "The linked assessment changed. Reload the source context." }, { status: 409, headers });
+      }
+      const body = JSON.stringify(buildReferralContext(workflow, assessment));
+      if (Buffer.byteLength(body, "utf8") > 1024 * 1024) {
+        return Response.json({ error: "Referral context exceeds 1 MiB. Retrieve its individual source records; no evidence was truncated." }, { status: 413, headers });
+      }
+      return new Response(body, { headers: { ...headers, "Content-Type": "application/json" } });
+    }
+    return Response.json(workflow, { headers });
   });
 }
 

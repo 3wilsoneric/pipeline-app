@@ -3,8 +3,8 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, GripVertical } from "lucide-react";
 import type { MeetClientSummary } from "@/lib/assessment/assessment-summary";
-import { meetClientIdentityRows, meetClientSections, meetClientSectionText } from "@/lib/notifications/meet-client-email-template";
-import { meetClientBodyLimit, meetClientSectionOrder, type MeetClientMessage, type MeetClientSectionId, type MeetClientSectionFormat } from "@/lib/notifications/meet-client-message";
+import { meetClientIdentityRows, meetClientSections, meetClientSectionText, meetClientSourceSections, meetClientSectionConflicts } from "@/lib/notifications/meet-client-email-template";
+import { meetClientBodyLimit, meetClientSectionOrder, type MeetClientMessage, type MeetClientSectionId, type MeetClientSectionFormat, type MeetClientSectionEdits } from "@/lib/notifications/meet-client-message";
 import styles from "./MeetClientSections.module.css";
 import PipelineIllustration, { type PipelineIllustrationKind } from "./PipelineIllustration";
 
@@ -13,16 +13,23 @@ export const meetClientSectionPictures: Record<MeetClientSectionId, PipelineIllu
   diet: "diet", billing: "report", support: "connections", message: "conversation",
 };
 
-export default function MeetClientSections({ summary, message, editable, onOrderChange, editing = false, onTextChange, onFormatChange, activeSection }: {
+export default function MeetClientSections({ summary, message, editable, onOrderChange, editing = false, onTextChange, onFormatChange, activeSection, onSectionChange, onBlur }: {
   summary: MeetClientSummary; message: MeetClientMessage; editable: boolean;
   onOrderChange: (order: MeetClientSectionId[], moved?: MeetClientSectionId) => void;
   activeSection?: MeetClientSectionId | "subject";
   editing?: boolean;
   onTextChange?: (id: MeetClientSectionId, text: string | undefined) => void;
   onFormatChange?: (id: MeetClientSectionId, format: MeetClientSectionFormat) => void;
+  onSectionChange?: (edits: MeetClientSectionEdits) => void;
+  onBlur?: () => void;
 }) {
   const sections = meetClientSections(summary, message);
-  const original = meetClientSections(summary, { ...message, sectionFormats: undefined, sectionText: undefined });
+  const original = meetClientSections(summary, { ...message, sectionFormats: undefined, sectionEdits: undefined });
+  const sources = meetClientSourceSections(summary, message);
+  const conflicts = meetClientSectionConflicts(summary, message);
+  const resetSection = (id: MeetClientSectionId) => {
+    const edits = { ...message.sectionEdits }; delete edits[id]; onSectionChange?.(edits);
+  };
   const [dragging, setDragging] = useState<MeetClientSectionId | null>(null);
   const [over, setOver] = useState<MeetClientSectionId | null>(null);
   const [announcement, setAnnouncement] = useState("");
@@ -95,7 +102,7 @@ export default function MeetClientSections({ summary, message, editable, onOrder
           <div className={styles.moveOptions}>
             <button type="button" disabled={index === 0} onClick={() => move(section.id, sections[index - 1].id)}><ArrowUp size={18} aria-hidden="true" />Move up</button>
             <button type="button" disabled={index === sections.length - 1} onClick={() => move(section.id, sections[index + 1].id)}><ArrowDown size={18} aria-hidden="true" />Move down</button>
-            {editing && message.sectionText?.[section.id] !== undefined && section.id !== "message" ? <button type="button" className={styles.sectionAction} onClick={event => { event.currentTarget.closest("details")?.removeAttribute("open"); onTextChange?.(section.id, undefined); }}>Use assessment text</button> : null}
+            {editing && message.sectionEdits?.[section.id] !== undefined && section.id !== "message" ? <button type="button" className={styles.sectionAction} onClick={event => { event.currentTarget.closest("details")?.removeAttribute("open"); onTextChange?.(section.id, undefined); }}>Use assessment text</button> : null}
             {editing && section.id === "message" && message.body == null ? <button type="button" className={styles.sectionAction} onClick={event => { event.currentTarget.closest("details")?.removeAttribute("open"); onTextChange?.("message", undefined); }}>Remove note</button> : null}
           </div>
         </details> : null}
@@ -108,10 +115,18 @@ export default function MeetClientSections({ summary, message, editable, onOrder
             </select></label>
           </div> : null}
         </div>
-        {editing ? <SectionField className={styles.sectionEditor} aria-label={`Edit ${section.title}`} readOnly={!editable} spellCheck lang="en-US" autoCorrect="off" autoCapitalize="off"
+        {conflicts.includes(section.id) ? <div className={styles.sourceChange} role="status">
+          <strong>Chart updated</strong>
+          <details><summary>Compare with the chart</summary><p>{sources.find(item => item.id === section.id) ? meetClientSectionText(sources.find(item => item.id === section.id)!) : "This section is no longer in the chart."}</p></details>
+          {editable && onSectionChange ? <div className={styles.editActions}>
+            {sources.some(item => item.id === section.id) ? <button type="button" onClick={() => onSectionChange({ ...message.sectionEdits, [section.id]: { ...message.sectionEdits![section.id]!, source: meetClientSectionText(sources.find(item => item.id === section.id)!) } })}>Keep my edit</button> : null}
+            <button type="button" onClick={() => resetSection(section.id)}>Use chart text</button>
+          </div> : null}
+        </div> : null}
+        {editing ? <SectionField className={styles.sectionEditor} aria-label={`Edit ${section.title}`} readOnly={!editable || (message.body != null && section.id !== "message")} spellCheck lang="en-US" autoCorrect="off" autoCapitalize="off"
             data-editor-field={section.id}
-            maxLength={meetClientBodyLimit} value={message.sectionText?.[section.id] ?? meetClientSectionText(original.find(item => item.id === section.id) ?? section)}
-            onChange={(event) => onTextChange?.(section.id, event.target.value)} />
+            maxLength={meetClientBodyLimit} value={(message.body == null ? message.sectionEdits?.[section.id]?.text : undefined) ?? meetClientSectionText(original.find(item => item.id === section.id) ?? section)}
+            onChange={(event) => onTextChange?.(section.id, event.target.value)} onBlur={onBlur} />
         : section.kind === "items" ? <dl className={styles.facts}>{section.items.map((item, i) => <div key={`${item.label}:${i}`}><dt>{item.label}</dt><dd>{item.value}</dd></div>)}</dl>
           : section.kind === "list" ? <ul>{section.values.map((value, i) => <li key={i}>{value}</li>)}</ul>
           : <p className={styles.message}>{section.text}</p>}

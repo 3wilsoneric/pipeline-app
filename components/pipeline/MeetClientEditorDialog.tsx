@@ -5,7 +5,7 @@ import Image from "next/image";
 import { ArrowLeft, Check, ChevronDown, ChevronRight, Eye, Mail, Paperclip, Plus, Redo2, SpellCheck, Undo2, X } from "lucide-react";
 import type { MeetClientSummary } from "@/lib/assessment/assessment-summary";
 import { meetClientLayout, meetClientSubjectLimit, parseMeetClientMessage, type MeetClientMessage, type MeetClientSectionId } from "@/lib/notifications/meet-client-message";
-import { meetClientSections, renderMeetClientEmail } from "@/lib/notifications/meet-client-email-template";
+import { meetClientSections, meetClientSourceSections, meetClientSectionText, renderMeetClientEmail } from "@/lib/notifications/meet-client-email-template";
 import { toPipelinePath } from "@/lib/pipeline/base-path";
 import type { HandoffRecipients } from "./useHandoffRecipients";
 import PipelineIllustration from "./PipelineIllustration";
@@ -106,9 +106,11 @@ export default function MeetClientEditorDialog({ summary, draft, preparedBy, att
   };
   const changeText = (id: MeetClientSectionId, value: string | undefined) => {
     if (id === "message" && content.body != null) { change({ ...content, body: value ?? "" }, id, value !== undefined); return; }
-    const sectionText = { ...content.sectionText };
-    if (value === undefined) delete sectionText[id]; else sectionText[id] = value;
-    change({ ...content, sectionText }, id, value !== undefined);
+    const sectionEdits = { ...content.sectionEdits };
+    const source = meetClientSourceSections(summary, content).find(section => section.id === id);
+    if (value === undefined) delete sectionEdits[id];
+    else sectionEdits[id] = { text: value, source: sectionEdits[id]?.source ?? (source ? meetClientSectionText(source) : "") };
+    change({ ...content, sectionEdits }, id, value !== undefined);
     if (value === undefined) focusField(id === "message" ? "subject" : id);
   };
   const stepHistory = (direction: "undo" | "redo") => {
@@ -161,8 +163,8 @@ export default function MeetClientEditorDialog({ summary, draft, preparedBy, att
         <button type="button" aria-label="Undo" title="Undo (Ctrl/⌘ Z)" disabled={preview || !canUndo} onClick={() => stepHistory("undo")}><Undo2 size={19} aria-hidden="true" /></button>
         <button type="button" aria-label="Redo" title="Redo (Ctrl/⌘ Shift Z)" disabled={preview || !canRedo} onClick={() => stepHistory("redo")}><Redo2 size={19} aria-hidden="true" /></button>
       </div>
-      <button type="button" className={styles.addNote} aria-label="Add a note" title="Add a note" disabled={preview || !editable || content.body != null || content.sectionText?.message !== undefined}
-        onClick={() => { change({ ...content, sectionText: { ...content.sectionText, message: "" } }, "message"); focusField("message"); }}><Plus size={18} aria-hidden="true" /><span>Add a note</span></button>
+      <button type="button" className={styles.addNote} aria-label="Add a note" title="Add a note" disabled={preview || !editable || content.body != null || content.sectionEdits?.message !== undefined}
+        onClick={() => { change({ ...content, sectionEdits: { ...content.sectionEdits, message: { text: "", source: "" } } }, "message"); focusField("message"); }}><Plus size={18} aria-hidden="true" /><span>Add a note</span></button>
       <span className={styles.spelling} title="Spellcheck on · autocorrect off"><SpellCheck size={18} aria-hidden="true" /><span>Spellcheck on · autocorrect off</span></span>
       <button type="button" className={styles.previewToggle} aria-pressed={preview} aria-controls={`${instance}-preview`} onClick={togglePreview}>
         {preview ? <ArrowLeft size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}{preview ? "Back to editing" : "Preview email"}
@@ -189,6 +191,7 @@ export default function MeetClientEditorDialog({ summary, draft, preparedBy, att
           <MeetClientSections summary={summary} message={content} editable={editable} editing activeSection={activeField}
             onOrderChange={(sectionOrder, moved) => change({ ...content, ...meetClientLayout(content), sectionOrder }, moved ?? activeField)}
             onFormatChange={(id, format) => change({ ...content, sectionFormats: { ...content.sectionFormats, [id]: format } }, id)}
+            onSectionChange={sectionEdits => change({ ...content, sectionEdits }, activeField)}
             onTextChange={changeText} />
         </div>
       </div>

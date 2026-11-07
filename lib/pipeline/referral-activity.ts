@@ -128,6 +128,7 @@ async function loadActivityEvents(
          or (entity_type = 'admission_decision' and entity_id in (
               select decision_id::text from pipeline.admission_decisions where referral_id = ${referral.id}
             ))
+         or (entity_type = 'admission_decision' and entity_id = any(${(referral.admissionDecisionHistory ?? []).map((decision) => decision.decisionId)}::text[]))
          or (entity_type = 'assessment_review' and entity_id in (
               select review_id::text from pipeline.assessment_reviews where referral_id = ${referral.id}
             ))
@@ -194,25 +195,25 @@ async function loadActivityEvents(
     });
   }
   events.push(...contactEvents);
-  if (referral.admissionDecision) {
+  for (const decision of [...(referral.admissionDecisionHistory ?? []), ...(referral.admissionDecision ? [referral.admissionDecision] : [])]) {
     events.push({
-      event_id: `decision-${referral.admissionDecision.decisionId}-${referral.admissionDecision.version}`,
+      event_id: `decision-${decision.decisionId}-${decision.version}`,
       source: "record",
       entity_type: "admission_decision",
-      entity_id: String(referral.admissionDecision.decisionId),
+      entity_id: String(decision.decisionId),
       action: "admission_decision_recorded",
-      actor_id: referral.admissionDecision.decidedBy,
-      actor_name: referral.admissionDecision.decidedByName,
+      actor_id: decision.decidedBy,
+      actor_name: decision.decidedByName,
       changed_fields: ["outcome", "reasonNote"],
       changes: buildReferralActivityChanges(
         ["outcome", "reasonNote"],
         null,
-        referral.admissionDecision,
+        decision,
       ),
-      reason: referral.admissionDecision.reasonNote || null,
-      from_version: referral.admissionDecision.version > 1 ? referral.admissionDecision.version - 1 : null,
-      to_version: referral.admissionDecision.version,
-      created_at: referral.admissionDecision.decidedAt,
+      reason: decision.reasonNote || null,
+      from_version: decision.version > 1 ? decision.version - 1 : null,
+      to_version: decision.version,
+      created_at: decision.decidedAt,
     });
   }
   return events.sort((left, right) => right.created_at.localeCompare(left.created_at)).slice(0, 100);

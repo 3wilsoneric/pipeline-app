@@ -1,41 +1,18 @@
 import { expect, test } from "@playwright/test";
-import { showTutorialHelp } from "../support/app-navigation";
 import { actorApiContext, actorPage, requireOperationalBaseURL } from "../support/pipeline-actors";
 
-test.describe("tutorial access follows shared Pipeline access", () => {
+test.describe("retired tutorial links preserve shared Pipeline access", () => {
   test.skip(process.env.PIPELINE_OPERATIONAL_E2E !== "true", "Isolated operational identities required.");
 
   for (const actor of ["admin", "assessmentCoordinator", "assessorA", "assessorB", "viewer"] as const) {
-    test(`${actor} can open every sample step without owning a referral`, async ({ browser, baseURL }) => {
+    test(`${actor} returns to the app instead of a tutorial`, async ({ browser, baseURL }) => {
       const url = requireOperationalBaseURL(baseURL);
       const { page, context } = await actorPage(browser, actor, url);
-      const writes: string[] = [];
-      page.on("request", (request) => {
-        if (!["GET", "HEAD", "OPTIONS"].includes(request.method()) && /\/api\/(referrals|assessments|files|uploads|packets)([/?]|$)/.test(new URL(request.url()).pathname)) {
-          writes.push(request.method() + " " + new URL(request.url()).pathname);
-        }
-      });
       try {
-        await page.goto("/");
-        await expect(page.locator('[data-pipeline-ready="guided-coach"]')).toBeAttached();
-        await (await showTutorialHelp(page)).click();
-        const menu = page.getByRole("dialog", { name: "Tutorials", exact: true });
-        for (const name of ["Create a referral & add files", "Schedule an appointment", "Fill out the assessment", "Review & sign", "Record a decision", "Prepare the admission packet"]) {
-          await expect(menu.getByRole("button", { name, exact: true })).toBeEnabled();
-        }
-        await expect(menu.getByRole("button", { name: "View reports", exact: true })).toHaveCount(actor === "admin" || actor === "assessmentCoordinator" ? 1 : 0);
-        await menu.getByRole("button", { name: /Walk through a referral/ }).click();
-        await expect(page.getByTestId("tutorial-referral-session")).toBeVisible();
-        for (let step = 0; step < 9; step++) {
-          await page.locator("#tutorial-step").selectOption(String(step));
-          await expect(page.locator("#tutorial-step")).toHaveValue(String(step));
-          await expect(page.getByRole("navigation", { name: "Tutorial navigation" }).getByRole("button").last()).toBeEnabled();
-        }
-        await page.getByRole("button", { name: "Restart tutorial", exact: true }).click();
-        await expect(page.locator("#tutorial-step")).toHaveValue("0");
-        await page.getByRole("button", { name: "Close tutorial", exact: true }).click();
+        await page.goto("/tutorials/referral?task=review-chart");
         await expect(page).toHaveURL(url + "/");
-        expect(writes).toEqual([]);
+        await expect(page.getByTestId("tutorial-referral-session")).toHaveCount(0);
+        await expect(page.getByRole("button", { name: "Open guided tutorials" })).toHaveCount(0);
       } finally { await context.close(); }
     });
   }

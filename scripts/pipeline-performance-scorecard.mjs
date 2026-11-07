@@ -25,7 +25,6 @@ const goals = {
   warm_navigation_ms: boundedInteger("PIPELINE_PERF_WARM_NAV_MS", 100, 25, 10_000),
   filter_tab_queue_ms: boundedInteger("PIPELINE_PERF_FILTER_MS", 150, 25, 10_000),
   overlay_interaction_ms: boundedInteger("PIPELINE_PERF_OVERLAY_MS", 150, 25, 10_000),
-  guide_interaction_ms: boundedInteger("PIPELINE_PERF_GUIDE_MS", 150, 25, 10_000),
   ordinary_api_p95_ms: boundedInteger("PIPELINE_PERF_API_P95_MS", 200, 25, 10_000),
   heavy_api_p95_ms: boundedInteger("PIPELINE_PERF_HEAVY_API_P95_MS", 500, 50, 20_000),
   transferred_bytes: boundedInteger("PIPELINE_PERF_TRANSFER_BYTES", 1_048_576, 100_000, 50_000_000),
@@ -45,7 +44,6 @@ const limits = {
   warm_navigation_ms: browserFrameCertificationLimit(goals.warm_navigation_ms),
   filter_tab_queue_ms: timingCertificationLimit(goals.filter_tab_queue_ms),
   overlay_interaction_ms: timingCertificationLimit(goals.overlay_interaction_ms),
-  guide_interaction_ms: timingCertificationLimit(goals.guide_interaction_ms),
   ordinary_api_p95_ms: timingCertificationLimit(goals.ordinary_api_p95_ms),
   heavy_api_p95_ms: timingCertificationLimit(goals.heavy_api_p95_ms),
   transferred_bytes: Math.ceil(goals.transferred_bytes * 1.1),
@@ -71,7 +69,6 @@ const runId = randomUUID().slice(0, 8);
 let seededReferralName = `McMaster QA ${runId}`;
 
 if (useSanitizedFixtures) await installSanitizedClinicalFixtures(page);
-if (useSanitizedFixtures) await installSanitizedTrainingFixture(page);
 if (useSanitizedFixtures) await installSanitizedContactListFixture(page);
 if (isLocalTarget && process.env.PIPELINE_PERF_SEED !== "false") {
   seededReferralName = await seedPerformanceReferral(context.request, parsedBaseUrl.origin, seededReferralName, runId);
@@ -318,59 +315,6 @@ await measureJourney("profile_menu_close", "overlay", async () => {
   await page.getByRole("dialog", { name: "Profile settings", exact: true }).waitFor({ state: "hidden" });
 });
 
-await page.locator('[data-pipeline-ready="guided-coach"]').waitFor({ state: "attached" });
-const tutorialLibrary = page.getByRole("dialog", { name: "Tutorials", exact: true });
-const reportGuide = page.getByRole("complementary", { name: "View reports tutorial", exact: true });
-// Help now lives in Profile. Score both inputs separately against the existing
-// response budgets, as with the other menu and navigation gestures in this suite.
-await measureJourney("guide_profile_open", "overlay", async () => {
-  await activate(page.getByRole("button", { name: /^Open profile menu for/ }));
-  await page.getByRole("button", { name: "Open guided tutorials", exact: true }).waitFor({ state: "visible" });
-});
-await measureJourney("guide_library_open", "guide", async () => {
-  await activate(page.getByRole("button", { name: "Open guided tutorials", exact: true }));
-  await tutorialLibrary.waitFor({ state: "visible" });
-});
-await measureJourney("guide_walkthrough_start", "guide", async () => {
-  await activate(tutorialLibrary.getByRole("button", { name: "View reports", exact: true }));
-  await reportGuide.getByRole("heading", { name: "Open the report", exact: true }).waitFor({ state: "visible" });
-  await page.getByRole("main", { name: "Reports", exact: true }).waitFor({ state: "visible" });
-});
-await measureJourney("guide_step_advance", "guide", async () => {
-  await activate(reportGuide.getByRole("button", { name: "Next", exact: true }));
-  await reportGuide.getByRole("heading", { name: "Read the headline figures", exact: true }).waitFor({ state: "visible" });
-});
-await measureJourney("guide_step_back", "guide", async () => {
-  await activate(reportGuide.getByRole("button", { name: "Previous tutorial step", exact: true }));
-  await reportGuide.getByRole("heading", { name: "Open the report", exact: true }).waitFor({ state: "visible" });
-});
-await measureJourney("guide_pause", "guide", async () => {
-  await activate(reportGuide.getByRole("button", { name: "Pause tutorial", exact: true }));
-  await reportGuide.waitFor({ state: "hidden" });
-});
-await measureJourney("guide_profile_reopen", "overlay", async () => {
-  await activate(page.getByRole("button", { name: /^Open profile menu for/ }));
-  await page.getByRole("button", { name: "Open guided tutorials", exact: true }).waitFor({ state: "visible" });
-});
-await measureJourney("guide_library_reopen", "guide", async () => {
-  await activate(page.getByRole("button", { name: "Open guided tutorials", exact: true }));
-  await tutorialLibrary.waitFor({ state: "visible" });
-});
-// The current library restarts the selected task; it no longer offers Resume.
-await measureJourney("guide_restart", "guide", async () => {
-  await activate(tutorialLibrary.getByRole("button", { name: "View reports", exact: true }));
-  await reportGuide.getByRole("heading", { name: "Open the report", exact: true }).waitFor({ state: "visible" });
-});
-await measureJourney("guide_return_to_library", "guide", async () => {
-  await activate(reportGuide.getByRole("button", { name: "Tutorials", exact: true }));
-  await reportGuide.waitFor({ state: "hidden" });
-  await tutorialLibrary.waitFor({ state: "visible" });
-});
-await measureJourney("guide_library_close", "guide", async () => {
-  await activate(tutorialLibrary.getByRole("button", { name: "Close tutorials", exact: true }));
-  await tutorialLibrary.waitFor({ state: "hidden" });
-});
-
 await measureJourney("home_to_calendar", "navigation", async () => {
   await activate(page.getByRole("button", { name: "Open calendar", exact: true }));
   await page.getByRole("group", { name: "Calendar view", exact: true }).waitFor({ state: "visible" });
@@ -405,46 +349,6 @@ await measureJourney("history_forward_to_referrals", "navigation", async () => {
   await page.getByRole("heading", { name: "Referral workspaces", exact: true }).waitFor({ state: "visible" });
 });
 
-await measureJourney("referrals_profile_open", "overlay", async () => {
-  await activate(page.getByRole("button", { name: /^Open profile menu for/ }));
-  await page.getByRole("button", { name: "Open guided tutorials", exact: true }).waitFor({ state: "visible" });
-});
-await measureJourney("referrals_to_learning_center", "navigation", async () => {
-  const startedAt = performance.now();
-  await activate(page.getByRole("button", { name: "Open guided tutorials", exact: true }));
-  navigationPhases.learning_help_click_ms = round(performance.now() - startedAt);
-  await tutorialLibrary.waitFor({ state: "visible" });
-  await tutorialLibrary.getByRole("button", { name: /^Walk through a referral/ }).waitFor({ state: "visible" });
-  navigationPhases.learning_action_visible_ms = round(performance.now() - startedAt);
-});
-await measureJourney("learning_workflow_open", "navigation", async () => {
-  const startedAt = performance.now();
-  await activate(tutorialLibrary.getByRole("button", { name: /^Walk through a referral/ }));
-  navigationPhases.learning_open_click_ms = round(performance.now() - startedAt);
-  await page.getByTestId("tutorial-referral-session").waitFor({ state: "visible" });
-  navigationPhases.learning_session_visible_ms = round(performance.now() - startedAt);
-  await page.getByRole("complementary", { name: "Tutorial steps", exact: true })
-    .getByRole("heading", { name: "Home board", exact: true }).waitFor({ state: "visible" });
-  navigationPhases.learning_step_visible_ms = round(performance.now() - startedAt);
-});
-await measureJourney("learning_workflow_step", "guide", async () => {
-  await activate(page.getByRole("button", { name: "Next: Referral details", exact: true }));
-  await page.getByRole("textbox", { name: "NAME", exact: true }).waitFor({ state: "visible" });
-});
-await measureJourney("learning_workflow_close", "navigation", async () => {
-  await activate(page.getByRole("button", { name: "Close tutorial", exact: true }));
-  await page.getByRole("heading", { name: "Referral workspaces", exact: true }).waitFor({ state: "visible" });
-});
-await page.locator('[data-pipeline-ready="guided-coach"]').waitFor({ state: "attached" });
-await activate(page.getByRole("button", { name: /^Open profile menu for/ }));
-await activate(page.getByRole("button", { name: "Open guided tutorials", exact: true }));
-await tutorialLibrary.waitFor({ state: "visible" });
-await measureJourney("learning_task_open", "overlay", async () => {
-  await activate(tutorialLibrary.getByRole("button", { name: "Fill out the assessment", exact: true }));
-  await page.getByRole("complementary", { name: "Tutorial steps", exact: true })
-    .getByRole("heading", { name: "Assessment", exact: true }).waitFor({ state: "visible" });
-  await page.getByTestId("assessment-client-folder").waitFor({ state: "visible" });
-});
 await page.waitForLoadState("networkidle");
 await afterNextPaint(page);
 
@@ -487,7 +391,6 @@ const assetJourneys = result.warm_journeys.filter((journey) => journey.kind === 
 const directEntries = result.warm_journeys.filter((journey) => journey.kind === "entry");
 const localizedJourneys = result.warm_journeys.filter((journey) => ["filter", "queue", "tab", "input"].includes(journey.kind));
 const overlayJourneys = result.warm_journeys.filter((journey) => ["overlay", "export"].includes(journey.kind));
-const guideJourneys = result.warm_journeys.filter((journey) => journey.kind === "guide");
 result.checks = {
   direct_entry: directEntries.length > 0 && directEntries.every((journey) => journey.duration_ms <= limits.useful_content_ms),
   ttfb: result.cold.ttfb_ms <= limits.ttfb_ms,
@@ -501,7 +404,6 @@ result.checks = {
   source_files: assetJourneys.length >= 2 && assetJourneys.every((journey) => journey.duration_ms <= limits.heavy_api_p95_ms),
   localized_interactions: localizedJourneys.length > 0 && localizedJourneys.every((journey) => journey.duration_ms <= limits.filter_tab_queue_ms),
   overlay_interactions: overlayJourneys.length > 0 && overlayJourneys.every((journey) => journey.duration_ms <= limits.overlay_interaction_ms),
-  guide_interactions: guideJourneys.length >= 9 && guideJourneys.every((journey) => journey.duration_ms <= limits.guide_interaction_ms),
   ordinary_api: apiSummary.ordinary.requests > 0 && apiSummary.ordinary.p95_ms <= limits.ordinary_api_p95_ms,
   heavy_api: apiSummary.heavy.requests > 0 && apiSummary.heavy.p95_ms <= limits.heavy_api_p95_ms,
   api_errors: apiSummary.errors === 0,
@@ -733,43 +635,6 @@ async function installSanitizedContactListFixture(page) {
       "content-type": "application/json",
       "x-pipeline-test-fixture": "sanitized",
     }, body: JSON.stringify({ lists: [] }) });
-  });
-}
-
-async function installSanitizedTrainingFixture(page) {
-  let revision = 0;
-  let progress = {
-    version: 2,
-    curriculumVersion: "2026.09.operator.1",
-    role: "admin",
-    completedActivityIds: [],
-    activeModuleId: "pipeline-purpose",
-    activeActivityId: "learn",
-    evidence: {},
-    confidence: {},
-    scenarioResults: {},
-    tutorialResults: {},
-  };
-  const fixtureHeaders = {
-    "cache-control": "private, no-store, max-age=0",
-    "content-type": "application/json",
-    "x-pipeline-test-fixture": "sanitized",
-  };
-  await page.route(/\/api\/training\/progress(?:\?|$)/, async (route) => {
-    if (route.request().method() === "PUT") {
-      const payload = route.request().postDataJSON();
-      if (payload.expectedRevision !== revision) {
-        await route.fulfill({ status: 409, headers: fixtureHeaders, body: JSON.stringify({ error: "revision_conflict" }) });
-        return;
-      }
-      progress = payload.progress;
-      revision += 1;
-    }
-    await route.fulfill({
-      status: 200,
-      headers: fixtureHeaders,
-      body: JSON.stringify({ revision, progress, updatedAt: new Date().toISOString(), persistence: "sanitized_test_only" }),
-    });
   });
 }
 

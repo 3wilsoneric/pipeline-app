@@ -322,13 +322,14 @@ export function getRequiredAssessmentInterviewQuestions(data: AssessmentToolData
   });
 }
 
+export const assessmentRetainedAnswerFields: readonly AssessmentToolFieldKey[] = ["medications_at_intake", "prior_living_situation"];
+
 export function isAssessmentQuestionVisible(question: AssessmentInterviewQuestion, data: AssessmentToolData) {
   // New interviews use the attached medication list; retain previously entered
   // medication history in the interview so it remains accessible and editable.
-  if (question.field === "medications_at_intake" && !hasAssessmentInterviewValue(data.medications_at_intake)) return false;
   // New interviews use one living-history answer. Keep an older separate answer
   // visible and editable when a prior assessment already recorded it.
-  if (question.field === "prior_living_situation" && !hasAssessmentInterviewValue(data.prior_living_situation)) return false;
+  if (assessmentRetainedAnswerFields.includes(question.field) && !hasAssessmentInterviewValue(data[question.field])) return false;
   return getAssessmentQuestionConditions(question).every((rule) => matchesRule(rule, data));
 }
 

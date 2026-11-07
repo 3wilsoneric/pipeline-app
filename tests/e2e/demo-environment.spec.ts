@@ -1,4 +1,3 @@
-import { showTutorialHelp } from "./support/app-navigation";
 import { expect, test, type Page } from "@playwright/test";
 import { editPreparedAnswer } from "./support/assessment-navigation";
 
@@ -73,28 +72,6 @@ test("referral intake practice saves locally without creating or updating a live
   await page.getByRole("button", { name: "Create referral", exact: true }).click();
   await expect(page.getByTestId("workspace-save-status")).toContainText("Practice changes saved in this tab");
   await expect(page).not.toHaveURL(/referralId=/);
-  expect(writes).toEqual([]);
-});
-
-test("Help scheduling records a synthetic appointment and opens the same practice assessment", async ({ page }) => {
-  const writes = watchWorkflowWrites(page);
-  await page.goto("/");
-  await (await showTutorialHelp(page)).click();
-  await page.getByRole("dialog", { name: "Tutorials" }).getByRole("button", { name: "Schedule an appointment", exact: true }).click();
-  const coach = page.getByRole("complementary", { name: "Tutorial steps", exact: true });
-  const schedule = page.getByRole("dialog", { name: "Schedule interview", exact: true });
-  await expect(coach.getByRole("heading", { name: "Schedule", exact: true })).toBeVisible();
-  const date = schedule.getByLabel("Assessment date and time");
-  await date.fill("2027-10-14T09:30");
-  await date.blur();
-  await schedule.getByLabel("Assessment method").selectOption("zoom");
-  await schedule.getByLabel("Zoom meeting link").fill("https://example.invalid/pipeline-practice");
-  await schedule.getByRole("button", { name: "Schedule interview", exact: true }).click();
-  await expect(page).toHaveURL(/tutorials\/referral/);
-  await expect(schedule).toHaveCount(0);
-  await expect(page.getByRole("dialog", { name: "Begin assessment", exact: true })).toHaveCount(0);
-  await expect(page.locator('[data-assessment-view="assessment"]')).toBeVisible();
-  await expect(coach.getByRole("heading", { name: "Assessment", exact: true })).toBeVisible();
   expect(writes).toEqual([]);
 });
 

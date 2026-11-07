@@ -4,7 +4,6 @@ import { ReactNode, Suspense, useEffect, useRef, useState } from "react";
 
 import PipelineHeader from "@/components/pipeline/PipelineHeader";
 import DemoEnvironmentBanner from "@/components/pipeline/training/DemoEnvironmentBanner";
-import PipelineGuidedCoach from "@/components/pipeline/training/PipelineGuidedCoach";
 import { PipelineShellProvider } from "@/components/pipeline/pipeline-shell-context";
 import PipelinePerformanceObserver from "@/components/pipeline/PipelinePerformanceObserver";
 import { useMobileViewport } from "@/components/pipeline/use-mobile-viewport";
@@ -67,7 +66,6 @@ export default function PipelineAppShell({
             <AppNavigation />
             <main ref={contentRef} className="relative min-h-0 min-w-0 flex-1 overflow-hidden">{children}</main>
           </div>
-          <PipelineGuidedCoach />
         </div>
         <PipelinePerformanceObserver />
       </div>

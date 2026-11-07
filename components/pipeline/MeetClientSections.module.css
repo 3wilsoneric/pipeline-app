@@ -97,3 +97,11 @@
 @media (prefers-reduced-motion: no-preference) {
   .moveMenu[open] .moveOptions { animation: sectionMenuIn var(--motion-enter) var(--ease-open); }
 }
+
+.editActions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.editActions button { min-height: var(--spacing-control); padding: 8px 12px; color: var(--color-primary); font-size: var(--text-label); font-weight: 600; border-radius: var(--radius-input); }
+.editActions button:hover { background: var(--color-action-soft); }
+.editActions button:focus-visible, .sectionEditor textarea:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.sourceChange { margin-block: 12px; padding: 12px; border-inline-start: 3px solid var(--color-warning); background: var(--color-card-warm); color: var(--color-ink); }
+.sourceChange summary { min-height: var(--spacing-control); align-content: center; cursor: pointer; }
+.sourceChange p { white-space: pre-wrap; overflow-wrap: anywhere; }

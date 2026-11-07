@@ -210,3 +210,5 @@ grouped within 800 ms, with at most 50 undo snapshots; reopening starts a fresh
 history and adopting an external draft/layout invalidates the prior history.
 No undo content is stored in browser storage or reusable preferences. Preview
 keeps the writing DOM mounted and restores its selection and scroll position.
+
+The full editor reuses the deployed `sectionEdits` draft fields, including the original chart text. Existing section edits and whole-message drafts are preserved. A changed or removed chart source remains visible for comparison, and the existing send-time conflict check still applies. Personal layouts contain only section order and formatting; they never carry client text or source snapshots to another client. Optional notes use the message section with an empty source.

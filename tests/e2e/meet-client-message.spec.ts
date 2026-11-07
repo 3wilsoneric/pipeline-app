@@ -75,7 +75,7 @@ for (const width of [1440, 834, 390]) test(`large section editor saves wording a
   await expect(editor).not.toBeVisible();
   await expect(page.getByRole("button", { name: "Edit message", exact: true })).toBeFocused();
   const saved = await (await page.request.get(`/api/referrals/${referral.id}/handoff-recipients`)).json();
-  expect(saved.draft.message.sectionText.bio).toBe(text);
+  expect(saved.draft.message.sectionEdits.bio.text).toBe(text);
   expect(saved.draft.message.subject).toBe("Arrival arrangements");
   expect(saved.layout).toEqual({ sectionOrder: ["message", "coordination", "bio", "medications", "safety", "diet", "billing", "support"], sectionFormats: { bio: "bullets" } });
   expect(JSON.stringify(saved.layout)).not.toContain("Synthetic personal");
