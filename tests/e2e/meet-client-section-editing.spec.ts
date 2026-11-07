@@ -42,7 +42,7 @@ test("Meet the Client section edit persists, preserves other sections, and survi
     await page.reload();
     await expect(page.getByText("Chart updated", { exact: true })).toBeVisible();
     await page.getByText("Compare with the chart", { exact: true }).click();
-    await expect(page.getByText(source, { exact: true })).toBeVisible();
+    await expect(page.getByRole("status").filter({ hasText: "Chart updated" }).getByText(source, { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Keep my edit", exact: true }).click();
     await expect.poll(async () => (await (await page.request.get(endpoint)).json()).draft?.message?.sectionEdits?.bio?.source).toBe(source);
     await expect(page.getByText("Chart updated", { exact: true })).toHaveCount(0);
