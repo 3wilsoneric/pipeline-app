@@ -116,7 +116,7 @@ export default function MeetClientEditorDialog({ summary, draft, preparedBy, att
     if (value === undefined) delete sectionEdits[id];
     else sectionEdits[id] = { text: value, source: sectionEdits[id]?.source ?? (source ? meetClientSectionText(source) : "") };
     change({ ...content, sectionEdits }, id, value !== undefined);
-    if (value === undefined) focusField(id === "message" ? "subject" : id);
+    if (value === undefined) focusField(id);
   };
   const stepHistory = (direction: "undo" | "redo") => {
     if (direction === "undo" ? !canUndo : !canRedo) return;
