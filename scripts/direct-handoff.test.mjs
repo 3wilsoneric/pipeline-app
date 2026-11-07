@@ -84,6 +84,7 @@ function fixture(t, options = {}) {
   return { store, direct, inventory, body, blobs, bytes, post, get: query => history.GET(new Request(`http://localhost/api/communications?${query}`)),
     prepare: async () => { const response = await post(); assert.equal(response.status, 200, JSON.stringify(await response.clone().json())); return (await response.json()).communication; },
     get sent() { return sent; }, get sendInput() { return savedInput; }, get assessmentVersion() { return assessment.version; }, deny: () => { access = false; }, as: u => { authUser = u; },
+    currentSummary: () => summary.buildMeetClientSummary(assessment, referral),
     markUnsafe: () => { scanStatus = "infected"; },
     startSignedRevision: () => { historicalAssessments = [assessment]; assessment = { ...assessment, assessment_id: "revision", version: 1, meet_client_sent_at: null, meet_client_sent_version: null }; },
     changeFile: () => { originalEtag = "changed-same-size"; }, withdrawOriginal: () => { originalAvailable = false; blobs.delete("raw/original"); },
@@ -113,6 +114,22 @@ test("exact prepared snapshot supplies the actual email, assigned assessor Cc/Re
   assert.equal(restored.html, preview.html); assert.equal(restored.status, "submitted");
   const list = await (await f.get("scope=mine")).json(); assert.equal(list.items.length, 1); assert.equal(list.items[0].html, undefined);
   assert.equal((await f.store.listAdmissionPacketLinks(6)).length, 0);
+});
+
+test("section edits retain the exact preview and require chart comparison before preparing or sending a stale edit", async t => {
+  const f = fixture(t);
+  const source = template.meetClientSourceSections(f.currentSummary()).find(section => section.id === "medications");
+  const message = { subject: null, body: null, sectionEdits: { medications: { text: "Synthetic sender medication instructions.", source: template.meetClientSectionText(source) } } };
+  const prepared = await f.post({ message });
+  assert.equal(prepared.status, 200, JSON.stringify(await prepared.clone().json()));
+  const snapshot = (await prepared.json()).communication;
+  const stale = { ...message, sectionEdits: { medications: { ...message.sectionEdits.medications, source: "An older chart version" } } };
+  for (const extra of [{}, { snapshot_id: snapshot.id }]) {
+    const rejected = await f.post({ ...extra, message: stale });
+    assert.equal(rejected.status, 409);
+    assert.match(JSON.stringify(await rejected.json()), /chart changed after a message section was edited/i);
+    assert.equal(f.sent, 0);
+  }
 });
 
 test("another handoff requires explicit confirmation and a newly reviewed version", async t => {

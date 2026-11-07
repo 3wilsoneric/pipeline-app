@@ -3,8 +3,8 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, GripVertical } from "lucide-react";
 import type { MeetClientSummary } from "@/lib/assessment/assessment-summary";
-import { meetClientIdentityRows, meetClientSections } from "@/lib/notifications/meet-client-email-template";
-import { meetClientSectionOrder, type MeetClientMessage, type MeetClientSectionId } from "@/lib/notifications/meet-client-message";
+import { meetClientIdentityRows, meetClientSections, meetClientSourceSections, meetClientSectionText, meetClientSectionConflicts } from "@/lib/notifications/meet-client-email-template";
+import { meetClientBodyLimit, meetClientSectionOrder, type MeetClientMessage, type MeetClientSectionId, type MeetClientSectionEdits } from "@/lib/notifications/meet-client-message";
 import styles from "./MeetClientSections.module.css";
 import PipelineIllustration, { type PipelineIllustrationKind } from "./PipelineIllustration";
 
@@ -13,11 +13,24 @@ const sectionPictures: Record<MeetClientSectionId, PipelineIllustrationKind> = {
   diet: "diet", billing: "report", support: "connections", message: "conversation",
 };
 
-export default function MeetClientSections({ summary, message, editable, onOrderChange }: {
+export default function MeetClientSections({ summary, message, editable, onOrderChange, onSectionChange, onBlur }: {
   summary: MeetClientSummary; message: MeetClientMessage; editable: boolean;
   onOrderChange: (order: MeetClientSectionId[]) => void;
+  onSectionChange?: (edits: MeetClientSectionEdits) => void;
+  onBlur?: () => void;
 }) {
   const sections = meetClientSections(summary, message);
+  const sources = meetClientSourceSections(summary, message);
+  const conflicts = meetClientSectionConflicts(summary, message);
+  const [editing, setEditing] = useState<MeetClientSectionId | null>(null);
+  const changeSection = (id: MeetClientSectionId, text: string) => {
+    const source = sources.find(section => section.id === id);
+    if (!source || !onSectionChange) return;
+    onSectionChange({ ...message.sectionEdits, [id]: { text, source: message.sectionEdits?.[id]?.source ?? meetClientSectionText(source) } });
+  };
+  const resetSection = (id: MeetClientSectionId) => {
+    const edits = { ...message.sectionEdits }; delete edits[id]; onSectionChange?.(edits);
+  };
   const [dragging, setDragging] = useState<MeetClientSectionId | null>(null);
   const [over, setOver] = useState<MeetClientSectionId | null>(null);
   const [announcement, setAnnouncement] = useState("");
@@ -84,9 +97,25 @@ export default function MeetClientSections({ summary, message, editable, onOrder
           </div>
         </details> : null}
         {section.id === "bio" && index === 0 ? null : <h3><PipelineIllustration kind={sectionPictures[section.id]} size={40} /><span>{section.title}</span></h3>}
-        {section.kind === "items" ? <dl className={styles.facts}>{section.items.map((item, i) => <div key={`${item.label}:${i}`}><dt>{item.label}</dt><dd>{item.value}</dd></div>)}</dl>
+        {conflicts.includes(section.id) ? <div className={styles.sourceChange} role="status">
+          <strong>Chart updated</strong>
+          <details><summary>Compare with the chart</summary><p>{sources.find(item => item.id === section.id) ? meetClientSectionText(sources.find(item => item.id === section.id)!) : "This section is no longer in the chart."}</p></details>
+          {editable && onSectionChange ? <div className={styles.editActions}>
+            {sources.some(item => item.id === section.id) ? <button type="button" onClick={() => onSectionChange({ ...message.sectionEdits, [section.id]: { ...message.sectionEdits![section.id]!, source: meetClientSectionText(sources.find(item => item.id === section.id)!) } })}>Keep my edit</button> : null}
+            <button type="button" onClick={() => resetSection(section.id)}>Use chart text</button>
+          </div> : null}
+        </div> : null}
+        {editing === section.id && editable && onSectionChange ? <label className={styles.sectionEditor}>
+          <span className={styles.srOnly}>{section.title}</span>
+          <textarea autoFocus aria-label={`Edit ${section.title}`} value={message.sectionEdits?.[section.id]?.text ?? meetClientSectionText(section)} maxLength={meetClientBodyLimit} rows={8}
+            onChange={event => changeSection(section.id, event.target.value)} onBlur={onBlur} />
+        </label> : section.kind === "items" ? <dl className={styles.facts}>{section.items.map((item, i) => <div key={`${item.label}:${i}`}><dt>{item.label}</dt><dd>{item.value}</dd></div>)}</dl>
           : section.kind === "list" ? <ul>{section.values.map((value, i) => <li key={i}>{value}</li>)}</ul>
           : <p className={styles.message}>{section.text}</p>}
+        {editable && onSectionChange && message.body == null ? <div className={styles.editActions}>
+          <button type="button" aria-label={`${editing === section.id ? "Done editing" : "Edit"} ${section.title}`} onClick={() => { onBlur?.(); setEditing(editing === section.id ? null : section.id); }}>{editing === section.id ? "Done" : "Edit"}</button>
+          {message.sectionEdits?.[section.id] && !conflicts.includes(section.id) ? <button type="button" onClick={() => resetSection(section.id)}>Use chart text</button> : null}
+        </div> : null}
       </section>)}
     </div>
     <p className={styles.srOnly} role="status" aria-live="polite">{announcement}</p>

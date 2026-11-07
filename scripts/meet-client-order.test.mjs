@@ -50,3 +50,36 @@ test("custom messages survive as one intact block, with medication reference and
   assert.ok(!rendered.text.includes("Synthetic background"), "An old custom message is not silently replaced by regenerated text");
   assert.deepEqual(Array.from(template.meetClientSections(summary, message), s => s.id), ["medications", "message"]);
 });
+
+test("section edits survive parse and change only that section in every rendered format", () => {
+  const source = template.meetClientSourceSections(summary).find(s => s.id === "bio");
+  const edits = { bio: { text: 'Client reports a calmer morning. <script>test</script>', source: template.meetClientSectionText(source) } };
+  const message = model.parseMeetClientMessage({ subject: null, body: null, sectionEdits: edits });
+  assert.deepEqual(clean(message.sectionEdits), edits);
+  const rendered = template.renderMeetClientEmail(summary, "Synthetic assessor", "test", [], message);
+  assert.ok(rendered.text.includes(edits.bio.text));
+  assert.ok(rendered.text.startsWith("Hello team,"));
+  assert.ok(rendered.html.includes("scheduled for admission on"), "Editing one section retains the admission introduction");
+  assert.ok(rendered.html.includes('&lt;script&gt;test&lt;/script&gt;'));
+  assert.ok(!rendered.html.includes('<script>'));
+  assert.ok(rendered.text.includes('Synthetic medication support'));
+  assert.ok(!rendered.text.includes('Synthetic background'));
+  assert.deepEqual(Array.from(template.meetClientSectionConflicts(summary, message)), []);
+  assert.deepEqual(Array.from(template.meetClientSectionConflicts({ ...summary, bio: ['Changed source'] }, message)), ['bio']);
+  // Losing source data must never silently discard an assessor's edit.
+  assert.ok(template.meetClientSections({ ...summary, bio: [] }, message).some(s => s.id === 'bio' && s.text === edits.bio.text));
+  assert.deepEqual(Array.from(template.meetClientSectionConflicts({ ...summary, bio: [] }, message)), ['bio']);
+});
+
+test("invalid section edits are rejected; older whole-message drafts stay authoritative", () => {
+  for (const sectionEdits of [[], null, { shell: { text: 'x', source: 'y' } }, { bio: { text: 'x' } }, { bio: { text: 'x', source: 'y', admin: true } }, { bio: { text: 'x'.repeat(20_001), source: 'y' } }])
+    assert.equal(model.parseMeetClientMessage({ subject: null, body: null, sectionEdits }), null);
+  const message = { subject: null, body: 'Existing personal message', sectionEdits: { bio: { text: 'Old section edit', source: 'Old' } } };
+  assert.ok(!template.renderMeetClientEmail(summary, 'Synthetic assessor', 'test', [], message).text.includes('Old section edit'));
+  assert.deepEqual(Array.from(template.meetClientSectionConflicts(summary, message)), []);
+});
+
+test("edited medication section retains the attachment reference", () => {
+  const rendered = template.renderMeetClientEmail(summary, 'Synthetic assessor', 'test', [], { subject: null, body: null, sectionEdits: { medications: { text: 'Reviewed with the referring team.', source: 'old' } } });
+  assert.match(rendered.text, /medication list in the admission packet/);
+});
