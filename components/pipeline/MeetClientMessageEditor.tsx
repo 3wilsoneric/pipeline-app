@@ -42,17 +42,17 @@ export default function MeetClientMessageEditor({ summary, preview, preparedBy, 
         <input id="meet-client-subject" className={styles.subjectInput} value={content.subject ?? rendered?.subject ?? "Meet the Client"} maxLength={meetClientSubjectLimit} spellCheck lang="en-US" autoCorrect="off" autoCapitalize="off" readOnly={!editable || !editing}
           onChange={(event) => change({ subject: event.target.value })} onBlur={flush} />
       </>}
-      {workspace && editable ? <button type="button" className={styles.textButton} onClick={() => { flush(); setEditing(!editing); }}>{editing ? "Back to email preview" : "Edit message"}</button> : null}
+      {workspace && editable ? <button type="button" className={styles.textButton} onClick={(event) => { event.currentTarget.focus(); flush(); setEditing(!editing); }}>{editing ? "Back to email preview" : "Edit message"}</button> : null}
     </div>
     {!workspace ? <div className={styles.addressRow}><span>Admission</span><span>{admissionDate ? formatMeetClientDate(admissionDate) : "Add the planned admit date before sending."}</span></div> : null}
     {editable && !workspace ? <div className={styles.messageTools}>
-      <button type="button" className={styles.textButton} onClick={() => { flush(); setEditing(!editing); }}>{editing ? "Back to email preview" : "Edit message"}</button>
+      <button type="button" className={styles.textButton} onClick={(event) => { event.currentTarget.focus(); flush(); setEditing(!editing); }}>{editing ? "Back to email preview" : "Edit message"}</button>
       {editing ? <span>Client details stay linked to the assessment.</span> : null}
     </div> : null}
   </>;
   return <>
     {renderEnvelope()}
-    {draft?.layoutError && !editing ? <div className={styles.messageTools} role="alert">{draft.layoutError} <button type="button" className={styles.textButton} onClick={() => setEditing(true)}>Review layout save</button></div> : null}
+    {draft?.layoutError && !editing ? <div className={styles.messageTools} role="alert">{draft.layoutError} <button type="button" className={styles.textButton} onClick={(event) => { event.currentTarget.focus(); setEditing(true); }}>Review layout save</button></div> : null}
     <div className={styles.messageBody}>
       {workspace && summary ? <Image src={toPipelinePath("/brand/alamo-health-management.png")} alt="Alamo Health Management" width={300} height={80} unoptimized className={styles.brandLogo} /> : null}
       {renderBody()}
