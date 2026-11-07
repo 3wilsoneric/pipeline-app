@@ -11,7 +11,7 @@ import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
 import { parseMeetClientMessage, type MeetClientMessage } from "@/lib/notifications/meet-client-message";
 import { meetClientIdentityIssues } from "@/lib/notifications/meet-client-identity";
 import { prepareAdmissionPacketLink } from "@/lib/notifications/admission-packet-files";
-import { renderMeetClientEmail } from "@/lib/notifications/meet-client-email-template";
+import { renderMeetClientEmail, meetClientSectionConflicts } from "@/lib/notifications/meet-client-email-template";
 import { findWorkspaceOutlookDraft, PacketAccessError } from "@/lib/notifications/admission-packet-store";
 import { getOutlookMailReadiness, connectedOutlookMailbox, OutlookMailError } from "@/lib/notifications/outlook-mail";
 import { assessorEmailDestination, prepareAssessorEmail, requireAssessorEmailCapacity } from "@/lib/notifications/assessor-email-handoff";
@@ -84,6 +84,9 @@ export async function POST(
     }
     const handoffReferral = { ...snapshot.referral, requirements: snapshot.work_items };
     const summary = buildMeetClientSummary(assessment, handoffReferral);
+    if (meetClientSectionConflicts(summary, prepared.message).length) {
+      return jsonError("The chart changed after a message section was edited. Review the updated section before preparing the email.", 409);
+    }
     const attachmentContext = await loadAdmissionPacket(handoffReferral, assessment, prepared.packetRevision, prepared.selectedFileIds, outlook, outlook || assessorEmail || direct);
     if (!attachmentContext.ok) return attachmentContext.response;
     if (assessorEmail) {

@@ -32,7 +32,8 @@ export default function MeetClientMessageEditor({ summary, preview, preparedBy, 
   const flush = () => { void draft?.flush().catch(() => undefined); };
   const renderBody = () => editing ? <label className={styles.messageEditor}><span>Message</span><textarea aria-label="Meet the Client message" rows={18} maxLength={meetClientBodyLimit}
     value={content.body ?? editableText ?? ""} readOnly={!editable} onChange={(event) => change({ body: event.target.value })} onBlur={flush} /></label>
-    : workspace && summary ? <MeetClientSections summary={summary} message={content} editable={editable} onOrderChange={(sectionOrder) => change({ sectionOrder })} />
+    : workspace && summary ? <MeetClientSections summary={summary} message={content} editable={editable} onOrderChange={(sectionOrder) => change({ sectionOrder })}
+      onSectionChange={sectionEdits => change({ sectionEdits })} onBlur={flush} />
     : rendered ? <iframe title="Meet the Client email preview" srcDoc={rendered.html} sandbox="" referrerPolicy="no-referrer" className={styles.emailFrame} />
       : <div className={styles.emptyPreview}><Mail size={30} /><h3>Your email preview will appear here</h3><p>You can edit the message and review files and recipients now. The summary is prepared from your signed assessment.</p></div>;
   const renderEnvelope = () => <>
