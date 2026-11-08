@@ -5,11 +5,16 @@ import vm from "node:vm";
 
 const require = createRequire(import.meta.url);
 const ts = require("typescript");
+const compiledSources = new Map();
 
 export function loadTypeScriptModule(root, filePath, globals = {}) {
   const source = readFileSync(join(root, filePath), "utf8");
   if (filePath.endsWith(".json")) return JSON.parse(source);
-  const output = ts.transpileModule(source, {
+  const cacheKey = resolve(root, filePath);
+  const cached = compiledSources.get(cacheKey);
+  // Reuse compilation only. Every load still executes in its own requested VM
+  // globals, and changed source is always recompiled.
+  const output = cached?.source === source ? cached.output : ts.transpileModule(source, {
     compilerOptions: {
       esModuleInterop: true,
       module: ts.ModuleKind.CommonJS,
@@ -21,6 +26,7 @@ export function loadTypeScriptModule(root, filePath, globals = {}) {
     // filename while keeping their real path for resolution and diagnostics.
     fileName: filePath.endsWith(".mjs") ? `${filePath.slice(0, -4)}.ts` : filePath,
   }).outputText;
+  compiledSources.set(cacheKey, { source, output });
 
   const commonjsModule = { exports: {} };
   const { require: providedRequire = require, ...sandboxGlobals } = globals;

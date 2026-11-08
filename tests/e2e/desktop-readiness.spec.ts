@@ -1,6 +1,8 @@
 import { confirmReferralFileLabels } from "./support/referral-upload";
 import { expect, request, test } from "@playwright/test";
 import { randomUUID } from "node:crypto";
+import { assessmentToolSections, assessmentToolFieldDefinitions } from "../../lib/assessment/assessment-tool-schema";
+import { assessmentInterviewQuestions } from "../../lib/assessment/assessment-interview-schema";
 
 const desktopEnabled = process.env.PIPELINE_DESKTOP_E2E === "true";
 
@@ -575,14 +577,43 @@ test.describe("desktop feature enabled", () => {
     })).toBeTruthy();
 
     const coldStartValue = `Three weeks ${token}`;
+    const coldStartEdits = [
+      { section: "identity", field: "time_at_current_location", value: coldStartValue },
+      { section: "prior_placement", field: "referring_facility", value: `Placement ${token}` },
+      { section: "prior_history", field: "prior_placements", value: `History ${token}` },
+      { section: "diagnosis_clinical", field: "current_symptoms", value: `Presentation ${token}` },
+      { section: "functional_adl", field: "adl_needs", value: `Support ${token}` },
+      { section: "medication", field: "prn_patterns", value: `Pattern ${token}` },
+      { section: "substance_use", field: "active_substance_use", value: "no" },
+      { section: "behavioral_risk", field: "behavioral_history", value: `Context ${token}` },
+      { section: "physical_health", field: "additional_health_notes", value: `Health ${token}` },
+      { section: "legal_conservatorship", field: "hold_type", value: `Legal ${token}` },
+      { section: "social_support", field: "family_involvement", value: `Family ${token}` },
+      { section: "provenance_qc", field: "additional_information", value: `Review ${token}` },
+    ];
+    expect(coldStartEdits.map(edit => edit.section)).toEqual([...assessmentToolSections]);
+    for (const edit of coldStartEdits) {
+      expect(assessmentToolFieldDefinitions.find(field => field.key === edit.field)?.section).toBe(edit.section);
+      expect(assessmentInterviewQuestions.some(question => question.field === edit.field)).toBe(true);
+    }
     await context.setOffline(true);
     try {
       await page.reload({ waitUntil: "domcontentloaded" });
       await expect(page.getByRole("heading", { name: new RegExp(`^${clientName} assessment$`, "i") })).toBeVisible();
       await expect(page.getByRole("textbox", { name: "Where the client is now *", exact: true })).toHaveValue(localCollisionValue);
-      const duration = page.getByRole("textbox", { name: "Time at current location" });
-      await duration.fill(coldStartValue);
+      for (const edit of coldStartEdits) {
+        await page.locator(`button[data-section="${edit.section}"]`).click();
+        const input = page.locator(`#offline-${edit.field}`);
+        if (edit.field === "active_substance_use") await input.selectOption(edit.value);
+        else await input.fill(edit.value);
+        await expect(page.getByText("Saved on this device · reconnect, then choose Return to Pipeline and sync", { exact: true })).toBeVisible();
+      }
+      await page.reload({ waitUntil: "domcontentloaded" });
       await expect(page.getByText("Saved on this device · reconnect, then choose Return to Pipeline and sync", { exact: true })).toBeVisible();
+      for (const edit of coldStartEdits) {
+        await page.locator(`button[data-section="${edit.section}"]`).click();
+        await expect(page.locator(`#offline-${edit.field}`)).toHaveValue(edit.value);
+      }
       const encryptedWorkingSet = await page.evaluate(async (plaintext) => {
         const database = await new Promise<IDBDatabase>((resolve, reject) => {
           const request = indexedDB.open("pipeline-offline-v1");
@@ -607,9 +638,9 @@ test.describe("desktop feature enabled", () => {
     await expect(assessmentWorkspace).toBeVisible({ timeout: 15_000 });
     await expect.poll(async () => {
       const response = await page.request.get(`/api/assessments/${assessmentPayload.assessment.assessment_id}`);
-      const payload = await response.json() as { assessment?: { time_at_current_location?: string } };
-      return payload.assessment?.time_at_current_location ?? "";
-    }, { timeout: 20_000 }).toBe(coldStartValue);
+      const payload = await response.json() as { assessment?: Record<string, unknown> };
+      return Object.fromEntries(coldStartEdits.map(edit => [edit.field, payload.assessment?.[edit.field]]));
+    }, { timeout: 20_000 }).toEqual(Object.fromEntries(coldStartEdits.map(edit => [edit.field, edit.value])));
     await expect(page).not.toHaveURL(/syncOfflineAssessment=/);
   });
 });

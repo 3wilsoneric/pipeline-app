@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { mutationReplayRequest } from "@/lib/persistence/mutation-replay";
 import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
 import { pipelineAuditActor } from "@/lib/auth/assessor-session-policy";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
@@ -58,7 +59,13 @@ export async function POST(request: Request, context: { params: Promise<{ referr
       : createReferralOwners(auth.user, input, !isAssessorUser(auth.user));
     input.requirements = createDefaultAdmissionRequirements([], {}, input.createdAt, input.owner, input.ownerId,
       { date_of_birth: input.dob, community: input.community, referral_source: input.source });
-    const result = await createReferral(input, mutationId, pipelineAuditActor(auth.user), { newEpisodeSourceReferralId: access.referral.id });
+    const result = await createReferral(input, mutationId, pipelineAuditActor(auth.user), {
+      newEpisodeSourceReferralId: access.referral.id,
+      replayRequest: mutationReplayRequest(auth.user, {
+        action: "chart_intake", sourceReferralId: sourceId,
+        client_mutation_id: mutation.mutationId, assignee_id: mutation.assigneeId,
+      }),
+    });
     return Response.json({ referral: result.referral, idempotent_replay: result.idempotentReplay }, {
       status: 201, headers: { "Cache-Control": "private, no-store, max-age=0" },
     });

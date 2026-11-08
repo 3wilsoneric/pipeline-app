@@ -1,9 +1,13 @@
+import { openAssessmentFixture } from "./support/assessment-fixture";
 import { closeTestBrowser } from "./support/browser-lifecycle";
 import { openRecipients, confirmRecipients } from "./support/handoff-review";
 import { expect, test, webkit } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import type { CommunicationView } from "../../lib/notifications/communication-contract";
 import { completeOperationalAssessment, createOperationalAssessment, createOperationalReferral, recordOperationalAcceptance, signOperationalAssessment } from "./support/operational-api";
+
+// These journeys control API responses; offline worker behavior has its own suite.
+test.use({ serviceWorkers: "block" });
 
 test.skip(process.env.PIPELINE_DESKTOP_E2E !== "true", "Recipient drafts require the isolated desktop workspace-state store.");
 
@@ -312,25 +316,6 @@ test("a failed signature or decision stays in place; retry advances only after s
   expect(sends).toBe(0);
 });
 
-test("practice signing stays in assessment review and never creates a decision", async ({ page }) => {
-  let writes = 0;
-  page.on("request", (request) => { if (request.method() !== "GET" && /\/(sign|decision|meet-client-email)$/.test(request.url())) writes++; });
-  await page.goto("/?view=referrals&screen=packet&trainingAssessment=interview&demo=1&workspaceStage=chart");
-  const stages = page.getByRole("navigation", { name: "Workspace stages" });
-  await expect(stages.getByRole("button", { name: "Chart", exact: true })).toHaveAttribute("aria-current", "page");
-  await stages.getByRole("button", { name: "Assessment", exact: true }).click();
-  await page.getByRole("combobox", { name: "Assessment section", exact: true }).selectOption("provenance_qc");
-  await page.getByRole("button", { name: "Review assessment", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Review assessment", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Confirm chart", exact: true }).click();
-  await page.getByRole("alertdialog", { name: "Everything correct and included?", exact: true }).getByRole("button", { name: "Confirm & continue", exact: true }).click();
-  await expect(page.locator('footer[aria-label="Assessment actions"]')).toContainText("Practice assessment signed locally");
-  await expect(stages.getByRole("button", { name: "Assessment", exact: true })).toHaveAttribute("aria-current", "page");
-  await expect(stages.getByRole("button", { name: "Decision", exact: true })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Continue to decision", exact: true })).toHaveCount(0);
-  expect(writes).toBe(0);
-});
-
 test("iPad WebKit keeps signing and finishing in the same folder", async ({ baseURL }, info) => {
   const browser = await webkit.launch();
   try {
@@ -364,4 +349,42 @@ test("iPad WebKit keeps signing and finishing in the same folder", async ({ base
     await page.getByRole("button", { name: "Close email preview", exact: true }).tap();
     await expect(page.getByRole("button", { name: "Preview email", exact: true })).toBeFocused();
   } finally { await closeTestBrowser(browser); }
+});
+
+
+test("the latest phone stage selection wins while assessment saving is delayed", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const fixture = await openAssessmentFixture(page, { mode: "prepare", section: "diagnosis_clinical" });
+  const partial = page.locator("#assessment-secondary_diagnoses");
+  let releaseSave!: () => void;
+  const held = new Promise<void>(resolve => { releaseSave = resolve; });
+  let saveStarted!: () => void;
+  const started = new Promise<void>(resolve => { saveStarted = resolve; });
+  await page.evaluate(() => {
+    Object.defineProperty(indexedDB, "open", { configurable: true, value: () => { throw new Error("Synthetic device storage outage"); } });
+  });
+  await page.route(`**/api/**/${fixture.assessment.assessment_id}`, async route => {
+    if (["PATCH", "PUT"].includes(route.request().method())) {
+      saveStarted();
+      await held;
+    }
+    await route.continue();
+  });
+  try {
+    await partial.fill("Synthetic answer retained after cancelling a pending navigation");
+    await partial.blur();
+    const picker = page.getByRole("combobox", { name: "Workspace view", exact: true });
+    await picker.selectOption("files");
+    await started;
+    await picker.selectOption({ label: "Assessment" });
+    releaseSave();
+    await expect.poll(async () => (await fixture.read()).secondary_diagnoses).toEqual(["Synthetic answer retained after cancelling a pending navigation"]);
+    // Preparation is displayed under Chart in the rail; its canonical route
+    // and editor must remain open after the later Assessment selection.
+    await expect(partial).toBeVisible();
+    await expect(page).toHaveURL(/workspaceStage=assessment/);
+  } finally {
+    releaseSave();
+    if (!page.isClosed()) await page.unrouteAll({ behavior: "wait" });
+  }
 });

@@ -1,9 +1,12 @@
 import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
-import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
+import { mutationReplayRequest, mutationRequestFingerprint, rethrowMutationReplayConflict } from "@/lib/persistence/mutation-replay";
+import { isNewReferralDraftKey } from "@/lib/pipeline/user-workspace-state-types";
+import { requirePipelineUser, type PipelineUser } from "@/lib/auth/pipeline-auth";
 import { pipelineAuditActor } from "@/lib/auth/assessor-session-policy";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
 import {
   createReferral,
+  getReferralForDraft,
   listReferrals,
   requireReferralStore,
   SuspectedDuplicateReferralError,
@@ -29,6 +32,7 @@ type CreateReferralBody = {
   referral?: ReferralCreateInput;
   client_mutation_id?: string;
   assignee_id?: string;
+  draft_key?: unknown;
   duplicate_confirmation?: unknown;
 };
 
@@ -42,6 +46,7 @@ export async function GET(request: Request) {
     if (!store.ok) return store.response;
 
     const url = new URL(request.url);
+    if (url.searchParams.has("draft_key")) return referralDraftResponse(auth.user, url.searchParams.get("draft_key"));
     const projection = parseReferralListProjection(url.searchParams);
     if (!projection.ok) return jsonError(projection.message);
     const query = parseReferralListQuery(url.searchParams);
@@ -146,6 +151,8 @@ export async function POST(request: Request) {
         createMetadata.mutationId,
         pipelineAuditActor(auth.user),
         {
+          replayRequest: mutationReplayRequest(auth.user, body.value),
+          draftBinding: createMetadata.draftKey === undefined ? undefined : referralDraftBinding(auth.user, createMetadata.draftKey),
           confirmedDistinctReferralIds: createMetadata.confirmedDistinctReferralIds,
           canReviewSuspectedDuplicate: (candidate) => canAccessReferral(auth.user, candidate),
         },
@@ -165,6 +172,7 @@ export async function POST(request: Request) {
         },
       });
     } catch (error) {
+      rethrowMutationReplayConflict(error);
       if (error instanceof SuspectedDuplicateReferralError) {
         return suspectedDuplicateResponse(auth.user, error);
       }
@@ -174,6 +182,13 @@ export async function POST(request: Request) {
       );
     }
   });
+}
+
+async function referralDraftResponse(user: PipelineUser, key: unknown) {
+  if (!isNewReferralDraftKey(key)) return jsonError("draft_key is invalid.");
+  const referral = await getReferralForDraft(referralDraftBinding(user, key));
+  if (referral && (!canAccessReferral(user, referral) || referral.deletedAt)) return jsonError("Referral not found.", 404);
+  return Response.json({ referral }, { headers: { "Cache-Control": "private, no-store, max-age=0", Vary: "Authorization" } });
 }
 
 function recordWorkspaceMaterialization(referral: Referral, idempotentReplay: boolean) {
@@ -189,15 +204,19 @@ function isSafeMutationId(value: string) {
 }
 
 function parseCreateReferralMetadata(body: CreateReferralBody):
-  | { ok: true; mutationId: string | undefined; confirmedDistinctReferralIds: number[] }
+  | { ok: true; mutationId: string | undefined; draftKey: string | undefined; confirmedDistinctReferralIds: number[] }
   | { ok: false; message: string } {
   const mutationId = body.client_mutation_id;
   if (mutationId !== undefined && (typeof mutationId !== "string" || !isSafeMutationId(mutationId))) {
     return { ok: false, message: "client_mutation_id is invalid." };
   }
+  const draftKey = body.draft_key;
+  if (draftKey !== undefined && (!isNewReferralDraftKey(draftKey) || mutationId !== `referral-create:${draftKey}`)) {
+    return { ok: false, message: "draft_key must match the creation command identity." };
+  }
   const duplicateConfirmation = parseDuplicateConfirmation(body.duplicate_confirmation);
   return duplicateConfirmation.ok
-    ? { ok: true, mutationId, confirmedDistinctReferralIds: duplicateConfirmation.referralIds }
+    ? { ok: true, mutationId, draftKey, confirmedDistinctReferralIds: duplicateConfirmation.referralIds }
     : duplicateConfirmation;
 }
 
@@ -298,4 +317,8 @@ function toReferralListSummary(referral: Referral) {
     hasDecision: Boolean(referral.admissionDecision),
     ehrHandoffStatus: referral.ehrHandoff?.status,
   };
+}
+
+function referralDraftBinding(user: PipelineUser, key: string) {
+  return mutationRequestFingerprint("referral_draft", key, user, {}, mutationReplayRequest(user, {}));
 }

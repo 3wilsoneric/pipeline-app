@@ -77,6 +77,7 @@ test("assigned assessors and supervisors can schedule and reschedule without a p
       assert.deepEqual(current.calls.contacts, [42]);
       assert.deepEqual(current.calls.patches, [["synthetic-assessment", { schedule: requested }, { id: user.id, name: user.name }, {
         expectedVersion: 7, mutationId: "synthetic-schedule", allowScheduleConflict: false,
+        replayRequest: { principal: [user.id, user.id], command: { action: "schedule", command: { ...command, schedule: requested } } },
       }]]);
       assert.equal(current.referral.documentStatus, "Missing");
       assert.equal(current.referral.packetId, "");
@@ -102,7 +103,7 @@ test("saving a no-packet appointment flows directly into the real start route", 
   assert.equal(scheduled.status, 200, JSON.stringify(await scheduled.clone().json()));
   const started = await current.post("start", { if_match: 8, client_mutation_id: "synthetic-start" });
   assert.equal(started.status, 200);
-  assert.deepEqual(current.calls.patches[1], ["synthetic-assessment", { mark_started: true }, { id: assessor.id, name: assessor.name }, { expectedVersion: 8, mutationId: "synthetic-start" }]);
+  assert.deepEqual(current.calls.patches[1], ["synthetic-assessment", { mark_started: true }, { id: assessor.id, name: assessor.name }, { expectedVersion: 8, mutationId: "synthetic-start", replayRequest: { principal: [assessor.id, assessor.id], command: { action: "start", command: { if_match: 8, client_mutation_id: "synthetic-start" } } } }]);
 });
 
 test("authentication, restricted access, referral visibility and same-origin boundaries still deny scheduling", async () => {

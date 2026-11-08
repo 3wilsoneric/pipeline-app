@@ -1,9 +1,12 @@
 import "server-only";
 
+import { withLocalMutation, localStoreGeneration, onLocalMutationRollback, stageLocalStoreWrite } from "@/lib/persistence/local-mutation";
+
+import { assertMutationReplayFingerprint, resolveMutationReplay, mutationRequestFingerprint, MutationReplayConflictError, type MutationReplayRequest } from "@/lib/persistence/mutation-replay";
+
 import { priorAnswerProvenance } from "@/lib/assessment/assessment-prior-answers";
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
-import { dirname } from "node:path";
+import { readFile } from "node:fs/promises";
 
 import type { TransactionSql } from "postgres";
 
@@ -72,8 +75,8 @@ type AssessmentStoreState = {
   createMutations: Map<string, string>;
   importMutations: Map<string, string>;
   patchMutations: Map<string, string>;
-  persistQueue: Promise<void>;
-  mutationQueue: Promise<void>;
+  requestFingerprints: Map<string, string>;
+  loadedGeneration: number;
 };
 
 type AssessmentStoreFile = {
@@ -83,9 +86,11 @@ type AssessmentStoreFile = {
   create_mutations?: Record<string, string>;
   import_mutations?: Record<string, string>;
   patch_mutations?: Record<string, string>;
+  request_fingerprints?: Record<string, string>;
 };
 
 export type AssessmentPatchOptions = {
+  replayRequest?: MutationReplayRequest;
   expectedVersion?: number;
   expectedReferralName?: string;
   section?: AssessmentToolSection;
@@ -140,6 +145,7 @@ export type AssessmentAddendumMutation =
   | { ok: false; blocked: true; assessment: PipelineAssessmentRecord; blockers: { code: string; label: string }[] };
 
 export type AssessmentImportInput = {
+  replayRequest?: MutationReplayRequest;
   referralId: number;
   /** Server-resolved from the referral's authoritative assignment. */
   assignedAssessor?: AssessmentActor | null;
@@ -167,6 +173,7 @@ export interface AssessmentStore {
     actor: AssessmentActor,
     expectedVersion: number,
     mutationId?: string,
+    replayRequest?: MutationReplayRequest,
   ): Promise<AssessmentAddendumMutation | null>;
 }
 
@@ -182,15 +189,15 @@ const state = globalForAssessmentStore.__pipelineAssessmentStore ??
     createMutations: new Map<string, string>(),
     importMutations: new Map<string, string>(),
     patchMutations: new Map<string, string>(),
-    persistQueue: Promise.resolve(),
-    mutationQueue: Promise.resolve(),
+    requestFingerprints: new Map<string, string>(),
+    loadedGeneration: 0,
   });
 
 state.createMutations ??= new Map<string, string>();
 state.importMutations ??= new Map<string, string>();
 state.patchMutations ??= new Map<string, string>();
-state.persistQueue ??= Promise.resolve();
-state.mutationQueue ??= Promise.resolve();
+state.requestFingerprints ??= new Map<string, string>();
+state.loadedGeneration ??= 0;
 
 const maxAssessmentRows = 100_000;
 
@@ -200,11 +207,11 @@ export async function resetPersonaDemoAssessments() {
   if (getAssessmentStoreReadiness().mode !== "local_file") throw new Error("Persona demo assessments must use local storage.");
   await withMutation(async () => {
     await ensureLoaded();
-    await state.persistQueue;
     state.assessments = [];
     state.createMutations.clear();
     state.importMutations.clear();
     state.patchMutations.clear();
+    state.requestFingerprints.clear();
     state.revision += 1;
     await persist();
   });
@@ -262,8 +269,8 @@ export function requireAssessmentStore() {
 }
 
 const localAssessmentStore: AssessmentStore = {
-  list: listLocalAssessments,
-  get: getLocalAssessment,
+  list: (...args) => withLocalMutation(() => listLocalAssessments(...args)),
+  get: (...args) => withLocalMutation(() => getLocalAssessment(...args)),
   create: createLocalAssessment,
   patch: patchLocalAssessment,
   importExtraction: importLocalAssessmentExtraction,
@@ -322,7 +329,6 @@ export async function deliverAssessmentPacket<T extends { acceptedAt: string }>(
       return result;
     }) as Promise<T>;
   }
-  await ensureLoaded();
   return withMutation(async () => {
     const current = state.assessments.find((item) => item.assessment_id === assessmentId) ?? null;
     assertCurrent(current);
@@ -364,7 +370,6 @@ export async function discardUncommittedAssessmentRevision(
   mutationId: string,
 ): Promise<boolean> {
   if (getAssessmentStoreReadiness().mode !== "local_file") return false;
-  await ensureLoaded();
   return withMutation(async () => {
     const mutationKey = `revision:${mutationId}`;
     if (state.createMutations.get(mutationKey) !== assessmentId) return false;
@@ -383,6 +388,7 @@ export async function discardUncommittedAssessmentRevision(
     }
     state.assessments.splice(index, 1);
     state.createMutations.delete(mutationKey);
+    state.requestFingerprints.delete(`assessment_revision:${mutationId}`);
     state.revision += 1;
     await persist();
     return true;
@@ -409,15 +415,16 @@ export async function addAssessmentAddendum(
   actor: AssessmentActor,
   expectedVersion: number,
   mutationId?: string,
+  replayRequest?: MutationReplayRequest,
 ) {
-  return getAssessmentStore().addAddendum(assessmentId, note, reasonCode, actor, expectedVersion, mutationId);
+  return getAssessmentStore().addAddendum(assessmentId, note, reasonCode, actor, expectedVersion, mutationId, replayRequest);
 }
 
 export async function getAssessmentCompletionReport(month: string): Promise<AssessmentCompletionReport> {
   const range = assessmentMonthRange(month);
   return getAssessmentStoreReadiness().mode === "postgres"
     ? getPostgresAssessmentCompletionReport(month, range)
-    : getLocalAssessmentCompletionReport(month, range);
+    : withLocalMutation(() => getLocalAssessmentCompletionReport(month, range));
 }
 
 function storePath() {
@@ -425,6 +432,10 @@ function storePath() {
 }
 
 async function ensureLoaded() {
+  if (state.loadedGeneration !== localStoreGeneration()) {
+    state.initialized = false;
+    state.loadedGeneration = localStoreGeneration();
+  }
   if (state.initialized) {
     if (state.loadPromise) await state.loadPromise;
     return;
@@ -435,25 +446,35 @@ async function ensureLoaded() {
     try {
       const raw = await readFile(/* turbopackIgnore: true */ storePath(), "utf8");
       const parsed = JSON.parse(raw) as Partial<AssessmentStoreFile>;
-      state.assessments = Array.isArray(parsed.assessments)
-        ? parsed.assessments.filter(isAssessmentRecord).slice(0, maxAssessmentRows).map(normalizeAssessmentRecord)
-        : [];
+      if (parsed.version !== 1 || !Array.isArray(parsed.assessments)
+        || parsed.assessments.length > maxAssessmentRows || !parsed.assessments.every(isAssessmentRecord)) {
+        throw new Error("The assessment store is invalid. Restore the saved file before continuing.");
+      }
+      state.assessments = parsed.assessments.map(normalizeAssessmentRecord);
       state.revision = Number.isInteger(parsed.revision) ? Number(parsed.revision) : 0;
       state.createMutations = safeMutationMap(parsed.create_mutations);
       state.importMutations = safeMutationMap(parsed.import_mutations);
       state.patchMutations = safeMutationMap(parsed.patch_mutations);
+      state.requestFingerprints = safeMutationMap(parsed.request_fingerprints);
     } catch (error) {
       if (!isMissingFile(error)) {
         console.warn(JSON.stringify({
           service: "pipeline-app",
           event: "assessment_store_load_failed",
         }));
+        throw error;
       }
     }
   })();
 
-  await state.loadPromise;
-  state.loadPromise = undefined;
+  try {
+    await state.loadPromise;
+  } catch (error) {
+    state.initialized = false;
+    throw error;
+  } finally {
+    state.loadPromise = undefined;
+  }
 }
 
 async function persist() {
@@ -464,32 +485,22 @@ async function persist() {
     create_mutations: Object.fromEntries(state.createMutations),
     import_mutations: Object.fromEntries(state.importMutations),
     patch_mutations: Object.fromEntries(state.patchMutations),
+    request_fingerprints: Object.fromEntries(state.requestFingerprints),
   };
-  const path = storePath();
-  const temporaryPath = `${path}.${process.pid}.tmp`;
-
-  state.persistQueue = state.persistQueue
-    .catch(() => undefined)
-    .then(async () => {
-      await mkdir(/* turbopackIgnore: true */ dirname(path), { recursive: true });
-      await writeFile(/* turbopackIgnore: true */ temporaryPath, JSON.stringify(snapshot), "utf8");
-      await rename(/* turbopackIgnore: true */ temporaryPath, path);
-    });
-  await state.persistQueue;
+  stageLocalStoreWrite("assessments", storePath(), JSON.stringify(snapshot));
 }
 
 async function withMutation<T>(work: () => Promise<T>): Promise<T> {
-  const previous = state.mutationQueue;
-  let release: () => void = () => {};
-  state.mutationQueue = new Promise<void>((resolve) => {
-    release = resolve;
+  return withLocalMutation(async () => {
+    await ensureLoaded();
+    const snapshot = {
+      revision: state.revision, assessments: structuredClone(state.assessments),
+      createMutations: new Map(state.createMutations), importMutations: new Map(state.importMutations),
+      patchMutations: new Map(state.patchMutations), requestFingerprints: new Map(state.requestFingerprints),
+    };
+    onLocalMutationRollback(() => { Object.assign(state, snapshot); });
+    return work();
   });
-  await previous.catch(() => undefined);
-  try {
-    return await work();
-  } finally {
-    release();
-  }
 }
 
 async function listLocalAssessments(options: AssessmentListOptions = {}): Promise<AssessmentListResponse> {
@@ -635,12 +646,13 @@ async function createLocalAssessment(
   actor: AssessmentActor,
   mutationId?: string,
 ): Promise<AssessmentMutation> {
-  await ensureLoaded();
+  const fingerprint = mutationRequestFingerprint("assessment_create", `referral:${input.referral_id}`, actor, input, input.replayRequest);
   return withMutation(async () => {
-    const existingId = mutationId ? state.createMutations.get(mutationId) : undefined;
-    const existing = existingId
-      ? state.assessments.find((assessment) => assessment.assessment_id === existingId)
-      : undefined;
+    const existing = resolveMutationReplay(
+      mutationId ? state.createMutations.get(mutationId) : undefined,
+      state.requestFingerprints.get(`assessment_create:${mutationId}`), fingerprint,
+      (id) => state.assessments.find((assessment) => assessment.assessment_id === id),
+    );
     if (existing) return { ok: true, assessment: existing, revision: state.revision };
     if (state.assessments.length >= maxAssessmentRows) throw new Error("Assessment capacity reached.");
 
@@ -681,6 +693,7 @@ async function createLocalAssessment(
     state.assessments = [assessment, ...state.assessments];
     state.revision += 1;
     if (mutationId) state.createMutations.set(mutationId, assessmentId);
+    if (mutationId) state.requestFingerprints.set(`assessment_create:${mutationId}`, fingerprint);
     await persist();
     await syncLocalReferralWorkflow(assessment, actor, "assessment_created");
     return { ok: true, assessment, revision: state.revision, warnings: status === "complete" ? getAssessmentCompletionBlockers(assessment) : [] };
@@ -692,12 +705,13 @@ async function createLocalAssessmentRevision(
   actor: AssessmentActor,
   mutationId?: string,
 ): Promise<AssessmentMutation | null> {
-  await ensureLoaded();
+  const fingerprint = mutationRequestFingerprint("assessment_revision", assessmentId, actor, {});
   return withMutation(async () => {
-    const existingId = mutationId ? state.createMutations.get(`revision:${mutationId}`) : undefined;
-    const existing = existingId
-      ? state.assessments.find((assessment) => assessment.assessment_id === existingId)
-      : undefined;
+    const existing = resolveMutationReplay(
+      mutationId ? state.createMutations.get(`revision:${mutationId}`) : undefined,
+      state.requestFingerprints.get(`assessment_revision:${mutationId}`), fingerprint,
+      (id) => state.assessments.find((assessment) => assessment.assessment_id === id),
+    );
     if (existing) return { ok: true, assessment: existing, revision: state.revision };
     const source = state.assessments.find((assessment) => assessment.assessment_id === assessmentId);
     if (!source) return null;
@@ -744,6 +758,7 @@ async function createLocalAssessmentRevision(
     state.assessments = [assessment, ...state.assessments];
     state.revision += 1;
     if (mutationId) state.createMutations.set(`revision:${mutationId}`, nextId);
+    if (mutationId) state.requestFingerprints.set(`assessment_revision:${mutationId}`, fingerprint);
     await persist();
     return { ok: true, assessment, revision: state.revision };
   });
@@ -755,14 +770,17 @@ async function patchLocalAssessment(
   actor: AssessmentActor,
   options: AssessmentPatchOptions = {},
 ): Promise<AssessmentMutation | null> {
-  await ensureLoaded();
+  const fingerprint = mutationRequestFingerprint("assessment_patch", assessmentId, actor, { patch, expectedVersion: options.expectedVersion, expectedReferralName: options.expectedReferralName, section: options.section, expectedSectionVersion: options.expectedSectionVersion }, options.replayRequest);
   return withMutation(async () => {
     const index = state.assessments.findIndex((assessment) => assessment.assessment_id === assessmentId);
     if (index < 0) return null;
     const current = state.assessments[index];
-    if (options.mutationId && state.patchMutations.get(options.mutationId) === assessmentId) {
-      return { ok: true, assessment: current, revision: state.revision };
-    }
+    const replay = resolveMutationReplay(
+      options.mutationId ? state.patchMutations.get(options.mutationId) : undefined,
+      state.requestFingerprints.get(`assessment_patch:${options.mutationId}`), fingerprint,
+      (id) => id === assessmentId ? current : null,
+    );
+    if (replay) return { ok: true, assessment: replay, revision: state.revision };
     if (hasAssessmentPatchVersionConflict(current, options)) {
       return { ok: false, conflict: true, assessment: current };
     }
@@ -779,6 +797,7 @@ async function patchLocalAssessment(
     state.assessments[index] = candidate;
     state.revision += 1;
     if (options.mutationId) state.patchMutations.set(options.mutationId, assessmentId);
+    if (options.mutationId) state.requestFingerprints.set(`assessment_patch:${options.mutationId}`, fingerprint);
     await persist();
     await syncLocalReferralWorkflow(candidate, actor, prepared.action);
     return { ok: true, assessment: candidate, revision: state.revision, referral: nameSync?.referral, warnings: candidate.status === "complete" ? getAssessmentCompletionBlockers(candidate) : [] };
@@ -841,12 +860,13 @@ function scheduleWindow(schedule: AssessmentScheduleUpdate) {
 }
 
 async function importLocalAssessmentExtraction(input: AssessmentImportInput): Promise<AssessmentMutation | null> {
-  await ensureLoaded();
+  const fingerprint = mutationRequestFingerprint("assessment_import", `referral:${input.referralId}:assessment:${input.assessmentId ?? "new"}`, input.actor, input, input.replayRequest);
   return withMutation(async () => {
-    const existingMutationId = input.mutationId ? state.importMutations.get(input.mutationId) : undefined;
-    const existingMutation = existingMutationId
-      ? state.assessments.find((assessment) => assessment.assessment_id === existingMutationId)
-      : undefined;
+    const existingMutation = resolveMutationReplay(
+      input.mutationId ? state.importMutations.get(input.mutationId) : undefined,
+      state.requestFingerprints.get(`assessment_import:${input.mutationId}`), fingerprint,
+      (id) => state.assessments.find((assessment) => assessment.assessment_id === id),
+    );
     if (existingMutation) return { ok: true, assessment: existingMutation, revision: state.revision };
 
     const currentIndex = input.assessmentId
@@ -867,6 +887,7 @@ async function importLocalAssessmentExtraction(input: AssessmentImportInput): Pr
     else state.assessments = [assessment, ...state.assessments];
     state.revision += 1;
     if (input.mutationId) state.importMutations.set(input.mutationId, assessment.assessment_id);
+    if (input.mutationId) state.requestFingerprints.set(`assessment_import:${input.mutationId}`, fingerprint);
     await persist();
     await syncLocalReferralWorkflow(assessment, input.actor, "assessment_imported");
     return { ok: true, assessment, revision: state.revision };
@@ -880,8 +901,9 @@ async function addLocalAssessmentAddendum(
   actor: AssessmentActor,
   expectedVersion: number,
   mutationId?: string,
+  replayRequest?: MutationReplayRequest,
 ): Promise<AssessmentAddendumMutation | null> {
-  await ensureLoaded();
+  const fingerprint = mutationRequestFingerprint("assessment_addendum", assessmentId, actor, { note, reasonCode, expectedVersion }, replayRequest);
   return withMutation(async () => {
     const index = state.assessments.findIndex((assessment) => assessment.assessment_id === assessmentId);
     if (index < 0) return null;
@@ -889,6 +911,7 @@ async function addLocalAssessmentAddendum(
     const mutationKey = mutationId ? `addendum:${mutationId}` : undefined;
     const replayId = mutationKey ? state.createMutations.get(mutationKey) : undefined;
     if (replayId) {
+      assertMutationReplayFingerprint(state.requestFingerprints.get(`assessment_addendum:${mutationId}`), fingerprint);
       const addendum = current.addenda?.find((item) => item.addendum_id === replayId);
       return addendum
         ? { ok: true, assessment: current, addendum, revision: state.revision }
@@ -927,6 +950,7 @@ async function addLocalAssessmentAddendum(
     });
     state.assessments[index] = assessment;
     if (mutationKey) state.createMutations.set(mutationKey, addendum.addendum_id);
+    if (mutationId) state.requestFingerprints.set(`assessment_addendum:${mutationId}`, fingerprint);
     state.revision += 1;
     await persist();
     return { ok: true, assessment, addendum, revision: state.revision };
@@ -1178,6 +1202,7 @@ async function createPostgresAssessment(
   actor: AssessmentActor,
   mutationId?: string,
 ): Promise<AssessmentMutation> {
+  const fingerprint = mutationRequestFingerprint("assessment_create", `referral:${input.referral_id}`, actor, input, input.replayRequest);
   const data = pickAssessmentToolData(input.data);
   const issues = validateAssessmentToolData(data);
   if (issues.length > 0) throw new Error(issues[0].message);
@@ -1216,7 +1241,7 @@ async function createPostgresAssessment(
   return sql.begin(async (tx) => {
     if (mutationId) {
       await lockIdempotencyMutation(tx, "assessment_create", mutationId);
-      const existing = await findIdempotentAssessment(tx, "assessment_create", mutationId);
+      const existing = await findIdempotentAssessment(tx, "assessment_create", mutationId, fingerprint);
       if (existing) return { ok: true, assessment: existing, revision: await getAssessmentRevisionInTransaction(tx) };
     }
     await insertAssessmentRow(tx, assessment);
@@ -1224,7 +1249,7 @@ async function createPostgresAssessment(
     await insertAssessmentUnmapped(tx, assessmentId, assessment.unmapped_fields);
     await writeAssessmentAudit(tx, assessment, "assessment_created", actor, []);
     await syncPostgresReferralWorkflow(tx, assessment, actor, "assessment_created");
-    if (mutationId) await saveAssessmentIdempotency(tx, "assessment_create", mutationId, assessmentId);
+    if (mutationId) await saveAssessmentIdempotency(tx, "assessment_create", mutationId, assessmentId, fingerprint);
     const saved = await getAssessmentInTransaction(tx, assessmentId);
     if (!saved) throw new Error("The assessment could not be read after creation.");
     return { ok: true, assessment: saved, revision: await bumpAssessmentRevision(tx), warnings: status === "complete" ? getAssessmentCompletionBlockers(saved) : [] };
@@ -1246,9 +1271,10 @@ export async function createAssessmentRevisionInTransaction(
   actor: AssessmentActor,
   mutationId?: string,
 ): Promise<AssessmentMutation | null> {
+  const fingerprint = mutationRequestFingerprint("assessment_revision", assessmentId, actor, {});
   if (mutationId) {
     await lockIdempotencyMutation(tx, "assessment_revision", mutationId);
-    const existing = await findIdempotentAssessment(tx, "assessment_revision", mutationId);
+    const existing = await findIdempotentAssessment(tx, "assessment_revision", mutationId, fingerprint);
     if (existing) return { ok: true, assessment: existing, revision: await getAssessmentRevisionInTransaction(tx) };
   }
   const source = await getAssessmentInTransaction(tx, assessmentId, true);
@@ -1297,7 +1323,7 @@ export async function createAssessmentRevisionInTransaction(
   await insertAssessmentProvenance(tx, nextId, assessment.field_provenance);
   await insertAssessmentUnmapped(tx, nextId, assessment.unmapped_fields);
   await writeAssessmentAudit(tx, assessment, "assessment_revision_created", actor, []);
-  if (mutationId) await saveAssessmentIdempotency(tx, "assessment_revision", mutationId, nextId);
+  if (mutationId) await saveAssessmentIdempotency(tx, "assessment_revision", mutationId, nextId, fingerprint);
   const saved = await getAssessmentInTransaction(tx, nextId);
   if (!saved) throw new Error("The assessment revision could not be read after creation.");
   return { ok: true, assessment: saved, revision: await bumpAssessmentRevision(tx) };
@@ -1309,11 +1335,12 @@ async function patchPostgresAssessment(
   actor: AssessmentActor,
   options: AssessmentPatchOptions = {},
 ): Promise<AssessmentMutation | null> {
+  const fingerprint = mutationRequestFingerprint("assessment_patch", assessmentId, actor, { patch, expectedVersion: options.expectedVersion, expectedReferralName: options.expectedReferralName, section: options.section, expectedSectionVersion: options.expectedSectionVersion }, options.replayRequest);
   const sql = getPipelineSql();
   return sql.begin(async (tx) => {
     if (options.mutationId) {
       await lockIdempotencyMutation(tx, "assessment_patch", options.mutationId);
-      const existing = await findIdempotentAssessment(tx, "assessment_patch", options.mutationId);
+      const existing = await findIdempotentAssessment(tx, "assessment_patch", options.mutationId, fingerprint);
       if (existing) return { ok: true, assessment: existing, revision: await getAssessmentRevisionInTransaction(tx) };
     }
     const current = await getAssessmentInTransaction(tx, assessmentId, true);
@@ -1354,7 +1381,7 @@ async function patchPostgresAssessment(
     await writeAssessmentAudit(tx, candidate, prepared.action, actor, prepared.changedFields);
     await syncPostgresReferralWorkflow(tx, candidate, actor, prepared.action);
     if (options.mutationId) {
-      await saveAssessmentIdempotency(tx, "assessment_patch", options.mutationId, assessmentId);
+      await saveAssessmentIdempotency(tx, "assessment_patch", options.mutationId, assessmentId, fingerprint);
     }
     const saved = await getAssessmentInTransaction(tx, assessmentId);
     if (!saved) throw new Error("The assessment could not be read after update.");
@@ -1432,11 +1459,21 @@ function initializeInterviewDate(current: PipelineAssessmentRecord, requestedDat
   return false;
 }
 
+export class AssessmentStartBlockedError extends Error {
+  constructor() {
+    super("A completed assessment cannot be started again.");
+    this.name = "AssessmentStartBlockedError";
+  }
+}
+
 function prepareAssessmentPatch(
   current: PipelineAssessmentRecord,
   patch: AssessmentPatchInput,
   actor: AssessmentActor,
 ) {
+  if (patch.mark_started && (current.status === "complete" || current.signed_at)) {
+    throw new AssessmentStartBlockedError();
+  }
   assertAssessmentWorkbookRestoreAllowed(current, patch);
   if (isAssessmentFinalized(current) && (
     (patch.data !== undefined && !patch.post_send_review)
@@ -1459,9 +1496,6 @@ function prepareAssessmentPatch(
     || Object.keys(patch.data).some((key) => key !== patch.post_send_review?.field && key !== "unable_to_assess_reasons")
   )) {
     throw new Error("Post-send review may add only one assessment answer.");
-  }
-  if (patch.mark_started && current.status === "complete") {
-    throw new Error("A completed assessment cannot be started again.");
   }
   const currentData = pickAssessmentToolData(current);
   const requestedData = { ...(patch.data ?? {}) };
@@ -1903,11 +1937,12 @@ async function syncPostgresReferralWorkflow(
 }
 
 async function importPostgresAssessmentExtraction(input: AssessmentImportInput): Promise<AssessmentMutation | null> {
+  const fingerprint = mutationRequestFingerprint("assessment_import", `referral:${input.referralId}:assessment:${input.assessmentId ?? "new"}`, input.actor, input, input.replayRequest);
   const sql = getPipelineSql();
   return sql.begin(async (tx) => {
     if (input.mutationId) {
       await lockIdempotencyMutation(tx, "assessment_import", input.mutationId);
-      const existing = await findIdempotentAssessment(tx, "assessment_import", input.mutationId);
+      const existing = await findIdempotentAssessment(tx, "assessment_import", input.mutationId, fingerprint);
       if (existing) return { ok: true, assessment: existing, revision: await getAssessmentRevisionInTransaction(tx) };
     }
     const current = input.assessmentId
@@ -1937,7 +1972,7 @@ async function importPostgresAssessmentExtraction(input: AssessmentImportInput):
     await insertAssessmentUnmapped(tx, assessmentId, prepared.newUnmappedFields);
     await writeAssessmentAudit(tx, assessment, "assessment_imported", input.actor, prepared.changedFields);
     await syncPostgresReferralWorkflow(tx, assessment, input.actor, "assessment_imported");
-    if (input.mutationId) await saveAssessmentIdempotency(tx, "assessment_import", input.mutationId, assessmentId);
+    if (input.mutationId) await saveAssessmentIdempotency(tx, "assessment_import", input.mutationId, assessmentId, fingerprint);
     const saved = await getAssessmentInTransaction(tx, assessmentId);
     if (!saved) throw new Error("The assessment could not be read after import.");
     return { ok: true, assessment: saved, revision: await bumpAssessmentRevision(tx) };
@@ -1951,17 +1986,20 @@ async function addPostgresAssessmentAddendum(
   actor: AssessmentActor,
   expectedVersion: number,
   mutationId?: string,
+  replayRequest?: MutationReplayRequest,
 ): Promise<AssessmentAddendumMutation | null> {
+  const fingerprint = mutationRequestFingerprint("assessment_addendum", assessmentId, actor, { note, reasonCode, expectedVersion }, replayRequest);
   const sql = getPipelineSql();
   return sql.begin(async (tx) => {
     if (mutationId) {
       await lockIdempotencyMutation(tx, "assessment_addendum", mutationId);
-      const rows = await tx<{ entity_id: string }[]>`
-        select entity_id from pipeline.idempotency_keys
+      const rows = await tx<{ entity_id: string; request_fingerprint: string | null }[]>`
+        select entity_id, request_fingerprint from pipeline.idempotency_keys
         where scope = 'assessment_addendum' and mutation_id = ${mutationId}
         limit 1
       `;
       if (rows[0]) {
+        assertMutationReplayFingerprint(rows[0].request_fingerprint, fingerprint);
         const assessment = await getAssessmentInTransaction(tx, assessmentId);
         if (!assessment) return null;
         const addendum = assessment.addenda?.find((item) => item.addendum_id === rows[0].entity_id);
@@ -2011,8 +2049,8 @@ async function addPostgresAssessmentAddendum(
       )
     `;
     if (mutationId) await tx`
-      insert into pipeline.idempotency_keys (scope, mutation_id, entity_type, entity_id)
-      values ('assessment_addendum', ${mutationId}, 'addendum', ${rows[0].addendum_id})
+      insert into pipeline.idempotency_keys (scope, mutation_id, entity_type, entity_id, request_fingerprint)
+      values ('assessment_addendum', ${mutationId}, 'addendum', ${rows[0].addendum_id}, ${fingerprint})
     `;
     const assessment = await getAssessmentInTransaction(tx, assessmentId);
     if (!assessment) throw new Error("The assessment could not be read after adding its addendum.");
@@ -2352,13 +2390,17 @@ async function lockIdempotencyMutation(tx: TransactionSql, scope: string, mutati
   await tx`select pg_advisory_xact_lock(hashtextextended(${`${scope}:${mutationId}`}, 0))`;
 }
 
-async function findIdempotentAssessment(tx: TransactionSql, scope: string, mutationId: string) {
-  const rows = await tx<{ entity_id: string }[]>`
-    select entity_id from pipeline.idempotency_keys
+async function findIdempotentAssessment(tx: TransactionSql, scope: string, mutationId: string, fingerprint: string) {
+  const rows = await tx<{ entity_id: string; request_fingerprint: string | null }[]>`
+    select entity_id, request_fingerprint from pipeline.idempotency_keys
     where scope = ${scope} and mutation_id = ${mutationId}
     limit 1
   `;
-  return rows[0] ? getAssessmentInTransaction(tx, rows[0].entity_id) : null;
+  if (!rows[0]) return null;
+  assertMutationReplayFingerprint(rows[0].request_fingerprint, fingerprint);
+  const assessment = await getAssessmentInTransaction(tx, rows[0].entity_id);
+  if (!assessment) throw new MutationReplayConflictError();
+  return assessment;
 }
 
 async function saveAssessmentIdempotency(
@@ -2366,10 +2408,11 @@ async function saveAssessmentIdempotency(
   scope: string,
   mutationId: string,
   assessmentId: string,
+  fingerprint: string,
 ) {
   await tx`
-    insert into pipeline.idempotency_keys (scope, mutation_id, entity_type, entity_id)
-    values (${scope}, ${mutationId}, 'assessment', ${assessmentId})
+    insert into pipeline.idempotency_keys (scope, mutation_id, entity_type, entity_id, request_fingerprint)
+    values (${scope}, ${mutationId}, 'assessment', ${assessmentId}, ${fingerprint})
     on conflict (scope, mutation_id) do nothing
   `;
 }

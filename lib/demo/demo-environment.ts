@@ -19,7 +19,7 @@ export function getPipelineDemoEnvironment(): PipelineDemoEnvironment {
     enabled,
     writable: enabled && isolated,
     label: process.env.PIPELINE_DEMO_ENVIRONMENT_LABEL?.trim() || (local ? "Local demo" : "Pipeline demo"),
-    entryUrl: configuredUrl ?? (enabled ? "/training/demo" : null),
+    entryUrl: configuredUrl,
     reason: demoEnvironmentReason(enabled, isolated),
   };
 }

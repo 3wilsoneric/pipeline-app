@@ -1,22 +1,24 @@
+import { openAssessmentFixture } from "./support/assessment-fixture";
 import { closeTestBrowser } from "./support/browser-lifecycle";
 import { editPreparedAnswer, openAssessmentChart, openHandoffConfirmation, returnToAssessmentQuestions } from "./support/assessment-navigation";
 import { expect, test, webkit, type Page } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import type { AxeResults } from "axe-core";
 
-const practiceUrl = "/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=interview&assessmentSection=diagnosis_clinical&demo=1";
 
 async function openPractice(page: Page, width = 1440) {
   await page.setViewportSize({ width, height: 950 });
-  await page.goto(practiceUrl);
+  const fixture = await openAssessmentFixture(page, { mode: "interview", section: "diagnosis_clinical" });
   await expect(page.locator("[data-assessment-working-section]")).toBeVisible();
+  return fixture;
 }
 
 async function chooseSection(page: Page, key: string) {
   await page.getByRole("combobox", { name: "Assessment section", exact: true }).selectOption(key);
   // Wait for the selected page to commit before issuing a second native-select change.
   await expect(page).toHaveURL(new RegExp("assessmentSection=" + key));
-  await expect(page.locator("[data-assessment-working-section]")).toHaveAttribute("data-assessment-section", key);
+  await expect(page.getByRole("combobox", { name: "Assessment section", exact: true })).toHaveValue(key);
+  await expect(page.locator("[data-split-topic]")).toHaveAttribute("data-split-topic", key);
 }
 
 for (const width of [1440, 834, 390]) {
@@ -25,22 +27,34 @@ for (const width of [1440, 834, 390]) {
     const preview = tablet ? await tablet.newPage({ baseURL, viewport: { width, height: 950 }, hasTouch: true, isMobile: true }) : page;
     try {
       await preview.setViewportSize({ width, height: 950 });
-      await preview.goto(practiceUrl.replace("diagnosis_clinical", "medication"));
+      await openAssessmentFixture(preview, { mode: "interview", section: "medication" });
       if (width < 640) await preview.getByRole("button", { name: "Client info", exact: true }).click();
       const reference = width < 640
         ? preview.getByRole("dialog", { name: "Client information", exact: true })
         : preview.getByRole("complementary", { name: "Current information", exact: true });
       const action = width < 640 ? "Review" : "Edit";
-      if (width === 834) await reference.getByRole("button", { name: /^Current information/ }).click();
       const medications = reference.getByRole("button", { name: `${action} Medications at intake`, exact: true });
       const entries = ["Synthetic medication A, dose pending verification", "Synthetic medication B, dose pending verification"];
-      for (const entry of entries) {
-        await expect(medications.getByText(entry, { exact: true })).toBeVisible();
-        await expect(medications.getByText(entry, { exact: true })).toHaveCSS("display", "block");
-        await expect(medications.getByText(entry, { exact: true })).toHaveCSS("font-size", "19px");
+      if (width < 640) {
+        for (const entry of entries) {
+          await expect(medications.getByText(entry, { exact: true })).toBeVisible();
+          await expect(medications.getByText(entry, { exact: true })).toHaveCSS("display", "block");
+          await expect(medications.getByText(entry, { exact: true })).toHaveCSS("font-size", "19px");
+        }
+      } else {
+        // The current split renders the complete medication list in one wrapping value.
+        await expect(medications).toHaveText(entries.join("; "));
+        await expect(medications).toHaveCSS("white-space", "pre-line");
+        // InterviewSplit uses the current --text-value token (design-tokens.css).
+        await expect(medications).toHaveCSS("font-size", "16px");
       }
-      await expect(reference.getByRole("button", { name: `${action} Medication compliant`, exact: true })).toHaveCSS("display", "grid");
-      expect(await reference.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+      await expect(reference.getByRole("button", { name: `${action} Medication compliant`, exact: true })).toBeVisible();
+      // The split's drag handle deliberately straddles the border. Its reading
+      // content, the medication value and the page must fit without overflow.
+      const reading = width < 640 ? reference : reference.locator("[data-split-chart]");
+      expect(await reading.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+      expect(await medications.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+      expect(await preview.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       await preview.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
       const violations = await preview.evaluate(async (selector) => {
         const axe = (window as unknown as { axe: { run: (selector: string, options: object) => Promise<AxeResults> } }).axe;
@@ -63,15 +77,14 @@ for (const width of [1440, 834, 390]) {
   });
 }
 
-// Phones have a separate focused interview suite; the narrow open book remains on tablets.
+// Phones have a separate focused interview suite; tablets use the continuous questionnaire.
 for (const width of [1440, 1024, 768, 640]) {
   test(`open book keeps existing answers readable and unfinished questions stable at ${width}px`, async ({ page }, testInfo) => {
-    await openPractice(page, width);
+    const { read } = await openPractice(page, width);
     const book = page.locator("[data-assessment-working-section]");
     const reference = page.getByRole("complementary", { name: "Current information" });
     const editor = page.locator("[data-assessment-question-editor]");
     const secondary = editor.getByRole("textbox", { name: "Cognition / orientation", exact: true });
-    if (width < 960) await reference.getByRole("button", { name: /^Current information/ }).click();
     await expect(reference.getByRole("combobox")).toHaveCount(0);
     await expect(reference).not.toContainText("Taylor Rivera");
     await expect(reference).toContainText("During the practice interview");
@@ -81,57 +94,54 @@ for (const width of [1440, 1024, 768, 640]) {
     await secondary.fill("Synthetic prepared diagnosis");
     await expect(secondary).toBeFocused();
     await secondary.press("Tab");
-    await expect(secondary).toHaveValue("Synthetic prepared diagnosis");
-    await expect(editor).toContainText("Recorded");
+    await expect.poll(async () => (await read()).cognition_orientation).toBe("Synthetic prepared diagnosis");
     await chooseSection(page, "prior_history");
     await chooseSection(page, "diagnosis_clinical");
+    await expect(secondary).toHaveValue("Synthetic prepared diagnosis");
+    // A fresh visit filters captured answers into the reference; an edit never disappears mid-visit.
+    await page.reload();
+    await expect(reference).toContainText("Synthetic prepared diagnosis");
     await expect(secondary).toHaveCount(0);
-    await expect(editor).toContainText("This section is complete");
-    if (width >= 960) {
-      const nav = (await page.getByRole("navigation", { name: "Assessment sections", exact: true }).boundingBox())!;
-      expect((await editor.boundingBox())!.y - (nav.y + nav.height)).toBeLessThan(24);
-    }
-    if (width < 960) await reference.getByRole("button", { name: /^Current information/ }).click();
     await reference.getByRole("button", { name: "Edit Cognition / orientation", exact: true }).click();
     await expect(secondary).toBeFocused();
     await expect(secondary).toHaveValue("Synthetic prepared diagnosis");
     await secondary.fill("");
+    await secondary.blur();
+    await expect.poll(async () => (await read()).cognition_orientation).toBeNull();
     await chooseSection(page, "prior_history");
     await chooseSection(page, "diagnosis_clinical");
     await expect(secondary).toBeVisible();
     await chooseSection(page, "functional_adl");
-    if (width < 960) await reference.getByRole("button", { name: /^Current information/ }).click();
     await reference.getByRole("button", { name: "Edit Ambulatory", exact: true }).click();
     await editor.getByRole("group", { name: "Ambulatory", exact: true }).getByRole("button", { name: "No", exact: true }).click();
     const mobility = editor.locator("#assessment-mobility");
     await expect(mobility).toBeVisible();
-    // Even an older hidden answer must be shown when its parent answer reveals it.
     await expect(mobility).toHaveValue("The client walked independently during the practice interview; no device or transfer support was reported.");
     await mobility.fill("Uses a walker; needs help on stairs.");
     await expect(mobility).toBeFocused();
     await chooseSection(page, "medication");
     await chooseSection(page, "functional_adl");
-    await expect(mobility).toHaveCount(0);
+    await expect(mobility).toHaveValue("Uses a walker; needs help on stairs.");
     await expect(reference).toContainText("Uses a walker; needs help on stairs.");
-    if (width >= 960) {
+    await expect.poll(async () => (await read()).mobility).toBe("Uses a walker; needs help on stairs.");
+    if (width >= 1024) {
       const left = (await reference.boundingBox())!;
       const right = (await editor.boundingBox())!;
-      expect(left.x + left.width).toBeLessThan(right.x);
-      // The reference stays readable but compact; the questions keep the main area.
+      expect(left.x + left.width).toBeLessThanOrEqual(right.x);
       expect(left.width).toBeGreaterThanOrEqual(232);
       expect(left.width).toBeLessThan(right.width);
-      // The shared page owns scrolling; the reading pane must not clip its last answer.
-      const lastAnswer = reference.getByRole("button").last();
+      const lastAnswer = reference.locator("[data-split-topic]").getByRole("button").last();
       await lastAnswer.scrollIntoViewIfNeeded();
       await expect(lastAnswer).toBeInViewport();
-      await expect(reference.locator("[data-assessment-reference-page]")).toHaveCSS("overflow-y", "visible");
-      expect(await editor.evaluate((element) => element.scrollTop)).toBe(0);
+      await expect(reference.locator("[data-split-topic]")).toHaveCSS("overflow-y", "auto");
       await expect(page.locator('footer[aria-label="Assessment actions"]')).toBeInViewport();
-      await expect(reference.getByRole("button", { name: /^Current information/ })).toHaveCount(0);
+    } else {
+      const left = (await reference.boundingBox())!;
+      const right = (await editor.boundingBox())!;
+      expect(left.y + left.height).toBeLessThanOrEqual(right.y);
     }
     expect(await book.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
     await chooseSection(page, "prior_history");
-    if (width < 960) await reference.getByRole("button", { name: /^Current information/ }).click();
     await expect(reference.getByRole("button", { name: "Edit Earlier care placements", exact: true })).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath(`open-book-${width}.png`), animations: "disabled" });
     await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
@@ -144,41 +154,35 @@ for (const width of [1440, 1024, 768, 640]) {
   });
 }
 
-test("reading pane and questions share page scrolling and section changes return to the top", async ({ page }, testInfo) => {
-  await openPractice(page, 1024);
-  // The approved layout uses one scroll owner, not two nested reading panes.
+test("section jumps keep the reference readable and the selected question reachable", async ({ page }, testInfo) => {
+  const { read } = await openPractice(page, 1024);
   await page.setViewportSize({ width: 1024, height: 640 });
   const reference = page.getByRole("complementary", { name: "Current information" });
   const canvas = page.locator('[data-guide-target="packet-workspace"]');
-  const readingPage = page.locator("[data-assessment-reference-page]");
-  const questions = page.locator("[data-assessment-question-page]");
   const symptoms = reference.getByRole("button", { name: "Edit Current symptoms", exact: true });
   await symptoms.scrollIntoViewIfNeeded();
-  const original = await symptoms.locator("span").nth(1).textContent();
-  await expect(symptoms.locator("span").nth(1)).toHaveCSS("font-size", "19px");
-  await expect(symptoms.locator("span").nth(1)).toHaveCSS("white-space", "pre-wrap");
+  const original = (await symptoms.textContent())!;
+  await expect(symptoms).toHaveCSS("font-size", "16px");
+  await expect(symptoms).toHaveCSS("white-space", "pre-line");
   await canvas.evaluate((el) => { el.scrollTop = el.scrollHeight; });
   expect(await canvas.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
-  expect(await readingPage.evaluate((el) => el.scrollTop)).toBe(0);
-  expect(await questions.evaluate((el) => el.scrollTop)).toBe(0);
   await chooseSection(page, "prior_history");
-  await expect.poll(() => canvas.evaluate((el) => el.scrollTop)).toBe(0);
+  await expect(page.locator('[data-assessment-group-heading="prior_history"]')).toBeInViewport();
   await expect(reference.getByRole("button", { name: "Edit Earlier care placements", exact: true })).toBeVisible();
   await chooseSection(page, "medication");
-  await expect.poll(() => questions.evaluate((el) => el.scrollTop)).toBe(0);
-  await expect(reference).not.toContainText(original!);
+  await expect(reference).not.toContainText(original);
   await chooseSection(page, "diagnosis_clinical");
   await symptoms.click();
   const field = page.locator("#assessment-current_symptoms");
   await expect(field).toBeFocused();
-  await expect(field).toHaveValue(original!);
+  await expect(field).toHaveValue(original);
   await expect(field).toHaveCSS("font-size", "16px");
-  expect(await readingPage.evaluate((el) => el.scrollTop)).toBe(0);
   await field.fill(original + "\nFollow-up documented during the interview.");
   await field.press("Tab");
   await expect(symptoms).toContainText("Follow-up documented during the interview.");
+  await expect.poll(async () => (await read()).current_symptoms).toBe(original + "\nFollow-up documented during the interview.");
   await chooseSection(page, "prior_history");
-  await expect.poll(() => readingPage.evaluate((el) => el.scrollTop)).toBe(0);
+  await expect(reference.locator("[data-split-chart]")).toHaveJSProperty("scrollTop", 0);
   await page.screenshot({ path: testInfo.outputPath("reading-desk-1024.png") });
 });
 

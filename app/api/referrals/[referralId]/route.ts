@@ -1,3 +1,4 @@
+import { mutationReplayRequest, type MutationReplayRequest } from "@/lib/persistence/mutation-replay";
 import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
 import { requirePipelineUser, type PipelineUser } from "@/lib/auth/pipeline-auth";
 import { pipelineAuditActor } from "@/lib/auth/assessor-session-policy";
@@ -83,8 +84,10 @@ export async function DELETE(
     }
     const mutationId = validateClientMutationId(body.value?.client_mutation_id);
     if (!mutationId.ok) return jsonError(mutationId.message);
-    const replay = await getReferralMutationReplay(id, "referral_delete", mutationId.value);
-    if (replay) {
+    const replayRequest = mutationReplayRequest(auth.user, body.value);
+    const replayResponse = async () => {
+      const replay = await getReferralMutationReplay(id, "referral_delete", mutationId.value, pipelineAuditActor(auth.user), replayRequest);
+      if (!replay) return null;
       if (!canAccessReferral(auth.user, replay)) return jsonError("Referral not found.", 404);
       return Response.json({
         ok: true,
@@ -92,10 +95,14 @@ export async function DELETE(
         revision: await getReferralStoreRevision(),
         idempotentReplay: true,
       }, { headers: { "Cache-Control": "no-store, max-age=0" } });
-    }
+    };
+    const replay = await replayResponse();
+    if (replay) return replay;
     const access = await requireMutableReferralAccess(auth.user, id, "trash");
-    if (!access.ok) return access.response;
-    const result = await softDeleteReferral(id, pipelineAuditActor(auth.user), expectedVersion, mutationId.value);
+    // An identical concurrent delete may commit between the replay lookup and
+    // access check. Revalidate its bound receipt before returning the stale 404.
+    if (!access.ok) return await replayResponse() ?? access.response;
+    const result = await softDeleteReferral(id, pipelineAuditActor(auth.user), expectedVersion, mutationId.value, replayRequest);
     if (!result) return jsonError("Referral not found.", 404);
     if (!result.ok) {
       return Response.json({
@@ -168,6 +175,7 @@ export async function PATCH(
       ownerChanged: ownerResult.ownerChanged,
       handoffReason: ownerResult.handoffReason,
       mutationId: mutationId.value,
+      replayRequest: mutationReplayRequest(auth.user, body.value),
     });
   });
 }
@@ -257,6 +265,7 @@ type ApplyReferralPatchInput = {
   ownerChanged: boolean;
   handoffReason: string;
   mutationId?: string;
+  replayRequest: MutationReplayRequest;
 };
 
 async function applyReferralPatch(input: ApplyReferralPatchInput): Promise<Response> {
@@ -270,6 +279,7 @@ async function applyReferralPatch(input: ApplyReferralPatchInput): Promise<Respo
       ...(input.ownerChanged ? { auditAction: "referral_reassigned", auditReason: input.handoffReason } : {}),
       mutationId: input.mutationId,
       mutationScope: "referral_patch",
+      replayRequest: input.replayRequest,
     },
   );
   if (!result) return jsonError("Referral not found.", 404);

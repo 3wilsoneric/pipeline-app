@@ -1,3 +1,4 @@
+import { openAssessmentFixture } from "./support/assessment-fixture";
 import { closeTestBrowser } from "./support/browser-lifecycle";
 import { expect, test, webkit } from "@playwright/test";
 import { randomUUID } from "node:crypto";
@@ -80,13 +81,19 @@ test("interview date closes on Escape and outside press without exiting the asse
   const browser = await webkit.launch();
   try {
     const page = await browser.newPage({ baseURL, viewport: { width: 768, height: 1024 }, hasTouch: true, isMobile: true });
-    await page.goto("/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=prepare&assessmentSection=prior_history");
+    const fixture = await openAssessmentFixture(page, { mode: "prepare", section: "prior_history" });
     await expect(page.getByTestId("packet-workspace")).not.toHaveAttribute("inert", "");
     await expect(page.locator('[data-guide-target="packet-workspace"]')).toHaveAttribute("data-performance-ready", "packet");
     const surface = page.locator("[data-assessment-view]");
+    const appointmentButton = page.getByRole("region", { name: "Interview", exact: true }).getByRole("button", { name: "Schedule interview", exact: true });
+    await appointmentButton.tap();
+    const schedule = page.getByRole("dialog", { name: "Schedule interview", exact: true });
+    await schedule.getByRole("button", { name: "Close schedule", exact: true }).tap();
+    await expect(appointmentButton).toBeFocused();
+    await page.getByRole("region", { name: "Interview", exact: true }).getByRole("button", { name: "Start now", exact: true }).tap();
     const more = surface.getByRole("button", { name: /^Interview date/ });
     const menu = page.getByRole("dialog", { name: "Interview date", exact: true });
-    await expect(surface.locator('[data-guide-target="assessment-save-status"]')).toContainText("Practice changes saved locally");
+    await expect.poll(async () => (await fixture.read()).started_at).toBeTruthy();
     await more.press("Enter");
     await expect(menu).toBeVisible();
     await expect(menu.locator("#assessment-assessment_date")).toBeVisible();
@@ -97,11 +104,6 @@ test("interview date closes on Escape and outside press without exiting the asse
     await more.tap();
     await page.mouse.click(1, 1);
     await expect(menu).toBeHidden();
-    const appointmentButton = page.getByRole("region", { name: "Assessment progress", exact: true }).getByRole("button", { name: "Schedule interview", exact: true });
-    await appointmentButton.tap();
-    const schedule = page.getByRole("dialog", { name: "Schedule interview", exact: true });
-    await schedule.getByRole("button", { name: "Close schedule", exact: true }).tap();
-    await expect(appointmentButton).toBeFocused();
     await expect(surface).toBeVisible();
   } finally {
     await closeTestBrowser(browser);

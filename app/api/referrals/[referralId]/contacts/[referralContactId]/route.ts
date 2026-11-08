@@ -1,3 +1,4 @@
+import { mutationReplayRequest } from "@/lib/persistence/mutation-replay";
 import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
 import { pipelineAuditActor } from "@/lib/auth/assessor-session-policy";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
@@ -37,12 +38,12 @@ async function contactLinkMutation(request: Request, context: Context, method: "
     if (method === "PATCH") {
       const command = validateReferralContactPatchBody(body.value);
       if (!command.ok) return jsonError(command.message, command.status);
-      const result = await updateReferralContact(params.referralId, params.linkId, command.value.patch, command.value.expectedVersion, actor, command.value.mutationId);
+      const result = await updateReferralContact(params.referralId, params.linkId, command.value.patch, command.value.expectedVersion, actor, command.value.mutationId, mutationReplayRequest(auth.user, command.value));
       return linkResponse(result);
     }
     const command = validateReferralContactDeleteBody(body.value);
     if (!command.ok) return jsonError(command.message, command.status);
-    const result = await unlinkReferralContact(params.referralId, params.linkId, command.value.expectedVersion, actor, command.value.mutationId);
+    const result = await unlinkReferralContact(params.referralId, params.linkId, command.value.expectedVersion, actor, command.value.mutationId, mutationReplayRequest(auth.user, command.value));
     return linkResponse(result);
   });
 }

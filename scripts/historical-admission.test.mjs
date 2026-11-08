@@ -86,6 +86,9 @@ async function exercise(store, audit) {
   assert.equal((await store.listReferrals()).total, 0, "never enters new referral queues");
   const replay = await store.recordHistoricalAdmission(1, admission, before.version, actor, "prior-command");
   assert.equal(replay.ok, true); assert.equal(replay.idempotentReplay, true); assert.equal(replay.referral.version, ref.version);
+  await assert.rejects(store.recordHistoricalAdmission(1, admission, before.version, { id: "other", name: "Other account" }, "prior-command"), { name: "MutationReplayConflictError" });
+  await assert.rejects(store.recordHistoricalAdmission(1, { ...admission, admissionDate: "2025-03-04" }, before.version, actor, "prior-command"), { name: "MutationReplayConflictError" });
+  await assert.rejects(store.recordHistoricalAdmission(1, admission, ref.version, actor, "prior-command"), { name: "MutationReplayConflictError" });
   const conflict = await store.recordHistoricalAdmission(1, { ...admission, admissionDate: "2025-03-04" }, before.version, actor, "different-command");
   assert.equal(conflict.conflict, true);
   assert.equal((await store.getReferral(1)).admissionDate, admission.admissionDate);

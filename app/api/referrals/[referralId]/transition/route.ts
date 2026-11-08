@@ -1,3 +1,4 @@
+import { mutationReplayRequest } from "@/lib/persistence/mutation-replay";
 import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
 import { pipelineAuditActor } from "@/lib/auth/assessor-session-policy";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
@@ -51,6 +52,8 @@ export async function POST(
       pipelineAuditActor(auth.user),
       mutationId.value,
       body.value.actual_admission_date,
+      undefined,
+      mutationReplayRequest(auth.user, body.value),
     );
     if (!result) return jsonError("Referral not found.", 404);
     if (!result.ok && "conflict" in result) {

@@ -1,3 +1,4 @@
+import { mutationReplayRequest } from "@/lib/persistence/mutation-replay";
 import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
 import { pipelineAuditActor } from "@/lib/auth/assessor-session-policy";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
@@ -48,7 +49,7 @@ export async function POST(request: Request) {
     if (!access.ok) return access.response;
     const command = validateContactCreateBody(body.value);
     if (!command.ok) return jsonError(command.message, command.status);
-    const result = await createContact(command.value.contact, pipelineAuditActor(auth.user), command.value.mutationId);
+    const result = await createContact(command.value.contact, pipelineAuditActor(auth.user), command.value.mutationId, mutationReplayRequest(auth.user, { referralId, ...command.value }));
     return Response.json(result, { status: result.idempotentReplay ? 200 : 201, headers: { "Cache-Control": "private, no-store, max-age=0" } });
   });
 }

@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { canvasDraftStorageKey } from "../../components/pipeline/referral-canvas-save-state";
 
 for (const exit of ["Home", "browser Back"] as const) {
   test(`${exit} allows navigation and preserves the open-tab intake when recovery cannot be saved`, async ({ page }) => {
@@ -49,7 +50,6 @@ for (const deviceStorageFails of [false, true]) test(`browser intake exit preser
   const draftUrl = page.url();
   const draftId = new URL(draftUrl).searchParams.get("draftId");
   expect(draftId).toBeTruthy();
-
   await page.evaluate((failDeviceStorage) => {
     const original = Storage.prototype.setItem;
     Storage.prototype.setItem = function (this: Storage, key: string, value: string) {
@@ -112,18 +112,22 @@ test("immediate browser Back preserves the latest tab draft before autosave", as
   const draftUrl = page.url();
   const draftId = new URL(draftUrl).searchParams.get("draftId");
   expect(draftId).toBeTruthy();
+  const { user } = await (await page.request.get("/api/auth/me")).json();
+  const recoveryKey = canvasDraftStorageKey(`new-${draftId}`, user.id);
   await page.evaluate(() => {
     const schedule = window.setTimeout.bind(window);
     window.setTimeout = ((handler: TimerHandler, timeout?: number, ...args: unknown[]) => schedule(handler, timeout === 350 ? 60_000 : timeout, ...args)) as typeof window.setTimeout;
   });
 
   await page.getByRole("textbox", { name: "NAME", exact: true }).fill("Immediate exit recovery");
-  await expect.poll(() => page.evaluate((id) => window.sessionStorage.getItem(`pipeline-referral-draft:new-${id}`), draftId)).toBeNull();
+  await expect.poll(() => page.evaluate(key => window.sessionStorage.getItem(key), recoveryKey)).toBeNull();
   await page.goBack();
   await expect(page).toHaveURL("/");
-  await expect.poll(() => page.evaluate((id) => JSON.parse(window.sessionStorage.getItem(`pipeline-referral-draft:new-${id}`) ?? "null")?.fields?.name?.value, draftId)).toBe("Immediate exit recovery");
+  expect(await page.evaluate(key => sessionStorage.getItem(key), recoveryKey)).toBeNull();
 
   await page.goForward();
   await expect.poll(() => new URL(page.url()).searchParams.get("draftId")).toBe(draftId);
+  await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toHaveValue("Immediate exit recovery");
+  await page.reload();
   await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toHaveValue("Immediate exit recovery");
 });

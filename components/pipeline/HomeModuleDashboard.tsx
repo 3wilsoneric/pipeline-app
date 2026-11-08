@@ -336,7 +336,7 @@ function HomeModuleLibrary({
               <article key={moduleId} aria-label={`${definition.title} module`} className={`min-w-0 overflow-hidden rounded-lg border bg-white shadow-[0_3px_12px_rgba(24,52,41,0.06)] ${pending.includes(moduleId) ? "border-[#0f8b73] ring-1 ring-[#0f8b73]" : "border-[#cfdbd5]"}`}>
                 <button type="button" aria-label={`Preview ${definition.title}`} onClick={() => setPreview(moduleId)} className="group relative block h-[190px] w-full cursor-zoom-in overflow-hidden border-b border-[#dce5e0] bg-[#eaf0ec] p-4 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0f8b73] sm:h-[220px] sm:p-5">
                   <span className="relative block h-full w-full">
-                    <Image src={toPipelinePath(`/training/home-modules/${moduleId}.png`)} alt={`${definition.title} on Home with example data`} fill unoptimized sizes="(max-width: 1023px) 90vw, 620px" className="object-contain" />
+                    <Image src={toPipelinePath(`/home-modules/${moduleId}.png`)} alt={`${definition.title} on Home with example data`} fill unoptimized sizes="(max-width: 1023px) 90vw, 620px" className="object-contain" />
                   </span>
                   <span className="absolute bottom-2 right-2 flex items-center gap-1.5 rounded border border-[#c6d6cd] bg-white px-2 py-1 text-[11px] font-semibold text-[#396252] shadow-sm group-hover:border-[#0f8b73]"><ZoomIn size={13} aria-hidden="true" />Enlarge</span>
                 </button>
@@ -373,7 +373,7 @@ function HomeModuleLibrary({
         {preview ? (
           <HomeDialog label={`${definitionsById[preview].title} module preview`} title={definitionsById[preview].title} description={definitionsById[preview].opens} size="gallery" onClose={() => setPreview(null)}>
             <div className="relative mx-4 my-6 h-[min(55dvh,500px)] sm:mx-8">
-              <Image src={toPipelinePath(`/training/home-modules/${preview}.png`)} alt={`${definitionsById[preview].title} on Home with example data`} fill unoptimized loading="eager" sizes="90vw" className="object-contain" />
+              <Image src={toPipelinePath(`/home-modules/${preview}.png`)} alt={`${definitionsById[preview].title} on Home with example data`} fill unoptimized loading="eager" sizes="90vw" className="object-contain" />
             </div>
             <p className="px-5 pb-5 text-center text-[13px] text-[#65716b]">Example data · Your Home shows your own work.</p>
           </HomeDialog>

@@ -1,4 +1,5 @@
-import { getAssessment, patchAssessment, requireAssessmentStore } from "@/lib/assessment/assessment-store";
+import { mutationReplayRequest } from "@/lib/persistence/mutation-replay";
+import { AssessmentStartBlockedError, getAssessment, patchAssessment, requireAssessmentStore } from "@/lib/assessment/assessment-store";
 import { canWorkAssessment } from "@/lib/assessment/assessment-access";
 import { validateAssessmentLifecycleCommand } from "@/lib/assessment/assessment-lifecycle-validation";
 import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
@@ -27,9 +28,6 @@ export async function POST(request: Request, context: { params: Promise<{ assess
     if (!canWorkAssessment(auth.user, assessment.assessor_id)) {
       return jsonError("Only the assigned assessor or a supervisor can start this assessment.", 403);
     }
-    if (assessment.status === "complete" || assessment.signed_at) {
-      return jsonError("A completed assessment cannot be started again.", 422);
-    }
     const body = await readJsonBody(request);
     if (!body.ok) return jsonError(body.message, body.status);
     const command = validateAssessmentLifecycleCommand(body.value);
@@ -38,8 +36,12 @@ export async function POST(request: Request, context: { params: Promise<{ assess
       assessmentId,
       { mark_started: true },
       pipelineAuditActor(auth.user),
-      { expectedVersion: command.value.if_match, mutationId: command.value.client_mutation_id },
-    );
+      { expectedVersion: command.value.if_match, mutationId: command.value.client_mutation_id, replayRequest: mutationReplayRequest(auth.user, { action: "start", command: body.value }) },
+    ).catch((error: unknown) => {
+      if (error instanceof AssessmentStartBlockedError) return jsonError(error.message, 422);
+      throw error;
+    });
+    if (result instanceof Response) return result;
     if (!result) return jsonError("Assessment not found.", 404);
     if (!result.ok && "conflict" in result) {
       return Response.json({ error: "This assessment changed before it could be started.", ...result }, { status: 409 });

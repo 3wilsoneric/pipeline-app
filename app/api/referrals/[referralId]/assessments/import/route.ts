@@ -1,3 +1,4 @@
+import { mutationReplayRequest, rethrowMutationReplayConflict } from "@/lib/persistence/mutation-replay";
 import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
 import { pipelineAuditActor } from "@/lib/auth/assessor-session-policy";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
@@ -71,6 +72,7 @@ export async function POST(
         defaults,
         actor: pipelineAuditActor(auth.user),
         mutationId: validated.value.client_mutation_id,
+        replayRequest: mutationReplayRequest(auth.user, { action: "import", command: body.value }),
       });
       if (!result) return jsonError("Assessment not found.", 404);
       if (!result.ok && "conflict" in result) {
@@ -82,6 +84,7 @@ export async function POST(
       if (!result.ok) return Response.json({ error: "Assessment import is blocked.", ...result }, { status: 422 });
       return Response.json(result, { status: validated.value.assessment_id ? 200 : 201, headers: privateHeaders() });
     } catch (error) {
+      rethrowMutationReplayConflict(error);
       const identityResponse = assessmentClientIdentityErrorResponse(error);
       if (identityResponse) return identityResponse;
       return jsonError(error instanceof Error ? error.message : "Could not import assessment values.", 400);

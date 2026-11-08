@@ -74,7 +74,6 @@ export default defineConfig({
       PIPELINE_MOCK_USER_NAME: "Playwright QA",
       PIPELINE_MOCK_USER_ROLES: process.env.PIPELINE_MOCK_USER_ROLES
         ?? "admin,assessment_coordinator,reviewer,viewer",
-      PIPELINE_ACADEMY_OWNER_EMAILS: "playwright@pipeline.local",
       PIPELINE_ADMIN_EMAILS: "playwright@pipeline.local",
       PIPELINE_ALLOWED_EMAILS: "playwright@pipeline.local",
       PIPELINE_ALLOWED_MUTATION_ORIGINS: `${baseURL},http://localhost:${port}`,

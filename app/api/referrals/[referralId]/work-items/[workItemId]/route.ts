@@ -1,3 +1,4 @@
+import { mutationReplayRequest } from "@/lib/persistence/mutation-replay";
 import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
 import { pipelineAuditActor } from "@/lib/auth/assessor-session-policy";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
@@ -63,6 +64,7 @@ export async function PATCH(
       pipelineAuditActor(auth.user),
       "",
       mutationId.value,
+      mutationReplayRequest(auth.user, { workItemId, command: body.value }),
     );
     if (!result) return jsonError("Work item not found.", 404);
     if (!result.ok && "conflict" in result) {

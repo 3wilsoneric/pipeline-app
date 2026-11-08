@@ -1,3 +1,4 @@
+import { mutationReplayRequest } from "@/lib/persistence/mutation-replay";
 import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
 import { pipelineAccountableActor } from "@/lib/auth/assessor-session-policy";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
@@ -58,6 +59,7 @@ export async function POST(
       pipelineAccountableActor(auth.user),
       typeof body.value.failure_reason === "string" ? body.value.failure_reason : "",
       mutationId.value,
+      mutationReplayRequest(auth.user, body.value),
     );
     if (!result) return jsonError("Referral not found.", 404);
     if (!result.ok && "conflict" in result) {

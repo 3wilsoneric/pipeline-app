@@ -1536,22 +1536,16 @@ test.describe("Referral home and packet canvas", () => {
     await page.getByRole("button", { name: "Edit referral details" }).click();
     await expect(phone).toHaveValue("");
     await phone.fill("(415) 555-0132");
-    if (process.env.PIPELINE_DESKTOP_E2E === "true") {
-      await expect.poll(() => page.evaluate(() => new Promise<number>((resolve, reject) => {
-        const open = indexedDB.open("pipeline-offline-v1");
-        open.onerror = () => reject(open.error);
-        open.onsuccess = () => {
-          const database = open.result;
-          const request = database.transaction("records").objectStore("records").getAll();
-          request.onerror = () => { database.close(); reject(request.error); };
-          request.onsuccess = () => { database.close(); resolve(request.result.filter((record) => record.kind === "referral-draft" && record.ciphertext.byteLength > 0).length); };
-        };
-      }))).toBeGreaterThan(0);
-    } else {
-      await expect.poll(async () => page.evaluate((referralId) => (
-        window.sessionStorage.getItem(`pipeline-referral-draft:${referralId}`)?.includes("(415) 555-0132") ?? false
-      ), created.referral.id)).toBeTruthy();
-    }
+    await expect.poll(() => page.evaluate(() => new Promise<number>((resolve, reject) => {
+      const open = indexedDB.open("pipeline-offline-v1");
+      open.onerror = () => reject(open.error);
+      open.onsuccess = () => {
+        const database = open.result;
+        const request = database.transaction("records").objectStore("records").getAll();
+        request.onerror = () => { database.close(); reject(request.error); };
+        request.onsuccess = () => { database.close(); resolve(request.result.filter((record) => record.kind === "referral-draft" && record.ciphertext.byteLength > 0).length); };
+      };
+    }))).toBeGreaterThan(0);
 
     page.once("dialog", (dialog) => void dialog.accept());
     await page.reload({ waitUntil: "domcontentloaded" });

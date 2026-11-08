@@ -1,9 +1,10 @@
+import { openAssessmentFixture } from "./support/assessment-fixture";
 import { expect, test } from "@playwright/test";
 import { editPreparedAnswer } from "./support/assessment-navigation";
 
 test.describe("Assessment practice lab", () => {
   test("the real assessment renderer preserves typed spaces and newlines in secondary diagnoses", async ({ page }) => {
-    await page.goto("/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=prepare&assessmentSection=prior_history");
+    await openAssessmentFixture(page, { mode: "prepare", section: "prior_history" });
     const full = page.locator('[data-assessment-view="assessment"]');
     await expect(full).toBeVisible();
     const secondary = full.getByRole("textbox", { name: "Secondary diagnosis", exact: true });
@@ -111,11 +112,11 @@ test.describe("Assessment practice lab", () => {
     expect(clinicalRequests).toEqual([]);
   });
 
-  test("shows a bounded presentation return only when launched from the demo", async ({ page }) => {
+  test("does not offer a retired presentation link from an old bookmark", async ({ page }) => {
     await page.goto("/note-lab/practice?from=demo");
 
     const returnLink = page.getByRole("link", { name: "Back to presentation" });
-    await expect(returnLink).toHaveAttribute("href", /\/training\/demo\?slide=review-and-sign$/);
+    await expect(returnLink).toHaveCount(0);
   });
 
   test("uses canonical conditionals and field-specific narrative guidance", async ({ page }) => {

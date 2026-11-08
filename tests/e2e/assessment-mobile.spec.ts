@@ -1,3 +1,4 @@
+import { openAssessmentFixture } from "./support/assessment-fixture";
 import { closeTestBrowser } from "./support/browser-lifecycle";
 import { expect, test, webkit, type Page } from "@playwright/test";
 import { randomUUID } from "node:crypto";
@@ -5,7 +6,6 @@ import { readFileSync } from "node:fs";
 import { activeOperationalAssessor, createOperationalReferral } from "./support/operational-api";
 import { editPreparedAnswer } from "./support/assessment-navigation";
 
-const practice = "/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=interview&assessmentSection=diagnosis_clinical&demo=1";
 const surface = (page: Page) => page.locator("[data-assessment-view]");
 
 test.describe("mobile assessment", () => {
@@ -41,7 +41,7 @@ test.describe("mobile assessment", () => {
   });
 
   test("phone and tablet controls are readable, reachable and do not overflow", async ({ page }, info) => {
-    await page.goto(practice);
+    await openAssessmentFixture(page, { mode: "interview", section: "diagnosis_clinical" });
     const assessment = surface(page);
     await expect(assessment).toBeVisible();
     for (const size of [{ width: 320, height: 568 }, { width: 390, height: 844 }, { width: 768, height: 1024 }, { width: 844, height: 390 }, { width: 1024, height: 768 }, { width: 1194, height: 834 }]) {
@@ -52,11 +52,10 @@ test.describe("mobile assessment", () => {
       if (phone) {
         await expect(assessment.getByRole("button", { name: "Confirm chart", exact: true })).toBeHidden();
         await expect(assessment.getByRole("navigation", { name: "Question steps" }).getByRole("button", { name: /^Next/ })).toBeInViewport();
-      } else await expect(assessment.getByRole("button", { name: "Next section", exact: true })).toBeInViewport();
+      } else await expect(assessment.getByLabel("Assessment section", { exact: true })).toBeInViewport();
       expect(await assessment.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       const controls = [page.getByRole("button", { name: phone ? /^Open page menu/ : "Pipeline home" }), back, ...(phone ? [assessment.getByRole("button", { name: "Choose questionnaire section" }), assessment.getByRole("button", { name: "Client info" })] : [assessment.getByLabel("Assessment section", { exact: true })])];
-      if (!phone && size.width < 960) controls.push(assessment.getByRole("button", { name: /^Current information/ }));
       for (const control of controls) {
         const box = (await control.boundingBox())!;
         expect(box.height).toBeGreaterThanOrEqual(44);
@@ -77,19 +76,17 @@ test.describe("mobile assessment", () => {
     await page.keyboard.press("Escape");
     await expect(page.getByRole("button", { name: "Open referrals", exact: true })).toBeInViewport();
     const reference = assessment.getByRole("complementary", { name: "Current information" });
-    await reference.getByRole("button", { name: /^Current information/ }).tap();
-    await reference.getByRole("button", { name: "Edit Current symptoms", exact: true }).tap();
+    await editPreparedAnswer(page, "Current symptoms");
     const answer = assessment.getByRole("textbox", { name: "Current symptoms", exact: false });
     await expect(answer).toBeFocused();
     await expect(answer).toBeInViewport();
     await assessment.getByLabel("Assessment section", { exact: true }).selectOption("medication");
-    await reference.getByRole("button", { name: /^Current information/ }).tap();
     await reference.getByRole("button", { name: "Edit IM injections", exact: true }).tap();
     const choice = assessment.getByRole("group", { name: "IM injections", exact: true });
     for (const button of await choice.getByRole("button").all()) expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(48);
     await choice.getByRole("button", { name: "Yes", exact: true }).tap();
     await expect(assessment.getByRole("textbox", { name: /Injection details/ })).toBeVisible();
-    const next = assessment.getByRole("button", { name: "Next section", exact: true });
+    const next = assessment.getByLabel("Assessment section", { exact: true });
     await next.scrollIntoViewIfNeeded();
     expect((await next.boundingBox())!.height).toBeGreaterThanOrEqual(44);
     await page.addScriptTag({ content: readFileSync(require.resolve("axe-core/axe.min.js"), "utf8") });
@@ -102,7 +99,7 @@ test.describe("mobile assessment", () => {
   });
 
   test("visual viewport contraction keeps editing above the keyboard without disabling zoom", async ({ page }) => {
-    await page.goto(practice);
+    await openAssessmentFixture(page, { mode: "interview", section: "diagnosis_clinical" });
     await editPreparedAnswer(page, "Current symptoms");
     const field = surface(page).getByRole("textbox", { name: "Current symptoms", exact: true });
     await field.fill("Synthetic answer stays mounted across keyboard and orientation changes.");
@@ -186,7 +183,7 @@ test.describe("mobile assessment", () => {
   });
 
   test("appointment entry also fits the visible viewport when its keyboard opens", async ({ page }) => {
-    await page.goto("/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=schedule");
+    await openAssessmentFixture(page, { mode: "schedule" });
     const schedule = page.getByRole("dialog", { name: "Schedule interview", exact: true });
     await schedule.getByLabel("Assessment method").selectOption("phone");
     const phone = schedule.getByLabel("Phone number to call");
@@ -212,7 +209,7 @@ test("WebKit iPad retains answers and reference access while editing and rotatin
   const browser = await webkit.launch();
   try {
     const page = await browser.newPage({ baseURL, viewport: { width: 768, height: 1024 }, isMobile: true, hasTouch: true });
-    await page.goto(practice);
+    await openAssessmentFixture(page, { mode: "interview", section: "diagnosis_clinical" });
     const assessment = surface(page);
     const reference = assessment.getByRole("complementary", { name: "Current information" });
     const editor = assessment.locator("[data-assessment-question-editor]");
@@ -228,7 +225,7 @@ test("WebKit iPad retains answers and reference access while editing and rotatin
       await expect(reference.getByRole("button", { name: "Edit Current symptoms", exact: true })).toBeInViewport();
       const left = (await reference.boundingBox())!;
       const right = (await editor.boundingBox())!;
-      if (size.width >= 960) expect(left.x + left.width).toBeLessThan(right.x);
+      if (size.width >= 1024) expect(left.x + left.width).toBeLessThanOrEqual(right.x);
       else expect(left.y + left.height).toBeLessThanOrEqual(right.y);
       expect(await reference.evaluate((element) => element.scrollTop)).toBe(0);
       expect(await editor.evaluate((element) => element.scrollTop)).toBe(0);
@@ -247,7 +244,7 @@ test("WebKit touch editing can find, edit and return to the same answer", async 
   try {
     const context = await browser.newContext({ baseURL, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
     const page = await context.newPage();
-    await page.goto(practice);
+    const { read } = await openAssessmentFixture(page, { mode: "interview", section: "diagnosis_clinical" });
     const assessment = surface(page);
     await expect(assessment).toBeVisible();
     await findPhoneQuestion(page, "Medication refused");
@@ -255,7 +252,7 @@ test("WebKit touch editing can find, edit and return to the same answer", async 
     await expect(field).toBeInViewport();
     await field.fill("Synthetic medication A");
     await field.blur();
-    await expect(assessment.getByText("Practice changes saved locally", { exact: true })).toBeVisible();
+    await expect.poll(async () => (await read()).medication_refused).toBe("Synthetic medication A");
     await findPhoneQuestion(page, "Current symptoms");
     await assessment.getByRole("button", { name: "Client info", exact: true }).tap();
     await page.getByRole("dialog", { name: "Client information", exact: true }).getByLabel("Reference information").selectOption("all");

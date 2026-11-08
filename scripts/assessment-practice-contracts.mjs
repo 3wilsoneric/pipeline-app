@@ -8,7 +8,6 @@ const read = (file) => readFileSync(file, "utf8");
 const access = read("lib/note-lab/note-lab-access.ts");
 const page = read("app/(standalone-review)/note-lab/practice/page.tsx");
 const workspace = read("components/pipeline/note-lab/AssessmentPracticeWorkspace.tsx");
-const coach = read("components/pipeline/training/PipelineGuidedCoach.tsx");
 const scenarioSource = read("lib/note-lab/assessment-practice-scenario.ts");
 const assessmentWorkspace = read("components/pipeline/AssessmentWorkspace.tsx");
 const schema = loadTypeScriptModule(process.cwd(), "lib/assessment/assessment-tool-schema.ts");
@@ -151,10 +150,6 @@ check("practice mirrors the production assessment interaction model",
   && workspace.includes('question.control === "rating"')
   && workspace.includes('type="checkbox"')
   && workspace.includes("setAssessmentUnableReason"));
-check("the resting guide launcher is hidden on the assessment practice route",
-  coach.includes('pathname.startsWith("/note-lab/")')
-  && coach.includes('pathname === "/note-lab"')
-  && coach.includes("return null"));
 check("assessment practice no longer depends on the global tutorial overlay",
   !workspace.includes("dispatchOperatorGuide")
   && !workspace.includes("ASSESSMENT_PRACTICE_TUTORIAL_ID"));

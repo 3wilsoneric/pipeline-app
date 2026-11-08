@@ -1,3 +1,4 @@
+import { mutationReplayRequest } from "@/lib/persistence/mutation-replay";
 import { addAssessmentAddendum, getAssessment, requireAssessmentStore } from "@/lib/assessment/assessment-store";
 import { validateAssessmentAddendumCommand } from "@/lib/assessment/assessment-lifecycle-validation";
 import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
@@ -34,6 +35,7 @@ export async function POST(request: Request, context: { params: Promise<{ assess
       pipelineAccountableActor(auth.user),
       command.value.if_match,
       command.value.client_mutation_id,
+      mutationReplayRequest(auth.user, { action: "addendum", command: body.value }),
     );
     if (!result) return jsonError("Assessment not found.", 404);
     if (!result.ok && "conflict" in result) {

@@ -6,6 +6,7 @@ import {
 import { isPersistedCanvasFieldKey } from "@/lib/pipeline/referral-canvas-persistence";
 import type { ReferralCanvasFieldKey } from "@/lib/pipeline/referral-types";
 import type { ReferralRecoveryDraftKey } from "@/lib/pipeline/referral-draft-recovery";
+import { parsePipelineReferralDraft } from "@/lib/pipeline/user-workspace-state-types";
 
 export type DraftValueSnapshot = {
   fields: Record<ReferralCanvasFieldKey, ReferralCanvasPacketField>;
@@ -125,6 +126,22 @@ export function normalizeTags(value: string) {
   ).slice(0, 12);
 }
 
-export function canvasDraftStorageKey(draftReference?: ReferralRecoveryDraftKey) {
-  return `pipeline-referral-draft:${draftReference ?? "new"}`;
+export function canvasDraftStorageKey(draftReference?: ReferralRecoveryDraftKey, principalId?: string) {
+  if (principalId === "") throw new Error("Your account could not be confirmed for the pending copy.");
+  const principal = principalId === undefined ? "" : `user:${encodeURIComponent(principalId)}:`;
+  return `pipeline-referral-draft:${principal}${draftReference ?? "new"}`;
+}
+
+export function readCanvasSessionDraft(storage: Pick<Storage, "getItem">, reference: ReferralRecoveryDraftKey, principalId: string) {
+  if (!principalId) throw new Error("Your account could not be confirmed for the pending copy.");
+  const raw = storage.getItem(canvasDraftStorageKey(reference, principalId));
+  if (raw === null) {
+    // Older tab copies contain no authenticated owner. Keep their bytes, but
+    // never assign them to whichever account happens to sign in next.
+    if (storage.getItem(canvasDraftStorageKey(reference)) !== null) throw new Error("The saved tab draft has no confirmed account.");
+    return null;
+  }
+  const draft = parsePipelineReferralDraft(JSON.parse(raw));
+  if (!draft) throw new Error("The saved tab draft is invalid.");
+  return draft;
 }

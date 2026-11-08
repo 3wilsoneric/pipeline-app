@@ -1,8 +1,10 @@
 import "server-only";
 
+import { withLocalMutation, localStoreGeneration, onLocalMutationRollback, stageLocalStoreWrite } from "@/lib/persistence/local-mutation";
+import { mutationRequestFingerprint, resolveMutationReplay, assertMutationReplayFingerprint, MutationReplayConflictError, type MutationReplayRequest } from "@/lib/persistence/mutation-replay";
+
 import { randomUUID } from "node:crypto";
-import { chmod, mkdir, readFile, rename, writeFile } from "node:fs/promises";
-import { dirname } from "node:path";
+import { readFile } from "node:fs/promises";
 
 import type { JSONValue, TransactionSql } from "postgres";
 
@@ -70,9 +72,11 @@ type ReferralStoreState = {
   referrals: Referral[];
   auditEvents: StoredReferralAuditEvent[];
   uploadedDocuments: LocalUploadedDocument[];
+  requestFingerprints: Map<string, string>;
+  draftReferrals: Map<string, number>;
+  loadedGeneration: number;
   createMutations: Map<string, number>;
   patchMutations: Map<string, number>;
-  persistQueue: Promise<void>;
 };
 
 type ReferralStoreFile = {
@@ -82,6 +86,8 @@ type ReferralStoreFile = {
   referrals: Referral[];
   audit_events?: StoredReferralAuditEvent[];
   uploaded_documents?: LocalUploadedDocument[];
+  request_fingerprints?: Record<string, string>;
+  draft_referrals?: Record<string, number>;
   create_mutations?: Record<string, number>;
   patch_mutations?: Record<string, number>;
 };
@@ -102,6 +108,8 @@ export type StoredReferralAuditEvent = {
 };
 
 export type ReferralCreateOptions = {
+  replayRequest?: MutationReplayRequest;
+  draftBinding?: string;
   confirmedDistinctReferralIds?: number[];
   canReviewSuspectedDuplicate?: (referral: Referral) => boolean;
   /** Internal only: a new episode for the access-checked source's existing person. */
@@ -259,6 +267,7 @@ export type ReferralMutationMetadata = {
   mutationId?: string;
   /** Separates independent command types that happen to use the same mutation id. */
   mutationScope?: string;
+  replayRequest?: MutationReplayRequest;
 };
 
 export type ReferralChangeMetadata = {
@@ -280,8 +289,8 @@ export interface ReferralStore {
   listFiles(options?: ReferralFileListOptions): Promise<ReferralFileListResult>;
   listFilesByClient(clientId: string): Promise<ReferralFile[]>;
   listDeleted(options?: DeletedReferralListOptions): Promise<DeletedReferralListResult>;
-  softDelete(id: number, actor: ReferralActor, expectedVersion?: number, mutationId?: string): Promise<ReferralMutation | null>;
-  restore(id: number, actor: ReferralActor, expectedVersion?: number, mutationId?: string): Promise<ReferralMutation | null>;
+  softDelete(id: number, actor: ReferralActor, expectedVersion?: number, mutationId?: string, replayRequest?: MutationReplayRequest): Promise<ReferralMutation | null>;
+  restore(id: number, actor: ReferralActor, expectedVersion?: number, mutationId?: string, replayRequest?: MutationReplayRequest): Promise<ReferralMutation | null>;
   create(
     input: ReferralCreateInput,
     actor: ReferralActor,
@@ -338,11 +347,16 @@ const state =
     referrals: [],
     auditEvents: [],
     uploadedDocuments: [],
+    requestFingerprints: new Map<string, string>(),
+    draftReferrals: new Map<string, number>(),
+    loadedGeneration: 0,
     createMutations: new Map<string, number>(),
     patchMutations: new Map<string, number>(),
-    persistQueue: Promise.resolve(),
   });
 
+state.requestFingerprints ??= new Map<string, string>();
+state.draftReferrals ??= new Map<string, number>();
+state.loadedGeneration ??= 0;
 state.auditEvents ??= [];
 state.uploadedDocuments ??= [];
 state.createMutations ??= new Map<string, number>();
@@ -356,15 +370,18 @@ export async function resetPersonaDemoReferrals() {
   if (process.env.PIPELINE_PERSONA_DEMO !== "true") throw new Error("Referral reset is available only in the persona demo.");
   assertPersonaDemoIsolation();
   if (getReferralStoreReadiness().mode !== "local_file") throw new Error("Persona demo referrals must use local storage.");
-  await ensureLoaded();
-  await state.persistQueue;
-  state.referrals = [];
-  state.auditEvents = [];
-  state.uploadedDocuments = [];
-  state.createMutations.clear();
-  state.patchMutations.clear();
-  state.revision += 1;
-  await persist();
+  return withReferralMutation(async () => {
+    await ensureLoaded();
+    state.referrals = [];
+    state.auditEvents = [];
+    state.uploadedDocuments = [];
+    state.createMutations.clear();
+    state.requestFingerprints.clear();
+    state.draftReferrals.clear();
+    state.patchMutations.clear();
+    state.revision += 1;
+    await persist();
+  });
 }
 
 export function getReferralStoreReadiness(): ReferralStoreReadiness {
@@ -403,22 +420,22 @@ export function getReferralStoreReadiness(): ReferralStoreReadiness {
 }
 
 const localReferralStore: ReferralStore = {
-  revision: getLocalReferralRevision,
-  list: listLocalReferrals,
-  facets: listLocalReferralFacets,
-  get: getLocalReferral,
-  getDeleted: getLocalDeletedReferral,
-  getByPacketId: getLocalReferralByPacketId,
-  changeMetadata: getLocalReferralChangeMetadata,
-  listByClient: listLocalReferralsByClient,
-  listFiles: listLocalReferralFiles,
-  listFilesByClient: listLocalReferralFilesByClient,
-  listDeleted: listLocalDeletedReferrals,
-  softDelete: softDeleteLocalReferral,
-  restore: restoreLocalReferral,
-  create: (input, actor, mutationId, options) => createLocalReferral(input, actor, mutationId, options),
+  revision: (...args) => withLocalMutation(() => getLocalReferralRevision(...args)),
+  list: (...args) => withLocalMutation(() => listLocalReferrals(...args)),
+  facets: (...args) => withLocalMutation(() => listLocalReferralFacets(...args)),
+  get: (...args) => withLocalMutation(() => getLocalReferral(...args)),
+  getDeleted: (...args) => withLocalMutation(() => getLocalDeletedReferral(...args)),
+  getByPacketId: (...args) => withLocalMutation(() => getLocalReferralByPacketId(...args)),
+  changeMetadata: (...args) => withLocalMutation(() => getLocalReferralChangeMetadata(...args)),
+  listByClient: (...args) => withLocalMutation(() => listLocalReferralsByClient(...args)),
+  listFiles: (...args) => withLocalMutation(() => listLocalReferralFiles(...args)),
+  listFilesByClient: (...args) => withLocalMutation(() => listLocalReferralFilesByClient(...args)),
+  listDeleted: (...args) => withLocalMutation(() => listLocalDeletedReferrals(...args)),
+  softDelete: (...args) => withReferralMutation(() => softDeleteLocalReferral(...args)),
+  restore: (...args) => withReferralMutation(() => restoreLocalReferral(...args)),
+  create: (input, actor, mutationId, options) => withReferralMutation(() => createLocalReferral(input, actor, mutationId, options)),
   patch: (id, patch, actor, expectedVersion, expectedSectionVersions, metadata) =>
-    patchLocalReferral(id, patch, actor, expectedVersion, expectedSectionVersions, metadata),
+    withReferralMutation(() => patchLocalReferral(id, patch, actor, expectedVersion, expectedSectionVersions, metadata)),
 };
 
 const postgresReferralStore: ReferralStore = {
@@ -487,51 +504,61 @@ export async function getReferralChangeMetadata(id: number) {
 
 export async function listLocalReferralAuditEvents(id: number) {
   if (getReferralStoreReadiness().mode !== "local_file") return [];
-  await ensureLoaded();
-  return state.auditEvents
-    .filter((event) => event.referral_id === id)
-    .sort((left, right) => right.created_at.localeCompare(left.created_at))
-    .slice(0, 100);
+  return withLocalMutation(async () => {
+    await ensureLoaded();
+    return state.auditEvents
+      .filter((event) => event.referral_id === id)
+      .sort((left, right) => right.created_at.localeCompare(left.created_at))
+      .slice(0, 100);
+  });
 }
 
 export async function getLocalUploadedDocument(id: string) {
-  await ensureLoaded();
-  return state.uploadedDocuments.find((document) => document.file.id === id) ?? null;
+  return withLocalMutation(async () => {
+    await ensureLoaded();
+    return state.uploadedDocuments.find((document) => document.file.id === id) ?? null;
+  });
 }
 
 export async function getLocalDeletedPacket(packetId: string) {
-  await ensureLoaded();
-  return state.uploadedDocuments.find((document) => document.packetId === packetId && document.deletedAt) ?? null;
+  return withLocalMutation(async () => {
+    await ensureLoaded();
+    return state.uploadedDocuments.find((document) => document.packetId === packetId && document.deletedAt) ?? null;
+  });
 }
 
 export async function recordLocalUploadedDocument(document: LocalUploadedDocument, actor: ReferralActor) {
-  await ensureLoaded();
-  if (state.uploadedDocuments.some((entry) => entry.file.id === document.file.id)) return;
-  state.uploadedDocuments.push(document);
-  appendDocumentAudit(document, "document_uploaded", actor);
-  state.revision += 1;
-  await persist();
+  return withReferralMutation(async () => {
+    await ensureLoaded();
+    if (state.uploadedDocuments.some((entry) => entry.file.id === document.file.id)) return;
+    state.uploadedDocuments.push(document);
+    appendDocumentAudit(document, "document_uploaded", actor);
+    state.revision += 1;
+    await persist();
+  });
 }
 
 export async function mutateLocalUploadedDocument(id: string, action: "delete" | "restore", actor: ReferralActor, authorize: (referral: Referral) => void, deletionId?: string) {
-  await ensureLoaded();
-  const document = state.uploadedDocuments.find((entry) => entry.file.id === id);
-  const index = state.referrals.findIndex((referral) => referral.id === document?.file.referralId && !isDeletedReferral(referral));
-  if (!document || index < 0) return null;
-  const current = state.referrals[index];
-  authorize(current);
-  assertMutableWorkspace(current);
-  const now = new Date().toISOString();
-  const disposition = documentMutationDisposition(document, action, deletionId);
-  if (disposition === "replay") return document;
-  if (disposition === "unavailable") return null;
-  const next = updateLocalDocumentState(document, current, action, now);
-  state.referrals[index] = { ...next, workflowStatus: resolveReferralWorkflowStatusAfterReferralChange(current, next), version: (current.version ?? 1) + 1, updatedAt: now, updatedBy: actor,
-    sectionVersions: incrementReferralSections(normalizeReferralSectionVersions(current.sectionVersions), ["documents", "workflow"]) };
-  appendDocumentAudit(document, action === "delete" ? "document_deleted" : "document_restored", actor);
-  state.revision += 1;
-  await persist();
-  return document;
+  return withReferralMutation(async () => {
+    await ensureLoaded();
+    const document = state.uploadedDocuments.find((entry) => entry.file.id === id);
+    const index = state.referrals.findIndex((referral) => referral.id === document?.file.referralId && !isDeletedReferral(referral));
+    if (!document || index < 0) return null;
+    const current = state.referrals[index];
+    authorize(current);
+    assertMutableWorkspace(current);
+    const now = new Date().toISOString();
+    const disposition = documentMutationDisposition(document, action, deletionId);
+    if (disposition === "replay") return document;
+    if (disposition === "unavailable") return null;
+    const next = updateLocalDocumentState(document, current, action, now);
+    state.referrals[index] = { ...next, workflowStatus: resolveReferralWorkflowStatusAfterReferralChange(current, next), version: (current.version ?? 1) + 1, updatedAt: now, updatedBy: actor,
+      sectionVersions: incrementReferralSections(normalizeReferralSectionVersions(current.sectionVersions), ["documents", "workflow"]) };
+    appendDocumentAudit(document, action === "delete" ? "document_deleted" : "document_restored", actor);
+    state.revision += 1;
+    await persist();
+    return document;
+  });
 }
 
 function updateLocalDocumentState(document: LocalUploadedDocument, current: Referral, action: "delete" | "restore", now: string) {
@@ -557,9 +584,11 @@ function appendDocumentAudit(document: LocalUploadedDocument, action: string, ac
 }
 
 export async function localDocumentUndoState(referralId: number) {
-  await ensureLoaded();
-  return state.uploadedDocuments.filter((entry) => entry.file.referralId === referralId && entry.deletedAt)
-    .map((entry) => ({ document_id: entry.file.id, deletion_id: entry.deletionId, undo_until: entry.undoUntil }));
+  return withLocalMutation(async () => {
+    await ensureLoaded();
+    return state.uploadedDocuments.filter((entry) => entry.file.referralId === referralId && entry.deletedAt)
+      .map((entry) => ({ document_id: entry.file.id, deletion_id: entry.deletionId, undo_until: entry.undoUntil }));
+  });
 }
 
 export async function listReferralsByClient(clientId: string) {
@@ -575,19 +604,21 @@ export async function recordLocalAdditionalReferralDocuments(
   documents: Array<{ document_id: string; filename: string; category: string }>,
 ) {
   if (getReferralStoreReadiness().mode !== "local_file") return;
-  await ensureLoaded();
-  const index = state.referrals.findIndex((referral) => referral.id === referralId && !isDeletedReferral(referral));
-  if (index < 0) return;
-  const current = state.referrals[index];
-  const existing = current.additionalDocuments ?? [];
-  const known = new Set(existing.map((document) => document.id));
-  const added = documents
-    .filter((document) => document.category === "other" && document.document_id && document.filename && !known.has(document.document_id))
-    .map((document) => ({ id: document.document_id, name: document.filename, uploadedAt: new Date().toISOString() }));
-  if (!added.length) return;
-  state.referrals[index] = { ...current, additionalDocuments: [...existing, ...added] };
-  state.revision += 1;
-  await persist();
+  return withReferralMutation(async () => {
+    await ensureLoaded();
+    const index = state.referrals.findIndex((referral) => referral.id === referralId && !isDeletedReferral(referral));
+    if (index < 0) return;
+    const current = state.referrals[index];
+    const existing = current.additionalDocuments ?? [];
+    const known = new Set(existing.map((document) => document.id));
+    const added = documents
+      .filter((document) => document.category === "other" && document.document_id && document.filename && !known.has(document.document_id))
+      .map((document) => ({ id: document.document_id, name: document.filename, uploadedAt: new Date().toISOString() }));
+    if (!added.length) return;
+    state.referrals[index] = { ...current, additionalDocuments: [...existing, ...added] };
+    state.revision += 1;
+    await persist();
+  });
 }
 
 export async function listReferralFilesByClient(clientId: string) {
@@ -603,8 +634,9 @@ export async function softDeleteReferral(
   actor: ReferralActor,
   expectedVersion?: number,
   mutationId?: string,
+  replayRequest?: MutationReplayRequest,
 ) {
-  return getReferralStore().softDelete(id, actor, expectedVersion, mutationId);
+  return getReferralStore().softDelete(id, actor, expectedVersion, mutationId, replayRequest);
 }
 
 export async function restoreReferral(
@@ -612,8 +644,9 @@ export async function restoreReferral(
   actor: ReferralActor,
   expectedVersion?: number,
   mutationId?: string,
+  replayRequest?: MutationReplayRequest,
 ) {
-  return getReferralStore().restore(id, actor, expectedVersion, mutationId);
+  return getReferralStore().restore(id, actor, expectedVersion, mutationId, replayRequest);
 }
 
 export async function listReferralFilesByCanonicalClient(canonicalClientId: string) {
@@ -630,6 +663,25 @@ export async function listReferralFilesByCanonicalClient(canonicalClientId: stri
     if (!cursor) return files;
   }
   throw new Error("The canonical client document inventory exceeded its safe pagination limit.");
+}
+
+// The binding is generated by the authenticated route from both principals and
+// the draft UUID. It is committed with creation, independently of retry payloads.
+export async function getReferralForDraft(binding: string) {
+  let id: number | undefined;
+  if (getReferralStoreReadiness().mode === "postgres") {
+    const sql = getPipelineSql();
+    const rows = await sql<{ entity_id: string }[]>`
+      select entity_id from pipeline.idempotency_keys where scope='referral_draft' and mutation_id=${binding}
+    `;
+    id = rows[0] ? Number(rows[0].entity_id) : undefined;
+  } else {
+    id = await withLocalMutation(async () => {
+      await ensureLoaded();
+      return state.draftReferrals.get(binding);
+    });
+  }
+  return id ? getReferral(id) : null;
 }
 
 export async function createReferral(
@@ -663,6 +715,7 @@ export async function recordHistoricalAdmission(
   expectedVersion: number,
   actor: ReferralActor,
   mutationId: string,
+  replayRequest?: MutationReplayRequest,
 ) {
   const current = await getReferral(id);
   if (!current || !isHistoricalAdmissionPatch(current, admission)) return null;
@@ -672,6 +725,7 @@ export async function recordHistoricalAdmission(
     auditReason: "Operator confirmed a prior admission. Historical workspace retained; no new intake or clinical identity link created.",
     mutationId,
     mutationScope: "historical_admission",
+    replayRequest,
   });
 }
 
@@ -697,23 +751,37 @@ export async function renameReferralFromAssessment(
 export async function getReferralMutationReplay(
   id: number,
   scope: string,
-  mutationId?: string,
+  mutationId: string | undefined,
+  actor: ReferralActor,
+  replayRequest: MutationReplayRequest,
 ): Promise<Referral | null> {
   const normalizedMutationId = mutationId?.trim();
   if (!normalizedMutationId) return null;
+  const fingerprint = mutationRequestFingerprint(scope, String(id), actor, {}, replayRequest);
   if (getReferralStoreReadiness().mode !== "postgres") {
-    await ensureLoaded();
-    return state.patchMutations.get(`${scope}:${normalizedMutationId}`) === id
-      ? state.referrals.find((referral) => referral.id === id) ?? null
-      : null;
+    return withLocalMutation(async () => {
+      await ensureLoaded();
+      const replay = localReferralMutationReplay(id, `${scope}:${normalizedMutationId}`, fingerprint);
+      if (replay && isDeletedReferral(replay) && !["referral_delete", "referral_restore"].includes(scope)) throw new MutationReplayConflictError();
+      return replay;
+    });
   }
   const sql = getPipelineSql();
-  const rows = await sql<{ entity_id: string }[]>`
-    select entity_id from pipeline.idempotency_keys
+  const rows = await sql<{ entity_id: string; request_fingerprint: string | null }[]>`
+    select entity_id, request_fingerprint from pipeline.idempotency_keys
     where scope = ${scope} and mutation_id = ${normalizedMutationId}
   `;
-  if (rows[0]?.entity_id !== String(id)) return null;
-  return scope === "referral_delete" ? getDeletedReferral(id) : getReferral(id);
+  if (!rows[0]) return null;
+  assertMutationReplayFingerprint(rows[0].request_fingerprint, fingerprint);
+  if (rows[0].entity_id !== String(id)) throw new MutationReplayConflictError();
+  const referral = await getReferral(id) ?? (["referral_delete", "referral_restore"].includes(scope) ? await getDeletedReferral(id) : null);
+  if (!referral) throw new MutationReplayConflictError();
+  return referral;
+}
+
+function localReferralMutationReplay(id: number, key: string, fingerprint: string) {
+  return resolveMutationReplay(state.patchMutations.get(key), state.requestFingerprints.get(key), fingerprint,
+    (savedId) => savedId === id ? state.referrals.find((referral) => referral.id === id) : null);
 }
 
 export function requireReferralStore() {
@@ -741,6 +809,10 @@ function storePath() {
 }
 
 async function ensureLoaded() {
+  if (state.loadedGeneration !== localStoreGeneration()) {
+    state.initialized = false;
+    state.loadedGeneration = localStoreGeneration();
+  }
   if (state.initialized) {
     if (state.loadPromise) await state.loadPromise;
     return;
@@ -751,14 +823,18 @@ async function ensureLoaded() {
     try {
       const raw = await readFile(/* turbopackIgnore: true */ storePath(), "utf8");
       const parsed = JSON.parse(raw) as Partial<ReferralStoreFile>;
-      const referrals = Array.isArray(parsed.referrals)
-        ? parsed.referrals.filter(isReferralRecord).slice(0, maxReferralRows)
-        : [];
-
-      state.referrals = referrals.map(normalizeReferral);
+      if (parsed.version !== 1 || !Array.isArray(parsed.referrals)
+        || parsed.referrals.length > maxReferralRows || !parsed.referrals.every(isReferralRecord)
+        || (parsed.audit_events !== undefined && (!Array.isArray(parsed.audit_events) || !parsed.audit_events.every(isStoredReferralAuditEvent)))
+        || (parsed.uploaded_documents !== undefined && !Array.isArray(parsed.uploaded_documents))) {
+        throw new Error("The referral store is invalid. Restore the saved file before continuing.");
+      }
+      state.referrals = parsed.referrals.map(normalizeReferral);
+      state.requestFingerprints = new Map(Object.entries(parsed.request_fingerprints ?? {}));
+      state.draftReferrals = new Map(Object.entries(parsed.draft_referrals ?? {}));
       state.uploadedDocuments = parsed.uploaded_documents ?? [];
       state.auditEvents = Array.isArray(parsed.audit_events)
-        ? parsed.audit_events.filter(isStoredReferralAuditEvent).slice(0, 100_000)
+        ? parsed.audit_events
         : [];
       state.revision = Number.isInteger(parsed.revision) ? Number(parsed.revision) : 0;
       state.createMutations = new Map(
@@ -781,12 +857,34 @@ async function ensureLoaded() {
           service: "pipeline-app",
           event: "referral_store_load_failed",
         }));
+        throw error;
       }
     }
   })();
 
-  await state.loadPromise;
-  state.loadPromise = undefined;
+  try {
+    await state.loadPromise;
+  } catch (error) {
+    state.initialized = false;
+    throw error;
+  } finally {
+    state.loadPromise = undefined;
+  }
+}
+
+async function withReferralMutation<T>(work: () => Promise<T>): Promise<T> {
+  return withLocalMutation(async () => {
+    await ensureLoaded();
+    const snapshot = {
+      revision: state.revision, nextId: state.nextId,
+      referrals: structuredClone(state.referrals), auditEvents: structuredClone(state.auditEvents),
+      uploadedDocuments: structuredClone(state.uploadedDocuments),
+      createMutations: new Map(state.createMutations), patchMutations: new Map(state.patchMutations),
+      requestFingerprints: new Map(state.requestFingerprints), draftReferrals: new Map(state.draftReferrals),
+    };
+    onLocalMutationRollback(() => { Object.assign(state, snapshot); });
+    return work();
+  });
 }
 
 async function persist() {
@@ -797,27 +895,12 @@ async function persist() {
     referrals: state.referrals,
     audit_events: state.auditEvents,
     uploaded_documents: state.uploadedDocuments,
+    request_fingerprints: Object.fromEntries(state.requestFingerprints),
+    draft_referrals: Object.fromEntries(state.draftReferrals),
     create_mutations: Object.fromEntries(state.createMutations),
     patch_mutations: Object.fromEntries(state.patchMutations),
   };
-  const path = storePath();
-  const temporaryPath = `${path}.${process.pid}.tmp`;
-
-  state.persistQueue = state.persistQueue
-    .catch(() => undefined)
-    .then(async () => {
-      await mkdir(/* turbopackIgnore: true */ dirname(path), { recursive: true });
-      await writeFile(
-        /* turbopackIgnore: true */ temporaryPath,
-        JSON.stringify(snapshot),
-        { encoding: "utf8", mode: 0o600 },
-      );
-      await chmod(/* turbopackIgnore: true */ temporaryPath, 0o600);
-      await rename(/* turbopackIgnore: true */ temporaryPath, path);
-      await chmod(/* turbopackIgnore: true */ path, 0o600);
-    });
-
-  await state.persistQueue;
+  stageLocalStoreWrite("referrals", storePath(), JSON.stringify(snapshot));
 }
 
 async function listLocalReferrals(
@@ -973,10 +1056,15 @@ async function createLocalReferral(
 ): Promise<ReferralCreateResult> {
   await ensureLoaded();
 
-  const existingId = mutationId ? state.createMutations.get(mutationId) : undefined;
-  const existingReferral = existingId
-    ? state.referrals.find((referral) => referral.id === existingId)
-    : undefined;
+  const fingerprint = mutationRequestFingerprint("referral_create", "referral:new", actor, {
+    input, newEpisodeSourceReferralId: options.newEpisodeSourceReferralId,
+    confirmedDistinctReferralIds: options.confirmedDistinctReferralIds,
+  }, options.replayRequest);
+  const existingReferral = resolveMutationReplay(
+    mutationId ? state.createMutations.get(mutationId) : undefined,
+    mutationId ? state.requestFingerprints.get(`referral_create:${mutationId}`) : undefined, fingerprint,
+    (id) => state.referrals.find((referral) => referral.id === id && !isDeletedReferral(referral)),
+  );
 
   if (existingReferral) {
     return { referral: existingReferral, revision: state.revision, idempotentReplay: true };
@@ -1004,7 +1092,11 @@ async function createLocalReferral(
   state.nextId += 1;
   state.revision += 1;
   state.referrals = [referral, ...state.referrals];
-  if (mutationId) state.createMutations.set(mutationId, referral.id);
+  if (mutationId) {
+    state.createMutations.set(mutationId, referral.id);
+    state.requestFingerprints.set(`referral_create:${mutationId}`, fingerprint);
+  }
+  if (options.draftBinding) state.draftReferrals.set(options.draftBinding, referral.id);
   appendLocalReferralAudit(
     referral.id,
     "referral_created",
@@ -1031,15 +1123,18 @@ async function patchLocalReferral(
 ): Promise<ReferralMutation | null> {
   await ensureLoaded();
 
+  const idempotencyKey = referralPatchIdempotencyKey(metadata);
+  const fingerprint = referralPatchFingerprint(id, patch, actor, expectedVersion, expectedSectionVersions, metadata);
+  const replay = idempotencyKey ? localReferralMutationReplay(id, idempotencyKey, fingerprint) : null;
+  if (replay) {
+    if (isDeletedReferral(replay)) throw new MutationReplayConflictError();
+    return { ok: true, referral: replay, revision: state.revision, idempotentReplay: true };
+  }
   const index = state.referrals.findIndex((referral) => referral.id === id);
   if (index < 0) return null;
 
   const current = state.referrals[index];
   assertMutableWorkspace(current, patch, metadata);
-  const idempotencyKey = referralPatchIdempotencyKey(metadata);
-  if (idempotencyKey && state.patchMutations.get(idempotencyKey) === id) {
-    return { ok: true, referral: current, revision: state.revision, idempotentReplay: true };
-  }
   const safePatch = sanitizePatch(patch);
   if (metadata?.historicalAdmissionConfirmed) safePatch.fieldSources = { ...current.fieldSources, admissionDate: historicalAdmissionSource, community: historicalAdmissionSource };
   const assignmentChanged = assignmentHasChanged(current, safePatch);
@@ -1129,7 +1224,10 @@ async function patchLocalReferral(
   }
   const auditAction = referralAuditAction(metadata, current, next, safePatch, assignmentChanged, nextOwner);
   state.referrals[index] = next;
-  if (idempotencyKey) state.patchMutations.set(idempotencyKey, id);
+  if (idempotencyKey) {
+    state.patchMutations.set(idempotencyKey, id);
+    state.requestFingerprints.set(idempotencyKey, fingerprint);
+  }
   appendLocalReferralAudit(
     id,
     auditAction,
@@ -1198,13 +1296,14 @@ async function softDeleteLocalReferral(
   actor: ReferralActor,
   expectedVersion?: number,
   mutationId?: string,
+  replayRequest?: MutationReplayRequest,
 ): Promise<ReferralMutation | null> {
   await ensureLoaded();
-  const mutationKey = mutationId ? `referral_delete:${mutationId}` : null;
-  if (mutationKey && state.patchMutations.get(mutationKey) === id) {
-    const replay = state.referrals.find((referral) => referral.id === id);
-    return replay ? { ok: true, referral: replay, revision: state.revision, idempotentReplay: true } : null;
-  }
+  const normalizedMutationId = mutationId?.trim();
+  const mutationKey = normalizedMutationId ? `referral_delete:${normalizedMutationId}` : null;
+  const fingerprint = mutationRequestFingerprint("referral_delete", String(id), actor, { expectedVersion }, replayRequest);
+  const replay = mutationKey ? localReferralMutationReplay(id, mutationKey, fingerprint) : null;
+  if (replay) return { ok: true, referral: replay, revision: state.revision, idempotentReplay: true };
   const index = state.referrals.findIndex((referral) => referral.id === id);
   if (index < 0 || isDeletedReferral(state.referrals[index])) return null;
   const current = state.referrals[index];
@@ -1223,7 +1322,10 @@ async function softDeleteLocalReferral(
     deletedBy: actor,
   });
   state.referrals[index] = next;
-  if (mutationKey) state.patchMutations.set(mutationKey, id);
+  if (mutationKey) {
+    state.patchMutations.set(mutationKey, id);
+    state.requestFingerprints.set(mutationKey, fingerprint);
+  }
   appendLocalReferralAudit(
     id,
     "referral_moved_to_trash",
@@ -1245,13 +1347,14 @@ async function restoreLocalReferral(
   actor: ReferralActor,
   expectedVersion?: number,
   mutationId?: string,
+  replayRequest?: MutationReplayRequest,
 ): Promise<ReferralMutation | null> {
   await ensureLoaded();
-  const mutationKey = mutationId ? `referral_restore:${mutationId}` : null;
-  if (mutationKey && state.patchMutations.get(mutationKey) === id) {
-    const replay = state.referrals.find((referral) => referral.id === id);
-    return replay ? { ok: true, referral: replay, revision: state.revision, idempotentReplay: true } : null;
-  }
+  const normalizedMutationId = mutationId?.trim();
+  const mutationKey = normalizedMutationId ? `referral_restore:${normalizedMutationId}` : null;
+  const fingerprint = mutationRequestFingerprint("referral_restore", String(id), actor, { expectedVersion }, replayRequest);
+  const replay = mutationKey ? localReferralMutationReplay(id, mutationKey, fingerprint) : null;
+  if (replay) return { ok: true, referral: replay, revision: state.revision, idempotentReplay: true };
   const index = state.referrals.findIndex((referral) => referral.id === id);
   if (index < 0 || !isDeletedReferral(state.referrals[index])) return null;
   const current = state.referrals[index];
@@ -1270,7 +1373,10 @@ async function restoreLocalReferral(
     updatedBy: actor,
   });
   state.referrals[index] = next;
-  if (mutationKey) state.patchMutations.set(mutationKey, id);
+  if (mutationKey) {
+    state.patchMutations.set(mutationKey, id);
+    state.requestFingerprints.set(mutationKey, fingerprint);
+  }
   appendLocalReferralAudit(
     id,
     "referral_restored",
@@ -1962,17 +2068,23 @@ async function createPostgresReferral(
   mutationId?: string,
   options: ReferralCreateOptions = {},
 ): Promise<ReferralCreateResult> {
+  const fingerprint = mutationRequestFingerprint("referral_create", "referral:new", actor, {
+    input, newEpisodeSourceReferralId: options.newEpisodeSourceReferralId,
+    confirmedDistinctReferralIds: options.confirmedDistinctReferralIds,
+  }, options.replayRequest);
   const sql = getPipelineSql();
   return sql.begin(async (tx) => {
     if (mutationId) {
       await tx`select pg_advisory_xact_lock(hashtextextended(${`referral_create:${mutationId}`}, 0))`;
-      const idempotent = await tx<{ entity_id: string }[]>`
-        select entity_id from pipeline.idempotency_keys
+      const idempotent = await tx<{ entity_id: string; request_fingerprint: string | null }[]>`
+        select entity_id, request_fingerprint from pipeline.idempotency_keys
         where scope = 'referral_create' and mutation_id = ${mutationId}
         limit 1
       `;
       if (idempotent[0]) {
+        assertMutationReplayFingerprint(idempotent[0].request_fingerprint, fingerprint);
         const existing = await getReferralInTransaction(tx, Number(idempotent[0].entity_id));
+        if (!existing || isDeletedReferral(existing)) throw new MutationReplayConflictError();
         if (existing) {
           return {
             referral: existing,
@@ -2033,11 +2145,15 @@ async function createPostgresReferral(
     );
     if (mutationId) {
       await tx`
-        insert into pipeline.idempotency_keys (scope, mutation_id, entity_type, entity_id)
-        values ('referral_create', ${mutationId}, 'referral', ${String(referral.id)})
+        insert into pipeline.idempotency_keys (scope, mutation_id, entity_type, entity_id, request_fingerprint)
+        values ('referral_create', ${mutationId}, 'referral', ${String(referral.id)}, ${fingerprint})
         on conflict (scope, mutation_id) do nothing
       `;
     }
+    if (options.draftBinding) await tx`
+      insert into pipeline.idempotency_keys (scope, mutation_id, entity_type, entity_id)
+      values ('referral_draft', ${options.draftBinding}, 'referral', ${String(referral.id)})
+    `;
     const revision = await bumpReferralRevision(tx);
     return { referral, revision, idempotentReplay: false, warnings: [creationReason].filter((reason) => typeof reason === "string") };
   });
@@ -2055,16 +2171,19 @@ async function patchPostgresReferral(
   const sql = getPipelineSql();
   const mutate = async (tx: TransactionSql): Promise<ReferralMutation | null> => {
     const idempotency = referralPatchIdempotency(metadata);
+    const fingerprint = referralPatchFingerprint(id, patch, actor, expectedVersion, expectedSectionVersions, metadata);
     const replayPatch = async (): Promise<ReferralMutation | null | undefined> => {
       if (idempotency) {
         await tx`select pg_advisory_xact_lock(hashtextextended(${`${idempotency.scope}:${idempotency.mutationId}`}, 0))`;
-        const replay = await tx<{ entity_id: string }[]>`
-          select entity_id from pipeline.idempotency_keys
+        const replay = await tx<{ entity_id: string; request_fingerprint: string | null }[]>`
+          select entity_id, request_fingerprint from pipeline.idempotency_keys
           where scope = ${idempotency.scope} and mutation_id = ${idempotency.mutationId}
         `;
-        if (replay[0]?.entity_id === String(id)) {
+        if (replay[0]) {
+          assertMutationReplayFingerprint(replay[0].request_fingerprint, fingerprint);
+          if (replay[0].entity_id !== String(id)) throw new MutationReplayConflictError();
           const referral = await getReferralInTransaction(tx, id, true);
-          if (!referral) return null;
+          if (!referral) throw new MutationReplayConflictError();
           const revisions = await tx<{ revision: number | string }[]>`
             select revision from pipeline.store_revisions where store_name = 'referrals'
           `;
@@ -2242,8 +2361,8 @@ async function patchPostgresReferral(
       );
       if (idempotency) {
         await tx`
-          insert into pipeline.idempotency_keys (scope, mutation_id, entity_type, entity_id)
-          values (${idempotency.scope}, ${idempotency.mutationId}, 'referral', ${String(id)})
+          insert into pipeline.idempotency_keys (scope, mutation_id, entity_type, entity_id, request_fingerprint)
+          values (${idempotency.scope}, ${idempotency.mutationId}, 'referral', ${String(id)}, ${fingerprint})
           on conflict (scope, mutation_id) do nothing
         `;
       }
@@ -2271,6 +2390,14 @@ function referralPatchIdempotency(metadata?: ReferralMutationMetadata) {
 function referralPatchIdempotencyKey(metadata?: ReferralMutationMetadata) {
   const identity = referralPatchIdempotency(metadata);
   return identity ? `${identity.scope}:${identity.mutationId}` : null;
+}
+
+function referralPatchFingerprint(id: number, patch: ReferralPatch, actor: ReferralActor,
+  expectedVersion: number | undefined, expectedSectionVersions: Partial<ReferralSectionVersions> | undefined,
+  metadata?: ReferralMutationMetadata) {
+  return mutationRequestFingerprint(metadata?.mutationScope?.trim() || "referral_patch", String(id), actor,
+    { patch, expectedVersion, expectedSectionVersions, historicalAdmissionConfirmed: metadata?.historicalAdmissionConfirmed,
+      auditAction: metadata?.auditAction, auditReason: metadata?.auditReason }, metadata?.replayRequest);
 }
 
 async function listPostgresDeletedReferrals(options: DeletedReferralListOptions = {}): Promise<DeletedReferralListResult> {
@@ -2311,10 +2438,13 @@ async function softDeletePostgresReferral(
   actor: ReferralActor,
   expectedVersion?: number,
   mutationId?: string,
+  replayRequest?: MutationReplayRequest,
 ): Promise<ReferralMutation | null> {
+  mutationId = mutationId?.trim();
+  const fingerprint = mutationRequestFingerprint("referral_delete", String(id), actor, { expectedVersion }, replayRequest);
   const sql = getPipelineSql();
   return sql.begin(async (tx) => {
-    const replay = await getPostgresLifecycleReplay(tx, "referral_delete", mutationId, id);
+    const replay = await getPostgresLifecycleReplay(tx, "referral_delete", mutationId, id, fingerprint);
     if (replay) return replay;
     const currentRows = await tx<ReferralRow[]>`
       select r.*, p.external_client_id, p.display_name
@@ -2345,7 +2475,7 @@ async function softDeletePostgresReferral(
     `;
     const referral = mapReferralRow(rows[0]);
     await writeReferralAudit(tx, id, "referral_moved_to_trash", actor, ["deletedAt", "deleteAfter"], current, referral, referral.version ?? 1);
-    await savePostgresLifecycleMutation(tx, "referral_delete", mutationId, id);
+    await savePostgresLifecycleMutation(tx, "referral_delete", mutationId, id, fingerprint);
     const revision = await bumpReferralRevision(tx);
     return { ok: true, referral, revision };
   });
@@ -2356,10 +2486,13 @@ async function restorePostgresReferral(
   actor: ReferralActor,
   expectedVersion?: number,
   mutationId?: string,
+  replayRequest?: MutationReplayRequest,
 ): Promise<ReferralMutation | null> {
+  mutationId = mutationId?.trim();
+  const fingerprint = mutationRequestFingerprint("referral_restore", String(id), actor, { expectedVersion }, replayRequest);
   const sql = getPipelineSql();
   return sql.begin(async (tx) => {
-    const replay = await getPostgresLifecycleReplay(tx, "referral_restore", mutationId, id);
+    const replay = await getPostgresLifecycleReplay(tx, "referral_restore", mutationId, id, fingerprint);
     if (replay) return replay;
     const currentRows = await tx<ReferralRow[]>`
       select r.*, p.external_client_id, p.display_name
@@ -2394,7 +2527,7 @@ async function restorePostgresReferral(
     `;
     const referral = mapReferralRow(rows[0]);
     await writeReferralAudit(tx, id, "referral_restored", actor, ["deletedAt", "deleteAfter"], current, referral, referral.version ?? 1);
-    await savePostgresLifecycleMutation(tx, "referral_restore", mutationId, id);
+    await savePostgresLifecycleMutation(tx, "referral_restore", mutationId, id, fingerprint);
     const revision = await bumpReferralRevision(tx);
     return { ok: true, referral, revision };
   });
@@ -2405,21 +2538,24 @@ async function getPostgresLifecycleReplay(
   scope: string,
   mutationId: string | undefined,
   referralId: number,
+  fingerprint: string,
 ): Promise<ReferralMutation | null> {
   if (!mutationId) return null;
   await tx`select pg_advisory_xact_lock(hashtextextended(${`${scope}:${mutationId}`}, 0))`;
-  const keys = await tx<{ entity_id: string }[]>`
-    select entity_id from pipeline.idempotency_keys
+  const keys = await tx<{ entity_id: string; request_fingerprint: string | null }[]>`
+    select entity_id, request_fingerprint from pipeline.idempotency_keys
     where scope = ${scope} and mutation_id = ${mutationId}
   `;
-  if (keys[0]?.entity_id !== String(referralId)) return null;
+  if (!keys[0]) return null;
+  assertMutationReplayFingerprint(keys[0].request_fingerprint, fingerprint);
+  if (keys[0].entity_id !== String(referralId)) throw new MutationReplayConflictError();
   const rows = await tx<ReferralRow[]>`
     select r.*, p.external_client_id, p.display_name
     from pipeline.referrals r
     join pipeline.people p on p.person_id = r.person_id
     where r.referral_id = ${referralId}
   `;
-  if (!rows[0]) return null;
+  if (!rows[0]) throw new MutationReplayConflictError();
   const revisions = await tx<{ revision: number | string }[]>`
     select revision from pipeline.store_revisions where store_name = 'referrals'
   `;
@@ -2436,11 +2572,12 @@ async function savePostgresLifecycleMutation(
   scope: string,
   mutationId: string | undefined,
   referralId: number,
+  fingerprint: string,
 ) {
   if (!mutationId) return;
   await tx`
-    insert into pipeline.idempotency_keys (scope, mutation_id, entity_type, entity_id)
-    values (${scope}, ${mutationId}, 'referral', ${String(referralId)})
+    insert into pipeline.idempotency_keys (scope, mutation_id, entity_type, entity_id, request_fingerprint)
+    values (${scope}, ${mutationId}, 'referral', ${String(referralId)}, ${fingerprint})
     on conflict (scope, mutation_id) do nothing
   `;
 }

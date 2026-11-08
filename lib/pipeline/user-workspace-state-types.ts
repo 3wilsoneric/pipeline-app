@@ -69,6 +69,8 @@ const legacyDefaultDraftFieldKeys = new Set<ReferralCanvasFieldKey>([
 ]);
 
 export type PipelineReferralDraft = {
+  creationRequest?: string;
+  promotionBaseValues?: Partial<Record<ReferralDraftDirtyKey, string>>;
   schema: 1;
   savedAt: string;
   recoverySessionId?: string;
@@ -292,6 +294,9 @@ function parseAssessmentDraftWorkbookSources(value: unknown) {
 }
 
 function parseReferralDraftMetadata(candidate: Partial<PipelineReferralDraft>) {
+  if (candidate.creationRequest !== undefined && !isBoundedText(candidate.creationRequest, 192 * 1024)) return null;
+  const promotionBaseValues = parseBoundedStringRecord(candidate.promotionBaseValues, 24, 48_000);
+  if (candidate.promotionBaseValues !== undefined && !promotionBaseValues) return null;
   if (candidate.initialPacketName !== undefined && !isBoundedText(candidate.initialPacketName, 255, true)) return null;
   if (candidate.initialPacketCategory !== undefined && candidate.initialPacketCategory !== "referral_packet" && candidate.initialPacketCategory !== "face_sheet") return null;
   if (candidate.lastFocus !== undefined && !referralCanvasFieldKeys.includes(candidate.lastFocus)) return null;
@@ -299,6 +304,8 @@ function parseReferralDraftMetadata(candidate: Partial<PipelineReferralDraft>) {
     lastFocus: candidate.lastFocus,
     initialPacketName: candidate.initialPacketName,
     initialPacketCategory: candidate.initialPacketCategory,
+    creationRequest: candidate.creationRequest,
+    ...(promotionBaseValues ? { promotionBaseValues } : {}),
   };
 }
 

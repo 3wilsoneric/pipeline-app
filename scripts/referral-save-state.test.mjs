@@ -122,3 +122,28 @@ test("reopen ignores acknowledged recovery values but retains pending answers, o
   assert.deepEqual(Array.from(reconcile({ ...draft, dirtyKeys: ["documents"] }, latest, { ownerPrincipalId: "assessor-a", pendingDocuments: { face: new File(["pending"], "face.pdf") }, additionalFiles: [] }).dirtyKeys), ["documents"]);
   assert.ok(reconcile({ ...draft, dirtyKeys: [] }, latest, { ownerPrincipalId: "assessor-a", pendingDocuments: {}, additionalFiles: [{ file: new File(["pending"], "extra.pdf") }] }));
 });
+
+test("tab recovery binds its account while preserving unbound legacy bytes for verified recovery", () => {
+  const draft = { schema: 1, savedAt: "2026-11-07T00:00:00Z", dirtyKeys: ["name"], fields: Object.fromEntries(loadTypeScriptModule(process.cwd(), "lib/pipeline/referral-types.ts").referralCanvasFieldKeys.map(key => [key, { value: key === "name" ? "Synthetic Private" : "" }])), conserved: "", tagsInput: "", documents: {} };
+  const reference = "new-625c13ab-24e9-45b1-8fa3-c9f199606e50";
+  const records = new Map();
+  const storage = { getItem: key => records.get(key) ?? null };
+  const legacy = state.canvasDraftStorageKey(reference), owner = state.canvasDraftStorageKey(reference, "account:a");
+  records.set(owner, JSON.stringify(draft));
+  assert.equal(state.readCanvasSessionDraft(storage, reference, "account:a").fields.name.value, "Synthetic Private");
+  assert.equal(state.readCanvasSessionDraft(storage, reference, "account:b"), null);
+  assert.throws(() => state.readCanvasSessionDraft(storage, reference, ""), /account/);
+  assert.notEqual(owner, state.canvasDraftStorageKey(reference, "account%3Aa"));
+  records.set(legacy, JSON.stringify(draft));
+  assert.throws(() => state.readCanvasSessionDraft(storage, reference, "account:b"), /no confirmed account/);
+  assert.equal(records.get(legacy), JSON.stringify(draft));
+  assert.equal(state.readCanvasSessionDraft(storage, reference, "account:a").fields.name.value, "Synthetic Private");
+  records.set(owner, "truncated");
+  assert.throws(() => state.readCanvasSessionDraft(storage, reference, "account:a"));
+  assert.equal(records.get(owner), "truncated");
+  records.delete(legacy);
+  records.set(owner, "");
+  assert.throws(() => state.readCanvasSessionDraft(storage, reference, "account:a"));
+  assert.equal(records.get(owner), "");
+  assert.throws(() => state.readCanvasSessionDraft({ getItem: () => { throw new Error("Storage denied"); } }, reference, "account:a"), /Storage denied/);
+});

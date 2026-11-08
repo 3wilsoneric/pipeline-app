@@ -133,7 +133,11 @@ check(
     && recents.indexOf("usesServerUserWorkspaceState()") < recents.indexOf("window.sessionStorage.setItem(storageKey"),
 );
 check("drafts use the server when desktop is enabled", draftClient.includes("/api/me/referral-drafts/") && canvas.includes("usesServerReferralDrafts()"));
-check("draft server mode does not write browser storage", canvas.includes("if (usesServerReferralDrafts())") && canvas.indexOf("saveServerReferralDraft") < canvas.indexOf("window.sessionStorage.setItem(canvasDraftStorageKey"));
+check("referral drafts and legacy migration never write plaintext browser storage",
+  !canvas.includes("sessionStorage.setItem")
+    && canvas.includes("saveLocalReferralRecovery(principal, reference, recovery)")
+    && !read("components/pipeline/PipelineOverviewRoute.tsx").includes("sessionStorage.setItem")
+    && read("components/pipeline/PipelineOverviewRoute.tsx").includes("saveLocalReferralRecovery(principal, nextKey, recovery)"));
 check("recents API authenticates and protects writes", recentsRoute.includes("requirePipelineUser") && recentsRoute.includes("requireSameOriginMutation"));
 check("draft API authenticates and protects writes", draftsRoute.includes("requirePipelineUser") && draftsRoute.includes("requireSameOriginMutation"));
 check("personal-state responses are not cacheable", recentsRoute.includes("private, no-store") && draftsRoute.includes("private, no-store"));

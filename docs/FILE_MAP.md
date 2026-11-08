@@ -51,8 +51,8 @@ Role: file lookup, not a second working policy or a current health claim. Start 
 - `database/migrations/0010_provisional_workspace_members.sql` - explicit provisional member identities and merge state.
 - `database/migrations/0011_historical_material_workspaces.sql` - idempotent imported-material workspace ledger and status.
 - `database/migrations/0012_referral_trash.sql` - recoverable referral deletion and indexed 30-day retention window.
-- `database/migrations/0018_academy_progress.sql` - private developer Academy progress workspace-state kind.
-- `database/migrations/0019_operator_training_progress.sql` - authenticated end-user Learning Center progress workspace-state kind.
+- `database/migrations/0018_academy_progress.sql` - retained historical Academy progress state; UI/API retired.
+- `database/migrations/0019_operator_training_progress.sql` - retained historical tutorial progress state; UI/API retired.
 - `database/migrations/0020_allo_canvas_content.sql` - immutable native ALLO canvas snapshots, ordered text blocks, exact workspace links, and review-gated assessment-note candidates.
 - `database/migration-checksums.json` - append-only migration integrity baseline.
 - `lib/database/pipeline-database.ts` - server-only bounded PostgreSQL connection/readiness adapter.
@@ -156,18 +156,6 @@ Role: file lookup, not a second working policy or a current health claim. Start 
 
 ## Docs
 
-- `docs/academy/README.md` - source-grounded developer learning system and maintenance rules.
-- `docs/academy/CURRICULUM.md` - 10-track, 36-module enterprise codebase ownership curriculum and competency gates.
-- `docs/academy/ARCHITECTURE_GUIDE.md` - developer mental model for current runtime, domain, persistence, extraction, security, and testing boundaries.
-- `docs/academy/lessons/01_CREATE_REFERRAL.md` - complete first vertical code trace from canvas through PostgreSQL and Blob processing.
-- `docs/academy/academy-registry.json`, `scripts/academy-readiness.mjs`, and `scripts/academy-atlas.mjs` - optional developer-course fingerprints and repository index; not release gates.
-- `app/(pipeline)/academy/page.tsx`, `components/pipeline/PipelineDeveloperAcademy.tsx`, and `lib/academy/academy-curriculum.ts` - private owner-only curriculum, journeys, repository atlas, labs, mastery console, and conflict-safe durable progress.
-- `lib/academy/academy-access.ts`, `lib/academy/academy-access-policy.ts`, and `scripts/academy-route-contracts.mjs` - fail-closed Academy identity boundary and executable route/course contracts.
-- `app/(pipeline)/training/page.tsx`, `components/pipeline/PipelineOperatorAcademy.tsx`, and `lib/training/operator-training-curriculum.ts` - authenticated role-aware Learning Center with 36 modules, guided tours, practice, job aids, product map, and certification preparation.
-- `components/pipeline/training/PipelineGuidedCoach.tsx` and `lib/training/operator-guided-tutorials.ts` - deterministic cross-route coaching, source-owned spotlight targets, and mutating-action safety boundaries.
-- `lib/training/operator-training-resources.ts` and `components/pipeline/training/*` - synthetic decision scenarios, pressure-ready job aids, workflow capability map, and end-user mastery surfaces.
-- `docs/training/*`, `scripts/operator-training-readiness.mjs`, and `scripts/operator-training-route-contracts.mjs` - optional legacy curriculum maintenance and Learning Center contracts.
-- `scripts/tutorial-referral-fixtures.test.mjs`, `scripts/tutorial-workflow-fixtures.test.mjs`, `tests/e2e/operator-training.spec.ts`, and `tests/e2e/tutorial-workflows.spec.ts` - current tutorial checks used by normal releases.
 - `docs/REFERRAL_PACKET_EXTRACTION_BUILD_SPEC.md` - extraction architecture and implementation spec.
 - `docs/REFERRAL_PACKET_INGESTION_RUNBOOK.md` - backlog and steady-state ingestion runbook.
 - `docs/REFERRAL_OPERATING_RELIABILITY_PLAN.md` - operating reliability plan.

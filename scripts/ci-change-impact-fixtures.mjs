@@ -9,6 +9,21 @@ import { fileURLToPath } from "node:url";
 
 const cases = [
   {
+    name: "import identity regression runs through the real API and PostgreSQL",
+    files: ["tests/e2e/operational/import-identity.spec.ts"],
+    expected: { browser: true, postgres: true },
+  },
+  ...["scripts/import-confirmed-client-files.mjs", "scripts/lib/client-file-import-finalization.mjs"].map((file) => ({
+    name: `${file} runs import finalization coverage`,
+    files: [file],
+    expected: { browser: false, postgres: true },
+  })),
+  ...["lib/persistence/mutation-replay.ts", "lib/persistence/local-mutation.ts", "tests/e2e/operational/referral-retry-persistence.spec.ts", "tests/e2e/operational/referral-workflow-binding.spec.ts", "tests/e2e/operational/assessment-section-state.spec.ts", "tests/e2e/operational/intake-recovery.spec.ts", "tests/e2e/operational/intake-hydration.spec.ts", "tests/e2e/operational/resident-link-retry-persistence.spec.ts", "lib/observability/api-logging.ts", "tests/e2e/operational/contact-retry-persistence.spec.ts", "tests/e2e/operational/assessment-command-binding.spec.ts", "tests/e2e/support/restartable-operational-server.ts"].map((file) => ({
+    name: `${file} runs replay coverage on both storage adapters`,
+    files: [file],
+    expected: { browser: true, postgres: true },
+  })),
+  {
     name: "unknown change set runs both integration surfaces",
     files: null,
     expected: { browser: true, postgres: true },

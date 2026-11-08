@@ -1,3 +1,4 @@
+import { openAssessmentFixture } from "./support/assessment-fixture";
 import { leaveInterviewFullScreen } from "./support/assessment-navigation";
 import { expect, test, type Page } from "@playwright/test";
 import { randomUUID } from "node:crypto";
@@ -130,7 +131,7 @@ test("assessment navigation retains the section through Files and Activity, then
 
 test("phone Current info preserves question focus and lets the user choose when to edit", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=interview&assessmentSection=diagnosis_clinical&demo=1");
+  await openAssessmentFixture(page, { mode: "interview", section: "diagnosis_clinical" });
   const assessment = page.locator("[data-phone-interview]");
   await assessment.getByRole("button", { name: "Client info", exact: true }).click();
   await page.getByRole("dialog", { name: "Client information", exact: true }).getByRole("button", { name: "Review Current symptoms", exact: true }).click();

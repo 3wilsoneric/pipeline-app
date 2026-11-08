@@ -16,6 +16,7 @@ const directoryRoute = read("app/api/profiles/directory/route.ts");
 const manifestTool = read("scripts/create-client-file-import-manifest.mjs");
 const stageTool = read("scripts/stage-client-file-import.mjs");
 const importTool = read("scripts/import-confirmed-client-files.mjs");
+const importFinalization = read("scripts/lib/client-file-import-finalization.mjs");
 const reconciliationTool = read("scripts/reconcile-client-file-import.mjs");
 const rollbackTool = read("scripts/rollback-client-file-import.mjs");
 const referralCanvas = read("components/pipeline/ReferralPacketCanvas.tsx");
@@ -64,7 +65,7 @@ check("binary import requires explicit confirmation", importTool.includes("UPLOA
 check("binary import verifies bytes before upload", importTool.includes("sha256 !== row.source_sha256") && importTool.includes("bytes.length !== Number(row.source_byte_size)"));
 check("binary import uses deterministic blob keys and source identities", importTool.includes("client-import/${row.source_system}/${row.import_batch_id}/${row.import_item_id}") && migration.includes("documents_source_external_unique_idx"));
 check("binary import does not overwrite an existing deterministic blob", importTool.includes('conditions: { ifNoneMatch: "*" }') && importTool.includes("existing_blob_mismatch"));
-check("concurrent binary import retries converge on one document", importTool.includes("on conflict (source_system, source_external_id)") && importTool.includes("document_identity_conflict"));
+check("concurrent binary import retries converge on one document", importTool.includes("finalizeClientFileImport(tx,") && importFinalization.includes("on conflict (source_system, source_external_id)") && importFinalization.includes("document_identity_conflict"));
 check("binary import completes batches with reviewed exclusions", importTool.includes("counts.imported_count + counts.rejected_count = b.item_count"));
 check("governed directory rows expose linked Pipeline file counts", workspaceStore.includes("getClinicalClientWorkspaceSummaries") && workspaceStore.includes("document_count"));
 check("binary import never auto-imports unmatched rows", importTool.includes("i.match_status = 'confirmed'") && importTool.includes("i.imported_document_id is null"));

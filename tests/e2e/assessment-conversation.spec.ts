@@ -1,3 +1,4 @@
+import { openAssessmentFixture } from "./support/assessment-fixture";
 import { expect, test, type Page } from "@playwright/test";
 import { assessmentAnswerOrigin, assessmentQuestionStatus, assessmentWorkingSections } from "../../components/pipeline/assessment-working-view";
 import { buildTrainingAssessment } from "../../lib/training/mock-assessment";
@@ -6,7 +7,6 @@ import { randomUUID } from "node:crypto";
 import { createOperationalReferral } from "./support/operational-api";
 import { editPreparedAnswer, openAllQuestions } from "./support/assessment-navigation";
 
-const practice = "/?view=referrals&screen=packet&trainingAssessment=prepare&demo=1&workspaceStage=assessment&assessmentSection=diagnosis_clinical";
 
 async function beginInterview(page: Page) {
   const interview = page.getByRole("region", { name: "Assessment progress", exact: true }).getByRole("button", { name: "Interview", exact: true });
@@ -46,14 +46,14 @@ test("preparation uses the same conditional answers without treating source acce
 for (const width of [1440, 820]) {
   test(`records and interview share a stable reference at ${width}px`, async ({ page }, info) => {
     await page.setViewportSize({ width, height: 950 });
-    await page.goto(practice);
+    const { read } = await openAssessmentFixture(page, { mode: "prepare", section: "diagnosis_clinical" });
     const folder = page.getByTestId("assessment-client-folder");
-    const progress = folder.getByRole("region", { name: "Assessment progress", exact: true });
     const reference = folder.getByRole("complementary", { name: "Current information" });
     const editor = folder.locator("[data-assessment-question-editor]");
-    await expect(progress.locator('[aria-current="step"]')).toHaveText("1Prepare assessment");
+    const picker = folder.getByLabel("Assessment section", { exact: true });
+    await expect(folder.locator('[data-assessment-phase="preparation"]')).toBeVisible();
     await expect(folder.getByRole("heading", { name: /From the records|Ask & confirm/ })).toHaveCount(0);
-    await expect(folder.getByLabel("Assessment section", { exact: true })).toHaveValue("prior_history");
+    await expect(picker).toHaveValue("prior_history");
     await expect(reference).toHaveCount(0);
     await expect(editor.locator('[data-working-field="current_symptoms"]')).toBeVisible();
     const field = editor.getByRole("textbox", { name: "Secondary diagnosis", exact: true });
@@ -61,59 +61,42 @@ for (const width of [1440, 820]) {
     await field.fill(answer);
     await expect(field).toBeFocused();
     await field.press("Tab");
-    await expect(field).toHaveValue(answer);
-    await folder.getByLabel("Assessment section", { exact: true }).selectOption("medication");
-    await folder.getByLabel("Assessment section", { exact: true }).selectOption("prior_history");
+    await picker.selectOption("medication");
+    await picker.selectOption("prior_history");
     await expect(field).toBeEditable();
-    await editPreparedAnswer(page, "Secondary diagnosis");
     await expect(field).toHaveValue(answer);
-    await expect(reference).toHaveCount(0);
-    await folder.getByLabel("Assessment section", { exact: true }).selectOption("medication");
-    await folder.getByLabel("Assessment section", { exact: true }).selectOption("prior_history");
+    await expect.poll(async () => (await read()).secondary_diagnoses).toEqual([answer]);
+    expect((await read()).started_at).toBeNull();
     await page.screenshot({ path: info.outputPath(`prepare-${width}.png`) });
-    await beginInterview(page);
-    await expect(progress.locator('[aria-current="step"]')).toHaveText("2Interview");
-    await expect(progress.getByRole("button", { name: "All questions", exact: true })).toBeEnabled();
-    await expect(folder.getByLabel("Assessment section", { exact: true })).toHaveValue("prior_history");
-    await folder.getByLabel("Assessment section", { exact: true }).selectOption("diagnosis_clinical");
-    const sectionNavigation = folder.getByRole("navigation", { name: "Assessment sections" });
+    await page.getByRole("region", { name: "Interview", exact: true }).getByRole("button", { name: "Start now", exact: true }).click();
+    await expect(folder.locator('[data-assessment-phase="interview"]')).toBeVisible();
+    await expect(picker.locator('option[value="all-questions"]')).toHaveCount(1);
+    await picker.selectOption("diagnosis_clinical");
+    const navigation = folder.getByRole("navigation", { name: "Assessment sections", exact: true });
     await expect(editor.getByRole("navigation", { name: "Assessment sections" })).toHaveCount(0);
-    await expect(sectionNavigation).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
-    const navigationWidth = (await sectionNavigation.boundingBox())!.width;
-    const editorWidth = (await editor.boundingBox())!.width;
-    if (width >= 960) expect(navigationWidth).toBeGreaterThan(editorWidth);
-    else expect(navigationWidth).toBeCloseTo(editorWidth, 0);
+    await expect(navigation).toBeInViewport();
     await expect(reference).toContainText(answer);
     await expect(field).toHaveCount(0);
     const current = reference.getByRole("button", { name: "Edit Current symptoms", exact: true });
-    if (width < 960) await reference.getByRole("button", { name: /^Current information/ }).click();
     await current.click();
-    const interview = editor.getByRole("textbox", { name: "Current symptoms", exact: false });
+    const interview = editor.getByRole("textbox", { name: "Current symptoms", exact: true });
+    await expect(interview).toBeFocused();
     await interview.fill("Synthetic change described by the client today.");
-    if (width >= 960) await expect(current).not.toContainText("Synthetic change described");
-    else await expect(current).toBeHidden(); // Tablet reference closes when editing.
     await interview.press("Tab");
-    if (width < 960) await reference.getByRole("button", { name: /^Current information/ }).click();
     await expect(current).toContainText("Synthetic change described by the client today.");
     await expect(interview).toBeVisible();
-    // Section changes retain the latest field without waiting for autosave.
     await interview.fill("Synthetic final sentence before switching.");
-    await folder.getByLabel("Assessment section", { exact: true }).selectOption("prior_history");
-    await expect(folder.getByRole("region", { name: "Recent care and history questions", exact: true })).toBeVisible();
-    await folder.getByLabel("Assessment section", { exact: true }).selectOption("diagnosis_clinical");
-    await expect(folder.getByRole("region", { name: "How things are now questions", exact: true })).toBeVisible();
-    if (width < 960 && await reference.getByRole("button", { name: /^Current information/ }).getAttribute("aria-expanded") === "false") await reference.getByRole("button", { name: /^Current information/ }).click();
+    await picker.selectOption("prior_history");
+    await expect(reference.locator("[data-split-topic]")).toHaveAttribute("data-split-topic", "prior_history");
+    await picker.selectOption("diagnosis_clinical");
     await expect(current).toContainText("Synthetic final sentence before switching.");
-    await expect(folder.getByText("Practice changes saved locally", { exact: true })).toBeVisible();
+    await expect.poll(async () => (await read()).current_symptoms).toBe("Synthetic final sentence before switching.");
+    expect((await read()).signed_at).toBeNull();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    // Verify the start of the page turn too, not just the settled reference.
-    const readingPage = reference.locator('[data-assessment-reference-page]');
-    await readingPage.evaluate((element) => { for (const animation of element.getAnimations()) { animation.pause(); animation.currentTime = 0; } });
-    await expect(readingPage).toHaveCSS("opacity", "1");
     await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
     const violations = await page.evaluate(async () => {
       const axe = (window as unknown as { axe: { run: (selector: string, options: object) => Promise<AxeResults> } }).axe;
-      return (await axe.run('[aria-label="Assessment progress"], [data-assessment-working-section]', { runOnly: ["wcag2a", "wcag2aa", "wcag21aa"] })).violations.map(({ id, nodes }) => ({ id, nodes: nodes.map(({ target, failureSummary }) => ({ target, failureSummary })) }));
+      return (await axe.run('[data-assessment-working-section]', { runOnly: ["wcag2a", "wcag2aa", "wcag21aa"] })).violations.map(({ id, nodes }) => ({ id, nodes: nodes.map(({ target, failureSummary }) => ({ target, failureSummary })) }));
     });
     expect(violations).toEqual([]);
     await page.screenshot({ path: info.outputPath(`interview-${width}.png`), animations: "disabled" });
@@ -122,36 +105,42 @@ for (const width of [1440, 820]) {
 
 test("small preparation screens scroll instructions away and keep group navigation reachable", async ({ page }, info) => {
   await page.setViewportSize({ width: 390, height: 540 });
-  await page.goto(practice);
+  await openAssessmentFixture(page, { mode: "prepare", section: "diagnosis_clinical" });
   const folder = page.getByTestId("assessment-client-folder");
   const field = folder.getByRole("textbox", { name: "Secondary diagnosis", exact: true });
   await field.scrollIntoViewIfNeeded();
   await expect(field).toBeInViewport();
-  await expect(folder.getByRole("region", { name: "Assessment progress" })).not.toBeInViewport();
+  await expect(folder.getByRole("region", { name: "Interview", exact: true })).not.toBeInViewport();
   await expect(folder.getByRole("navigation", { name: "Assessment section steps" })).toBeInViewport();
   await field.fill("Synthetic short-screen preparation note");
   await folder.getByRole("button", { name: "Next section", exact: true }).click();
   await expect(folder.getByLabel("Assessment section", { exact: true })).toBeInViewport();
-  await expect(folder.getByRole("region", { name: "Assessment progress" })).toBeInViewport();
+  await expect(folder.getByRole("navigation", { name: "Assessment section steps" })).toBeInViewport();
   await page.screenshot({ path: info.outputPath("short-preparation-screen.png") });
 });
 
-test("incomplete preparation opens the interview and returns to all questions without a start gate", async ({ page }) => {
-  await page.goto(practice);
+test("incomplete preparation can start and resume the same interview without a completion gate", async ({ page }) => {
+  const { read } = await openAssessmentFixture(page, { mode: "prepare", section: "diagnosis_clinical" });
   const folder = page.getByTestId("assessment-client-folder");
   const picker = folder.getByLabel("Assessment section", { exact: true });
   await expect(picker.locator("option")).toHaveCount(5);
-  await folder.getByLabel("Assessment section", { exact: true }).selectOption("legal_conservatorship");
-  const next = folder.getByRole("navigation", { name: "Assessment section steps" }).getByRole("button", { name: "Open interview", exact: true });
-  await next.click();
+  await picker.selectOption("legal_conservatorship");
+  expect((await read()).started_at).toBeNull();
+  await page.getByRole("region", { name: "Interview", exact: true }).getByRole("button", { name: "Start now", exact: true }).click();
   await expect(page.getByRole("dialog", { name: "Begin interview", exact: true })).toHaveCount(0);
-  await expect(picker.locator("option")).toHaveCount(12);
+  await expect(picker.locator("option")).toHaveCount(13);
+  await picker.selectOption("legal_conservatorship");
+  const started = await read();
+  expect(started.started_at).not.toBeNull();
   await openAllQuestions(page);
   await expect(picker.locator("option")).toHaveCount(5);
   await beginInterview(page);
-  await expect(folder.getByLabel("Assessment section", { exact: true }).locator("option")).toHaveCount(12);
-  await expect(folder.getByLabel("Assessment section", { exact: true })).toHaveValue("legal_conservatorship");
-  await expect(page.getByRole("dialog", { name: "Begin interview", exact: true })).toHaveCount(0);
+  await expect(picker.locator("option")).toHaveCount(13);
+  await expect(picker).toHaveValue("legal_conservatorship");
+  const resumed = await read();
+  expect(resumed.assessment_id).toBe(started.assessment_id);
+  expect(resumed.started_at).toBe(started.started_at);
+  expect(resumed.signed_at).toBeNull();
   await expect(folder.getByRole("button", { name: "Confirm chart", exact: true })).toHaveCount(0);
 });
 
@@ -195,7 +184,7 @@ for (const width of [390, 320]) {
   test(`phone preparation and reference return to the same interview at ${width}px`, async ({ page }, info) => {
     await page.setViewportSize({ width, height: width === 320 ? 740 : 844 });
     await page.emulateMedia({ reducedMotion: "reduce" });
-    await page.goto(practice);
+    await openAssessmentFixture(page, { mode: "prepare", section: "diagnosis_clinical" });
     const folder = page.getByTestId("assessment-client-folder");
     const sections = page.getByRole("dialog", { name: "Questionnaire sections", exact: true });
     await expect(folder.locator('[data-assessment-phase="preparation"]')).toBeVisible();

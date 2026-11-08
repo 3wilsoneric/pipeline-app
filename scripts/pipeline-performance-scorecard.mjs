@@ -587,7 +587,7 @@ async function installSanitizedClinicalFixtures(page) {
   }));
   // Do not answer binary paths with the profile JSON fixture: that used to
   // conceal broken thumbnails and never exercise a completed source PDF.
-  const thumbnail = readFileSync(path.join(process.cwd(), "public/training/presentation/intake-review.png"));
+  const thumbnail = readFileSync(path.join(process.cwd(), "public/pwa/pipeline-app-icon-192-v11.png"));
   const content = "BT /F1 12 Tf 50 700 Td (Sanitized performance packet) Tj ET\n";
   const objects = [
     "<< /Type /Catalog /Pages 2 0 R >>",

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { execFileSync } from "node:child_process";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, extname, join, relative, resolve } from "node:path";
 
 import ts from "typescript";
@@ -76,6 +76,7 @@ function repositoryPaths() {
     .split("\n")
     .map((value) => value.trim())
     .filter(Boolean)
+    .filter((path) => existsSync(join(ROOT, path)))
     .filter((path) => sourceRoots.some((root) => path.startsWith(root)))
     .filter((path) => supportedTypeScriptExtensions.has(extname(path)) || path.endsWith(".py"));
 }

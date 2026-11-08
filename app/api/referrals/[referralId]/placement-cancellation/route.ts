@@ -1,3 +1,4 @@
+import { mutationReplayRequest } from "@/lib/persistence/mutation-replay";
 import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
 import { pipelineAccountableActor } from "@/lib/auth/assessor-session-policy";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
@@ -5,7 +6,7 @@ import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
 import { withApiLogging } from "@/lib/observability/api-logging";
 import { requireMutableReferralAccess } from "@/lib/pipeline/referral-access";
 import { canCancelPlacement } from "@/lib/pipeline/referral-ownership";
-import { patchReferral, requireReferralStore } from "@/lib/pipeline/referral-store";
+import { getReferralMutationReplay, patchReferral, requireReferralStore } from "@/lib/pipeline/referral-store";
 import { validateClientMutationId } from "@/lib/pipeline/client-mutation-id";
 import type { PlacementCancellation } from "@/lib/pipeline/referral-types";
 
@@ -37,6 +38,9 @@ export async function PUT(request: Request, context: { params: Promise<{ referra
     const mutationId = validateClientMutationId(body.value.client_mutation_id);
     if (!mutationId.ok) return jsonError(mutationId.message);
 
+    const replayRequest = mutationReplayRequest(auth.user, body.value);
+    const replay = await getReferralMutationReplay(referralId, "placement_cancellation", mutationId.value, pipelineAccountableActor(auth.user), replayRequest);
+    if (replay) return Response.json({ referral: replay }, { headers: { "Cache-Control": "private, no-store, max-age=0" } });
     const referral = access.referral;
     if (referral.admissionDecision?.outcome !== "accepted") return jsonError("Record an accepted decision before cancelling placement.", 422);
     if (referral.actualAdmissionDate || referral.stage === "Accepted / Admitted") return jsonError("This client was recorded as admitted. Review the admission record instead.", 422);
@@ -66,6 +70,7 @@ export async function PUT(request: Request, context: { params: Promise<{ referra
         auditReason: reason,
         mutationId: mutationId.value,
         mutationScope: "placement_cancellation",
+        replayRequest,
       },
     );
     if (!result) return jsonError("Referral not found.", 404);

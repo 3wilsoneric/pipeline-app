@@ -1,3 +1,4 @@
+import { mutationReplayRequest } from "@/lib/persistence/mutation-replay";
 import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
 import { pipelineAccountableActor } from "@/lib/auth/assessor-session-policy";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
@@ -85,6 +86,7 @@ export async function PUT(
       Number(body.value.if_match_section),
       pipelineAccountableActor(auth.user),
       mutationId.value,
+      mutationReplayRequest(auth.user, body.value),
     );
     if (!result) return jsonError("Referral not found.", 404);
     if (!result.ok && "conflict" in result) {
@@ -125,7 +127,7 @@ export async function POST(
     const mutationId = validateClientMutationId(body.value.client_mutation_id);
     if (!mutationId.ok) return jsonError(mutationId.message);
     const result = await reopenAdmissionDecision(referralId, body.value.decision_id,
-      Number(body.value.if_match), Number(body.value.if_match_section), pipelineAccountableActor(auth.user), mutationId.value);
+      Number(body.value.if_match), Number(body.value.if_match_section), pipelineAccountableActor(auth.user), mutationId.value, mutationReplayRequest(auth.user, body.value));
     if (!result) return jsonError("Referral not found.", 404);
     if (!result.ok && "conflict" in result) return Response.json({ error: "The decision changed. Review the latest record before reopening.", ...result }, { status: 409 });
     if (!result.ok) return Response.json({ error: result.blockers[0]?.label, ...result }, { status: 422 });

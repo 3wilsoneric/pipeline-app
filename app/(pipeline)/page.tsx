@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { notFound } from "next/navigation";
 
 import PipelineOverviewRoute from "@/components/pipeline/PipelineOverviewRoute";
 import { getPipelineServerEntryUser } from "@/lib/auth/server-entry";
@@ -10,6 +11,7 @@ export default async function HomePage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const params = await searchParams;
+  if (["trainingAssessment", "trainingIntake", "demo"].some((key) => key in params)) notFound();
   const user = await getPipelineServerEntryUser();
   // Only Home needs its briefing. Use the exact API projection/effective user,
   // not a second query model or cached authorization decision. An outage keeps

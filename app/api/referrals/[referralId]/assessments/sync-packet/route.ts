@@ -1,3 +1,4 @@
+import { rethrowMutationReplayConflict } from "@/lib/persistence/mutation-replay";
 import { createHash } from "node:crypto";
 
 import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
@@ -95,6 +96,9 @@ export async function POST(
         defaults: seed.data,
         actor: pipelineAuditActor(auth.user),
         mutationId,
+        // This is a server-generated content reconciliation shared by authorized
+        // readers, not a client-provided mutation ID. Do not bind a fresh timestamp.
+        replayRequest: { principal: ["packet-sync"], command: { action: "sync_packet", mutationId } },
       });
       if (!result) return jsonError("Assessment not found.", 404);
       if (!result.ok && "conflict" in result) {
@@ -106,6 +110,7 @@ export async function POST(
       if (!result.ok) return Response.json({ error: "Packet evidence sync is blocked.", ...result }, { status: 422 });
       return Response.json({ ...result, synced: true }, { headers: privateHeaders() });
     } catch (error) {
+      rethrowMutationReplayConflict(error);
       const identityResponse = assessmentClientIdentityErrorResponse(error);
       if (identityResponse) return identityResponse;
       return jsonError(error instanceof Error ? error.message : "Could not sync packet evidence.", 400);

@@ -92,6 +92,7 @@ test("partial answers save before scheduling or starting, without any census loo
       assert.deepEqual(current.calls.identities, []);
       assert.deepEqual(current.calls.patches, [["synthetic-assessment", command.patch, { id: assessor.id, name: assessor.name }, {
         expectedVersion: 7, mutationId: command.client_mutation_id,
+        replayRequest: { principal: [assessor.id, assessor.id], command: { action: "patch", command } },
       }]]);
     }
   }
@@ -104,6 +105,7 @@ test("section versions and conflict responses still reach the save boundary unch
   assert.equal((await response.json()).conflict, true);
   assert.deepEqual(current.calls.patches[0][3], {
     expectedVersion: 7, expectedSectionVersion: 3, section: "provenance_qc", mutationId: command.client_mutation_id,
+    replayRequest: { principal: [assessor.id, assessor.id], command: { action: "patch", command: { ...command, section: "provenance_qc", if_match_section: 3 } } },
   });
   assert.deepEqual(current.calls.identities, []);
 });

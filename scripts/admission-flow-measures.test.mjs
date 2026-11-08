@@ -208,12 +208,19 @@ test("coordinator facts persist with workflow versioning, audit, and mutation re
     }, "admission-flow-create", actor);
     const referral = created.referral;
     const tracking = { readyToMoveInDate: "2026-10-11", readyDateHistory: [{ date: "2026-10-11", recordedAt: "2026-10-11T12:00:00Z", recordedBy: actor.id }], holds: [] };
-    const options = { auditAction: "admission_ready_recorded", mutationId: "ready-fixture", mutationScope: "admission_flow" };
+    const replayRequest = { principal: [actor.id, actor.id], command: {
+      action: "record_ready", ready_date: tracking.readyToMoveInDate,
+      if_match: referral.version, if_match_section: referral.sectionVersions.workflow,
+      client_mutation_id: "ready-fixture",
+    } };
+    const options = { auditAction: "admission_ready_recorded", mutationId: "ready-fixture", mutationScope: "admission_flow", replayRequest };
     const saved = await store.patchReferral(referral.id, { admissionFlow: tracking }, referral.version, actor,
       { workflow: referral.sectionVersions.workflow }, options);
     assert.equal(saved.ok, true);
     assert.deepEqual((await store.getReferral(referral.id)).admissionFlow, tracking);
-    assert.equal((await store.getReferralMutationReplay(referral.id, "admission_flow", "ready-fixture")).version, saved.referral.version);
+    assert.equal((await store.getReferralMutationReplay(referral.id, "admission_flow", "ready-fixture", actor, replayRequest)).version, saved.referral.version);
+    await assert.rejects(() => store.getReferralMutationReplay(referral.id, "admission_flow", "ready-fixture", actor,
+      { ...replayRequest, command: { ...replayRequest.command, ready_date: "2026-10-12" } }), { name: "MutationReplayConflictError" });
     const conflict = await store.patchReferral(referral.id, { admissionFlow: { holds: [] } }, referral.version, actor,
       { workflow: referral.sectionVersions.workflow }, { auditAction: "admission_ready_date_corrected" });
     assert.equal(conflict.ok, false);

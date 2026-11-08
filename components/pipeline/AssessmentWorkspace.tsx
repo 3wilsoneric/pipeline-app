@@ -725,7 +725,7 @@ export default function AssessmentWorkspace({
     pickedTopic.current = { key, until: performance.now() + 1500 };
     // On tablets the topic reference sits above the questions. Commit its new
     // height before measuring the destination, or the selected heading shifts.
-    flushSync(() => setSpyGroup(key));
+    flushSync(() => { setSpyGroup(key); setActiveSection(section); });
     // Snaps straight to the chosen section (owner, 2026-09-27: "click and it snaps there").
     document.querySelector(`[data-assessment-group-heading="${key}"]`)?.scrollIntoView({ block: "start" });
   };
@@ -733,18 +733,22 @@ export default function AssessmentWorkspace({
   useEffect(() => {
     if (!stackedQuestionsView || !workspaceActive || !questionsOnScreen || !sectionJumps || isLoading || !isFocused || reviewingChart || !selectedId || workingTarget) return;
     const key = preparing ? preparationGroupForSection(activeSection).key : activeSection;
-    if (key === stackedGroups[0]?.key) return;
     const frame = window.requestAnimationFrame(() => {
       const heading = document.querySelector(`[data-assessment-group-heading="${key}"]`);
-      if (!heading) return;
       pickedTopic.current = { key, until: performance.now() + 1500 };
+      // A fully answered topic has no question heading, but its reference and
+      // picker still belong to the section named by the link or history entry.
       flushSync(() => setSpyGroup(key));
-      heading.scrollIntoView({ block: "start" });
+      // The first preparation group begins with scheduling/start controls above
+      // its questions. Keep those controls reachable when opening preparation.
+      const target = preparing && key === assessmentPreparationGroups[0].key
+        ? document.querySelector('[data-interview-entry="top"]') ?? heading
+        : heading;
+      target?.scrollIntoView({ block: "start" });
     });
     return () => window.cancelAnimationFrame(frame);
     // Wait until the loaded questionnaire is mounted. An exact question target owns its own scroll.
     // Only entry/section changes move the page; answers changing must not.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stackedQuestionsView, workspaceActive, questionsOnScreen, sectionJumps, isLoading, isFocused, reviewingChart, selectedId, preparing, activeSection, workingTarget]);
   const nextRequiredTarget = assessmentCompletionTarget(completion.missing[0]);
   const practiceReview = useMemo(
@@ -1616,8 +1620,11 @@ export default function AssessmentWorkspace({
       const nextDraft = pickAssessmentToolData(local);
       for (const { key: field } of assessmentToolFieldDefinitions) {
         const sentValue = sentData[field];
-        if ((sentValue !== undefined && sameAssessmentValue(local[field], sentValue))
-          || sameAssessmentValue(local[field], baseDataRef.current[field])) {
+        // A newer edit may return to the original base value (No → Yes → No).
+        // For a field we sent, only acknowledge the value still on screen.
+        if (sentValue !== undefined
+          ? sameAssessmentValue(local[field], sentValue)
+          : sameAssessmentValue(local[field], baseDataRef.current[field])) {
           nextDraft[field] = savedData[field] as never;
         }
       }

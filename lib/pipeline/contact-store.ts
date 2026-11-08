@@ -6,6 +6,7 @@ import { dirname, resolve } from "node:path";
 
 import type { TransactionSql } from "postgres";
 
+import { assertMutationReplayFingerprint, mutationRequestFingerprint, MutationReplayConflictError, type MutationReplayRequest } from "@/lib/persistence/mutation-replay";
 import { getPipelineSql } from "@/lib/database/pipeline-database";
 import {
   previewContactImport,
@@ -89,6 +90,7 @@ type ContactStoreFile = {
   contacts: ContactRecord[];
   links: ReferralContactRecord[];
   mutations: Record<string, string>;
+  request_fingerprints?: Record<string, string>;
   auditEvents: LocalContactAuditEvent[];
 };
 
@@ -100,6 +102,7 @@ const globalContactState = globalThis as typeof globalThis & {
     contacts: ContactRecord[];
     links: ReferralContactRecord[];
     mutations: Map<string, string>;
+    requestFingerprints: Map<string, string>;
     auditEvents: LocalContactAuditEvent[];
     mutationQueue: Promise<void>;
   };
@@ -113,9 +116,12 @@ const localState: LocalContactState = globalContactState.__pipelineContactState 
   contacts: [] as ContactRecord[],
   links: [] as ReferralContactRecord[],
   mutations: new Map<string, string>(),
+  requestFingerprints: new Map<string, string>(),
   auditEvents: [] as LocalContactAuditEvent[],
   mutationQueue: Promise.resolve(),
 };
+
+localState.requestFingerprints ??= new Map<string, string>();
 
 export function getContactStoreReadiness() {
   const referral = getReferralStoreReadiness();
@@ -222,21 +228,24 @@ export async function createContact(
   input: ContactInput,
   actor: ContactActor,
   mutationId?: string,
+  replayRequest?: MutationReplayRequest,
 ): Promise<{ ok: true; record: ContactRecord; idempotentReplay: boolean }> {
+  const fingerprint = mutationRequestFingerprint("contact_create", "directory", actor, input, replayRequest);
   if (getContactStoreReadiness().mode === "postgres") {
-    return getPipelineSql().begin((tx) => createPostgresContact(tx, input, actor, mutationId));
+    return getPipelineSql().begin((tx) => createPostgresContact(tx, input, actor, mutationId, fingerprint));
   }
   return runLocalMutation(async () => {
-    const replayId = localReplay("contact_create", mutationId);
+    const replayId = localReplay("contact_create", mutationId, fingerprint);
     const replay = replayId ? localState.contacts.find((item) => item.id === replayId) : null;
     if (replay) return { ok: true, record: replay, idempotentReplay: true };
+    if (replayId) throw new MutationReplayConflictError();
     const now = new Date().toISOString();
     const record: ContactRecord = {
       id: randomUUID(), version: 1, ...input, active: true,
       createdBy: actor, updatedBy: actor, createdAt: now, updatedAt: now,
     };
     localState.contacts.push(record);
-    saveLocalReplay("contact_create", mutationId, record.id);
+    saveLocalReplay("contact_create", mutationId, record.id, fingerprint);
     localState.revision += 1;
     await persistLocal();
     return { ok: true, record, idempotentReplay: false };
@@ -332,14 +341,16 @@ export async function updateContact(
   expectedVersion: number,
   actor: ContactActor,
   mutationId?: string,
+  replayRequest?: MutationReplayRequest,
 ): Promise<ContactMutationResult<ContactRecord> | null> {
+  const fingerprint = mutationRequestFingerprint("contact_update", contactId, actor, { patch, expectedVersion }, replayRequest);
   if (getContactStoreReadiness().mode === "postgres") {
-    return getPipelineSql().begin((tx) => updatePostgresContact(tx, contactId, patch, expectedVersion, actor, mutationId));
+    return getPipelineSql().begin((tx) => updatePostgresContact(tx, contactId, patch, expectedVersion, actor, mutationId, fingerprint));
   }
   return runLocalMutation(async () => {
     const current = localState.contacts.find((item) => item.id === contactId);
     if (!current) return null;
-    if (localReplay("contact_update", mutationId) === contactId) return { ok: true, record: current, idempotentReplay: true };
+    if (localReplay("contact_update", mutationId, fingerprint) === contactId) return { ok: true, record: current, idempotentReplay: true };
     if (current.version !== expectedVersion) return { ok: false, conflict: true, current };
     const next = { ...current, ...patch, version: current.version + 1, updatedBy: actor, updatedAt: new Date().toISOString() };
     if (!hasContactIdentity(next)) throw new Error("A contact needs a name or organization.");
@@ -349,7 +360,7 @@ export async function updateContact(
     for (const referralId of new Set(localState.links.filter((link) => link.contactId === contactId).map((link) => link.referralId))) {
       localState.auditEvents.push(localAudit(referralId, "referral_contact_details_updated", actor, changedFields, current.version, next.version));
     }
-    saveLocalReplay("contact_update", mutationId, contactId);
+    saveLocalReplay("contact_update", mutationId, contactId, fingerprint);
     localState.revision += 1;
     await persistLocal();
     return { ok: true, record: next, idempotentReplay: false };
@@ -361,18 +372,25 @@ export async function attachReferralContact(
   input: ReferralContactInput,
   actor: ContactActor,
   mutationId?: string,
+  replayRequest?: MutationReplayRequest,
 ): Promise<{ ok: true; record: ReferralContactRecord; idempotentReplay: boolean } | null> {
+  const fingerprint = mutationRequestFingerprint("contact_attach", String(referralId), actor, input, replayRequest);
   if (getContactStoreReadiness().mode === "postgres") {
-    return getPipelineSql().begin((tx) => attachPostgresReferralContact(tx, referralId, input, actor, mutationId));
+    return getPipelineSql().begin((tx) => attachPostgresReferralContact(tx, referralId, input, actor, mutationId, fingerprint));
   }
   return runLocalMutation(async () => {
     const contact = localState.contacts.find((item) => item.id === input.contactId && item.active);
     if (!contact) return null;
-    const replayId = localReplay(`contact_attach:${referralId}`, mutationId);
+    const replayId = localReplay(`contact_attach:${referralId}`, mutationId, fingerprint);
     const replay = replayId ? localState.links.find((item) => item.id === replayId && item.referralId === referralId) : null;
     if (replay) return { ok: true, record: replay, idempotentReplay: true };
+    if (replayId) throw new MutationReplayConflictError();
     const duplicate = localState.links.find((item) => item.referralId === referralId && item.contactId === input.contactId && item.role === input.role);
-    if (duplicate) return { ok: true, record: duplicate, idempotentReplay: true };
+    if (duplicate) {
+      saveLocalReplay(`contact_attach:${referralId}`, mutationId, duplicate.id, fingerprint);
+      await persistLocal();
+      return { ok: true, record: duplicate, idempotentReplay: true };
+    }
     if (input.primaryForScheduling) clearLocalPrimary(referralId, actor);
     const now = new Date().toISOString();
     const record: ReferralContactRecord = {
@@ -381,7 +399,7 @@ export async function attachReferralContact(
     };
     localState.links.push(record);
     localState.auditEvents.push(localAudit(referralId, "referral_contact_attached", actor, ["contact", "role", ...(input.primaryForScheduling ? ["primaryForScheduling"] : [])], null, 1));
-    saveLocalReplay(`contact_attach:${referralId}`, mutationId, record.id);
+    saveLocalReplay(`contact_attach:${referralId}`, mutationId, record.id, fingerprint);
     localState.revision += 1;
     await persistLocal();
     return { ok: true, record, idempotentReplay: false };
@@ -395,20 +413,22 @@ export async function updateReferralContact(
   expectedVersion: number,
   actor: ContactActor,
   mutationId?: string,
+  replayRequest?: MutationReplayRequest,
 ): Promise<ContactMutationResult<ReferralContactRecord> | null> {
+  const fingerprint = mutationRequestFingerprint("contact_link_update", `${referralId}:${linkId}`, actor, { patch, expectedVersion }, replayRequest);
   if (getContactStoreReadiness().mode === "postgres") {
-    return getPipelineSql().begin((tx) => updatePostgresReferralContact(tx, referralId, linkId, patch, expectedVersion, actor, mutationId));
+    return getPipelineSql().begin((tx) => updatePostgresReferralContact(tx, referralId, linkId, patch, expectedVersion, actor, mutationId, fingerprint));
   }
   return runLocalMutation(async () => {
     const current = localState.links.find((item) => item.id === linkId && item.referralId === referralId);
     if (!current) return null;
-    if (localReplay(`contact_link_update:${referralId}`, mutationId) === linkId) return { ok: true, record: current, idempotentReplay: true };
+    if (localReplay(`contact_link_update:${referralId}`, mutationId, fingerprint) === linkId) return { ok: true, record: current, idempotentReplay: true };
     if (current.version !== expectedVersion) return { ok: false, conflict: true, current };
     if (patch.primaryForScheduling) clearLocalPrimary(referralId, actor, linkId);
     const next = { ...current, ...patch, version: current.version + 1, updatedBy: actor, updatedAt: new Date().toISOString() };
     localState.links = localState.links.map((item) => item.id === linkId ? next : item);
     localState.auditEvents.push(localAudit(referralId, "referral_contact_updated", actor, Object.keys(patch), current.version, next.version));
-    saveLocalReplay(`contact_link_update:${referralId}`, mutationId, linkId);
+    saveLocalReplay(`contact_link_update:${referralId}`, mutationId, linkId, fingerprint);
     localState.revision += 1;
     await persistLocal();
     return { ok: true, record: next, idempotentReplay: false };
@@ -421,18 +441,20 @@ export async function unlinkReferralContact(
   expectedVersion: number,
   actor: ContactActor,
   mutationId?: string,
+  replayRequest?: MutationReplayRequest,
 ): Promise<{ ok: true; idempotentReplay: boolean } | { ok: false; conflict: true; current: ReferralContactRecord } | null> {
+  const fingerprint = mutationRequestFingerprint("contact_unlink", `${referralId}:${linkId}`, actor, { expectedVersion }, replayRequest);
   if (getContactStoreReadiness().mode === "postgres") {
-    return getPipelineSql().begin((tx) => unlinkPostgresReferralContact(tx, referralId, linkId, expectedVersion, actor, mutationId));
+    return getPipelineSql().begin((tx) => unlinkPostgresReferralContact(tx, referralId, linkId, expectedVersion, actor, mutationId, fingerprint));
   }
   return runLocalMutation(async () => {
-    if (localReplay(`contact_unlink:${referralId}`, mutationId) === linkId) return { ok: true, idempotentReplay: true };
+    if (localReplay(`contact_unlink:${referralId}`, mutationId, fingerprint) === linkId) return { ok: true, idempotentReplay: true };
     const current = localState.links.find((item) => item.id === linkId && item.referralId === referralId);
     if (!current) return null;
     if (current.version !== expectedVersion) return { ok: false, conflict: true, current };
     localState.links = localState.links.filter((item) => item.id !== linkId);
     localState.auditEvents.push(localAudit(referralId, "referral_contact_unlinked", actor, ["contact"], current.version, null));
-    saveLocalReplay(`contact_unlink:${referralId}`, mutationId, linkId);
+    saveLocalReplay(`contact_unlink:${referralId}`, mutationId, linkId, fingerprint);
     localState.revision += 1;
     await persistLocal();
     return { ok: true, idempotentReplay: false };
@@ -444,11 +466,12 @@ export async function listLocalContactAuditEvents(referralId: number) {
   return localState.auditEvents.filter((item) => item.referralId === referralId);
 }
 
-async function createPostgresContact(tx: TransactionSql, input: ContactInput, actor: ContactActor, mutationId?: string): Promise<{ ok: true; record: ContactRecord; idempotentReplay: boolean }> {
-  const replayId = await lockPostgresMutation(tx, "contact_create", mutationId);
+async function createPostgresContact(tx: TransactionSql, input: ContactInput, actor: ContactActor, mutationId?: string, fingerprint?: string): Promise<{ ok: true; record: ContactRecord; idempotentReplay: boolean }> {
+  const replayId = await lockPostgresMutation(tx, "contact_create", mutationId, fingerprint);
   if (replayId) {
     const replay = await selectPostgresContact(tx, replayId, false);
     if (replay) return { ok: true, record: replay, idempotentReplay: true };
+    if (replayId) throw new MutationReplayConflictError();
   }
   const rows = await tx<ContactRow[]>`
     insert into pipeline.contacts (
@@ -462,13 +485,13 @@ async function createPostgresContact(tx: TransactionSql, input: ContactInput, ac
   `;
   const record = mapContactRow(rows[0]);
   await writeContactAudit(tx, "contact", record.id, "contact_created", actor, [], null, 1);
-  await savePostgresMutation(tx, "contact_create", mutationId, "contact", record.id);
+  await savePostgresMutation(tx, "contact_create", mutationId, "contact", record.id, fingerprint);
   await bumpContactRevision(tx);
   return { ok: true, record, idempotentReplay: false };
 }
 
-async function updatePostgresContact(tx: TransactionSql, contactId: string, patch: ContactPatch, expectedVersion: number, actor: ContactActor, mutationId?: string): Promise<ContactMutationResult<ContactRecord> | null> {
-  const replayId = await lockPostgresMutation(tx, "contact_update", mutationId);
+async function updatePostgresContact(tx: TransactionSql, contactId: string, patch: ContactPatch, expectedVersion: number, actor: ContactActor, mutationId?: string, fingerprint?: string): Promise<ContactMutationResult<ContactRecord> | null> {
+  const replayId = await lockPostgresMutation(tx, "contact_update", mutationId, fingerprint);
   const current = await selectPostgresContact(tx, contactId, true);
   if (!current) return null;
   if (replayId === contactId) return { ok: true, record: current, idempotentReplay: true };
@@ -490,18 +513,19 @@ async function updatePostgresContact(tx: TransactionSql, contactId: string, patc
   await writeContactAudit(tx, "contact", contactId, "contact_updated", actor, changedFields, current.version, record.version);
   const referrals = await tx<{ referral_id: number | string }[]>`select distinct referral_id from pipeline.referral_contacts where contact_id = ${contactId}::uuid`;
   for (const row of referrals) await writeContactAudit(tx, "referral", String(row.referral_id), "referral_contact_details_updated", actor, changedFields, current.version, record.version);
-  await savePostgresMutation(tx, "contact_update", mutationId, "contact", contactId);
+  await savePostgresMutation(tx, "contact_update", mutationId, "contact", contactId, fingerprint);
   await bumpContactRevision(tx);
   return { ok: true, record, idempotentReplay: false };
 }
 
-async function attachPostgresReferralContact(tx: TransactionSql, referralId: number, input: ReferralContactInput, actor: ContactActor, mutationId?: string): Promise<{ ok: true; record: ReferralContactRecord; idempotentReplay: boolean } | null> {
+async function attachPostgresReferralContact(tx: TransactionSql, referralId: number, input: ReferralContactInput, actor: ContactActor, mutationId?: string, fingerprint?: string): Promise<{ ok: true; record: ReferralContactRecord; idempotentReplay: boolean } | null> {
   await lockPostgresReferralContacts(tx, referralId);
   const scope = `contact_attach:${referralId}`;
-  const replayId = await lockPostgresMutation(tx, scope, mutationId);
+  const replayId = await lockPostgresMutation(tx, scope, mutationId, fingerprint);
   if (replayId) {
     const replay = await selectPostgresReferralContact(tx, referralId, replayId, false);
     if (replay) return { ok: true, record: replay, idempotentReplay: true };
+    if (replayId) throw new MutationReplayConflictError();
   }
   const contact = await selectPostgresContact(tx, input.contactId, false);
   if (!contact?.active) return null;
@@ -511,7 +535,9 @@ async function attachPostgresReferralContact(tx: TransactionSql, referralId: num
   `;
   if (duplicates[0]) {
     const duplicate = await selectPostgresReferralContact(tx, referralId, duplicates[0].referral_contact_id, false);
-    return duplicate ? { ok: true, record: duplicate, idempotentReplay: true } : null;
+    if (!duplicate) return null;
+    await savePostgresMutation(tx, scope, mutationId, "referral_contact", duplicate.id, fingerprint);
+    return { ok: true, record: duplicate, idempotentReplay: true };
   }
   if (input.primaryForScheduling) await clearPostgresPrimary(tx, referralId, actor);
   const rows = await tx<{ referral_contact_id: string }[]>`
@@ -526,15 +552,15 @@ async function attachPostgresReferralContact(tx: TransactionSql, referralId: num
   const record = await selectPostgresReferralContact(tx, referralId, rows[0].referral_contact_id, false);
   if (!record) throw new Error("The contact link could not be reloaded.");
   await writeContactAudit(tx, "referral", String(referralId), "referral_contact_attached", actor, ["contact", "role", ...(input.primaryForScheduling ? ["primaryForScheduling"] : [])], null, 1);
-  await savePostgresMutation(tx, scope, mutationId, "referral_contact", record.id);
+  await savePostgresMutation(tx, scope, mutationId, "referral_contact", record.id, fingerprint);
   await bumpContactRevision(tx);
   return { ok: true, record, idempotentReplay: false };
 }
 
-async function updatePostgresReferralContact(tx: TransactionSql, referralId: number, linkId: string, patch: ReferralContactPatch, expectedVersion: number, actor: ContactActor, mutationId?: string): Promise<ContactMutationResult<ReferralContactRecord> | null> {
+async function updatePostgresReferralContact(tx: TransactionSql, referralId: number, linkId: string, patch: ReferralContactPatch, expectedVersion: number, actor: ContactActor, mutationId?: string, fingerprint?: string): Promise<ContactMutationResult<ReferralContactRecord> | null> {
   await lockPostgresReferralContacts(tx, referralId);
   const scope = `contact_link_update:${referralId}`;
-  const replayId = await lockPostgresMutation(tx, scope, mutationId);
+  const replayId = await lockPostgresMutation(tx, scope, mutationId, fingerprint);
   const current = await selectPostgresReferralContact(tx, referralId, linkId, true);
   if (!current) return null;
   if (replayId === linkId) return { ok: true, record: current, idempotentReplay: true };
@@ -550,22 +576,22 @@ async function updatePostgresReferralContact(tx: TransactionSql, referralId: num
   const record = await selectPostgresReferralContact(tx, referralId, linkId, false);
   if (!record) throw new Error("The contact link could not be reloaded.");
   await writeContactAudit(tx, "referral", String(referralId), "referral_contact_updated", actor, Object.keys(patch), current.version, record.version);
-  await savePostgresMutation(tx, scope, mutationId, "referral_contact", linkId);
+  await savePostgresMutation(tx, scope, mutationId, "referral_contact", linkId, fingerprint);
   await bumpContactRevision(tx);
   return { ok: true, record, idempotentReplay: false };
 }
 
-async function unlinkPostgresReferralContact(tx: TransactionSql, referralId: number, linkId: string, expectedVersion: number, actor: ContactActor, mutationId?: string) {
+async function unlinkPostgresReferralContact(tx: TransactionSql, referralId: number, linkId: string, expectedVersion: number, actor: ContactActor, mutationId?: string, fingerprint?: string) {
   await lockPostgresReferralContacts(tx, referralId);
   const scope = `contact_unlink:${referralId}`;
-  const replayId = await lockPostgresMutation(tx, scope, mutationId);
+  const replayId = await lockPostgresMutation(tx, scope, mutationId, fingerprint);
   if (replayId === linkId) return { ok: true as const, idempotentReplay: true };
   const current = await selectPostgresReferralContact(tx, referralId, linkId, true);
   if (!current) return null;
   if (current.version !== expectedVersion) return { ok: false as const, conflict: true as const, current };
   await tx`delete from pipeline.referral_contacts where referral_contact_id = ${linkId}::uuid and referral_id = ${referralId}`;
   await writeContactAudit(tx, "referral", String(referralId), "referral_contact_unlinked", actor, ["contact"], current.version, null);
-  await savePostgresMutation(tx, scope, mutationId, "referral_contact", linkId);
+  await savePostgresMutation(tx, scope, mutationId, "referral_contact", linkId, fingerprint);
   await bumpContactRevision(tx);
   return { ok: true as const, idempotentReplay: false };
 }
@@ -608,10 +634,11 @@ async function clearPostgresPrimary(tx: TransactionSql, referralId: number, acto
   if (rows.length) await writeContactAudit(tx, "referral", String(referralId), "referral_contact_primary_changed", actor, ["primaryForScheduling"], null, null);
 }
 
-async function lockPostgresMutation(tx: TransactionSql, scope: string, mutationId?: string) {
+async function lockPostgresMutation(tx: TransactionSql, scope: string, mutationId?: string, fingerprint?: string) {
   if (!mutationId) return null;
   await tx`select pg_advisory_xact_lock(hashtextextended(${`${scope}:${mutationId}`}, 0))`;
-  const rows = await tx<{ entity_id: string }[]>`select entity_id from pipeline.idempotency_keys where scope = ${scope} and mutation_id = ${mutationId}`;
+  const rows = await tx<{ entity_id: string; request_fingerprint: string | null }[]>`select entity_id, request_fingerprint from pipeline.idempotency_keys where scope = ${scope} and mutation_id = ${mutationId}`;
+  if (rows[0] && fingerprint) assertMutationReplayFingerprint(rows[0].request_fingerprint, fingerprint);
   return rows[0]?.entity_id ?? null;
 }
 
@@ -619,11 +646,11 @@ async function lockPostgresReferralContacts(tx: TransactionSql, referralId: numb
   await tx`select pg_advisory_xact_lock(hashtextextended(${`referral_contacts:${referralId}`}, 0))`;
 }
 
-async function savePostgresMutation(tx: TransactionSql, scope: string, mutationId: string | undefined, entityType: string, entityId: string) {
+async function savePostgresMutation(tx: TransactionSql, scope: string, mutationId: string | undefined, entityType: string, entityId: string, fingerprint?: string) {
   if (!mutationId) return;
   await tx`
-    insert into pipeline.idempotency_keys (scope, mutation_id, entity_type, entity_id, expires_at)
-    values (${scope}, ${mutationId}, ${entityType}, ${entityId}, now() + interval '30 days')
+    insert into pipeline.idempotency_keys (scope, mutation_id, entity_type, entity_id, request_fingerprint, expires_at)
+    values (${scope}, ${mutationId}, ${entityType}, ${entityId}, ${fingerprint ?? null}, now() + interval '30 days')
     on conflict (scope, mutation_id) do nothing
   `;
 }
@@ -681,12 +708,20 @@ function localAudit(referralId: number | null, action: string, actor: ContactAct
   return { eventId: randomUUID(), referralId, action, actor, changedFields, fromVersion, toVersion, createdAt: new Date().toISOString() };
 }
 
-function localReplay(scope: string, mutationId?: string) {
-  return mutationId ? localState.mutations.get(`${scope}:${mutationId}`) : undefined;
+function localReplay(scope: string, mutationId?: string, fingerprint?: string) {
+  if (!mutationId) return undefined;
+  const key = `${scope}:${mutationId}`;
+  const entityId = localState.mutations.get(key);
+  // CSV imports already bind actor and content in their stored summary.
+  if (entityId && fingerprint) assertMutationReplayFingerprint(localState.requestFingerprints.get(key), fingerprint);
+  return entityId;
 }
 
-function saveLocalReplay(scope: string, mutationId: string | undefined, entityId: string) {
-  if (mutationId) localState.mutations.set(`${scope}:${mutationId}`, entityId);
+function saveLocalReplay(scope: string, mutationId: string | undefined, entityId: string, fingerprint?: string) {
+  if (!mutationId) return;
+  const key = `${scope}:${mutationId}`;
+  localState.mutations.set(key, entityId);
+  if (fingerprint) localState.requestFingerprints.set(key, fingerprint);
 }
 
 async function runLocalMutation<T>(mutation: () => Promise<T>): Promise<T> {
@@ -694,7 +729,7 @@ async function runLocalMutation<T>(mutation: () => Promise<T>): Promise<T> {
   let release: () => void = () => undefined;
   localState.mutationQueue = new Promise<void>((resolve) => { release = resolve; });
   await previous;
-  let snapshot: Pick<LocalContactState, "revision" | "contacts" | "links" | "mutations" | "auditEvents"> | undefined;
+  let snapshot: Pick<LocalContactState, "revision" | "contacts" | "links" | "mutations" | "requestFingerprints" | "auditEvents"> | undefined;
   try {
     // Load before taking the rollback snapshot; failed loads must release the queue.
     await ensureLocalLoaded();
@@ -703,6 +738,7 @@ async function runLocalMutation<T>(mutation: () => Promise<T>): Promise<T> {
       contacts: structuredClone(localState.contacts),
       links: structuredClone(localState.links),
       mutations: new Map(localState.mutations),
+      requestFingerprints: new Map(localState.requestFingerprints),
       auditEvents: structuredClone(localState.auditEvents),
     };
     return await mutation();
@@ -712,6 +748,7 @@ async function runLocalMutation<T>(mutation: () => Promise<T>): Promise<T> {
       localState.contacts = snapshot.contacts;
       localState.links = snapshot.links;
       localState.mutations = snapshot.mutations;
+      localState.requestFingerprints = snapshot.requestFingerprints;
       localState.auditEvents = snapshot.auditEvents;
     }
     throw error;
@@ -734,6 +771,7 @@ async function ensureLocalLoaded() {
       localState.contacts = Array.isArray(parsed.contacts) ? parsed.contacts : [];
       localState.links = Array.isArray(parsed.links) ? parsed.links : [];
       localState.mutations = new Map(Object.entries(parsed.mutations ?? {}));
+      localState.requestFingerprints = new Map(Object.entries(parsed.request_fingerprints ?? {}));
       localState.auditEvents = Array.isArray(parsed.auditEvents) ? parsed.auditEvents.slice(-100_000) : [];
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
@@ -752,6 +790,7 @@ async function ensureLocalLoaded() {
 async function persistLocal() {
   const file: ContactStoreFile = {
     schema: 1, revision: localState.revision, contacts: localState.contacts, links: localState.links,
+    request_fingerprints: Object.fromEntries(localState.requestFingerprints),
     mutations: Object.fromEntries(localState.mutations), auditEvents: localState.auditEvents.slice(-100_000),
   };
   const target = contactStorePath();

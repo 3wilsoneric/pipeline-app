@@ -1,3 +1,4 @@
+import { openAssessmentFixture } from "./support/assessment-fixture";
 import { closeTestBrowser } from "./support/browser-lifecycle";
 import { expect, test, webkit } from "@playwright/test";
 import type { AxeResults } from "axe-core";
@@ -68,7 +69,7 @@ for (const size of [
     const browser = await webkit.launch();
     const page = await browser.newPage({ baseURL, viewport: size, hasTouch: true, isMobile: true });
     try {
-      await page.goto("/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=schedule");
+      await openAssessmentFixture(page, { mode: "schedule" });
       const dialog = page.getByRole("dialog", { name: "Schedule interview", exact: true });
       await dialog.getByLabel("Assessment method", { exact: true }).selectOption("phone");
       const phone = dialog.getByLabel("Phone number to call", { exact: true });

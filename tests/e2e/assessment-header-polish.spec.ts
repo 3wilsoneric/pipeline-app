@@ -1,3 +1,4 @@
+import { openAssessmentFixture } from "./support/assessment-fixture";
 import { closeTestBrowser } from "./support/browser-lifecycle";
 import { expect, test, webkit, type Page } from "@playwright/test";
 import { randomUUID } from "node:crypto";
@@ -95,7 +96,7 @@ test("review warnings remain distinct from unanswered questions", async ({ page 
 for (const width of [390, 320]) {
   test(`phone assessment retains its compact header at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 850 });
-    await page.goto("/?view=referrals&screen=packet&trainingAssessment=interview&demo=1&workspaceStage=assessment&assessmentSection=prior_history");
+    await openAssessmentFixture(page, { mode: "interview", section: "prior_history" });
     const interview = page.locator("[data-phone-interview]");
     await expect(interview.getByRole("button", { name: "Choose questionnaire section" })).toHaveAttribute("title", /^Section 7 of 12:/);
     await expect(interview.getByText("Unanswered", { exact: true })).toHaveCount(0);
@@ -110,7 +111,7 @@ test("iPad WebKit retains the native section picker and readable status", async 
   const browser = await webkit.launch();
   try {
     const page = await browser.newPage({ baseURL, viewport: { width: 834, height: 1194 }, isMobile: true, hasTouch: true });
-    await page.goto("/?view=referrals&screen=packet&trainingAssessment=interview&demo=1&workspaceStage=assessment&assessmentSection=prior_history");
+    await openAssessmentFixture(page, { mode: "interview", section: "prior_history" });
     const header = page.getByRole("navigation", { name: "Assessment sections", exact: true });
     await expect(header.getByRole("status")).toHaveCSS("font-size", "14px");
     await header.getByRole("combobox", { name: "Assessment section", exact: true }).selectOption("legal_conservatorship");

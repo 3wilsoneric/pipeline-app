@@ -1,3 +1,4 @@
+import { mutationReplayRequest, rethrowMutationReplayConflict } from "@/lib/persistence/mutation-replay";
 import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
 import { verifyIntakeAnswers, verifyPriorAnswers } from "@/lib/assessment/assessment-prior-answers-server";
 import { pipelineAuditActor } from "@/lib/auth/assessor-session-policy";
@@ -96,6 +97,7 @@ export async function PATCH(
           section: validated.value.section,
           expectedSectionVersion: validated.value.if_match_section,
           mutationId: validated.value.client_mutation_id,
+          replayRequest: mutationReplayRequest(auth.user, { action: "patch", command: body.value }),
         },
       );
       if (!result) return jsonError("Assessment not found.", 404);
@@ -115,6 +117,7 @@ export async function PATCH(
       }
       return Response.json(result, { headers: privateHeaders() });
     } catch (error) {
+      rethrowMutationReplayConflict(error);
       const identityResponse = assessmentClientIdentityErrorResponse(error);
       if (identityResponse) return identityResponse;
       return jsonError(error instanceof Error ? error.message : "Could not update assessment.", 400);

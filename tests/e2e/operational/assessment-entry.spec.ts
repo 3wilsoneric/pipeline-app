@@ -1,3 +1,4 @@
+import { openAssessmentFixture } from "../support/assessment-fixture";
 import { expect, test, type APIRequestContext } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { isoToOperationalInput } from "../../../components/pipeline/pipeline-calendar-model";
@@ -21,6 +22,7 @@ test.describe("assessment editing entry and return paths", () => {
       const url = requireOperationalBaseURL(baseURL);
       const api = await actorApiContext(actor, url);
       const { page, context } = await actorPage(browser, actor, url);
+      let releaseSave: (() => void) | undefined;
       try {
         const { referral, assessment } = await scheduledAssessment(api, pipelineActors[actor].id);
         await page.goto(`${workspacePath(referral.id)}&workspaceStage=assessment&assessmentSection=prior_history`);
@@ -33,15 +35,30 @@ test.describe("assessment editing entry and return paths", () => {
         expect((await readAssessment(api, assessment.assessment_id)).started_at).toBeNull();
 
         const answer = "Synthetic history entered immediately before closing the assessment.";
+        let saveEntered!: () => void;
+        const saving = new Promise<void>(resolve => { saveEntered = resolve; });
+        const continueSave = new Promise<void>(resolve => { releaseSave = resolve; });
+        await page.route(`**/api/assessments/${assessment.assessment_id}`, async route => {
+          const request = route.request();
+          if (request.method() === "PATCH" && request.postDataJSON()?.patch?.data?.hospitalization_history === answer) {
+            saveEntered();
+            await continueSave;
+          }
+          await route.continue();
+        });
         await full.getByRole("textbox", { name: "Hospitalization history", exact: true }).fill(answer);
         const stages = page.getByRole("navigation", { name: "Workspace stages" });
         await stages.getByRole("button", { name: "Chart", exact: true }).click();
         await expect(stages.getByRole("button", { name: "Chart", exact: true })).toHaveAttribute("aria-current", "page");
-        expect((await readAssessment(api, assessment.assessment_id)).hospitalization_history).toBe(answer);
-        // Reopen without leaving the workspace, not just via a saved Home link.
+        await saving;
+        // Current stacked stages stay mounted and allow navigation while a save
+        // is pending. Return immediately and prove the answer survives the wait.
+        expect((await readAssessment(api, assessment.assessment_id)).hospitalization_history).toBeNull();
         await stages.getByRole("button", { name: "Assessment", exact: true }).click();
         await expect(full.getByRole("combobox", { name: "Assessment section", exact: true })).toHaveValue("prior_history");
         await expect(full.getByRole("textbox", { name: "Hospitalization history", exact: true })).toHaveValue(answer);
+        releaseSave!();
+        await expect.poll(async () => (await readAssessment(api, assessment.assessment_id)).hospitalization_history).toBe(answer);
         await page.getByRole("button", { name: "Pipeline home", exact: true }).click();
         await expect(page.getByTestId("packet-workspace")).toHaveCount(0);
         const board = page.getByRole("region", { name: "Recent workspaces", exact: true });
@@ -54,6 +71,7 @@ test.describe("assessment editing entry and return paths", () => {
         expect(records[0].assessment_id).toBe(assessment.assessment_id);
         expect(records[0].hospitalization_history).toBe(answer);
       } finally {
+        releaseSave?.();
         await context.close();
         await api.dispose();
       }
@@ -192,10 +210,10 @@ test.describe("assessment editing entry and return paths", () => {
     }
   });
 
-  test("legacy process-tester links retain their section across desktop and phone assessment layouts", async ({ browser, baseURL }) => {
+  test("saved synthetic assessment links retain their section across desktop and phone layouts", async ({ browser, baseURL }) => {
     const { page, context } = await actorPage(browser, "admin", requireOperationalBaseURL(baseURL));
     try {
-      await page.goto("/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=interview&assessmentSection=prior_history");
+      await openAssessmentFixture(page, { mode: "interview", section: "prior_history" });
       const full = page.locator("[data-assessment-view]");
       await expect(full).toBeVisible();
       await expect(full.getByRole("combobox", { name: "Assessment section", exact: true })).toHaveValue("prior_history");

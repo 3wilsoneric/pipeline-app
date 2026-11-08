@@ -1,6 +1,6 @@
 import "server-only";
 
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { getPipelineAuthMode } from "@/lib/auth/pipeline-auth";
@@ -46,7 +46,7 @@ const globalState = globalThis as typeof globalThis & {
     initialized: boolean;
     loadPromise?: Promise<void>;
     records: Map<string, UserWorkspaceState>;
-    persistQueue: Promise<void>;
+    mutationQueue: Promise<void>;
   };
 };
 
@@ -55,8 +55,9 @@ type LocalWorkspaceState = NonNullable<typeof globalState.__pipelineWorkspaceSta
 const localState: LocalWorkspaceState = globalState.__pipelineWorkspaceState ??= {
   initialized: false,
   records: new Map(),
-  persistQueue: Promise.resolve(),
+  mutationQueue: Promise.resolve(),
 };
+localState.mutationQueue ??= Promise.resolve();
 
 export function getUserWorkspaceStateReadiness(): StoreReadiness {
   const authenticatedWebEnabled = getPipelineAuthMode() === "entra_jwt"
@@ -127,12 +128,13 @@ export async function listUserWorkspaceState<T>(principalId: string, kind: UserW
     return rows.map(normalizePostgresState);
   }
 
-  await ensureLocalLoaded();
-  pruneExpiredLocal();
-  return [...localState.records.values()]
-    .filter((record) => record.principal_id === principalId && record.state_kind === kind)
-    .sort((left, right) => right.updated_at.localeCompare(left.updated_at))
-    .slice(0, limit) as UserWorkspaceState<T>[];
+  return withLocalState(async () => {
+    pruneExpiredLocal();
+    return [...localState.records.values()]
+      .filter((record) => record.principal_id === principalId && record.state_kind === kind)
+      .sort((left, right) => right.updated_at.localeCompare(left.updated_at))
+      .slice(0, limit) as UserWorkspaceState<T>[];
+  });
 }
 
 export async function getUserWorkspaceState<T>(principalId: string, kind: UserWorkspaceStateKind, key: string) {
@@ -151,9 +153,10 @@ export async function getUserWorkspaceState<T>(principalId: string, kind: UserWo
     return rows[0] ? normalizePostgresState(rows[0]) : null;
   }
 
-  await ensureLocalLoaded();
-  pruneExpiredLocal();
-  return (localState.records.get(recordKey(principalId, kind, key)) as UserWorkspaceState<T> | undefined) ?? null;
+  return withLocalState(async () => {
+    pruneExpiredLocal();
+    return (localState.records.get(recordKey(principalId, kind, key)) as UserWorkspaceState<T> | undefined) ?? null;
+  });
 }
 
 export async function putUserWorkspaceState<T>(input: {
@@ -167,27 +170,28 @@ export async function putUserWorkspaceState<T>(input: {
   requireReady();
   if (getUserWorkspaceStateReadiness().mode === "postgres") return putPostgresState(input);
 
-  await ensureLocalLoaded();
-  pruneExpiredLocal();
-  const key = recordKey(input.principalId, input.kind, input.key);
-  const current = localState.records.get(key) as UserWorkspaceState<T> | undefined;
-  if ((current?.version ?? 0) !== input.expectedVersion) {
-    return { ok: false as const, current: current ?? null };
-  }
-  const now = new Date();
-  const next: UserWorkspaceState<T> = {
-    principal_id: input.principalId,
-    state_kind: input.kind,
-    state_key: input.key,
-    payload: input.payload,
-    version: (current?.version ?? 0) + 1,
-    expires_at: new Date(now.getTime() + input.ttlDays * 86_400_000).toISOString(),
-    created_at: current?.created_at ?? now.toISOString(),
-    updated_at: now.toISOString(),
-  };
-  localState.records.set(key, next);
-  await persistLocal();
-  return { ok: true as const, state: next };
+  return withLocalState(async () => {
+    pruneExpiredLocal();
+    const key = recordKey(input.principalId, input.kind, input.key);
+    const current = localState.records.get(key) as UserWorkspaceState<T> | undefined;
+    if ((current?.version ?? 0) !== input.expectedVersion) {
+      return { ok: false as const, current: current ?? null };
+    }
+    const now = new Date();
+    const next: UserWorkspaceState<T> = {
+      principal_id: input.principalId,
+      state_kind: input.kind,
+      state_key: input.key,
+      payload: input.payload,
+      version: (current?.version ?? 0) + 1,
+      expires_at: new Date(now.getTime() + input.ttlDays * 86_400_000).toISOString(),
+      created_at: current?.created_at ?? now.toISOString(),
+      updated_at: now.toISOString(),
+    };
+    localState.records.set(key, next);
+    await persistLocal();
+    return { ok: true as const, state: next };
+  });
 }
 
 export async function deleteUserWorkspaceState(principalId: string, kind: UserWorkspaceStateKind, key?: string) {
@@ -200,15 +204,16 @@ export async function deleteUserWorkspaceState(principalId: string, kind: UserWo
     return result.count;
   }
 
-  await ensureLocalLoaded();
-  let deleted = 0;
-  for (const [recordMapKey, record] of localState.records) {
-    if (record.principal_id !== principalId || record.state_kind !== kind || (key && record.state_key !== key)) continue;
-    localState.records.delete(recordMapKey);
-    deleted += 1;
-  }
-  if (deleted) await persistLocal();
-  return deleted;
+  return withLocalState(async () => {
+    let deleted = 0;
+    for (const [recordMapKey, record] of localState.records) {
+      if (record.principal_id !== principalId || record.state_kind !== kind || (key && record.state_key !== key)) continue;
+      localState.records.delete(recordMapKey);
+      deleted += 1;
+    }
+    if (deleted) await persistLocal();
+    return deleted;
+  });
 }
 
 export async function deleteVersionedUserWorkspaceState(
@@ -250,15 +255,16 @@ export async function deleteVersionedUserWorkspaceState(
     });
   }
 
-  await ensureLocalLoaded();
-  pruneExpiredLocal();
-  const mapKey = recordKey(principalId, kind, key);
-  const current = localState.records.get(mapKey);
-  if (!current) return { ok: true as const, deleted: false };
-  if (current.version !== expectedVersion) return { ok: false as const, current };
-  localState.records.delete(mapKey);
-  await persistLocal();
-  return { ok: true as const, deleted: true };
+  return withLocalState(async () => {
+    pruneExpiredLocal();
+    const mapKey = recordKey(principalId, kind, key);
+    const current = localState.records.get(mapKey);
+    if (!current) return { ok: true as const, deleted: false };
+    if (current.version !== expectedVersion) return { ok: false as const, current };
+    localState.records.delete(mapKey);
+    await persistLocal();
+    return { ok: true as const, deleted: true };
+  });
 }
 
 export async function trimUserWorkspaceState(principalId: string, kind: UserWorkspaceStateKind, keep: number) {
@@ -301,16 +307,17 @@ export async function pruneExpiredUserWorkspaceState(limit = 100, dryRun = true)
     return { mode: readiness.mode, eligible: rows.length, deleted: dryRun ? 0 : rows.length, dry_run: dryRun };
   }
 
-  await ensureLocalLoaded();
-  const expiredKeys = [...localState.records.entries()]
-    .filter(([, record]) => Date.parse(record.expires_at) <= Date.now())
-    .slice(0, limit)
-    .map(([key]) => key);
-  if (!dryRun) {
-    for (const key of expiredKeys) localState.records.delete(key);
-    if (expiredKeys.length) await persistLocal();
-  }
-  return { mode: readiness.mode, eligible: expiredKeys.length, deleted: dryRun ? 0 : expiredKeys.length, dry_run: dryRun };
+  return withLocalState(async () => {
+    const expiredKeys = [...localState.records.entries()]
+      .filter(([, record]) => Date.parse(record.expires_at) <= Date.now())
+      .slice(0, limit)
+      .map(([key]) => key);
+    if (!dryRun) {
+      for (const key of expiredKeys) localState.records.delete(key);
+      if (expiredKeys.length) await persistLocal();
+    }
+    return { mode: readiness.mode, eligible: expiredKeys.length, deleted: dryRun ? 0 : expiredKeys.length, dry_run: dryRun };
+  });
 }
 
 async function putPostgresState<T>(input: {
@@ -380,11 +387,15 @@ async function ensureLocalLoaded() {
   localState.loadPromise = (async () => {
     try {
       const source = JSON.parse(await readFile(/* turbopackIgnore: true */ localStorePath(), "utf8")) as Partial<WorkspaceStateFile>;
-      if (source.schema !== 1 || !Array.isArray(source.records)) return;
+      if (!source || source.schema !== 1 || !Array.isArray(source.records)) throw new Error("The local workspace state is invalid. Preserve the file for recovery.");
+      const records = new Map<string, UserWorkspaceState>();
       for (const record of source.records) {
-        if (!isLocalRecord(record)) continue;
-        localState.records.set(recordKey(record.principal_id, record.state_kind, record.state_key), record);
+        if (!isLocalRecord(record)) throw new Error("The local workspace state contains an invalid record. Preserve the file for recovery.");
+        const key = recordKey(record.principal_id, record.state_kind, record.state_key);
+        if (records.has(key)) throw new Error("The local workspace state contains duplicate records. Preserve the file for recovery.");
+        records.set(key, record);
       }
+      localState.records = records;
     } catch (error) {
       if (!isMissingFile(error)) throw error;
     }
@@ -409,12 +420,32 @@ async function persistLocal() {
   const destination = localStorePath();
   const temporary = `${destination}.${process.pid}.tmp`;
   const payload: WorkspaceStateFile = { schema: 1, records: [...localState.records.values()] };
-  localState.persistQueue = localState.persistQueue.catch(() => undefined).then(async () => {
-    await mkdir(path.dirname(destination), { recursive: true });
-    await writeFile(temporary, `${JSON.stringify(payload, null, 2)}\n`, { mode: 0o600 });
-    await rename(temporary, destination);
-  });
-  await localState.persistQueue;
+  await mkdir(path.dirname(destination), { recursive: true });
+  await writeFile(temporary, `${JSON.stringify(payload, null, 2)}\n`, { mode: 0o600 });
+  await chmod(temporary, 0o600);
+  // Atomic replacement is the commit point; no fallible work follows it.
+  await rename(temporary, destination);
+}
+
+// Serialize reads as well as writes so a pending replacement is never reported
+// as saved. Records are replaced, not modified, so copying the map preserves
+// the complete pre-operation state for every failed mutation.
+async function withLocalState<T>(work: () => Promise<T>): Promise<T> {
+  const previous = localState.mutationQueue;
+  let release: () => void = () => {};
+  localState.mutationQueue = new Promise<void>((resolve) => { release = resolve; });
+  await previous.catch(() => undefined);
+  let before: Map<string, UserWorkspaceState> | undefined;
+  try {
+    await ensureLocalLoaded();
+    before = new Map(localState.records);
+    return await work();
+  } catch (error) {
+    if (before) localState.records = before;
+    throw error;
+  } finally {
+    release();
+  }
 }
 
 function isLocalRecord(value: unknown): value is UserWorkspaceState {
@@ -425,9 +456,10 @@ function isLocalRecord(value: unknown): value is UserWorkspaceState {
     && typeof record.state_key === "string"
     && Number.isSafeInteger(record.version)
     && Number(record.version) > 0
-    && typeof record.expires_at === "string"
-    && typeof record.created_at === "string"
-    && typeof record.updated_at === "string";
+    && record.payload !== undefined
+    && typeof record.expires_at === "string" && Number.isFinite(Date.parse(record.expires_at))
+    && typeof record.created_at === "string" && Number.isFinite(Date.parse(record.created_at))
+    && typeof record.updated_at === "string" && Number.isFinite(Date.parse(record.updated_at));
 }
 
 const workspaceStateKinds = new Set<UserWorkspaceStateKind>([

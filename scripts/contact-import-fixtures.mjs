@@ -1,6 +1,6 @@
 import { createRequire } from "node:module";
 import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { dirname, extname, relative, resolve } from "node:path";
 import vm from "node:vm";
 import ts from "typescript";
 
@@ -28,7 +28,10 @@ export function loadEntry(file, dependencies = {}, globals = {}) {
     require: (specifier) => {
       if (Object.hasOwn(dependencies, specifier)) return dependencies[specifier];
       if (specifier === "server-only") return {};
-      if (specifier.startsWith("@/")) return loadTypeScriptModule(root, `${specifier.slice(2)}.ts`);
+      if (specifier.startsWith("@/") || specifier.startsWith(".")) {
+        const target = specifier.startsWith("@/") ? specifier.slice(2) : relative(root, resolve(root, dirname(file), specifier));
+        return loadTypeScriptModule(root, `${target}${extname(target) ? "" : ".ts"}`);
+      }
       return require(specifier);
     },
     ...globals,

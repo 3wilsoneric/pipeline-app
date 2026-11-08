@@ -12,12 +12,7 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false, nocache: true },
 };
 
-export default async function AssessmentPracticePage({
-  searchParams,
-}: {
-  searchParams: Promise<{ from?: string | string[] }>;
-}) {
-  const source = (await searchParams).from;
+export default async function AssessmentPracticePage() {
   const user = await getAssessmentPracticeUser(await getServerComponentRequestHeaders());
   if (!user) notFound();
   return (
@@ -25,7 +20,6 @@ export default async function AssessmentPracticePage({
       traineeId={user.id}
       traineeName={firstName(user.name)}
       walkthroughOnly={Boolean(user.demoPersona)}
-      returnToPresentation={source === "demo"}
     />
   );
 }

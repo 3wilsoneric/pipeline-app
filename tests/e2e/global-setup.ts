@@ -1,5 +1,6 @@
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
+import { pipelineCommunities } from "../../lib/pipeline/community-config";
 
 export default async function prepareIsolatedReferralStore() {
   const paths = [
@@ -19,9 +20,9 @@ export default async function prepareIsolatedReferralStore() {
   if (process.env.PIPELINE_PERSONA_DEMO !== "true") {
     const path = process.env.PIPELINE_E2E_COMMUNITY_RECIPIENT_LIST_PATH!;
     await mkdir(dirname(path), { recursive: true });
-    await writeFile(path, JSON.stringify({ schema: 1, lists: [{
-      community: "San Pablo", version: 1, sourceDates: [], updatedAt: null, to: [], cc: [],
-    }] }), { mode: 0o600 });
+    await writeFile(path, JSON.stringify({ schema: 1, lists: pipelineCommunities.filter(community => community !== "Unassigned").map(community => ({
+      community, version: 1, sourceDates: [], updatedAt: null, to: [], cc: [],
+    })) }), { mode: 0o600 });
   }
 
   return async () => {

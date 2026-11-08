@@ -1,12 +1,14 @@
+import { openAssessmentFixture } from "./support/assessment-fixture";
 import { expect, test, type Page } from "@playwright/test";
 import { createOperationalReferral } from "./support/operational-api";
+import { openAssessmentChart, returnToAssessmentQuestions } from "./support/assessment-navigation";
 
 async function openWorkingAssessment(page: Page, section = "functional_adl") {
-  await page.goto(`/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=interview&assessmentSection=${section}&demo=1`);
+  const fixture = await openAssessmentFixture(page, { mode: "interview", section: section });
   const assessment = page.locator("[data-assessment-view]");
   await expect(assessment).toBeVisible();
   await expect(assessment).toHaveAttribute("data-assessment-view", "assessment");
-  return assessment;
+  return { surface: assessment, read: fixture.read };
 }
 
 async function expectAppNavigation(page: Page) {
@@ -17,7 +19,7 @@ async function expectAppNavigation(page: Page) {
 test("prepares answers before an appointment and finishes the same questionnaire", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
-  await page.goto("/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=prepare&assessmentSection=diagnosis_clinical&demo=1");
+  const { read } = await openAssessmentFixture(page, { mode: "prepare", section: "diagnosis_clinical" });
   const assessment = page.locator("[data-assessment-view]");
   await expect(assessment).toBeVisible();
   await expect(page.getByRole("dialog", { name: "Schedule interview", exact: true })).toHaveCount(0);
@@ -31,14 +33,16 @@ test("prepares answers before an appointment and finishes the same questionnaire
   await expect(assessment.locator("[data-assessment-question-editor]")).toContainText("Recorded");
   await expect(page.getByRole("button", { name: "Begin assessment", exact: true })).toHaveCount(0);
   await expect(field).toHaveValue(answer);
-  await page.getByRole("region", { name: "Assessment progress" }).getByRole("button", { name: "Interview", exact: true }).click();
+  await page.getByRole("region", { name: "Interview", exact: true }).getByRole("button", { name: "Start now", exact: true }).click();
   await assessment.getByRole("combobox", { name: "Assessment section", exact: true }).selectOption("diagnosis_clinical");
   await expect(assessment.getByRole("complementary", { name: "Current information" })).toContainText(answer);
+  await expect.poll(async () => (await read()).secondary_diagnoses).toEqual([answer]);
+  expect((await read()).started_at).not.toBeNull();
   expect(errors).toEqual([]);
 });
 
 test("edits captured answers beside remaining questions without folding during autosave", async ({ page }) => {
-  const assessment = await openWorkingAssessment(page, "diagnosis_clinical");
+  const { surface: assessment, read } = await openWorkingAssessment(page, "diagnosis_clinical");
   const captured = assessment.getByRole("complementary", { name: "Current information" });
   await expect(captured).toContainText("Schizoaffective disorder");
   await captured.getByRole("button", { name: "Edit Current symptoms", exact: true }).click();
@@ -46,13 +50,14 @@ test("edits captured answers beside remaining questions without folding during a
   const answer = "Synthetic client reports evening anxiety. Facility records and interview agree. Confirm the current support plan.";
   await field.fill(answer);
   await field.blur();
-  await expect(assessment.getByText("Practice changes saved locally", { exact: true })).toBeVisible();
+  await expect.poll(async () => (await read()).current_symptoms).toBe(answer);
   await expect(field).toBeVisible();
   await expect(captured).toContainText(answer);
   await assessment.getByRole("combobox", { name: "Assessment section", exact: true }).selectOption("functional_adl");
   await assessment.getByRole("combobox", { name: "Assessment section", exact: true }).selectOption("diagnosis_clinical");
   await expect(captured).toContainText(answer);
-  await expect(field).not.toBeVisible();
+  // The continuous desktop questionnaire retains visited editors for this visit.
+  await expect(field).toHaveValue(answer);
   await captured.getByRole("button", { name: "Edit Current symptoms", exact: true }).click();
   await expect(field).toHaveValue(answer);
   await page.screenshot({ path: "outputs/assessment-working-desktop.png" });
@@ -60,7 +65,7 @@ test("edits captured answers beside remaining questions without folding during a
 
 test("finds an exact question across sections and preserves answers when revisiting the chart", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  const assessment = await openWorkingAssessment(page);
+  const { surface: assessment, read } = await openWorkingAssessment(page);
   await assessment.getByRole("button", { name: "Choose questionnaire section", exact: true }).click();
   const find = page.getByRole("searchbox", { name: "Find a question", exact: true });
   await find.fill("medication refused");
@@ -69,16 +74,15 @@ test("finds an exact question across sections and preserves answers when revisit
   await expect(field).toBeInViewport();
   await field.fill("Synthetic medication A");
   await field.blur();
-  await expect(assessment.getByText("Practice changes saved locally", { exact: true })).toBeVisible();
-  await assessment.getByRole("button", { name: "Choose questionnaire section", exact: true }).click();
-  await page.getByRole("dialog", { name: "Questionnaire sections", exact: true }).getByRole("button", { name: /^Review assessment/ }).click();
+  await expect.poll(async () => (await read()).medication_refused).toBe("Synthetic medication A");
+  await openAssessmentChart(page);
   await expect(page.getByRole("region", { name: "Assessment chart review", exact: true })).toContainText("Synthetic medication A");
-  await page.getByRole("button", { name: "Back to questions", exact: true }).click();
+  await returnToAssessmentQuestions(page);
   await expect(field).toHaveValue("Synthetic medication A");
 });
 
 test("keeps conditional follow-ups with their answer and leaves recorded answers in the reference", async ({ page }) => {
-  const assessment = await openWorkingAssessment(page, "medication");
+  const { surface: assessment, read } = await openWorkingAssessment(page, "medication");
   const captured = assessment.getByRole("complementary", { name: "Current information" });
   await captured.getByRole("button", { name: "Edit IM injections", exact: true }).click();
   const choice = assessment.getByRole("group", { name: "IM injections", exact: true });
@@ -91,17 +95,19 @@ test("keeps conditional follow-ups with their answer and leaves recorded answers
   await expect(followup).toHaveValue("Synthetic monthly injection; verify next due date.");
   await assessment.getByRole("combobox", { name: "Assessment section", exact: true }).selectOption("functional_adl");
   await assessment.getByRole("combobox", { name: "Assessment section", exact: true }).selectOption("medication");
-  await expect(choice).not.toBeVisible();
+  await expect(choice.getByRole("button", { name: "Yes", exact: true })).toHaveAttribute("aria-pressed", "true");
   await expect(captured).toContainText("Synthetic monthly injection; verify next due date.");
+  await expect.poll(async () => (await read()).im_injections_details).toBe("Synthetic monthly injection; verify next due date.");
 });
 
 test("fits desktop, tablet, and phone and resets section scroll", async ({ page }) => {
-  const assessment = await openWorkingAssessment(page);
+  const { surface: assessment } = await openWorkingAssessment(page);
   for (const viewport of [{ width: 1440, height: 900 }, { width: 1024, height: 768 }, { width: 390, height: 844 }]) {
     await page.setViewportSize(viewport);
     const phone = viewport.width < 640;
     await expect(page.getByRole("button", { name: phone ? "Back to previous page" : "Pipeline home", exact: true })).toBeInViewport();
-    await expect(assessment.getByRole("button", { name: phone ? /^Next/ : "Next section" }).last()).toBeInViewport();
+    if (phone) await expect(assessment.getByRole("button", { name: /^Next/ }).last()).toBeInViewport();
+    else await expect(assessment.getByLabel("Assessment section", { exact: true })).toBeInViewport();
     await expect(assessment.locator('footer[aria-label="Assessment actions"]')).toBeInViewport();
     await expect(assessment.getByRole("group", { name: "Assessment view", exact: true })).toHaveCount(0);
     await expect(assessment.getByRole("region", { name: "Assessment readiness" })).toHaveCount(0);
@@ -115,12 +121,13 @@ test("fits desktop, tablet, and phone and resets section scroll", async ({ page 
   await expect(assessment.getByLabel("Assessment section", { exact: true })).toHaveValue("prior_history");
   await expect(assessment.getByLabel("Assessment section", { exact: true })).toBeInViewport();
   await expect(assessment.getByRole("textbox", { name: "Prior AWOL / failed placements", exact: true })).toBeInViewport();
-  await expect.poll(() => canvas.evaluate((element) => element.scrollTop)).toBe(0);
+  // The continuous questionnaire jumps to the selected heading, not page zero.
+  await expect(assessment.locator('[data-assessment-group-heading="prior_history"]')).toBeInViewport();
   await page.screenshot({ path: "outputs/assessment-working-mobile.png" });
 });
 
 test("captured answers sit beside the unfinished questions with compact section navigation", async ({ page }) => {
-  const assessment = await openWorkingAssessment(page);
+  const { surface: assessment } = await openWorkingAssessment(page);
   for (const viewport of [{ width: 1440, height: 900 }, { width: 1920, height: 1080 }]) {
     await page.setViewportSize(viewport);
     const editor = (await assessment.locator("[data-assessment-question-editor]").boundingBox())!;
@@ -128,7 +135,8 @@ test("captured answers sit beside the unfinished questions with compact section 
     expect(editor.width).toBeGreaterThan(book.width * 0.5);
     const captured = (await assessment.getByRole("complementary", { name: "Current information" }).boundingBox())!;
     expect(captured.x - book.x).toBeLessThanOrEqual(24);
-    expect(captured.x + captured.width).toBeLessThan(editor.x);
+    // The resizable split uses a shared border, without overlapping the editor.
+    expect(captured.x + captured.width).toBeLessThanOrEqual(editor.x);
     await expect(assessment.getByRole("complementary", { name: "Assessment navigation", exact: true })).toHaveCount(0);
   }
   await assessment.getByRole("combobox", { name: "Assessment section", exact: true }).selectOption("identity");
@@ -136,7 +144,7 @@ test("captured answers sit beside the unfinished questions with compact section 
 });
 
 test("app navigation stays labeled on hover and keyboard focus without moving the form", async ({ page }) => {
-  const assessment = await openWorkingAssessment(page);
+  const { surface: assessment } = await openWorkingAssessment(page);
   const before = await assessment.boundingBox();
   await expectAppNavigation(page);
   await expect(page.getByRole("button", { name: "Pipeline home", exact: true })).toBeInViewport();
@@ -153,7 +161,7 @@ test("app navigation stays labeled on hover and keyboard focus without moving th
 test.describe("touch navigation", () => {
   test.use({ hasTouch: true, viewport: { width: 390, height: 844 } });
   test("reveals the header on a real tap and saves on Home navigation", async ({ page }) => {
-    const assessment = await openWorkingAssessment(page);
+    const { surface: assessment } = await openWorkingAssessment(page);
     await page.getByRole("button", { name: /^Open page menu/ }).tap();
     await expect(page.getByRole("dialog", { name: "Pipeline pages", exact: true })).toBeInViewport();
     // A delayed assessment-position update must not dismiss an open page menu.
@@ -171,7 +179,7 @@ test.describe("touch navigation", () => {
 });
 
 test("shared Home navigation remains usable and saves before leaving the assessment", async ({ page }) => {
-  const assessment = await openWorkingAssessment(page, "diagnosis_clinical");
+  const { surface: assessment, read } = await openWorkingAssessment(page, "diagnosis_clinical");
   await assessment.getByRole("complementary", { name: "Current information" }).getByRole("button", { name: "Edit Current symptoms", exact: true }).click();
   await assessment.getByRole("textbox", { name: "Current symptoms", exact: false }).fill("Synthetic edit immediately before navigating home.");
   await expectAppNavigation(page);
@@ -180,16 +188,17 @@ test("shared Home navigation remains usable and saves before leaving the assessm
   await expect(page.locator('[data-guide-target="home-workspace"]')).toBeVisible();
   await expect(page.locator("[data-pipeline-header]")).toHaveCount(1);
   await expect(page.locator("main").first()).not.toHaveCSS("isolation", "isolate");
+  await expect.poll(async () => (await read()).current_symptoms).toBe("Synthetic edit immediately before navigating home.");
 });
 
 test("profile navigation leaves through the save path without tutorial controls", async ({ page }) => {
-  let assessment = await openWorkingAssessment(page);
+  let { surface: assessment } = await openWorkingAssessment(page);
   await expectAppNavigation(page);
   await page.getByRole("button", { name: /^Open profile menu for/ }).click();
   await page.getByRole("link", { name: /^Settings(?: Your profile and contacts)?$/ }).click();
   await expect(page).toHaveURL(/\/settings$/);
   await expect(assessment).not.toBeVisible();
-  assessment = await openWorkingAssessment(page);
+  ({ surface: assessment } = await openWorkingAssessment(page));
   await expect(assessment).toHaveAttribute("data-assessment-view", "assessment");
   await page.getByRole("button", { name: /^Open profile menu for/ }).click();
   await expect(page.getByRole("button", { name: "Open guided tutorials", exact: true })).toHaveCount(0);
@@ -221,7 +230,7 @@ test("Home distinguishes active-work categories from paper client files", async 
 
 test("phone captured-answer drawer opens an answer directly in the editor", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  const assessment = await openWorkingAssessment(page, "diagnosis_clinical");
+  const { surface: assessment } = await openWorkingAssessment(page, "diagnosis_clinical");
   await assessment.getByRole("button", { name: "Client info", exact: true }).click();
   await page.getByRole("dialog", { name: "Client information", exact: true }).getByRole("button", { name: "Review Current symptoms", exact: true }).click();
   await assessment.getByRole("textbox", { name: "Current symptoms", exact: false }).click();
