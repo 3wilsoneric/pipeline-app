@@ -6,6 +6,33 @@ import { loadTypeScriptModule } from "./ts-module-loader.mjs";
 
 const ownership = loadTypeScriptModule(process.cwd(), "lib/pipeline/referral-ownership.ts");
 const appointments = loadTypeScriptModule(process.cwd(), "lib/pipeline/assessment-calendar.ts");
+
+test("calendar dates retain Pacific midnight and daylight-saving boundaries across repeated reads", () => {
+  const cases = [
+    ["2026-03-08T07:59:59Z", "2026-03-07"],
+    ["2026-03-08T08:00:00Z", "2026-03-08"],
+    ["2026-03-08T10:00:00Z", "2026-03-08"],
+    ["2026-11-01T06:59:59Z", "2026-10-31"],
+    ["2026-11-01T07:00:00Z", "2026-11-01"],
+    ["2026-11-01T09:00:00Z", "2026-11-01"],
+  ];
+  let now = cases[0][0];
+  const calendar = loadTypeScriptModule(process.cwd(), "lib/pipeline/assessment-calendar.ts", {
+    Date: class extends Date {
+      constructor(...args) { super(...(args.length ? args : [now])); }
+    },
+  });
+  for (const [timestamp, expected] of cases) {
+    now = timestamp;
+    assert.equal(calendar.calendarDate(timestamp), expected);
+    assert.equal(calendar.calendarToday(), expected);
+  }
+  assert.equal(calendar.calendarDate("2026-11-01"), "2026-11-01");
+  assert.equal(calendar.calendarDate("11/1/2026"), "2026-11-01");
+  assert.equal(calendar.calendarDate("2026-02-30"), null);
+  assert.equal(calendar.calendarDate("invalid"), null);
+});
+
 const js = ts.transpileModule(readFileSync("lib/pipeline/home-briefing.ts", "utf8"), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText;

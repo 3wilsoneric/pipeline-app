@@ -22,12 +22,16 @@ async function fixture(t) {
   const paths = { referrals: path.join(directory, "referrals.json"), assessments: path.join(directory, "assessments.json") };
   let failure;
   let beforeRename = async () => {};
+  let journalReads = 0;
   const load = () => {
     const globals = { globalThis: {}, crypto: globalThis.crypto, process: { ...process, env: { ...process.env,
       PIPELINE_DATABASE_MODE: "disconnected", PIPELINE_REFERRAL_STORE_MODE: "local_file", PIPELINE_ASSESSMENT_STORE_MODE: "local_file",
       PIPELINE_REFERRAL_STORE_PATH: paths.referrals, PIPELINE_ASSESSMENT_STORE_PATH: paths.assessments,
     } }, require: (specifier) => specifier === "node:fs/promises" ? {
-      ...fs, rename: async (...args) => {
+      ...fs, readFile: async (...args) => {
+        if (args[0] === `${paths.referrals}.transaction.json`) journalReads += 1;
+        return fs.readFile(...args);
+      }, rename: async (...args) => {
         if (args[1] === failure) throw new Error("Synthetic cross-file interruption");
         await beforeRename(...args);
         return fs.rename(...args);
@@ -46,8 +50,24 @@ async function fixture(t) {
   const { referral } = await store.referrals.patchReferral(created.id, { workflowStatus: "intake_in_progress" }, created.version, actor);
   const input = { referral_id: referral.id, assigned_assessor: actor,
     data: { ...store.schema.createEmptyAssessmentToolData(), resident_name: referral.name, assessment_notes: "Preserve this answer" } };
-  return { paths, load, store, referral, input, fail: (file) => { failure = file; }, intercept: fn => { beforeRename = fn; } };
+  return { paths, load, store, referral, input, journalReads: () => journalReads, fail: (file) => { failure = file; }, intercept: fn => { beforeRename = fn; } };
 }
+
+test("a local workflow report recovers once for its complete referral and assessment snapshot", async t => {
+  const f = await fixture(t);
+  const { referral: second } = await f.store.referrals.createReferral({ ...referralInput, name: "Synthetic Second" }, "second-referral", actor);
+  await f.store.assessments.createAssessment(f.input, actor, "first-assessment");
+  await f.store.assessments.createAssessment({ ...f.input, referral_id: second.id,
+    data: { ...f.input.data, assessment_notes: "Second answer stays separate" } }, actor, "second-assessment");
+  const beforeFiles = await Promise.all(Object.values(f.paths).map(file => fs.readFile(file, "utf8")));
+  const beforeReads = f.journalReads();
+  const contexts = await f.store.workflow.getReferralWorkflowContexts([f.referral, second]);
+  assert.equal(contexts.size, 2);
+  assert.equal(contexts.get(f.referral.id).assessmentData.assessment_notes, "Preserve this answer");
+  assert.equal(contexts.get(second.id).assessmentData.assessment_notes, "Second answer stays separate");
+  assert.equal(f.journalReads() - beforeReads, 1, "one report must not reopen the recovery journal for every record");
+  assert.deepEqual(await Promise.all(Object.values(f.paths).map(file => fs.readFile(file, "utf8"))), beforeFiles);
+});
 
 test("assessment creation recovers its committed workflow after interruption and restart", async t => {
   const f = await fixture(t);

@@ -107,16 +107,22 @@ test.describe("admission follow-through", () => {
       expect(home.workflow.all_board_items.map((row: { referral_id: number }) => row.referral_id)).not.toContain(referral.id);
       expect(home.workflow.completion_memo.clients.find((row: { referral_id: number }) => row.referral_id === referral.id)?.status).toBe("admitted");
 
-      await page.reload();
-      await expect(handoff.getByRole("status").filter({ hasText: /^Admitted$/ })).toBeVisible();
-      await page.screenshot({ path: info.outputPath(`admitted-by-date-${width}.png`), fullPage: true });
-      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
       // Correcting a prematurely entered date reopens future work; no fabricated arrival must survive.
       await date.fill("2099-01-01");
       await handoff.getByRole("button", { name: "Save planned date" }).click();
       await expect(handoff.getByRole("status").filter({ hasText: /^Admitted$/ })).toHaveCount(0);
       const future = await (await api.get(`/api/referrals?active=true&q=${encodeURIComponent(saved.name)}`)).json();
       expect(future.referrals.map((row: { id: number }) => row.id)).toContain(referral.id);
+      await date.fill(today);
+      await handoff.getByRole("button", { name: "Save planned date" }).click();
+      await expect(handoff.getByRole("status").filter({ hasText: /^Admitted$/ })).toBeVisible();
+      // Drain the synthetic mail-state read before navigation cancels requests.
+      // The reload must retain admission using the actual persisted workflow.
+      await page.unrouteAll({ behavior: "wait" });
+      await page.reload();
+      await expect(handoff.getByRole("status").filter({ hasText: /^Admitted$/ })).toBeVisible();
+      await page.screenshot({ path: info.outputPath(`admitted-by-date-${width}.png`), fullPage: true });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
       expect(sends).toBe(0);
     } finally {
       await page.unrouteAll({ behavior: "wait" });

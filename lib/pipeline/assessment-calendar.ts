@@ -8,6 +8,13 @@ import type { PipelineWorkspaceLocation } from "@/lib/pipeline/work-continuity";
 import type { WorkflowContext } from "@/lib/pipeline/workflow-records";
 import { getWorkspaceState } from "@/lib/pipeline/workspace-state";
 
+const operationalDateFormatter = new Intl.DateTimeFormat("en-US", {
+  timeZone: "America/Los_Angeles",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
 const assessmentPreparationStatuses = new Set([
   "intake_unassigned",
   "intake_documents_needed",
@@ -311,14 +318,7 @@ export function addCalendarDays(value: string, amount: number) {
 }
 
 export function calendarToday() {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/Los_Angeles",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(new Date());
-  const value = Object.fromEntries(parts.map((part) => [part.type, part.value]));
-  return `${value.year}-${value.month}-${value.day}`;
+  return operationalDateKey(new Date());
 }
 
 function isValidDateKey(value: string) {
@@ -331,12 +331,7 @@ function dateKey(date: Date) {
 }
 
 function operationalDateKey(date: Date) {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/Los_Angeles",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(date);
+  const parts = operationalDateFormatter.formatToParts(date);
   const value = Object.fromEntries(parts.map((part) => [part.type, part.value]));
   return `${value.year}-${value.month}-${value.day}`;
 }

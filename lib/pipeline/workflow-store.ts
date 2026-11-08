@@ -275,11 +275,15 @@ export async function getReferralWorkflowContexts(referrals: Referral[]) {
   if (referrals.length === 0) return contexts;
 
   if (getReferralStoreReadiness().mode !== "postgres") {
-    const snapshots = await Promise.all(referrals.map((referral) => getReferralWorkflowSnapshot(referral.id)));
-    for (const snapshot of snapshots) {
-      if (snapshot) contexts.set(snapshot.referral.id, snapshot.context);
-    }
-    return contexts;
+    // Keep the report coherent while checking cross-store recovery once, rather
+    // than reopening the journal for each referral and assessment read.
+    return withLocalMutation(async () => {
+      const snapshots = await Promise.all(referrals.map((referral) => getReferralWorkflowSnapshot(referral.id)));
+      for (const snapshot of snapshots) {
+        if (snapshot) contexts.set(snapshot.referral.id, snapshot.context);
+      }
+      return contexts;
+    });
   }
 
   const ids = referrals.map((referral) => referral.id);
