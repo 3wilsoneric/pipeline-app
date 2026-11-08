@@ -1,3 +1,4 @@
+import { mutationReplayRequest } from "@/lib/persistence/mutation-replay";
 import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
 import { pipelineAuditActor } from "@/lib/auth/assessor-session-policy";
 import { canEditWorkspace } from "@/lib/pipeline/referral-ownership";
@@ -60,7 +61,7 @@ export async function PUT(request: Request, context: { params: Promise<{ referra
       Number(body.value.if_match),
       Number(body.value.if_match_section),
       pipelineAuditActor(auth.user),
-      { allowSupervisorOverride: canEditWorkspace(auth.user), mutationId: mutationId.value },
+      { allowSupervisorOverride: canEditWorkspace(auth.user), mutationId: mutationId.value, replayRequest: mutationReplayRequest(auth.user, body.value) },
     );
     if (!result) return jsonError("Referral not found.", 404);
     if (!result.ok && "conflict" in result) return Response.json({ error: "This recommendation changed in another session.", ...result }, { status: 409 });

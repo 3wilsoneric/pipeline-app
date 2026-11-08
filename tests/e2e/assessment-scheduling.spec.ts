@@ -1,7 +1,7 @@
+import { openAssessmentFixture } from "./support/assessment-fixture";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 
-const scheduleUrl = "/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=schedule";
 const axeSource = readFileSync(require.resolve("axe-core/axe.min.js"), "utf8");
 
 for (const viewport of [
@@ -13,7 +13,7 @@ for (const viewport of [
 ]) {
   test(`scheduling modal fits at ${viewport.width}x${viewport.height}`, async ({ page }, testInfo) => {
     await page.setViewportSize(viewport);
-    await page.goto(scheduleUrl);
+    await openAssessmentFixture(page, { mode: "schedule" });
     const dialog = page.getByRole("dialog", { name: "Schedule interview", exact: true });
     await expect(dialog).toBeVisible();
     await expect(dialog).toHaveAttribute("data-assessment-scheduling", "modal");
@@ -63,7 +63,7 @@ for (const viewport of [
 }
 
 test("keeps scheduling methods, keyboard focus, and unsaved appointment edits usable", async ({ page }) => {
-  await page.goto(scheduleUrl);
+  await openAssessmentFixture(page, { mode: "schedule" });
   const dialog = page.getByRole("dialog", { name: "Schedule interview", exact: true });
   const date = dialog.getByLabel("Assessment date and time");
   await date.fill("2027-09-14T09:30");
@@ -85,7 +85,7 @@ test("keeps scheduling methods, keyboard focus, and unsaved appointment edits us
   await expect(save).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
-  await page.getByRole("button", { name: "Schedule interview", exact: true }).click();
+  await page.getByRole("region", { name: "Interview", exact: true }).getByRole("button", { name: "Schedule interview", exact: true }).click();
   await expect(dialog).toBeVisible();
   await expect(date).toHaveValue("2027-09-14T09:30");
   await expect(dialog.getByLabel("Assessment duration")).toHaveValue("90");
@@ -96,7 +96,7 @@ test("keeps scheduling methods, keyboard focus, and unsaved appointment edits us
 });
 
 test("dismisses native scheduling pickers before closing the appointment", async ({ page }) => {
-  await page.goto(scheduleUrl);
+  await openAssessmentFixture(page, { mode: "schedule" });
   const dialog = page.getByRole("dialog", { name: "Schedule interview", exact: true });
   await dismissSchedulingPickers(page, dialog);
   await page.keyboard.press("Escape");

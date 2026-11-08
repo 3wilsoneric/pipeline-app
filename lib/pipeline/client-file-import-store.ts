@@ -93,7 +93,7 @@ export async function reviewClientFileImportItem(
   if (!getPipelineDatabaseReadiness().ready) return { status: "unavailable" as const };
   const sql = getPipelineSql();
   return sql.begin(async (tx) => {
-    const current = (await tx<ReviewRow[]>`
+    const locked = (await tx<(ReviewRow & { identity_locked: boolean })[]>`
       select
         i.import_item_id::text,
         i.import_batch_id::text,
@@ -108,6 +108,12 @@ export async function reviewClientFileImportItem(
         i.source_content_type,
         i.source_byte_size,
         i.match_status,
+        (i.match_status = 'imported' or i.imported_document_id is not null or exists (
+          select 1 from pipeline.documents d
+          where d.source_system = b.source_system
+            and d.source_external_id = concat(i.import_batch_id::text, ':', i.source_item_id)
+            and d.deleted_at is null
+        )) as identity_locked,
         i.match_method,
         i.match_confidence,
         p.external_client_id as matched_pipeline_client_id,
@@ -122,8 +128,12 @@ export async function reviewClientFileImportItem(
       where i.import_item_id = ${itemId}::uuid
       for update of i
     `)[0];
-    if (!current) return { status: "not_found" as const };
-    if (current.version !== input.if_match) return { status: "conflict" as const, item: mapReviewRow(current) };
+    if (!locked) return { status: "not_found" as const };
+    const { identity_locked: identityLocked, ...current } = locked;
+    // Also preserve legacy artifacts left behind before finalization took this lock.
+    if (identityLocked || current.version !== input.if_match) {
+      return { status: "conflict" as const, item: mapReviewRow(current) };
+    }
 
     let personId: string | null = null;
     let canonicalClientId: string | null = null;

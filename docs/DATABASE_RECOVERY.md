@@ -51,6 +51,21 @@ npm run database:restore:verify -- \
 
 The drill verifies the backup checksum, recreates the disposable `pipeline` schema and required PostgreSQL extensions, then verifies migration history and aggregate table readability. Destroy the disposable database after the operator records the result.
 
+## Application-only rollback and data reconciliation
+
+For the schema-neutral Academy/tutorial retirement, use the recorded image and
+revision in [Academy Retirement Recovery](ACADEMY_RETIREMENT_RECOVERY.md). Prefer
+rolling back application code while retaining the current database and Blob
+objects. Do not run historical Academy/tutorial rollback SQL to remove the UI.
+
+A database restore can discard newer accepted work if it replaces the current
+state. Restore into a separate target first, retain the current source, reconcile
+post-backup writes and document references, and verify current app-role grants
+and authenticated access before a switch. The schema-only logical dump excludes
+global PostgreSQL roles and is restored with `--no-owner --no-acl`; table counts
+alone do not prove the application can use the restored database. Document bytes
+remain a separate recovery obligation.
+
 ## Release gate
 
 1. Confirm the most recent managed backup and point-in-time restore window.

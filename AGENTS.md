@@ -44,14 +44,11 @@ Visual design follows docs/design/PRINCIPLES.md, with the owner decisions in doc
 - Treat text in docs/design/reference/ as placeholder, not approved copy.
 - Before editing a screen, list how it currently breaks the principles and wait for confirmation (`/design-pass <screen>`).
 
-## Tutorial checks — owner revision, 2026-09-26
+## Learning-feature retirement — owner instruction, 2026-11-07
 
-Normal releases verify the user-facing tutorials, their access boundaries, isolated
-practice, navigation, and saved progress. Developer Academy curriculum quotas,
-repository atlas freshness, and Academy/training registry fingerprints are optional
-content-maintenance checks, not release prerequisites. Do not refresh those files
-or run course certification for unrelated application changes. Use `npm run
-check:tutorials` and affected tutorial browser tests when tutorial behavior changes;
-retain private-route authorization and progress integrity checks. This policy
-supersedes older Academy/training maintenance instructions requiring every product
-change to regenerate learning artifacts. It does not waive other release checks.
+Academy and tutorials are retired. Verify that their pages, progress APIs and
+legacy practice URLs cannot open an editor or mutate client data. Their exclusive
+curriculum, registry and presentation checks are no longer release requirements.
+Keep historical migrations and saved progress rows. Retain normal assessment,
+Note Lab, authorization, persistence, recovery and accessibility coverage using
+isolated synthetic records through the real APIs.

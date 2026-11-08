@@ -1,3 +1,4 @@
+import { mutationReplayRequest } from "@/lib/persistence/mutation-replay";
 import { getAssessment, patchAssessment, requireAssessmentStore } from "@/lib/assessment/assessment-store";
 import { canWorkAssessment } from "@/lib/assessment/assessment-access";
 import { validateAssessmentLifecycleCommand } from "@/lib/assessment/assessment-lifecycle-validation";
@@ -38,7 +39,7 @@ export async function POST(request: Request, context: { params: Promise<{ assess
       assessmentId,
       { signer: pipelineAccountableActor(auth.user) },
       pipelineAccountableActor(auth.user),
-      { expectedVersion: command.value.if_match, mutationId: command.value.client_mutation_id },
+      { expectedVersion: command.value.if_match, mutationId: command.value.client_mutation_id, replayRequest: mutationReplayRequest(auth.user, { action: "sign", command: body.value }) },
     );
     if (!result) return jsonError("Assessment not found.", 404);
     if (!result.ok && "conflict" in result) {

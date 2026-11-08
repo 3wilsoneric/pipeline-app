@@ -27,11 +27,6 @@ const personalStateWrites = new Set([
   "app/api/me/home-layout/route.ts#PUT",
   "app/api/me/meet-client-layout/route.ts#PUT",
   "app/api/me/work-continuity/route.ts#PATCH",
-  "app/api/training/progress/route.ts#PUT",
-]);
-const ownerScopedMethods = new Set([
-  "app/api/academy/progress/route.ts#GET",
-  "app/api/academy/progress/route.ts#PUT",
 ]);
 const authenticatedBaseMethods = new Set([
   "app/api/auth/me/route.ts#GET",
@@ -146,8 +141,7 @@ for (const absoluteFile of routeFiles) {
       }
     } else if (authenticatedPipelineSelfMethods.has(key)) {
       check(`${key} requires the signed-in Pipeline identity`, body.includes("requireAuthenticatedUser(") && body.includes("canAccessPipeline(auth.user)") && !body.includes("requirePipelineUser("));
-    } else if (ownerScopedMethods.has(key)) {
-      check(`${key} requires the configured private Academy owner`, body.includes("getDeveloperAcademyOwner("));
+
     } else {
       check(`${key} requires Pipeline user authentication`, body.includes("requirePipelineUser("));
     }
@@ -170,7 +164,7 @@ for (const absoluteFile of routeFiles) {
     if (route.includes("/assessments/[assessmentId]")) {
       check(`${key} resolves assessment ownership before access`, enforcesReferralAccess(body));
     }
-    if (isMutation && !isInternal && !isPublic && !isPacketRecipient && !personalStateWrites.has(key) && !ownerScopedMethods.has(key) && !authenticatedBaseMethods.has(key) && !authenticatedPipelineSelfMethods.has(key) && !governedReadMutations.has(key)) {
+    if (isMutation && !isInternal && !isPublic && !isPacketRecipient && !personalStateWrites.has(key) && !authenticatedBaseMethods.has(key) && !authenticatedPipelineSelfMethods.has(key) && !governedReadMutations.has(key)) {
       if (sharedWorkspace || personalRecovery) check(`${key} permits every authenticated Pipeline role`, body.includes("requirePipelineUser(request)") || roleList.includes("viewer"));
       else check(`${key} excludes the viewer role from writes`, roleList.length > 0 && !roleList.includes("viewer"));
     }
@@ -192,9 +186,7 @@ for (const absoluteFile of routeFiles) {
     if (personalStateWrites.has(key)) {
       check(`${key} writes only principal-scoped personal state`, body.includes("auth.user.id") && body.includes("requirePipelineUser("));
     }
-    if (isMutation && ownerScopedMethods.has(key)) {
-      check(`${key} writes only owner-scoped private Academy state`, body.includes("owner.id") && body.includes("getDeveloperAcademyOwner("));
-    }
+
 
     const expectedRoles = roleRestrictedReads.get(key);
     if (expectedRoles) {

@@ -1,10 +1,11 @@
 import "server-only";
 
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
 import type { TransactionSql } from "postgres";
+import { assertMutationReplayFingerprint, MutationReplayConflictError, mutationRequestFingerprint, resolveMutationReplay, type MutationReplayRequest } from "@/lib/persistence/mutation-replay";
 
 import {
   getPipelineDatabaseReadiness,
@@ -55,7 +56,7 @@ export type ResidentLinkStoreReadiness = {
 export interface ResidentLinkStore {
   list(options?: ResidentLinkListOptions): Promise<ResidentLinkListResponse>;
   get(linkId: string): Promise<PipelineResidentLink | null>;
-  create(input: ResidentLinkCreateInput, actor: ResidentLinkActor, mutationId?: string): Promise<ResidentLinkMutation>;
+  create(input: ResidentLinkCreateInput, actor: ResidentLinkActor, mutationId?: string, request?: MutationReplayRequest): Promise<ResidentLinkMutation>;
   review(linkId: string, input: ResidentLinkReviewInput, actor: ResidentLinkActor, expectedVersion: number): Promise<ResidentLinkMutation | null>;
 }
 
@@ -64,6 +65,7 @@ type LocalResidentLinkFile = {
   revision: number;
   links: PipelineResidentLink[];
   create_mutations?: Record<string, string>;
+  request_fingerprints?: Record<string, string>;
 };
 
 type LocalResidentLinkState = {
@@ -72,6 +74,7 @@ type LocalResidentLinkState = {
   revision: number;
   links: PipelineResidentLink[];
   createMutations: Map<string, string>;
+  requestFingerprints: Map<string, string>;
   mutationQueue: Promise<void>;
   persistQueue: Promise<void>;
 };
@@ -86,9 +89,11 @@ const localState = globalForResidentLinks.__pipelineResidentLinkState ??
     revision: 0,
     links: [],
     createMutations: new Map<string, string>(),
+    requestFingerprints: new Map<string, string>(),
     mutationQueue: Promise.resolve(),
     persistQueue: Promise.resolve(),
   });
+localState.requestFingerprints ??= new Map<string, string>();
 
 const maxRows = 100_000;
 const maxPageSize = 200;
@@ -151,8 +156,9 @@ export async function createResidentLink(
   input: ResidentLinkCreateInput,
   actor: ResidentLinkActor,
   mutationId?: string,
+  request?: MutationReplayRequest,
 ) {
-  return getResidentLinkStore().create(input, actor, mutationId);
+  return getResidentLinkStore().create(input, actor, mutationId, request);
 }
 
 export async function reviewResidentLink(
@@ -203,13 +209,14 @@ async function createLocalResidentLink(
   input: ResidentLinkCreateInput,
   actor: ResidentLinkActor,
   mutationId?: string,
+  request?: MutationReplayRequest,
 ): Promise<ResidentLinkMutation> {
+  const fingerprint = mutationRequestFingerprint("resident_link_create", input.pipeline_client_id, actor, input, request);
   return withLocalMutation(async () => {
     await ensureLocalLoaded();
-    const mutationLinkId = mutationId ? localState.createMutations.get(mutationId) : undefined;
-    const mutationLink = mutationLinkId
-      ? localState.links.find((link) => link.link_id === mutationLinkId)
-      : undefined;
+    const mutationLink = resolveMutationReplay(mutationId ? localState.createMutations.get(mutationId) : undefined,
+      mutationId ? localState.requestFingerprints.get(mutationId) : undefined, fingerprint,
+      id => localState.links.find(link => link.link_id === id));
     if (mutationLink) return { ok: true, link: mutationLink, revision: localState.revision };
 
     const duplicate = localState.links.find((link) =>
@@ -220,6 +227,7 @@ async function createLocalResidentLink(
     if (duplicate) {
       if (mutationId) {
         localState.createMutations.set(mutationId, duplicate.link_id);
+        localState.requestFingerprints.set(mutationId, fingerprint);
         await persistLocal();
       }
       return { ok: true, link: duplicate, revision: localState.revision };
@@ -252,7 +260,10 @@ async function createLocalResidentLink(
     };
     localState.links = [link, ...localState.links];
     localState.revision += 1;
-    if (mutationId) localState.createMutations.set(mutationId, linkId);
+    if (mutationId) {
+      localState.createMutations.set(mutationId, linkId);
+      localState.requestFingerprints.set(mutationId, fingerprint);
+    }
     await persistLocal();
     return { ok: true, link, revision: localState.revision };
   });
@@ -330,21 +341,25 @@ async function ensureLocalLoaded() {
     try {
       const raw = await readFile(/* turbopackIgnore: true */ localStorePath(), "utf8");
       const parsed = JSON.parse(raw) as Partial<LocalResidentLinkFile>;
-      localState.links = Array.isArray(parsed.links)
-        ? parsed.links.filter(isResidentLinkRecord).slice(0, maxRows)
-        : [];
+      if (parsed.version !== 1 || !Array.isArray(parsed.links) || parsed.links.length > maxRows
+        || !parsed.links.every(isResidentLinkRecord)
+        || (parsed.revision !== undefined && (!Number.isSafeInteger(parsed.revision) || parsed.revision < 0))
+        || !isOptionalStringMap(parsed.create_mutations) || !isOptionalStringMap(parsed.request_fingerprints)) {
+        throw new Error("The saved resident-link store is invalid.");
+      }
+      localState.links = parsed.links;
       localState.revision = Number.isInteger(parsed.revision) ? Number(parsed.revision) : 0;
-      localState.createMutations = new Map(
-        Object.entries(parsed.create_mutations ?? {}).filter(([, value]) => typeof value === "string"),
-      );
+      localState.createMutations = new Map(Object.entries(parsed.create_mutations ?? {}));
+      localState.requestFingerprints = new Map(Object.entries(parsed.request_fingerprints ?? {}));
     } catch (error) {
       if (!isMissingFile(error)) {
-        console.warn(JSON.stringify({ service: "pipeline-app", event: "resident_link_store_load_failed" }));
+        throw error;
       }
     }
   })();
-  await localState.loadPromise;
-  localState.loadPromise = undefined;
+  try { await localState.loadPromise; }
+  catch (error) { localState.initialized = false; throw error; }
+  finally { localState.loadPromise = undefined; }
 }
 
 async function persistLocal() {
@@ -353,12 +368,15 @@ async function persistLocal() {
     revision: localState.revision,
     links: localState.links,
     create_mutations: Object.fromEntries(localState.createMutations),
+    request_fingerprints: Object.fromEntries(localState.requestFingerprints),
   };
   const path = localStorePath();
   const temporaryPath = `${path}.${process.pid}.tmp`;
   localState.persistQueue = localState.persistQueue.catch(() => undefined).then(async () => {
     await mkdir(/* turbopackIgnore: true */ dirname(path), { recursive: true });
-    await writeFile(/* turbopackIgnore: true */ temporaryPath, JSON.stringify(snapshot), "utf8");
+    await writeFile(/* turbopackIgnore: true */ temporaryPath, JSON.stringify(snapshot), { encoding: "utf8", mode: 0o600 });
+    await chmod(/* turbopackIgnore: true */ temporaryPath, 0o600);
+    // Atomic replacement is the commit point; no fallible work follows it.
     await rename(/* turbopackIgnore: true */ temporaryPath, path);
   });
   await localState.persistQueue;
@@ -369,8 +387,15 @@ async function withLocalMutation<T>(work: () => Promise<T>): Promise<T> {
   let release: () => void = () => {};
   localState.mutationQueue = new Promise<void>((resolve) => { release = resolve; });
   await previous.catch(() => undefined);
+  let snapshot: Pick<LocalResidentLinkState, "revision" | "links" | "createMutations" | "requestFingerprints"> | undefined;
   try {
+    await ensureLocalLoaded();
+    snapshot = { revision: localState.revision, links: structuredClone(localState.links),
+      createMutations: new Map(localState.createMutations), requestFingerprints: new Map(localState.requestFingerprints) };
     return await work();
+  } catch (error) {
+    if (snapshot) Object.assign(localState, snapshot);
+    throw error;
   } finally {
     release();
   }
@@ -465,18 +490,23 @@ async function createPostgresResidentLink(
   input: ResidentLinkCreateInput,
   actor: ResidentLinkActor,
   mutationId?: string,
+  request?: MutationReplayRequest,
 ): Promise<ResidentLinkMutation> {
+  const fingerprint = mutationRequestFingerprint("resident_link_create", input.pipeline_client_id, actor, input, request);
   const sql = getPipelineSql();
   return sql.begin(async (tx) => {
     if (mutationId) {
-      const idempotent = await tx<{ entity_id: string }[]>`
-        select entity_id from pipeline.idempotency_keys
+      await tx`select pg_advisory_xact_lock(hashtextextended(${`resident_link_create:${mutationId}`}, 0))`;
+      const idempotent = await tx<{ entity_id: string; request_fingerprint: string | null }[]>`
+        select entity_id, request_fingerprint from pipeline.idempotency_keys
         where scope = 'resident_link_create' and mutation_id = ${mutationId}
         limit 1
       `;
       if (idempotent[0]) {
+        assertMutationReplayFingerprint(idempotent[0].request_fingerprint, fingerprint);
         const existing = await getResidentLinkInTransaction(tx, idempotent[0].entity_id);
         if (existing) return { ok: true, link: existing, revision: existing.version };
+        throw new MutationReplayConflictError();
       }
     }
 
@@ -500,7 +530,10 @@ async function createPostgresResidentLink(
       order by rl.updated_at desc
       limit 1
     `;
-    if (duplicateRows[0]) return { ok: true, link: mapResidentLinkRow(duplicateRows[0]), revision: duplicateRows[0].version };
+    if (duplicateRows[0]) {
+      await savePostgresCreateReceipt(tx, mutationId, duplicateRows[0].resident_link_id, fingerprint);
+      return { ok: true, link: mapResidentLinkRow(duplicateRows[0]), revision: duplicateRows[0].version };
+    }
 
     const linkId = randomUUID();
     const rows = await tx<ResidentLinkRow[]>`
@@ -539,16 +572,18 @@ async function createPostgresResidentLink(
         )
       `;
     }
-    if (mutationId) {
-      await tx`
-        insert into pipeline.idempotency_keys (scope, mutation_id, entity_type, entity_id)
-        values ('resident_link_create', ${mutationId}, 'resident_link', ${effectiveLinkId})
-        on conflict (scope, mutation_id) do nothing
-      `;
-    }
+    await savePostgresCreateReceipt(tx, mutationId, effectiveLinkId, fingerprint);
     const link = mapResidentLinkRow(row);
     return { ok: true, link, revision: link.version };
   });
+}
+
+async function savePostgresCreateReceipt(tx: TransactionSql, mutationId: string | undefined, linkId: string, fingerprint: string) {
+  if (!mutationId) return;
+  await tx`
+    insert into pipeline.idempotency_keys (scope, mutation_id, entity_type, entity_id, request_fingerprint)
+    values ('resident_link_create', ${mutationId}, 'resident_link', ${linkId}, ${fingerprint})
+  `;
 }
 
 async function reviewPostgresResidentLink(
@@ -731,6 +766,11 @@ function isResidentLinkRecord(value: unknown): value is PipelineResidentLink {
 
 function isMissingFile(error: unknown) {
   return Boolean(error && typeof error === "object" && "code" in error && (error as { code?: string }).code === "ENOENT");
+}
+
+function isOptionalStringMap(value: unknown) {
+  return value === undefined || Boolean(value && typeof value === "object" && !Array.isArray(value)
+    && Object.values(value).every(item => typeof item === "string"));
 }
 
 function privateHeaders() {

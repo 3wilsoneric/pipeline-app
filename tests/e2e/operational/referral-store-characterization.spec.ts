@@ -23,12 +23,12 @@ test.describe("referral store characterization", () => {
       const first = await coordinator.post("/api/referrals", {
         data: { client_mutation_id: mutationId, referral },
       });
-      const replay = await coordinator.post("/api/referrals", {
-        data: {
-          client_mutation_id: mutationId,
-          referral: { ...referral, name: "Synthetic Replacement" },
-        },
+      const replay = await coordinator.post("/api/referrals", { data: { client_mutation_id: mutationId, referral } });
+      const changed = await coordinator.post("/api/referrals", {
+        data: { client_mutation_id: mutationId, referral: { ...referral, name: "Synthetic Replacement" } },
       });
+      expect(changed.status()).toBe(409);
+      expect(await changed.json()).toMatchObject({ code: "mutation_replay_conflict" });
       expect(first.status()).toBe(201);
       expect(replay.status()).toBe(201);
 
@@ -72,7 +72,7 @@ test.describe("referral store characterization", () => {
           data: {
             if_match: number(created.version),
             if_match_sections: { identity: identityVersion },
-            patch: { phone: "555-0101" },
+            patch: { payer: "Original payer" },
           },
         }),
         coordinator.patch(`/api/referrals/${number(created.id)}`, {
@@ -86,7 +86,7 @@ test.describe("referral store characterization", () => {
       expect([identity.status(), intake.status()].sort()).toEqual([200, 200]);
 
       const afterDisjoint = await readReferral(admin, number(created.id));
-      expect(afterDisjoint.phone).toBe("555-0101");
+      expect(afterDisjoint.payer).toBe("Original payer");
       expect(afterDisjoint.note).toBe("Synthetic characterized intake context.");
       const auditBeforeRace = await referralEvents(admin, number(created.id));
 
@@ -96,14 +96,14 @@ test.describe("referral store characterization", () => {
           data: {
             if_match: number(afterDisjoint.version),
             if_match_sections: { identity: sameSectionVersion },
-            patch: { phone: "555-0201" },
+            patch: { payer: "Left payer" },
           },
         }),
         coordinator.patch(`/api/referrals/${number(created.id)}`, {
           data: {
             if_match: number(afterDisjoint.version),
             if_match_sections: { identity: sameSectionVersion },
-            patch: { phone: "555-0202" },
+            patch: { payer: "Right payer" },
           },
         }),
       ]);
@@ -113,14 +113,14 @@ test.describe("referral store characterization", () => {
       expect(conflict.conflicting_sections).toEqual(["identity"]);
 
       const finalReferral = await readReferral(admin, number(created.id));
-      expect(["555-0201", "555-0202"]).toContain(finalReferral.phone);
+      expect(["Left payer", "Right payer"]).toContain(finalReferral.payer);
       const auditAfterRace = await referralEvents(admin, number(created.id));
       expect(auditAfterRace).toHaveLength(auditBeforeRace.length + 1);
-      const phoneEvents = auditAfterRace.filter((event) => array(event.changed_fields).includes("phone"));
-      expect(phoneEvents).toHaveLength(2);
-      expect(phoneEvents.map((event) => event.actor_id).sort()).toEqual([
+      const payerEvents = auditAfterRace.filter((event) => array(event.changed_fields).includes("payer"));
+      expect(payerEvents).toHaveLength(2);
+      expect(payerEvents.map((event) => event.actor_id).sort()).toEqual([
         pipelineActors.admin.id,
-        finalReferral.phone === "555-0201"
+        finalReferral.payer === "Left payer"
           ? pipelineActors.admin.id
           : pipelineActors.assessmentCoordinator.id,
       ].sort());
@@ -138,7 +138,7 @@ test.describe("referral store characterization", () => {
       const mutationId = "characterization-patch-replay";
       const body = {
         if_match: number(created.version),
-        if_match_sections: { identity: sectionVersion(created, "identity") },
+        if_match_sections: { intake: sectionVersion(created, "intake") },
         client_mutation_id: mutationId,
         patch: { phone: "555-0142" },
       };
@@ -164,8 +164,7 @@ test.describe("referral store characterization", () => {
     const admin = await actorApiContext("admin", url);
     const coordinator = await actorApiContext("assessmentCoordinator", url);
     const assessorA = await actorApiContext("assessorA", url);
-    const assessorB = await actorApiContext("assessorB", url);
-    const viewer = await actorApiContext("viewer", url);
+    const outsider = await actorApiContext("outsider", url);
     const anonymous = await request.newContext({ baseURL: url });
 
     try {
@@ -181,21 +180,19 @@ test.describe("referral store characterization", () => {
       const eventsBefore = await referralEvents(coordinator, id);
       const mutation = {
         if_match: number(before.version),
-        if_match_sections: { identity: sectionVersion(before, "identity") },
+        if_match_sections: { intake: sectionVersion(before, "intake") },
         patch: { phone: "555-9999" },
       };
 
-      const [unassignedAssessor, readOnlyViewer, unauthenticated, crossOrigin] = await Promise.all([
-        assessorB.patch(`/api/referrals/${id}`, { data: mutation }),
-        viewer.patch(`/api/referrals/${id}`, { data: mutation }),
+      const [unauthorizedStaff, unauthenticated, crossOrigin] = await Promise.all([
+        outsider.patch(`/api/referrals/${id}`, { data: mutation }),
         anonymous.patch(`/api/referrals/${id}`, { data: mutation }),
         admin.patch(`/api/referrals/${id}`, {
           headers: { Origin: "https://untrusted.example.invalid" },
           data: mutation,
         }),
       ]);
-      expect(unassignedAssessor.status()).toBe(404);
-      expect(readOnlyViewer.status()).toBe(403);
+      expect(unauthorizedStaff.status()).toBe(403);
       expect(unauthenticated.status()).toBe(401);
       expect(crossOrigin.status()).toBe(403);
 
@@ -204,15 +201,15 @@ test.describe("referral store characterization", () => {
         client_mutation_id: "characterization-authorization-denied-create",
         referral: fixedReferral(deniedCreateName),
       };
-      const [viewerCreate, anonymousCreate, crossOriginCreate] = await Promise.all([
-        viewer.post("/api/referrals", { data: deniedCreate }),
+      const [outsiderCreate, anonymousCreate, crossOriginCreate] = await Promise.all([
+        outsider.post("/api/referrals", { data: deniedCreate }),
         anonymous.post("/api/referrals", { data: deniedCreate }),
         coordinator.post("/api/referrals", {
           headers: { Origin: "https://untrusted.example.invalid" },
           data: deniedCreate,
         }),
       ]);
-      expect(viewerCreate.status()).toBe(403);
+      expect(outsiderCreate.status()).toBe(403);
       expect(anonymousCreate.status()).toBe(401);
       expect(crossOriginCreate.status()).toBe(403);
 
@@ -224,8 +221,7 @@ test.describe("referral store characterization", () => {
         admin.dispose(),
         coordinator.dispose(),
         assessorA.dispose(),
-        assessorB.dispose(),
-        viewer.dispose(),
+        outsider.dispose(),
         anonymous.dispose(),
       ]);
     }
@@ -335,7 +331,7 @@ test.describe("referral store characterization", () => {
           reason: "Synthetic reassignment characterization.",
         }),
       ]));
-      expect((await assessorA.get(`/api/referrals/${id}`)).status()).toBe(404);
+      expect((await assessorA.get(`/api/referrals/${id}`)).status()).toBe(200);
       expect((await assessorB.get(`/api/referrals/${id}`)).status()).toBe(200);
     } finally {
       await Promise.all([coordinator.dispose(), assessorA.dispose(), assessorB.dispose()]);
@@ -554,6 +550,9 @@ test.describe("referral store characterization", () => {
     const assessorB = await actorApiContext("assessorB", url);
     const viewer = await actorApiContext("viewer", url);
 
+    const outsider = await actorApiContext("outsider", url);
+    const anonymous = await request.newContext({ baseURL: url });
+
     try {
       expect((await assessorA.get("/api/members")).status()).toBe(200);
       const created = await createReferral(
@@ -564,16 +563,16 @@ test.describe("referral store characterization", () => {
       );
       const id = number(created.id);
       const eventsBeforeDenials = await referralEvents(coordinator, id);
-      const [unassignedDelete, viewerDelete, crossOriginDelete] = await Promise.all([
-        assessorB.delete(`/api/referrals/${id}`, { data: { if_match: number(created.version) } }),
-        viewer.delete(`/api/referrals/${id}`, { data: { if_match: number(created.version) } }),
+      const [outsiderDelete, anonymousDelete, crossOriginDelete] = await Promise.all([
+        outsider.delete(`/api/referrals/${id}`, { data: { if_match: number(created.version) } }),
+        anonymous.delete(`/api/referrals/${id}`, { data: { if_match: number(created.version) } }),
         coordinator.delete(`/api/referrals/${id}`, {
           headers: { Origin: "https://untrusted.example.invalid" },
           data: { if_match: number(created.version) },
         }),
       ]);
-      expect(unassignedDelete.status()).toBe(403);
-      expect(viewerDelete.status()).toBe(403);
+      expect(outsiderDelete.status()).toBe(403);
+      expect(anonymousDelete.status()).toBe(401);
       expect(crossOriginDelete.status()).toBe(403);
       expect(await readReferral(coordinator, id)).toEqual(created);
       expect(await referralEvents(coordinator, id)).toEqual(eventsBeforeDenials);
@@ -585,7 +584,8 @@ test.describe("referral store characterization", () => {
       expect((await referralEvents(coordinator, id)).filter((event) => event.action === "referral_moved_to_trash")).toHaveLength(0);
 
       const deleteMutationId = "characterization-trash-delete-replay";
-      const deleted = await coordinator.delete(`/api/referrals/${id}`, {
+      // Approved staff share workspace access regardless of assignment.
+      const deleted = await assessorB.delete(`/api/referrals/${id}`, {
         data: { if_match: number(created.version), client_mutation_id: deleteMutationId },
       });
       expect(deleted.status()).toBe(200);
@@ -593,7 +593,7 @@ test.describe("referral store characterization", () => {
       expect(number(deletedReferral.version)).toBe(number(created.version) + 1);
       expect(Date.parse(String(deletedReferral.deleteAfter)) - Date.parse(String(deletedReferral.deletedAt))).toBe(30 * 24 * 60 * 60 * 1_000);
       expect((await coordinator.get(`/api/referrals/${id}`)).status()).toBe(404);
-      const deletedReplay = await coordinator.delete(`/api/referrals/${id}`, {
+      const deletedReplay = await assessorB.delete(`/api/referrals/${id}`, {
         data: { if_match: number(created.version), client_mutation_id: deleteMutationId },
       });
       expect(deletedReplay.status()).toBe(200);
@@ -605,13 +605,13 @@ test.describe("referral store characterization", () => {
       expect(assignedTrash.status()).toBe(200);
       expect(unassignedTrash.status()).toBe(200);
       expect(array(record(await assignedTrash.json()).referrals).map((item) => number(record(item).id))).toContain(id);
-      expect(array(record(await unassignedTrash.json()).referrals).map((item) => number(record(item).id))).not.toContain(id);
+      expect(array(record(await unassignedTrash.json()).referrals).map((item) => number(record(item).id))).toContain(id);
 
-      const [unassignedRestore, viewerRestore, crossOriginRestore] = await Promise.all([
-        assessorB.post(`/api/trash/referrals/${id}/restore`, {
+      const [outsiderRestore, anonymousRestore, crossOriginRestore] = await Promise.all([
+        outsider.post(`/api/trash/referrals/${id}/restore`, {
           data: { if_match: number(deletedReferral.version) },
         }),
-        viewer.post(`/api/trash/referrals/${id}/restore`, {
+        anonymous.post(`/api/trash/referrals/${id}/restore`, {
           data: { if_match: number(deletedReferral.version) },
         }),
         coordinator.post(`/api/trash/referrals/${id}/restore`, {
@@ -619,8 +619,8 @@ test.describe("referral store characterization", () => {
           data: { if_match: number(deletedReferral.version) },
         }),
       ]);
-      expect(unassignedRestore.status()).toBe(404);
-      expect(viewerRestore.status()).toBe(403);
+      expect(outsiderRestore.status()).toBe(403);
+      expect(anonymousRestore.status()).toBe(401);
       expect(crossOriginRestore.status()).toBe(403);
 
       const staleRestore = await coordinator.post(`/api/trash/referrals/${id}/restore`, {
@@ -628,7 +628,7 @@ test.describe("referral store characterization", () => {
       });
       expect(staleRestore.status()).toBe(409);
       const restoreMutationId = "characterization-trash-restore-replay";
-      const restored = await coordinator.post(`/api/trash/referrals/${id}/restore`, {
+      const restored = await viewer.post(`/api/trash/referrals/${id}/restore`, {
         data: { if_match: number(deletedReferral.version), client_mutation_id: restoreMutationId },
       });
       expect(restored.status()).toBe(200);
@@ -636,7 +636,7 @@ test.describe("referral store characterization", () => {
       expect(number(restoredReferral.version)).toBe(number(deletedReferral.version) + 1);
       expect(restoredReferral.deletedAt).toBeUndefined();
       expect(restoredReferral.deleteAfter).toBeUndefined();
-      const restoredReplay = await coordinator.post(`/api/trash/referrals/${id}/restore`, {
+      const restoredReplay = await viewer.post(`/api/trash/referrals/${id}/restore`, {
         data: { if_match: number(deletedReferral.version), client_mutation_id: restoreMutationId },
       });
       expect(restoredReplay.status()).toBe(200);
@@ -646,7 +646,7 @@ test.describe("referral store characterization", () => {
       expect(events.filter((event) => event.action === "referral_moved_to_trash")).toHaveLength(1);
       expect(events.filter((event) => event.action === "referral_restored")).toHaveLength(1);
     } finally {
-      await Promise.all([coordinator.dispose(), assessorA.dispose(), assessorB.dispose(), viewer.dispose()]);
+      await Promise.all([coordinator.dispose(), assessorA.dispose(), assessorB.dispose(), viewer.dispose(), outsider.dispose(), anonymous.dispose()]);
     }
   });
 });

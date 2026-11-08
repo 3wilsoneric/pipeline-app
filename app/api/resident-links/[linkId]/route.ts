@@ -18,7 +18,7 @@ import {
   reviewResidentLink,
 } from "@/lib/pipeline/resident-link-store";
 import { validateResidentLinkReview } from "@/lib/pipeline/resident-link-validation";
-import { requireReferralAccess } from "@/lib/pipeline/referral-access";
+import { isAssessorUser, requireReferralAccess } from "@/lib/pipeline/referral-access";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import type {
   PipelineResidentLink,
@@ -41,6 +41,7 @@ export async function GET(
     if (!linkId) return jsonError("linkId is invalid.");
     const link = await getResidentLink(linkId);
     if (!link) return jsonError("Resident link not found.", 404);
+    if (!link.referral_id && isAssessorUser(auth.user)) return jsonError("Resident link not found.", 404);
     if (link.referral_id) {
       const access = await requireReferralAccess(auth.user, link.referral_id);
       if (!access.ok) return access.response;
@@ -64,6 +65,7 @@ export async function PATCH(
     if (!linkId) return jsonError("linkId is invalid.");
     const link = await getResidentLink(linkId);
     if (!link) return jsonError("Resident link not found.", 404);
+    if (!link.referral_id && isAssessorUser(auth.user)) return jsonError("Resident link not found.", 404);
     let referral: Referral | null = null;
     if (link.referral_id) {
       const access = await requireReferralAccess(auth.user, link.referral_id);

@@ -1,3 +1,4 @@
+import { openAssessmentFixture } from "./support/assessment-fixture";
 import { closeTestBrowser } from "./support/browser-lifecycle";
 import { expect, test, webkit } from "@playwright/test";
 import { randomUUID } from "node:crypto";
@@ -80,7 +81,7 @@ test("interview date closes on Escape and outside press without exiting the asse
   const browser = await webkit.launch();
   try {
     const page = await browser.newPage({ baseURL, viewport: { width: 768, height: 1024 }, hasTouch: true, isMobile: true });
-    await page.goto("/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=prepare&assessmentSection=prior_history");
+    await openAssessmentFixture(page, { mode: "prepare", section: "prior_history" });
     await expect(page.getByTestId("packet-workspace")).not.toHaveAttribute("inert", "");
     await expect(page.locator('[data-guide-target="packet-workspace"]')).toHaveAttribute("data-performance-ready", "packet");
     const surface = page.locator("[data-assessment-view]");

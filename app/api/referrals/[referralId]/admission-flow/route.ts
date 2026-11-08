@@ -1,3 +1,4 @@
+import { mutationReplayRequest } from "@/lib/persistence/mutation-replay";
 import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
 import { pipelineAccountableActor } from "@/lib/auth/assessor-session-policy";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
@@ -44,7 +45,8 @@ export async function PUT(request: Request, context: { params: Promise<{ referra
     if (!Number.isSafeInteger(if_match_section) || Number(if_match_section) < 1) return jsonError("if_match_section must be a positive workflow section version number.");
     const mutationId = validateClientMutationId(body.value.client_mutation_id);
     if (!mutationId.ok) return jsonError(mutationId.message);
-    const replay = await getReferralMutationReplay(referralId, "admission_flow", mutationId.value);
+    const replayRequest = mutationReplayRequest(auth.user, body.value);
+    const replay = await getReferralMutationReplay(referralId, "admission_flow", mutationId.value, pipelineAccountableActor(auth.user), replayRequest);
     if (replay) return Response.json({ referral: replay }, { headers: { "Cache-Control": "private, no-store, max-age=0" } });
     const referral = access.referral;
     if (referral.stage === "Accepted / Admitted" || referral.actualAdmissionDate || referral.placementCancellation || referral.stage === "Declined") {
@@ -95,7 +97,7 @@ export async function PUT(request: Request, context: { params: Promise<{ referra
     }
     const result = await patchReferral(referralId, { admissionFlow: next }, Number(if_match), actor,
       { workflow: Number(if_match_section) }, { auditAction, auditReason: action === "record_ready" ? `Ready date ${next.readyToMoveInDate}` : undefined,
-        mutationId: mutationId.value, mutationScope: "admission_flow" });
+        mutationId: mutationId.value, mutationScope: "admission_flow", replayRequest });
     if (!result) return jsonError("Referral not found.", 404);
     if (!result.ok && "conflict" in result) return Response.json({ error: "This referral changed. Review the latest status before saving.", ...result }, { status: 409 });
     if (!result.ok) return Response.json({ error: result.blockers[0]?.label ?? "Admission flow could not be saved.", ...result }, { status: 422 });

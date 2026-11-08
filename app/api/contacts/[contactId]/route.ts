@@ -1,3 +1,4 @@
+import { mutationReplayRequest } from "@/lib/persistence/mutation-replay";
 import { requirePipelineUser, type PipelineUser } from "@/lib/auth/pipeline-auth";
 import { pipelineAuditActor } from "@/lib/auth/assessor-session-policy";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
@@ -19,8 +20,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ conta
     if (!store.ok) return store.response;
     const prepared = await prepareContactUpdate(request, context.params, auth.user);
     if (!prepared.ok) return prepared.response;
-    const { contactId, command } = prepared;
-    const result = await updateContact(contactId, command.patch, command.expectedVersion, pipelineAuditActor(auth.user), command.mutationId);
+    const { contactId, referralId, command } = prepared;
+    const result = await updateContact(contactId, command.patch, command.expectedVersion, pipelineAuditActor(auth.user), command.mutationId, mutationReplayRequest(auth.user, { referralId, ...command }));
     if (!result) return jsonError("Contact not found.", 404);
     if (!result.ok) return Response.json({ error: "This contact changed in another session.", ...result }, { status: 409 });
     return Response.json(result, { headers: { "Cache-Control": "private, no-store, max-age=0" } });
@@ -45,7 +46,7 @@ async function prepareContactUpdate(
   }
   const command = validateContactPatchBody(body.value);
   return command.ok
-    ? { ok: true as const, contactId, command: command.value }
+    ? { ok: true as const, contactId, referralId, command: command.value }
     : failed(jsonError(command.message, command.status));
 }
 

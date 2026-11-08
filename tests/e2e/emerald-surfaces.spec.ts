@@ -1,3 +1,4 @@
+import { openAssessmentFixture } from "./support/assessment-fixture";
 import { editPreparedAnswer } from "./support/assessment-navigation";
 import { expect, test, type Page } from "@playwright/test";
 import type { AxeResults } from "axe-core";
@@ -92,7 +93,7 @@ for (const width of [1440, 1024, 437, 390]) {
     }
     expect(seen.sort()).toEqual(["Taylor Rivera", "Christopher Montgomery-Worthington", "Morgan Chen", "Casey Brooks", "Alex Reed"].sort());
 
-    await page.goto("/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=interview&assessmentSection=diagnosis_clinical&demo=1");
+    await openAssessmentFixture(page, { mode: "interview", section: "diagnosis_clinical" });
     const assessment = page.locator('[data-assessment-view="assessment"]');
     await expect(assessment).toBeVisible();
     const presentation = width < 640

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -200,6 +200,13 @@ for (const mode of ["local_file", "postgres"]) {
       assert.equal(replayed.ok, true);
       assert.equal(replayed.addendum.addendum_id, noted.addendum.addendum_id);
       assert.equal(replayed.assessment.addenda.length, 1);
+      for (const changed of [
+        [id, "Different note", "Correction", actor, current.version],
+        [id, "Later clarification", "Different reason", actor, current.version],
+        [id, "Later clarification", "Correction", { ...actor, id: "other-assessor" }, current.version],
+        [id, "Later clarification", "Correction", actor, current.version + 1],
+      ]) await assert.rejects(store.addAssessmentAddendum(...changed, "addendum-after-send"), { name: "MutationReplayConflictError" });
+      assert.equal((await store.getAssessment(id)).addenda.length, 1);
       assert.equal(replayed.assessment.audit_events.filter((event) => event.action === "assessment_addendum_added").length, 1);
       assert.equal((await store.addAssessmentAddendum(id, "Stale", "test", actor, current.version)).conflict, true);
       phase = "add a sourced answer to the signed assessment without another send";
@@ -262,10 +269,14 @@ for (const mode of ["local_file", "postgres"]) {
         referralId: referral.id, assessmentId: id, expectedVersion: current.version, actor,
         fields: [], context: {}, defaults: {},
       }), /Use Add note/);
+      const addendumExpectedVersion = noted.assessment.version - 1;
       phase = "new revision after send";
       const revision = await store.createAssessmentRevision(id, actor, "revision-after-send");
       assert.equal(isAssessmentFinalized(revision.assessment), false);
       assert.equal(revision.assessment.meet_client_sent_at, null);
+      assert.equal((await store.createAssessmentRevision(id, actor, "revision-after-send")).assessment.assessment_id, revision.assessment.assessment_id);
+      await assert.rejects(store.createAssessmentRevision(id, { ...actor, id: "other-assessor" }, "revision-after-send"), { name: "MutationReplayConflictError" });
+      await assert.rejects(store.createAssessmentRevision(revision.assessment.assessment_id, actor, "revision-after-send"), { name: "MutationReplayConflictError" });
       assert.equal(isAssessmentFinalized(await load("lib/assessment/assessment-store.ts").getAssessment(id)), true);
       if (sql) {
         phase = "historical successful sends stay finalized after migration";
@@ -282,6 +293,29 @@ for (const mode of ["local_file", "postgres"]) {
         assert.equal(backfilled.meet_client_sent_version, versionSent);
         assert.equal((await store.getAssessment(revision.assessment.assessment_id)).meet_client_sent_at, null);
       }
+      phase = "restarted addendum and revision receipts retain their command binding";
+      const restartStore = () => loadTypeScriptModule(process.cwd(), "lib/assessment/assessment-store.ts", {
+        ...globals, globalThis: { ...(sql ? { __pipelineSql: sql } : {}) },
+      });
+      const restarted = restartStore();
+      assert.equal((await restarted.addAssessmentAddendum(id, "Later clarification", "Correction", actor, addendumExpectedVersion, "addendum-after-send")).addendum.addendum_id, noted.addendum.addendum_id);
+      assert.equal((await restarted.createAssessmentRevision(id, actor, "revision-after-send")).assessment.assessment_id, revision.assessment.assessment_id);
+      const beforeLegacy = JSON.stringify(await restarted.getAssessment(id));
+      const beforeRevision = JSON.stringify(await restarted.getAssessment(revision.assessment.assessment_id));
+      if (sql) {
+        await sql`update pipeline.idempotency_keys set request_fingerprint = null where mutation_id in ('addendum-after-send', 'revision-after-send')`;
+      } else {
+        const filename = join(directory, "assessments.json");
+        const saved = JSON.parse(await readFile(filename, "utf8"));
+        delete saved.request_fingerprints["assessment_addendum:addendum-after-send"];
+        delete saved.request_fingerprints["assessment_revision:revision-after-send"];
+        await writeFile(filename, JSON.stringify(saved));
+      }
+      const legacyStore = restartStore();
+      await assert.rejects(legacyStore.addAssessmentAddendum(id, "Later clarification", "Correction", actor, addendumExpectedVersion, "addendum-after-send"), { name: "MutationReplayConflictError" });
+      await assert.rejects(legacyStore.createAssessmentRevision(id, actor, "revision-after-send"), { name: "MutationReplayConflictError" });
+      assert.equal(JSON.stringify(await legacyStore.getAssessment(id)), beforeLegacy);
+      assert.equal(JSON.stringify(await legacyStore.getAssessment(revision.assessment.assessment_id)), beforeRevision);
     } catch (error) {
       throw new Error(`${phase}: ${error.message}`, { cause: error });
     } finally {

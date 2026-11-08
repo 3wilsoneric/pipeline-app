@@ -16,9 +16,13 @@ const browserPatterns = [
 const postgresPatterns = [
   /^\.github\/workflows\/ci\.yml$/,
   /^database\//,
-  /^lib\/(assessment|database|extraction|pipeline)\//,
+  /^lib\/(assessment|database|extraction|pipeline|persistence)\//,
+  /^lib\/observability\/api-logging\.ts$/,
+  /^tests\/e2e\/operational\/(contact-retry-persistence|mutation-command-binding|assessment-command-binding|referral-retry-persistence|referral-workflow-binding|assessment-section-state|intake-recovery|intake-hydration|resident-link-retry-persistence|import-identity)\.spec\.ts$/,
+  /^tests\/e2e\/support\/restartable-operational-server\.ts$/,
   /^app\/api\//,
-  /^scripts\/(ci-change-impact|apply-database|database-|postgres-|seed-production|collaboration-load|http-load)/,
+  /^scripts\/(ci-change-impact|apply-database|database-|postgres-|seed-production|collaboration-load|http-load|contact-|mutation-replay)/,
+  /^scripts\/(import-confirmed-client-files|lib\/client-file-import-finalization)\.mjs$/,
   /^package(-lock)?\.json$/,
 ];
 

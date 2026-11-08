@@ -1,3 +1,4 @@
+import { mutationReplayRequest } from "@/lib/persistence/mutation-replay";
 import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
 import { pipelineAuditActor } from "@/lib/auth/assessor-session-policy";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
@@ -40,7 +41,7 @@ export async function POST(request: Request, context: { params: Promise<{ referr
     if (!body.ok) return jsonError(body.message, body.status);
     const command = validateReferralContactCreateBody(body.value);
     if (!command.ok) return jsonError(command.message, command.status);
-    const result = await attachReferralContact(referralId, command.value.link, pipelineAuditActor(auth.user), command.value.mutationId);
+    const result = await attachReferralContact(referralId, command.value.link, pipelineAuditActor(auth.user), command.value.mutationId, mutationReplayRequest(auth.user, command.value));
     if (!result) return jsonError("Contact not found or inactive.", 404);
     return Response.json(result, { status: result.idempotentReplay ? 200 : 201, headers: { "Cache-Control": "private, no-store, max-age=0" } });
   });

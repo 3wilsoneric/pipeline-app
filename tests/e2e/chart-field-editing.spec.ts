@@ -1,3 +1,4 @@
+import { openAssessmentFixture } from "./support/assessment-fixture";
 import { closeTestBrowser } from "./support/browser-lifecycle";
 import { chromium, expect, test, webkit } from "@playwright/test";
 import { randomUUID } from "node:crypto";
@@ -243,7 +244,7 @@ test("referral chart edits its own intake while the standalone client chart stay
 test("practice chart omits the internal resident number at phone and desktop widths", async ({ page }, info) => {
   for (const width of [390, 1440]) {
     await page.setViewportSize({ width, height: 900 });
-    await page.goto("/?view=referrals&screen=packet&trainingAssessment=prepare&demo=1&workspaceStage=chart");
+    await openAssessmentFixture(page, { mode: "prepare", stage: "chart" });
     const record = page.getByRole("article", { name: "Assessment record", exact: true });
     await expect(record).toBeVisible();
     await expect(record).not.toContainText("Resident number");

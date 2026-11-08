@@ -1,5 +1,7 @@
 "use client";
 
+import { normalizeClientName } from "@/lib/pipeline/client-identity-presentation.mjs";
+
 import HistoricalAdmissionPanel from "./HistoricalAdmissionPanel";
 import { startEditingPresenceSession } from "./editing-presence-session";
 
@@ -89,7 +91,6 @@ import {
   usesServerReferralDrafts,
 } from "@/lib/pipeline/referral-draft-recovery";
 import {
-  parsePipelineReferralDraft,
   type PipelineReferralDraft,
 } from "@/lib/pipeline/user-workspace-state-types";
 import {
@@ -143,6 +144,7 @@ import {
 } from "@/lib/pipeline/referral-canvas-persistence";
 import {
   canvasDraftStorageKey,
+  readCanvasSessionDraft,
   captureReferralSaveSnapshot,
   currentDraftValues,
   draftKeySignature,
@@ -545,6 +547,7 @@ export default function ReferralPacketCanvas({
   }, [newDraftKey, referral?.id, resetIntakeExtraction]);
   const serverDraftsEnabled = usesServerReferralDrafts() && !trainingIntakeMode;
   const [draftRecoveryLoading, setDraftRecoveryLoading] = useState(true);
+  const [referralLoadRetry, setReferralLoadRetry] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [createdWorkspaceId, setCreatedWorkspaceId] = useState<number | null>(null);
   const [showCreationHandoff, setShowCreationHandoff] = useState(routedWorkspaceLocation.workspaceDialog === "created");
@@ -601,6 +604,8 @@ export default function ReferralPacketCanvas({
   const retryCanonicalIntakeRef = useRef(false);
   const retryCanonicalIntakeRunningRef = useRef(false);
   const creationMutationIdRef = useRef(newReferralCreationMutationId(newDraftKey));
+  const creationRequestRef = useRef<string | undefined>(undefined);
+  const promotionBaseValuesRef = useRef<Partial<Record<DirtyDraftKey, string>>>({});
   const patchMutationIdsRef = useRef(new Map<string, string>());
   const deleteMutationIdRef = useRef(createMutationId());
   const ownerPrincipalIdRef = useRef(ownerPrincipalId);
@@ -827,6 +832,9 @@ export default function ReferralPacketCanvas({
       ...(draftBaseVersionRef.current ? { baseVersion: draftBaseVersionRef.current } : {}),
       ...(Object.keys(draftBaseValuesRef.current).length > 0 ? { baseValues: { ...draftBaseValuesRef.current } } : {}),
       dirtyKeys: [...activeDirtyKeys],
+      creationRequest: creationRequestRef.current,
+      ...(newDraftKey && Object.keys(promotionBaseValuesRef.current).length > 0
+        ? { promotionBaseValues: promotionBaseValuesRef.current } : {}),
       fields: Object.fromEntries(
         persistedFieldKeys.map((key) => [key, {
           value: fieldsRef.current[key].value,
@@ -940,10 +948,13 @@ export default function ReferralPacketCanvas({
   }, [startIntakeExtraction]);
 
   const loadIntakeRecovery = useCallback(async (reference: ReferralRecoveryDraftKey) => {
+    const confirmedPrincipal = referralRecoveryPrincipal();
     const [server, local, principal] = await Promise.allSettled([
-      serverDraftsEnabled ? loadServerReferralDraft(reference) : Promise.resolve(readSessionDraft(reference)),
-      loadLocalReferralRecovery(reference), referralRecoveryPrincipal(),
+      serverDraftsEnabled ? loadServerReferralDraft(reference) : confirmedPrincipal.then(id => readSessionDraft(reference, id)),
+      loadLocalReferralRecovery(reference), confirmedPrincipal,
     ]);
+    if (principal.status === "fulfilled") recoveryPrincipalRef.current = principal.value;
+    const unavailable = server.status === "rejected" || local.status === "rejected" || principal.status === "rejected";
     const localRecovery = local.status === "fulfilled" ? local.value : null;
     const candidateServerDraft = server.status === "fulfilled" ? server.value : null;
     const serverDraft = candidateServerDraft && !await isActiveOtherRecoverySession(candidateServerDraft.recoverySessionId)
@@ -951,13 +962,18 @@ export default function ReferralPacketCanvas({
     const volatile = principal.status === "fulfilled" ? volatileReferralRecovery(principal.value, reference) : null;
     if (volatile && (!localRecovery || Date.parse(volatile.draft.savedAt) >= Date.parse(localRecovery.draft.savedAt))
       && (!serverDraft || Date.parse(volatile.draft.savedAt) >= Date.parse(serverDraft.savedAt))) {
-      return { draft: volatile.draft, local: volatile };
+      return { draft: volatile.draft, local: volatile, unavailable };
     }
     if (localRecovery && (!serverDraft || Date.parse(localRecovery.draft.savedAt) >= Date.parse(serverDraft.savedAt)
       || serverDraftsEnabled && (localRecovery.draft.dirtyKeys.length > 0 || localRecovery.initialPacket || localRecovery.additionalFiles.length > 0 || Object.keys(localRecovery.pendingDocuments).length > 0))) {
-      return { draft: localRecovery.draft, local: localRecovery };
+      return { draft: localRecovery.draft, local: localRecovery, unavailable };
     }
-    return { draft: serverDraft, local: serverDraftsEnabled ? localRecovery : null };
+    if (!serverDraft) {
+      if (server.status === "rejected") throw server.reason;
+      if (local.status === "rejected") throw local.reason;
+      if (principal.status === "rejected") throw principal.reason;
+    }
+    return { draft: serverDraft, local: serverDraftsEnabled ? localRecovery : null, unavailable };
   }, [serverDraftsEnabled]);
 
   const persistRecoveryDraft = (reportStatus: boolean) => {
@@ -981,7 +997,7 @@ export default function ReferralPacketCanvas({
       return;
     }
     try {
-      window.sessionStorage.setItem(canvasDraftStorageKey(reference), JSON.stringify(draft));
+      window.sessionStorage.setItem(canvasDraftStorageKey(reference, viewer?.id ?? recoveryPrincipalRef.current), JSON.stringify(draft));
       if (reportStatus && !loadedReferralRef.current && draftRevisionRef.current === revision) setSavedAt("Draft saved in this tab");
     } catch {
       void preservePendingIntake(false).then(() => {
@@ -1031,9 +1047,15 @@ export default function ReferralPacketCanvas({
     setDirtyKeys(next);
   };
 
-  const restoreDraftTracking = (draft: CanvasSessionDraft | null) => {
+  const restoreDraftTracking = (draft: CanvasSessionDraft | null, newIntake = false) => {
     if (!draft) return null;
     lastFocusRef.current = draft.lastFocus;
+    if (newIntake) {
+      creationRequestRef.current = draft.creationRequest;
+      promotionBaseValuesRef.current = draft.promotionBaseValues ?? Object.fromEntries(
+        [...persistedFieldKeys, "conserved", "tags", "documents"].map((key) => [key, recoveredReferralValue(draft, key as DirtyDraftKey)]),
+      );
+    }
     const recoveredDirtyKeys = new Set(draft.dirtyKeys.filter((key) => key !== "initialPacket"));
     dirtyKeysRef.current = recoveredDirtyKeys;
     draftBaseVersionRef.current = draft.baseVersion;
@@ -1066,6 +1088,8 @@ export default function ReferralPacketCanvas({
     if (!referral?.id) {
       let cancelled = false;
       creationMutationIdRef.current = newReferralCreationMutationId(newDraftKey);
+      creationRequestRef.current = undefined;
+      promotionBaseValuesRef.current = {};
       const defaultOwner = defaultOwnerRef.current;
       const resetFields = {
         ...initialFields,
@@ -1118,9 +1142,10 @@ export default function ReferralPacketCanvas({
       };
       if (!trainingIntakeMode) {
         setDraftRecoveryLoading(true);
-        void loadIntakeRecovery(newDraftKey).then(({ draft, local }) => {
+        void loadIntakeRecovery(newDraftKey).then(({ draft, local, unavailable }) => {
           if (cancelled) return;
-          const recovered = draft ? restoreDraftTracking(applyRecoveryDraft(draft, setters)) : null;
+          if (unavailable) setSaveError("Could not check for a recovery draft.");
+          const recovered = draft ? restoreDraftTracking(applyRecoveryDraft(draft, setters), true) : null;
           if (local) restoreLocalFiles(local);
           if (recovered || dirtyKeysRef.current.size === 0) setSavedAt(recovered ? "Restored edits · not yet saved" : "Draft");
           if (recovered) retryCanonicalIntakeRef.current = true;
@@ -1131,7 +1156,7 @@ export default function ReferralPacketCanvas({
         });
       } else {
         setDraftRecoveryLoading(false);
-        const recovered = restoreDraftTracking(restoreSessionDraft(newDraftKey, setters));
+        const recovered = restoreDraftTracking(restoreSessionDraft(newDraftKey, setters, recoveryPrincipalRef.current));
         setSavedAt(recovered ? "Restored edits · not yet saved" : "Draft");
       }
       return () => {
@@ -1141,6 +1166,7 @@ export default function ReferralPacketCanvas({
     if (loadedReferralRef.current?.id === referral.id) return;
 
     let cancelled = false;
+    setSaveError("");
     setDraftRecoveryLoading(true);
     fetchPipelineJson<{ referral?: Referral }>(`/api/referrals/${referral.id}/canvas`, { cache: "no-store" }, { cacheTtlMs: workspaceCanvasCacheTtlMs }).then((canvasPayload) => {
       if (cancelled) return;
@@ -1217,8 +1243,9 @@ export default function ReferralPacketCanvas({
         if (!trainingIntakeMode) {
           setDraftRecoveryLoading(true);
           void loadIntakeRecovery(record.id)
-            .then(({ draft, local }) => {
+            .then(({ draft, local, unavailable }) => {
               if (cancelled) return;
+              if (unavailable) setSaveError("Could not check for a recovery draft.");
               const pending = draft ? unreconciledReferralRecovery(draft, record, local) : null;
               finishRecovery(pending ? restoreDraftTracking(applyRecoveryDraft(pending, setters)) : null);
               if (pending && local) restoreLocalFiles(local);
@@ -1232,7 +1259,7 @@ export default function ReferralPacketCanvas({
             });
         } else {
           setDraftRecoveryLoading(false);
-          const draft = readSessionDraft(record.id);
+          const draft = recoveryPrincipalRef.current ? readSessionDraft(record.id, recoveryPrincipalRef.current) : null;
           const pending = draft ? unreconciledReferralRecovery(draft, record, null) : null;
           finishRecovery(pending ? restoreDraftTracking(applyRecoveryDraft(pending, setters)) : null);
           if (draft && !pending) void clearSessionDraft(record.id);
@@ -1250,7 +1277,7 @@ export default function ReferralPacketCanvas({
     return () => {
       cancelled = true;
     };
-  }, [newDraftKey, referral?.id, loadIntakeRecovery, trainingIntakeMode, restoreLocalFiles]);
+  }, [newDraftKey, referral?.id, referralLoadRetry, loadIntakeRecovery, trainingIntakeMode, restoreLocalFiles]);
 
   useEffect(() => {
     const packet = extraction?.packet;
@@ -1923,7 +1950,7 @@ export default function ReferralPacketCanvas({
         snapshot.dirtyKeys,
         packetPatch(snapshot.initialPacket, documentHash),
       );
-      return { referral: saved, created: false };
+      return { referral: saved, created: !referral?.id };
     }
 
     const owner = fieldsRef.current.owner.value.trim() || "Unassigned";
@@ -1936,21 +1963,54 @@ export default function ReferralPacketCanvas({
       createdAt: new Date().toISOString(),
       ...initialDocumentInput(snapshot.initialPacket, documentHash),
     });
-    const payload = await fetchPipelineJson<{ referral?: Referral; error?: string; idempotent_replay?: boolean; warnings?: string[] }>("/api/referrals", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+    if (!creationRequestRef.current) {
+      creationRequestRef.current = JSON.stringify({
         referral: createdReferral,
         client_mutation_id: creationMutationIdRef.current,
+        ...(newDraftKey ? { draft_key: newDraftKey } : {}),
         ...(ownerPrincipalIdRef.current ? { assignee_id: ownerPrincipalIdRef.current } : {}),
         ...(confirmedDistinctReferralIds.length > 0
           ? { duplicate_confirmation: { referral_ids: confirmedDistinctReferralIds } }
           : {}),
-      }),
-    });
+      });
+      // The command is part of the recovery snapshot, even without a field edit.
+      draftRevisionRef.current += 1;
+      await preservePendingIntake().catch(() => undefined);
+      if (!serverDraftsEnabled) {
+        const recovery = captureRecoveryDraft();
+        if (recovery) {
+          try { window.sessionStorage.setItem(canvasDraftStorageKey(newDraftKey, viewer?.id ?? recoveryPrincipalRef.current), JSON.stringify(recovery)); }
+          catch { /* Encrypted recovery and the open tab retain the command. */ }
+        }
+      }
+    }
+
+    const creationRequest = creationRequestRef.current;
+    let payload: { referral?: Referral; error?: string; idempotent_replay?: boolean; warnings?: string[] };
+    let promoted = false;
+    try {
+      payload = await fetchPipelineJson("/api/referrals", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: creationRequest,
+      });
+    } catch (error) {
+      if (error instanceof PipelineApiError && [400, 401, 403, 404, 413, 422].includes(error.status)) {
+        creationRequestRef.current = undefined;
+      }
+      if (!(error instanceof PipelineApiError) || error.status !== 409 || !newDraftKey
+        || (error.payload as { code?: string } | null)?.code !== "mutation_replay_conflict") throw error;
+      const resolved = await fetchPipelineJson<{ referral?: Referral }>(`/api/referrals?draft_key=${encodeURIComponent(newDraftKey)}`, { cache: "no-store" });
+      if (!resolved.referral) throw error;
+      payload = { referral: resolved.referral, idempotent_replay: true };
+      promoted = true;
+    }
     if (!payload.referral) throw new Error(payload.error ?? "Could not save this referral workspace.");
     setSaveAlert(payload.warnings?.join(" ") ?? "");
-    const saved = await mergeIdempotentCreateReplay(payload.referral, payload.idempotent_replay, snapshot, documentHash);
+    const submitted = JSON.parse(creationRequest) as { referral: Referral };
+    const baseValues = promoted ? promotionBaseValuesRef.current : Object.fromEntries(
+      [...snapshot.dirtyKeys].map(key => [key, referralBaseDraftValue(submitted.referral, key)]),
+    );
+    const saved = await mergeIdempotentCreateReplay(payload.referral, payload.idempotent_replay, snapshot, documentHash, baseValues);
+    creationRequestRef.current = undefined;
     return { referral: saved, created: true };
   };
 
@@ -1959,12 +2019,41 @@ export default function ReferralPacketCanvas({
     replayed: boolean | undefined,
     snapshot: ReferralSaveSnapshot,
     documentHash: string | undefined,
+    baseValues: Partial<Record<DirtyDraftKey, string>>,
   ) => {
     if (!replayed || snapshot.dirtyKeys.size === 0) return savedReferral;
+    const draft = captureRecoveryDraft();
+    const changedKeys = new Set([...snapshot.dirtyKeys].filter(key =>
+      !draft || baseValues[key] === undefined || recoveredReferralValue(draft, key) !== baseValues[key],
+    ));
+    const conflicts = draft ? buildRecoveredDraftConflicts({
+      ...draft, dirtyKeys: [...changedKeys], baseValues: canonicalCreatedDraftBaseValues(baseValues, savedReferral),
+    }, savedReferral, true) : [];
     loadedReferralRef.current = savedReferral;
+    setLoadedReferral(savedReferral);
+    const pendingKeys = new Set([...dirtyKeysRef.current].filter(key =>
+      !draft || baseValues[key] === undefined || recoveredReferralValue(draft, key) !== baseValues[key],
+    ));
+    // Adopt the winning tab's untouched values and provenance before building
+    // the patch; a shared draft does not contain its later field sources.
+    fieldsRef.current = mergeRemoteReferralFields(fieldsRef.current, savedReferral, pendingKeys);
+    setFields(fieldsRef.current);
+    dirtyKeysRef.current = pendingKeys;
+    setDirtyKeys(pendingKeys);
+    if (!pendingKeys.has("owner")) {
+      ownerPrincipalIdRef.current = savedReferral.ownerId ?? "";
+      setOwnerPrincipalId(ownerPrincipalIdRef.current);
+    }
+    if (!pendingKeys.has("conserved")) { conservedRef.current = savedReferral.conserved ?? ""; setConserved(conservedRef.current); }
+    if (!pendingKeys.has("tags")) { tagsInputRef.current = workspaceTagsInput(savedReferral.tags); setTagsInput(tagsInputRef.current); }
+    if (!pendingKeys.has("documents")) { documentsRef.current = documentsFromReferral(savedReferral); setDocuments(documentsRef.current); }
+    if (conflicts.length > 0) {
+      setRemoteChange({ referral: savedReferral, updatedBy: savedReferral.updatedBy?.name || "Another session", conflicts });
+      throw new Error("This draft was saved in another session. Review the conflicting fields before saving.");
+    }
     return persistExistingChanges(
       savedReferral,
-      snapshot.dirtyKeys,
+      changedKeys,
       packetPatch(snapshot.initialPacket, documentHash),
     );
   };
@@ -2150,6 +2239,7 @@ export default function ReferralPacketCanvas({
       if (error instanceof PipelineApiError && error.status === 409) {
         const suspectedDuplicate = getSuspectedDuplicateReview(error.payload);
         if (suspectedDuplicate) {
+          creationRequestRef.current = undefined;
           setDuplicateReview(suspectedDuplicate);
           setSavedAt("Review possible duplicate");
           return null;
@@ -2179,6 +2269,13 @@ export default function ReferralPacketCanvas({
     return null;
   });
   const retryIntakeSave = useEffectEvent(() => saveWorkspaceDraft());
+
+  useEffect(() => {
+    // A shared draft stays a draft until its last conflict is resolved. Finish
+    // the normal creation handoff even when Use latest leaves no dirty fields.
+    if (referral?.id || !loadedReferral?.id || remoteChange?.conflicts.length !== 0) return;
+    void retryIntakeSave();
+  }, [referral?.id, loadedReferral?.id, remoteChange]);
 
   useEffect(() => {
     if (!loadedReferral?.id || trainingIntakeMode) return;
@@ -2417,7 +2514,7 @@ export default function ReferralPacketCanvas({
       ...remoteChange,
       conflicts: remainingConflicts,
     });
-    if (!useLatest) commitIntakeCell(conflict.key, true);
+    if (!useLatest && (referral?.id || remainingConflicts.length > 0)) commitIntakeCell(conflict.key, true);
   };
 
   const applyLatestConflictValue = (key: DirtyDraftKey, latest: Referral) => {
@@ -2786,7 +2883,7 @@ export default function ReferralPacketCanvas({
                 explain conflicting edits (renderWorkspaceConflicts). */}
             {renderWorkspaceActions()}
           </div>
-          {editingControlsVisible && !stackVisible && displayedPage !== 2 && (displayedPage !== "email" || Boolean(saveError || isSaving || hasPendingWorkspaceChanges || saveStatus === deviceOnlySaveStatus)) && (!(decisionSaveNotice || assessmentSaveNotice) || Boolean(saveError || isSaving || hasPendingWorkspaceChanges || saveStatus === deviceOnlySaveStatus)) ? (
+          {((Boolean(saveError) && !(recordStack && stackVisible && editingControlsVisible)) || (editingControlsVisible && !stackVisible && displayedPage !== 2 && (displayedPage !== "email" || Boolean(isSaving || hasPendingWorkspaceChanges || saveStatus === deviceOnlySaveStatus)) && (!(decisionSaveNotice || assessmentSaveNotice) || Boolean(isSaving || hasPendingWorkspaceChanges || saveStatus === deviceOnlySaveStatus)))) ? (
             <WorkspaceSaveStatus
               status={saveStatus}
               error={saveError}
@@ -2796,7 +2893,8 @@ export default function ReferralPacketCanvas({
               saving={isSaving}
               dirtyCount={dirtyKeys.size}
               queuedFileCount={queuedFileCount}
-              onRetry={hasReferral && hasPendingWorkspaceChanges ? () => void saveWorkspaceDraft() : undefined}
+              retryLabel={referral?.id && loadedReferral?.id !== referral.id ? "Retry loading" : undefined}
+              onRetry={referral?.id && loadedReferral?.id !== referral.id ? () => setReferralLoadRetry(value => value + 1) : hasReferral && hasPendingWorkspaceChanges ? () => void saveWorkspaceDraft() : undefined}
             />
           ) : null}
         </div>
@@ -3039,7 +3137,7 @@ export default function ReferralPacketCanvas({
 
   const renderIntakePage = () => (
     <PacketPage id="packet-page-1" title={loadedReferral ? "Referral details" : "Intake"} flush>
-            <IntakeEditScope readOnly={permissionReadOnly || draftRecoveryLoading} accessError={accessError} accessChecking={accessChecking}>
+            <IntakeEditScope readOnly={permissionReadOnly || draftRecoveryLoading} accessError={accessError || (referral?.id && loadedReferral?.id !== referral.id ? saveError : "")} accessChecking={accessChecking}>
             <div data-testid="intake-client-folder" className={`${folderStyles.recordFolder} ${workspaceFolderStyles.connectedFolder} ${intakeFormStyles.form}`}>
               <div className={folderStyles.body}>
                 <div className={`${folderStyles.paper} ${folderStyles.recordPaper}`}>
@@ -3581,9 +3679,9 @@ function workspaceStepProgress(status: Referral["workflowStatus"], assessment: {
   return { 2: assessment.signedAt ? "done" : assessment.assessmentId ? "active" : "todo", workflow: state(decisionDone, decisionActive), email: state(finishDone, ["approved_for_placement", "accepted"]) };
 }
 
-function WorkspaceSaveStatus({ status, error, createdWorkspaceId, referralId, hasReferral, saving, dirtyCount, queuedFileCount, onRetry }: {
+function WorkspaceSaveStatus({ status, error, createdWorkspaceId, referralId, hasReferral, saving, dirtyCount, queuedFileCount, onRetry, retryLabel = "Retry saving" }: {
   status: string; error: string; createdWorkspaceId: number | null; referralId: number | null;
-  hasReferral: boolean; saving: boolean; dirtyCount: number; queuedFileCount: number; onRetry?: () => void;
+  hasReferral: boolean; saving: boolean; dirtyCount: number; queuedFileCount: number; onRetry?: () => void; retryLabel?: string;
 }) {
   const created = createdWorkspaceId !== null && createdWorkspaceId === referralId;
   const presentation = workspaceSavePresentation(status, error, hasReferral, saving, dirtyCount, queuedFileCount);
@@ -3601,7 +3699,7 @@ function WorkspaceSaveStatus({ status, error, createdWorkspaceId, referralId, ha
     {created ? <span className="sr-only">Workspace created</span> : null}
     {presentation.label !== status ? <span className="sr-only">{status}</span> : null}
     {error ? <span role="alert" className="min-w-0 max-w-[45ch] text-sm font-medium text-[#93382d]">{error}</span> : null}
-    {error && onRetry ? <button type="button" aria-label="Retry saving" onClick={onRetry} disabled={saving} className="shrink-0 text-sm font-bold text-[#0c705f] underline underline-offset-2">Retry</button> : null}
+    {error && onRetry ? <button type="button" aria-label={retryLabel} onClick={onRetry} disabled={saving} className="shrink-0 text-sm font-bold text-[#0c705f] underline underline-offset-2">Retry</button> : null}
     </span>
   </div>;
 }
@@ -4436,24 +4534,13 @@ type DraftRestoreSetters = {
   setRecoveredPacketName: Dispatch<SetStateAction<string>>;
 };
 
-function restoreSessionDraft(draftReference: ReferralRecoveryDraftKey, setters: DraftRestoreSetters) {
-  const draft = readSessionDraft(draftReference);
+function restoreSessionDraft(draftReference: ReferralRecoveryDraftKey, setters: DraftRestoreSetters, principalId: string) {
+  const draft = principalId ? readSessionDraft(draftReference, principalId) : null;
   return draft ? applyRecoveryDraft(draft, setters) : null;
 }
 
-function readSessionDraft(draftReference: ReferralRecoveryDraftKey) {
-  let draft: CanvasSessionDraft | null = null;
-  try {
-    const raw = window.sessionStorage.getItem(canvasDraftStorageKey(draftReference));
-    if (!raw) return null;
-    draft = parsePipelineReferralDraft(JSON.parse(raw));
-    if (!draft) return null;
-  } catch {
-    // An unreadable tab copy must not erase a valid encrypted recovery copy.
-    return null;
-  }
-
-  return draft;
+function readSessionDraft(draftReference: ReferralRecoveryDraftKey, principalId: string) {
+  return readCanvasSessionDraft(window.sessionStorage, draftReference, principalId);
 }
 
 function applyRecoveryDraft(draft: CanvasSessionDraft, setters: DraftRestoreSetters) {
@@ -4482,13 +4569,36 @@ function applyRecoveryDraft(draft: CanvasSessionDraft, setters: DraftRestoreSett
   return draft;
 }
 
-function buildRecoveredDraftConflicts(draft: CanvasSessionDraft, latest: Referral) {
-  if (!draft.baseVersion) return [];
+function canonicalCreatedDraftBaseValues(base: Partial<Record<DirtyDraftKey, string>>, saved: Referral) {
+  const fields = { ...initialFields };
+  const values = { ...base };
+  for (const key of persistedFieldKeys) {
+    if (base[key] === undefined) continue;
+    try {
+      const value = JSON.parse(base[key]);
+      if (!Array.isArray(value) || value.length !== 2 || value.some(part => typeof part !== "string")) throw new Error("Invalid field baseline");
+      fields[key] = { ...initialFields[key], value: value[0], sourceFile: value[1] || undefined };
+    } catch { delete values[key]; }
+  }
+  // Creation fills absent source/date/owner values. Compare against that same
+  // canonical baseline so a default is not mistaken for another tab's edit.
+  const created = buildReferralCanvasCreateInput({
+    fields, conserved: "", community: saved.community, tags: [], requirements: [], createdAt: saved.createdAt,
+  });
+  created.name = normalizeClientName(created.name, { gender: created.gender, community: created.community });
+  for (const key of persistedFieldKeys) {
+    if (key !== "community" && values[key] !== undefined) values[key] = referralBaseDraftValue(created as Referral, key);
+  }
+  return values;
+}
+
+function buildRecoveredDraftConflicts(draft: CanvasSessionDraft, latest: Referral, promoted = false) {
+  if (!promoted && !draft.baseVersion) return [];
   const conflicts: RemoteFieldConflict[] = [];
   for (const key of draft.dirtyKeys) {
     if (key === "initialPacket") continue;
     const baseValue = draft.baseValues?.[key];
-    if (baseValue === undefined) continue;
+    if (baseValue === undefined && !promoted) continue;
     const remoteComparison = referralBaseDraftValue(latest, key);
     const localComparison = recoveredReferralValue(draft, key);
     if (baseValue === remoteComparison || localComparison === remoteComparison) continue;
@@ -4563,7 +4673,7 @@ async function clearSessionDraft(draftReference?: ReferralRecoveryDraftKey) {
     return;
   }
   try {
-    window.sessionStorage.removeItem(canvasDraftStorageKey(draftReference));
+    window.sessionStorage.removeItem(canvasDraftStorageKey(draftReference, await referralRecoveryPrincipal()));
   } catch {
     // Session recovery is best effort; canonical data remains server-side.
   }

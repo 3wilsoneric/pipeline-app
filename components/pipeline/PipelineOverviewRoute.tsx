@@ -1,7 +1,7 @@
 "use client";
 
 import { Activity, useEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from "react";
-import { useSearchParams } from "next/navigation";
+import { notFound, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { useDesignV2 } from "@/components/design/DesignSwitch";
 
@@ -31,8 +31,6 @@ import {
 } from "@/lib/pipeline/client-identity-presentation.mjs";
 import type { PipelineSiteScreen } from "@/lib/pipeline/site-search";
 import { canAccessExecutiveAdmissionFlow, canAccessOperationsReports, canAccessSupervisorOperations } from "@/lib/pipeline/report-access";
-import type { TrainingAssessmentMode } from "@/lib/training/mock-assessment";
-import { assessmentToolSections, type AssessmentToolSection } from "@/lib/assessment/assessment-tool-schema";
 
 import {
   pushPipelineHistory,
@@ -41,10 +39,9 @@ import {
   usePipelineLocationSearch,
 } from "@/lib/pipeline/client-navigation";
 import { loadPipelineWorkspaceResumeLocation, recordLastPipelineWorkspace } from "@/lib/pipeline/work-continuity-client";
-import { canvasDraftStorageKey } from "@/components/pipeline/referral-canvas-save-state";
+import { canvasDraftStorageKey, readCanvasSessionDraft } from "@/components/pipeline/referral-canvas-save-state";
 import { clearLocalReferralRecovery, loadLocalReferralRecovery, referralRecoveryPrincipal, saveLocalReferralRecovery } from "@/lib/pipeline/referral-local-recovery";
 import { clearServerReferralDraft, loadServerReferralDraft, saveServerReferralDraft, usesServerReferralDrafts } from "@/lib/pipeline/referral-draft-recovery";
-import { parsePipelineReferralDraft } from "@/lib/pipeline/user-workspace-state-types";
 import {
   applyPipelineWorkspaceLocation,
   pipelineWorkspaceLocationFromSearchParams,
@@ -150,12 +147,11 @@ function isCurrentWorkOpen(screen: PipelineScreen, params: URLSearchParams) {
   return (screen === "home" || screen === "packet") && params.get("work") === "current";
 }
 
-function PacketAssignedWorkOverlay({ screen, open, isDemoWorkspace, ...props }: ComponentProps<typeof CurrentWorkOverlay> & {
+function PacketAssignedWorkOverlay({ screen, open, ...props }: ComponentProps<typeof CurrentWorkOverlay> & {
   screen: PipelineScreen;
   open: boolean;
-  isDemoWorkspace: boolean;
 }) {
-  if (screen !== "packet" || !open || isDemoWorkspace) return null;
+  if (screen !== "packet" || !open) return null;
   return <CurrentWorkOverlay {...props} />;
 }
 
@@ -363,6 +359,8 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
     replacePipelineHistory(params.size ? `/?${params.toString()}` : "/");
   };
 
+  requireLiveWorkspaceRoute(activeSearchParams);
+
   let page: ReactNode;
   if (screen === "home") {
     page = (
@@ -389,9 +387,6 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
     );
   }
 
-  const trainingAssessmentMode = getTrainingAssessmentMode(activeSearchParams);
-  const trainingIntakeMode = activeSearchParams.get("trainingIntake") === "1";
-  const isDemoWorkspace = [activeSearchParams.get("demo") === "1", Boolean(trainingAssessmentMode), trainingIntakeMode].some(Boolean);
   const renderPacketWorkspace = () => {
     if (!selectedReferral && !newReferralDraftKey) return directDraftError ? (
       <main className="h-full bg-white px-6 py-5">
@@ -412,11 +407,8 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
       initialWorkspaceLocation: pipelineWorkspaceLocationFromSearchParams(activeSearchParams),
       assessmentEntryAction: assessmentEntry?.referralId === selectedReferral?.id ? assessmentEntry?.action : undefined,
       onAssessmentEntryHandled: () => setAssessmentEntry(null),
-      resumeWorkflowOnOpen: !isDemoWorkspace && (activeSearchParams.get("workspaceEntry") === "resume"
+      resumeWorkflowOnOpen: (activeSearchParams.get("workspaceEntry") === "resume"
         || !["workspaceStage", "workspaceView", "workspaceField"].some((key) => activeSearchParams.has(key))),
-      trainingAssessmentMode,
-      trainingAssessmentSection: getTrainingAssessmentSection(activeSearchParams),
-      trainingIntakeMode,
       onWorkspaceLocationChange: (location, reflectRoute = true) => {
         if (!stillViewingWorkspace()) return;
         if (reflectRoute) {
@@ -425,9 +417,7 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
           replacePipelineHistory(`/?${params.toString()}`);
         }
         const referralId = selectedReferral?.id;
-        // Rehearsals use synthetic workspaces and must never become the operator's
-        // durable resume destination.
-        if (referralId && !isDemoWorkspace) {
+        if (referralId) {
           recordLastPipelineWorkspace({ referralId, location, visitedAt: new Date().toISOString() });
         }
       },
@@ -446,13 +436,11 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
           : { view: "chart" };
         applyPipelineWorkspaceLocation(params, location);
         replacePipelineHistory(`/?${params.toString()}`);
-        if (!isDemoWorkspace) {
-          recordLastPipelineWorkspace({ referralId: savedReferral.id, location, visitedAt: new Date().toISOString() });
-        }
+        recordLastPipelineWorkspace({ referralId: savedReferral.id, location, visitedAt: new Date().toISOString() });
       },
       onReferralDeleted: () => navigate("referrals"),
       onOpenProfile: (clientId) => navigate("profile", undefined, clientId),
-      onOpenAssignedWork: isDemoWorkspace ? undefined : () => { void navigate("referrals"); },
+      onOpenAssignedWork: () => { void navigate("referrals"); },
     };
     return deferredWorkSurfaces ? <deferredWorkSurfaces.ReferralPacketCanvas key={workspaceKey} {...packetProps} /> : <DeferredScreenLoading />;
 
@@ -515,7 +503,6 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
         key={viewerId}
         screen={screen}
         open={currentWorkOpen}
-        isDemoWorkspace={isDemoWorkspace}
         selectedReferralId={selectedReferral?.id}
         onClose={closeCurrentWork}
         onOpenPacket={(referral, location) => {
@@ -575,16 +562,8 @@ function recordNavigatedWorkspace(
   });
 }
 
-function getTrainingAssessmentMode(params: URLSearchParams): TrainingAssessmentMode | undefined {
-  const mode = params.get("trainingAssessment");
-  return mode === "prepare" || mode === "schedule" || mode === "interview" || mode === "guided" ? mode : undefined;
-}
-
-function getTrainingAssessmentSection(params: URLSearchParams): AssessmentToolSection | undefined {
-  const mode = getTrainingAssessmentMode(params);
-  if (!mode) return undefined;
-  const section = params.get("assessmentSection");
-  return assessmentToolSections.find((candidate) => candidate === section);
+function requireLiveWorkspaceRoute(params: URLSearchParams) {
+  if (["trainingAssessment", "trainingIntake", "demo"].some((key) => params.has(key))) notFound();
 }
 
 function getScreenFromParams(params: URLSearchParams): PipelineScreen {
@@ -614,19 +593,16 @@ function getNewReferralDraftKey(params: URLSearchParams): `new-${string}` | unde
 }
 
 async function migrateLegacyNewReferralDraft(nextKey: `new-${string}`): Promise<() => Promise<void>> {
-  const legacySessionKey = canvasDraftStorageKey();
+  const principal = await referralRecoveryPrincipal();
+  const legacySessionKey = canvasDraftStorageKey(undefined, principal);
   const sessionDraft = (() => {
-    try {
-      const raw = window.sessionStorage.getItem(legacySessionKey);
-      const draft = raw ? parsePipelineReferralDraft(JSON.parse(raw)) : null;
-      return raw && draft ? { raw, draft } : null;
-    } catch {
-      return null;
-    }
+    try { return { draft: readCanvasSessionDraft(window.sessionStorage, undefined, principal), error: null }; }
+    catch (error) { return { draft: null, error }; }
   })();
   if (!usesServerReferralDrafts()) {
-    if (sessionDraft) window.sessionStorage.setItem(canvasDraftStorageKey(nextKey), sessionDraft.raw);
-    return async () => { if (sessionDraft) window.sessionStorage.removeItem(legacySessionKey); };
+    if (sessionDraft.error) throw sessionDraft.error;
+    if (sessionDraft.draft) window.sessionStorage.setItem(canvasDraftStorageKey(nextKey, principal), JSON.stringify(sessionDraft.draft));
+    return async () => { if (sessionDraft.draft) window.sessionStorage.removeItem(legacySessionKey); };
   }
 
   const [server, local] = await Promise.allSettled([
@@ -640,10 +616,10 @@ async function migrateLegacyNewReferralDraft(nextKey: `new-${string}`): Promise<
     await loadServerReferralDraft(nextKey);
     await saveServerReferralDraft(nextKey, serverDraft);
   }
-  if (localDraft || sessionDraft) {
-    const principal = await referralRecoveryPrincipal();
+  if (!serverDraft && !localDraft && sessionDraft.error) throw sessionDraft.error;
+  if (localDraft || sessionDraft.draft) {
     const recovery = localDraft ?? {
-      draft: sessionDraft!.draft, ownerPrincipalId: "",
+      draft: sessionDraft.draft!, ownerPrincipalId: "",
       initialPacket: null, pendingDocuments: {}, additionalFiles: [],
     };
     await saveLocalReferralRecovery(principal, nextKey, recovery);
@@ -653,7 +629,7 @@ async function migrateLegacyNewReferralDraft(nextKey: `new-${string}`): Promise<
       ...(serverDraft ? [clearServerReferralDraft()] : []),
       ...(localDraft ? [clearLocalReferralRecovery(undefined)] : []),
     ]);
-    if (sessionDraft) window.sessionStorage.removeItem(legacySessionKey);
+    if (sessionDraft.draft) window.sessionStorage.removeItem(legacySessionKey);
   };
 }
 

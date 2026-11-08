@@ -1,3 +1,4 @@
+import { mutationReplayRequest, type MutationReplayRequest } from "@/lib/persistence/mutation-replay";
 import {
   AssessmentScheduleConflictError,
   getAssessment,
@@ -50,6 +51,7 @@ export async function POST(request: Request, context: { params: Promise<{ assess
       assessment.assessor_id,
       pipelineAuditActor(auth.user),
       canWorkAssessment(auth.user, assessment.assessor_id),
+      mutationReplayRequest(auth.user, { action: "schedule", command: body.value }),
     );
   });
 }
@@ -61,9 +63,10 @@ async function scheduleAssessmentIfReady(
   assessorId: string | null | undefined,
   actor: { id: string; name: string },
   canOverride: boolean,
+  replayRequest: MutationReplayRequest,
 ) {
   const warnings = await assessmentSchedulingAlerts(command, referral, assessorId);
-  return saveAssessmentSchedule(assessmentId, command, actor, canOverride, warnings);
+  return saveAssessmentSchedule(assessmentId, command, actor, canOverride, warnings, replayRequest);
 }
 
 async function assessmentSchedulingAlerts(
@@ -99,6 +102,7 @@ async function saveAssessmentSchedule(
   actor: { id: string; name: string },
   canOverride: boolean,
   warnings: string[],
+  replayRequest: MutationReplayRequest,
 ) {
   try {
     const result = await patchAssessment(
@@ -108,6 +112,7 @@ async function saveAssessmentSchedule(
       {
         expectedVersion: command.if_match,
         mutationId: command.client_mutation_id,
+        replayRequest,
         allowScheduleConflict: command.allow_conflict === true && canOverride,
       },
     );
@@ -117,6 +122,7 @@ async function saveAssessmentSchedule(
     const result = await patchAssessment(assessmentId, { schedule: command.schedule }, actor, {
       expectedVersion: command.if_match,
       mutationId: command.client_mutation_id,
+      replayRequest,
       allowScheduleConflict: true,
     });
     return mutationResponse(result, "schedule", [...warnings, "This assessor has another assessment during that time. The appointment was saved with an overlap alert."]);

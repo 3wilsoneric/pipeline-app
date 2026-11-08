@@ -1,3 +1,4 @@
+import { openAssessmentFixture } from "./support/assessment-fixture";
 import { expect, test } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { assessmentConversationSections, assessmentGapSections, assessmentWorkingSections } from "../../components/pipeline/assessment-working-view";
@@ -26,7 +27,7 @@ for (const width of [1440, 768, 390, 320]) {
   test(`assessment starts with the actual information, not repeated headings, at ${width}px`, async ({ page }, info) => {
     await page.setViewportSize({ width, height: 900 });
     await page.emulateMedia({ reducedMotion: "reduce" });
-    await page.goto("/?view=referrals&screen=packet&trainingAssessment=interview&workspaceStage=assessment&assessmentSection=prior_history");
+    await openAssessmentFixture(page, { mode: "interview", section: "prior_history" });
     const folder = page.getByTestId("assessment-client-folder");
     for (const text of ["Fill the gaps", "Placement trajectory", "Hospital and crisis history", "Fill in recent stays and what led to this referral.", "Fill what is missing. Recorded answers are in Client info."]) {
       await expect(folder.getByText(text, { exact: true })).toHaveCount(0);
@@ -37,14 +38,19 @@ for (const width of [1440, 768, 390, 320]) {
       const editor = folder.locator("[data-assessment-question-page]");
       const field = editor.locator("[data-working-field]").first();
       expect((await field.boundingBox())!.y - (await editor.boundingBox())!.y).toBeLessThan(40);
-      await expect(editor.getByRole("heading")).toHaveCount(0);
+      // The real desktop questionnaire stacks topics under one heading each.
+      const headings = await editor.locator("[data-assessment-group-heading]").evaluateAll((items) => items.map((item) => item.getAttribute("data-assessment-group-heading")));
+      expect(headings).toContain("prior_history");
+      expect(new Set(headings).size).toBe(headings.length);
       const reference = folder.getByRole("complementary", { name: "Current information" });
       const referenceToggle = reference.getByRole("button", { name: /^Current information/ });
       if (await referenceToggle.isVisible() && await referenceToggle.getAttribute("aria-expanded") === "false") await referenceToggle.click();
       const recorded = reference.getByRole("button", { name: "Edit Earlier care placements", exact: true });
+      // Below 1024px the real reference is above the continuous questionnaire.
+      if (width < 1024) await recorded.scrollIntoViewIfNeeded();
       await expect(recorded).toBeInViewport();
-      const reading = reference.locator("[data-assessment-reference-page]");
-      expect((await recorded.boundingBox())!.y - (await reading.boundingBox())!.y).toBeLessThan(40);
+      const reading = reference.locator('[data-split-topic="prior_history"]');
+      await expect(reading).toContainText("Earlier care placements");
       await recorded.click();
       await expect(folder.getByRole("textbox", { name: "Earlier care placements", exact: true })).toBeFocused();
     } else {
@@ -59,14 +65,19 @@ for (const width of [1440, 768, 390, 320]) {
 for (const width of [1440, 768, 390, 320]) {
   test(`assessment keeps recorded answers as reference and saves interview gaps at ${width}px`, async ({ page }, info) => {
     await page.setViewportSize({ width, height: width === 320 ? 650 : 950 });
-    await page.goto("/?view=referrals&screen=packet&trainingAssessment=interview&workspaceStage=assessment&assessmentSection=identity");
+    const { read } = await openAssessmentFixture(page, { mode: "interview", section: "identity" });
     const folder = page.getByTestId("assessment-client-folder");
     const footer = folder.locator('footer[aria-label="Assessment actions"]');
     await expect(folder.locator('summary[aria-label="More assessment actions"]')).toHaveCount(0);
     await expect(footer.getByRole("button", { name: "Review chart", exact: true })).toHaveCount(0);
-    await expect(folder).toContainText(width < 640 ? "Section complete" : "This section is complete");
-    const next = width < 640 ? folder.getByRole("navigation", { name: "Question steps" }).getByRole("button", { name: "Next section", exact: true }) : footer.getByRole("button", { name: "Next section", exact: true });
-    await next.click();
+    if (width < 640) {
+      await expect(folder).toContainText("Section complete");
+      await folder.getByRole("navigation", { name: "Question steps" }).getByRole("button", { name: "Next section", exact: true }).click();
+    } else {
+      const recorded = folder.getByRole("progressbar", { name: "Recorded in this section" });
+      await expect(recorded).toHaveAttribute("aria-valuenow", await recorded.getAttribute("aria-valuemax") ?? "");
+      await folder.getByLabel("Assessment section", { exact: true }).selectOption("diagnosis_clinical");
+    }
     await expect(page).toHaveURL(/assessmentSection=diagnosis_clinical/);
     const questions = page.locator(width < 640 ? "[data-phone-interview]" : "[data-assessment-question-editor]");
     await expect(questions.locator('[data-working-field="secondary_diagnoses"]')).toHaveCount(0);
@@ -89,6 +100,7 @@ for (const width of [1440, 768, 390, 320]) {
     await field.fill("Synthetic interview gap completed");
     await field.blur();
     await expect(field).toHaveValue("Synthetic interview gap completed");
+    await expect.poll(async () => (await read()).prior_awol_failed_placements).toBe("Synthetic interview gap completed");
     await openAssessmentChart(page);
     await expect(page.getByRole("region", { name: "Assessment chart review" })).toContainText("Synthetic interview gap completed");
     await returnToAssessmentQuestions(page);
@@ -99,7 +111,7 @@ for (const width of [1440, 768, 390, 320]) {
 
 test("recorded prep answers fit a short phone screen without covering or clipping controls", async ({ page }, info) => {
   await page.setViewportSize({ width: 390, height: 540 });
-  await page.goto("/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=prepare&assessmentSection=diagnosis_clinical&demo=1");
+  await openAssessmentFixture(page, { mode: "prepare", section: "diagnosis_clinical" });
   const opener = page.getByRole("button", { name: /^Recorded answers:/ });
   await opener.click();
   const recorded = page.getByRole("region", { name: "Recorded answers", exact: true });

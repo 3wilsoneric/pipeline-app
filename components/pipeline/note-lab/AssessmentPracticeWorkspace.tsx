@@ -1,7 +1,6 @@
 "use client";
 
 import { ArrowLeft, Check, ChevronDown, ChevronLeft, ChevronRight, RotateCcw } from "lucide-react";
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import { getAssessmentFieldWritingSpec } from "@/lib/assessment/assessment-field-writing-spec";
@@ -83,9 +82,8 @@ function autosaveLabel(state: PracticeAutosaveState) {
   return "Autosaved in this browser";
 }
 
-function PracticeHeader({ walkthroughOnly, returnToPresentation, returnLabel, exitLab, reset }: {
+function PracticeHeader({ walkthroughOnly, returnLabel, exitLab, reset }: {
   walkthroughOnly: boolean;
-  returnToPresentation: boolean;
   returnLabel: string;
   exitLab: () => void;
   reset: () => void;
@@ -100,11 +98,7 @@ function PracticeHeader({ walkthroughOnly, returnToPresentation, returnLabel, ex
           <p className={`mt-0.5 text-[11px] text-[#737b77] ${walkthroughOnly ? "hidden sm:block" : ""}`}>{walkthroughOnly ? "Try the questions and Answer help. Nothing is added to your referral." : "Synthetic training record"}</p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          {walkthroughOnly ? <button type="button" aria-label={returnLabel} onClick={exitLab} className="inline-flex h-9 items-center gap-2 px-2 text-[12px] font-semibold text-[#0f6f5d] hover:bg-[#eff8f5] focus-visible:outline-2 focus-visible:outline-[#0f8b73]"><ArrowLeft size={14} aria-hidden="true" /><span className="sm:hidden">Back</span><span className="hidden sm:inline">{returnLabel}</span></button> : returnToPresentation ? (
-            <Link href={toPipelinePath("/training/demo?slide=review-and-sign")} className="inline-flex h-9 items-center gap-2 border border-[#0f8b73] bg-[#e7f3ee] px-3 text-[10px] font-black text-[#0f6f5d] outline-none hover:bg-[#dceee7] focus-visible:ring-2 focus-visible:ring-[#0f8b73]">
-              <ArrowLeft size={13} aria-hidden="true" />Back to presentation
-            </Link>
-          ) : null}
+          {walkthroughOnly ? <button type="button" aria-label={returnLabel} onClick={exitLab} className="inline-flex h-9 items-center gap-2 px-2 text-[12px] font-semibold text-[#0f6f5d] hover:bg-[#eff8f5] focus-visible:outline-2 focus-visible:outline-[#0f8b73]"><ArrowLeft size={14} aria-hidden="true" /><span className="sm:hidden">Back</span><span className="hidden sm:inline">{returnLabel}</span></button> : null}
           <button type="button" onClick={reset} className="inline-flex h-9 shrink-0 items-center gap-2 border border-[#c9ceca] bg-white px-3 text-[10px] font-black text-[#4d5652] outline-none hover:border-[#0f8b73] hover:text-[#0f8b73] focus-visible:ring-2 focus-visible:ring-[#0f8b73]">
             <RotateCcw size={13} aria-hidden="true" />Reset
           </button>
@@ -137,14 +131,12 @@ function PracticeFooter({ walkthroughOnly, currentIndex, autosaveState, onBack, 
 export default function AssessmentPracticeWorkspace({
   traineeId,
   traineeName,
-  returnToPresentation = false,
   walkthroughOnly = false,
   onExit,
   returnLabel = "Back to Pipeline",
 }: {
   traineeId: string;
   traineeName: string;
-  returnToPresentation?: boolean;
   walkthroughOnly?: boolean;
   onExit?: () => void;
   returnLabel?: string;
@@ -238,7 +230,7 @@ export default function AssessmentPracticeWorkspace({
   const footer = <PracticeFooter walkthroughOnly={walkthroughOnly} currentIndex={currentIndex} autosaveState={autosaveState} onBack={() => moveSection(-1)} saveAndContinue={saveAndContinue} exitLab={exitLab} />;
   return (
     <div aria-label={`${traineeName} practice assessment`} className="pipeline-route-enter flex h-full min-h-0 flex-col overflow-hidden pipeline-page-surface">
-      <PracticeHeader walkthroughOnly={walkthroughOnly} returnToPresentation={returnToPresentation} returnLabel={returnLabel} exitLab={exitLab} reset={reset} />
+      <PracticeHeader walkthroughOnly={walkthroughOnly} returnLabel={returnLabel} exitLab={exitLab} reset={reset} />
 
       <div className="flex min-h-0 flex-1 flex-col bg-white lg:grid lg:grid-cols-[230px_minmax(0,1fr)]">
         <aside aria-label="Assessment section navigation" className="hidden min-h-0 overflow-y-auto border-r border-[#d9dfdb] bg-[var(--pipeline-surface)] px-3 py-4 lg:block">

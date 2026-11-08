@@ -1,3 +1,4 @@
+import { mutationReplayRequest, rethrowMutationReplayConflict } from "@/lib/persistence/mutation-replay";
 import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
 import { pipelineAuditActor } from "@/lib/auth/assessor-session-policy";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
@@ -85,6 +86,7 @@ export async function POST(
       const identity = await resolveDraftAssessmentClientIdentity(request, referralId);
       const result = await createAssessment(
         {
+          replayRequest: mutationReplayRequest(auth.user, { action: "create", command: body.value }),
           referral_id: referralId,
           assigned_assessor: assessmentAssignee,
           canonical_client_id: identity.canonicalClientId,
@@ -102,6 +104,7 @@ export async function POST(
       }
       return Response.json(result, { status: 201, headers: privateHeaders() });
     } catch (error) {
+      rethrowMutationReplayConflict(error);
       const identityResponse = assessmentClientIdentityErrorResponse(error);
       if (identityResponse) return identityResponse;
       return jsonError(error instanceof Error ? error.message : "Could not create assessment.", 400);

@@ -5,12 +5,12 @@ test.describe("retired tutorial links preserve shared Pipeline access", () => {
   test.skip(process.env.PIPELINE_OPERATIONAL_E2E !== "true", "Isolated operational identities required.");
 
   for (const actor of ["admin", "assessmentCoordinator", "assessorA", "assessorB", "viewer"] as const) {
-    test(`${actor} returns to the app instead of a tutorial`, async ({ browser, baseURL }) => {
+    test(`${actor} receives a missing-page response for a retired tutorial`, async ({ browser, baseURL }) => {
       const url = requireOperationalBaseURL(baseURL);
       const { page, context } = await actorPage(browser, actor, url);
       try {
-        await page.goto("/tutorials/referral?task=review-chart");
-        await expect(page).toHaveURL(url + "/");
+        const response = await page.goto("/tutorials/referral?task=review-chart");
+        expect(response?.status()).toBe(404);
         await expect(page.getByTestId("tutorial-referral-session")).toHaveCount(0);
         await expect(page.getByRole("button", { name: "Open guided tutorials" })).toHaveCount(0);
       } finally { await context.close(); }
@@ -24,8 +24,7 @@ test.describe("retired tutorial links preserve shared Pipeline access", () => {
     try {
       for (const api of [anonymous, outsider]) {
         const response = await api.get("/tutorials/referral?task=review-chart", { maxRedirects: 0 });
-        expect(response.status()).toBe(307);
-        expect(response.headers().location).toContain("/sign-in?next=");
+        expect(response.status()).toBe(404);
       }
     } finally { await anonymous.dispose(); await outsider.dispose(); }
   });

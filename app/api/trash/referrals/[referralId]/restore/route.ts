@@ -1,3 +1,4 @@
+import { mutationReplayRequest } from "@/lib/persistence/mutation-replay";
 import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
 import { pipelineAuditActor } from "@/lib/auth/assessor-session-policy";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
@@ -31,7 +32,8 @@ export async function POST(
     }
     const mutationId = validateClientMutationId(body.value?.client_mutation_id);
     if (!mutationId.ok) return jsonError(mutationId.message);
-    const replay = await getReferralMutationReplay(id, "referral_restore", mutationId.value);
+    const replayRequest = mutationReplayRequest(auth.user, body.value);
+    const replay = await getReferralMutationReplay(id, "referral_restore", mutationId.value, pipelineAuditActor(auth.user), replayRequest);
     if (replay) {
       if (!canAccessReferral(auth.user, replay)) return jsonError("Deleted referral not found.", 404);
       return Response.json({
@@ -43,7 +45,7 @@ export async function POST(
     }
     const access = await requireMutableReferralAccess(auth.user, id, "update", { includeDeleted: true });
     if (!access.ok) return access.response;
-    const result = await restoreReferral(id, pipelineAuditActor(auth.user), expectedVersion, mutationId.value);
+    const result = await restoreReferral(id, pipelineAuditActor(auth.user), expectedVersion, mutationId.value, replayRequest);
     if (!result) return jsonError("Deleted referral not found.", 404);
     if (!result.ok) {
       return Response.json({ error: "This trash record changed. Refresh before restoring it.", conflict: true }, { status: 409 });

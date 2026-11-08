@@ -1,3 +1,4 @@
+import { openAssessmentFixture } from "./support/assessment-fixture";
 import { closeTestBrowser } from "./support/browser-lifecycle";
 import { chromium, expect, test, webkit } from "@playwright/test";
 import type { AxeResults } from "axe-core";
@@ -13,7 +14,7 @@ for (const width of [1440, 1024, 768, 640]) {
     const page = await browser.newPage({ baseURL });
     await page.setViewportSize({ width, height: 900 });
     await page.emulateMedia({ reducedMotion: "reduce" });
-    await page.goto("/?view=referrals&screen=packet&trainingAssessment=interview&workspaceStage=assessment&assessmentSection=diagnosis_clinical");
+    await openAssessmentFixture(page, { mode: "interview", section: "diagnosis_clinical" });
     const bar = page.getByRole("navigation", { name: "Assessment sections", exact: true });
     const section = bar.getByRole("combobox", { name: "Assessment section", exact: true });
     const progress = bar.getByRole("status");
@@ -82,7 +83,7 @@ for (const width of [390, 320]) {
     try {
     const page = await browser.newPage({ baseURL, hasTouch: true, isMobile: true });
     await page.setViewportSize({ width, height: 800 });
-    await page.goto("/?view=referrals&screen=packet&trainingAssessment=interview&workspaceStage=assessment&assessmentSection=diagnosis_clinical");
+    await openAssessmentFixture(page, { mode: "interview", section: "diagnosis_clinical" });
     const interview = page.locator("[data-phone-interview]");
     await expect(interview.getByRole("button", { name: "Choose questionnaire section" })).toHaveAttribute("title", /^Section 2 of 12:/);
     await editPreparedAnswer(page, "Current symptoms");

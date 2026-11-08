@@ -31,6 +31,12 @@ test("disposable PostgreSQL contact import: additive, atomic, concurrent, retry-
       for (const name of ["0001_pipeline_core.sql", "0003_operational_hardening.sql", "0034_contact_directory.sql"]) {
         await migrationSql.unsafe(readFileSync(join(root, "database", "migrations", name), "utf8"));
       }
+      await migrationSql`insert into pipeline.idempotency_keys(scope, mutation_id, entity_type, entity_id)
+        values ('contact_create', 'legacy-synthetic-key', 'contact', 'legacy-synthetic-contact')`;
+      const legacy = await migrationSql`select * from pipeline.idempotency_keys`;
+      await migrationSql.unsafe(readFileSync(join(root, "database/migrations/0048_mutation_replay_binding.sql"), "utf8"));
+      assert.deepEqual(clean(await migrationSql`select scope, mutation_id, entity_type, entity_id, created_at, expires_at from pipeline.idempotency_keys`), clean(legacy));
+      assert.equal((await migrationSql`select request_fingerprint from pipeline.idempotency_keys`)[0].request_fingerprint, null);
     } finally { await migrationSql.end({ timeout: 5 }); }
     const version = (await sql`select current_setting('server_version') as version`)[0].version;
     t.diagnostic(`Disposable PostgreSQL ${version}`);
@@ -62,6 +68,12 @@ test("disposable PostgreSQL contact import: additive, atomic, concurrent, retry-
       assert.equal(JSON.stringify(audit).includes("Existing"), false);
       const keys = await sql`select entity_id from pipeline.idempotency_keys where entity_type = 'contact_import'`;
       assert.equal(JSON.stringify(keys).includes("Existing"), false, "Import receipts contain hashes/counts/IDs only");
+      const receiptBefore = clean(await sql`select * from pipeline.idempotency_keys order by scope, mutation_id`);
+      const contactsBefore = clean(await sql`select * from pipeline.contacts order by contact_id`);
+      await sql.unsafe(readFileSync(join(root, "database/rollbacks/0048_mutation_replay_binding.sql"), "utf8"));
+      assert.deepEqual(clean(await sql`select * from pipeline.idempotency_keys order by scope, mutation_id`), receiptBefore);
+      assert.deepEqual(clean(await sql`select * from pipeline.contacts order by contact_id`), contactsBefore);
+      assert.equal((await sql`select count(*)::int as count from pipeline.schema_migrations where migration_id='0048_mutation_replay_binding'`)[0].count, 1);
     });
 
     await t.test("invalid batch adds nothing and concurrent separate batches import one identity", async () => {

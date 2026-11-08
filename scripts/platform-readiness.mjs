@@ -7,6 +7,11 @@ const skipBuild = args.has("--skip-build");
 
 const checks = [
   {
+    name: "Contact directory and command replay boundaries",
+    command: "npm",
+    args: ["run", "check:contacts"],
+  },
+  {
     name: "Recent workspaces and assessor-scoped upcoming work",
     command: "node",
     args: ["--test", "scripts/home-client-recents.test.mjs", "scripts/home-briefing-scope.test.mjs"],
@@ -65,16 +70,6 @@ const checks = [
     name: "Design token ratchet",
     command: "node",
     args: ["scripts/design-token-ratchet.mjs"],
-  },
-  {
-    name: "Tutorial navigation, permissions, and isolated sample workflows",
-    command: "npm",
-    args: ["run", "check:tutorials"],
-  },
-  {
-    name: "Private learning route access and progress safety",
-    command: "node",
-    args: ["scripts/academy-route-contracts.mjs", "--runtime-only"],
   },
   {
     name: "Alamo Admissions zone contracts",

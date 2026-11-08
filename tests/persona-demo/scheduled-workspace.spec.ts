@@ -1,3 +1,4 @@
+import { openAssessmentFixture } from "../e2e/support/assessment-fixture";
 import { expect, test } from "@playwright/test";
 import {
   createOperationalAssessment,
@@ -50,7 +51,7 @@ test("scheduled work opens the same interview without manual intake or stage adv
 });
 
 test("schedule practice begins the real guided questionnaire", async ({ page }) => {
-  await page.goto("/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=schedule&demo=1");
+  await openAssessmentFixture(page, { mode: "schedule" });
   const schedule = page.getByRole("dialog", { name: "Schedule assessment", exact: true });
   await expect(schedule).toBeVisible();
   await schedule.getByLabel("Assessment date and time").fill("2027-09-14T09:30");

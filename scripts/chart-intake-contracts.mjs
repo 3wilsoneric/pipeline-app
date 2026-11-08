@@ -92,6 +92,7 @@ let profileReads = 0;
 const writes = [];
 const require = createRequire(import.meta.url);
 const stubs = {
+  "@/lib/persistence/mutation-replay": load("lib/persistence/mutation-replay.ts"),
   "@/lib/auth/pipeline-auth": { requirePipelineUser: async (_request, roles = ["admin", "assessment_coordinator", "reviewer", "viewer"]) => !authenticated
     ? { ok: false, response: Response.json({ error: "Unauthorized" }, { status: 401 }) }
     : user.roles.some((role) => roles.includes(role))
@@ -143,6 +144,10 @@ assert.equal(writes[0][0].name, "Current Person");
 assert.equal(writes[0][0].ownerId, "assessor-a");
 assert.equal(writes[0][0].chartSource.referralId, 71);
 assert.equal(writes[0][3].newEpisodeSourceReferralId, 71);
+assert.deepEqual(JSON.parse(JSON.stringify(writes[0][3].replayRequest)), {
+  principal: ["assessor-a", "assessor-a"],
+  command: { action: "chart_intake", sourceReferralId: 71, client_mutation_id: requestBody.client_mutation_id },
+}, "only the authenticated original command binds the receipt, excluding regenerated chart/timestamps and injected fields");
 const assessorKey = writes[0][1];
 user = { id: "admin", name: "Admin", roles: ["admin"] };
 assert.equal((await post()).status, 201);

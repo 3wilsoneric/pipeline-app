@@ -312,25 +312,6 @@ test("a failed signature or decision stays in place; retry advances only after s
   expect(sends).toBe(0);
 });
 
-test("practice signing stays in assessment review and never creates a decision", async ({ page }) => {
-  let writes = 0;
-  page.on("request", (request) => { if (request.method() !== "GET" && /\/(sign|decision|meet-client-email)$/.test(request.url())) writes++; });
-  await page.goto("/?view=referrals&screen=packet&trainingAssessment=interview&demo=1&workspaceStage=chart");
-  const stages = page.getByRole("navigation", { name: "Workspace stages" });
-  await expect(stages.getByRole("button", { name: "Chart", exact: true })).toHaveAttribute("aria-current", "page");
-  await stages.getByRole("button", { name: "Assessment", exact: true }).click();
-  await page.getByRole("combobox", { name: "Assessment section", exact: true }).selectOption("provenance_qc");
-  await page.getByRole("button", { name: "Review assessment", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Review assessment", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Confirm chart", exact: true }).click();
-  await page.getByRole("alertdialog", { name: "Everything correct and included?", exact: true }).getByRole("button", { name: "Confirm & continue", exact: true }).click();
-  await expect(page.locator('footer[aria-label="Assessment actions"]')).toContainText("Practice assessment signed locally");
-  await expect(stages.getByRole("button", { name: "Assessment", exact: true })).toHaveAttribute("aria-current", "page");
-  await expect(stages.getByRole("button", { name: "Decision", exact: true })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Continue to decision", exact: true })).toHaveCount(0);
-  expect(writes).toBe(0);
-});
-
 test("iPad WebKit keeps signing and finishing in the same folder", async ({ baseURL }, info) => {
   const browser = await webkit.launch();
   try {

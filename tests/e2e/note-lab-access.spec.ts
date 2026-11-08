@@ -16,6 +16,7 @@ test("a lab-only account can use the lab but cannot enter Pipeline", async ({ pa
   await page.goto("/");
   await expect(page).toHaveURL(/\/note-lab\/practice$/);
 
-  await page.goto("/training/demo");
-  await expect(page).toHaveURL(/\/note-lab\/practice$/);
+  const retired = await page.goto("/training/demo");
+  expect(retired?.status()).toBe(404);
+  await expect(page.getByTestId("packet-workspace")).toHaveCount(0);
 });

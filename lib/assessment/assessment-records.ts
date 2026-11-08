@@ -1,3 +1,4 @@
+import type { MutationReplayRequest } from "@/lib/persistence/mutation-replay";
 import type {
   AssessmentFieldProvenance,
   AssessmentToolData,
@@ -113,6 +114,8 @@ export type AssessmentListResponse = {
 };
 
 export type AssessmentCreateInput = {
+  /** Server-owned identity and validated client command, excluding generated seeds. */
+  replayRequest?: MutationReplayRequest;
   referral_id: number;
   /** Server-resolved from the referral's authoritative assignment. */
   assigned_assessor?: AssessmentActor | null;

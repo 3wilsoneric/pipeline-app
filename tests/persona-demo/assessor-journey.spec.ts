@@ -1,22 +1,10 @@
 import { expect, test } from "@playwright/test";
 import { isInternalWorkspaceTag, visibleWorkspaceTags } from "../../lib/pipeline/workspace-presentation";
 
-test("Assessor's Workshop leads from presentation into a reset synthetic assessment case", async ({ page }, testInfo) => {
-  await page.goto("/training");
-  await expect(page.getByRole("link", { name: "Open Assessor's Workshop presentation" })).toBeVisible();
-  await expect(page.getByRole("region", { name: "Quick help" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Open assessment lab", exact: true })).toBeVisible();
-
-  await page.getByRole("link", { name: "Open Assessor's Workshop presentation" }).click();
-  await expect(page).toHaveURL(/\/training\/demo\?journey=1/);
-  await expect(page.getByRole("heading", { name: "Find your referral. Keep the work together." })).toBeVisible();
-  await expect(page.getByRole("button", { name: /Try the .* walkthrough|Start the assessment walkthrough|Try Language Lab in the assessment/ })).toHaveCount(0);
-  await page.getByLabel("Jump to slide").selectOption("9");
-  await expect(page.getByRole("heading", { name: "Write the answer, not the example" })).toBeVisible();
-  await expect(page.getByText("Prior placements: setting", { exact: false })).toBeVisible();
-
-  await page.getByRole("button", { name: "Enter demo" }).click();
-  await expect(page).toHaveURL("http://127.0.0.1:3266/", { timeout: 90_000 });
+test("the isolated persona harness preserves assessment and supervisor workflows", async ({ page }, testInfo) => {
+  expect((await page.request.post("/api/demo/journey?reset=1")).status()).toBe(200);
+  expect((await page.request.post("/api/demo/persona", { data: { persona: "assessor" } })).status()).toBe(200);
+  await page.goto("/");
   await expect(page.getByRole("button", { name: "Switch to Supervisor", exact: true })).toBeVisible();
   const assigned = page.getByRole("region", { name: "Current work", exact: true });
   await expect(assigned).toContainText("Assigned referrals");
@@ -69,11 +57,8 @@ test("explicit setup is idempotent and refuses a foreign Origin", async ({ reque
   expect(briefing.workflow.active_total).toBe(9);
 });
 
-test("opening Assessor's Workshop and resetting it restores only the original practice cases", async ({ page }) => {
-  const initialReset = page.waitForResponse((response) => response.url().includes("/api/demo/journey?reset=1") && response.request().method() === "POST");
-  await page.goto("/training/demo?journey=1");
-  await expect(page.getByRole("button", { name: "Reset demo" })).toBeVisible();
-  const first = await initialReset;
+test("resetting the isolated persona harness restores only its original synthetic cases", async ({ page }) => {
+  const first = await page.request.post("/api/demo/journey?reset=1");
   expect(first.status(), JSON.stringify(await first.json())).toBe(200);
   const originalId = (await first.json()).primary_referral_id as number;
   const original = (await (await page.request.get(`/api/referrals/${originalId}`)).json()).referral;
@@ -87,8 +72,7 @@ test("opening Assessor's Workshop and resetting it restores only the original pr
   } });
   expect(changed.status(), JSON.stringify(await changed.json())).toBe(200);
 
-  await page.getByRole("button", { name: "Reset demo" }).click();
-  await expect(page).toHaveURL(/\/training\/demo\?journey=1/);
+  expect((await page.request.post("/api/demo/journey?reset=1")).status()).toBe(200);
   await expect.poll(async () => {
     const response = await page.request.get(`/api/referrals/${originalId}`);
     return response.status();

@@ -1,3 +1,4 @@
+import { mutationReplayRequest } from "@/lib/persistence/mutation-replay";
 import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
 import { pipelineAuditActor } from "@/lib/auth/assessor-session-policy";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
@@ -62,7 +63,7 @@ export async function POST(request: Request, context: Context) {
     if (!mutation.ok || !mutation.value) return jsonError("client_mutation_id is required and must be valid.");
     let saved;
     try {
-      saved = await recordHistoricalAdmission(result.referral.id, admission, Number(value.if_match), pipelineAuditActor(result.user), mutation.value);
+      saved = await recordHistoricalAdmission(result.referral.id, admission, Number(value.if_match), pipelineAuditActor(result.user), mutation.value, mutationReplayRequest(result.user, value));
     } catch (error) {
       if (error instanceof HistoricalWorkspaceReadOnlyError) return jsonError("The workspace changed. Reopen its Chart before recording a prior admission.", 409);
       throw error;

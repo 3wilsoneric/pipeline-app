@@ -3,7 +3,6 @@
 import { ReactNode, Suspense, useEffect, useRef, useState } from "react";
 
 import PipelineHeader from "@/components/pipeline/PipelineHeader";
-import DemoEnvironmentBanner from "@/components/pipeline/training/DemoEnvironmentBanner";
 import { PipelineShellProvider } from "@/components/pipeline/pipeline-shell-context";
 import PipelinePerformanceObserver from "@/components/pipeline/PipelinePerformanceObserver";
 import { useMobileViewport } from "@/components/pipeline/use-mobile-viewport";
@@ -57,9 +56,6 @@ export default function PipelineAppShell({
   return (
     <PipelineShellProvider value={{ searchTerm, setSearchTerm, searchOpen, setSearchOpen, homeMode, setHomeMode, contentRef, beforeNavigationRef, assessmentFocused, setAssessmentFocused }}>
       <div ref={mobileViewportRef} className={`${mobileStyles.shell} pipeline-surfaces flex h-dvh flex-col overflow-hidden bg-white text-[#111111]`}>
-        <Suspense fallback={null}>
-          <DemoEnvironmentBanner />
-        </Suspense>
         <div className={mobileStyles.withGuide}>
           {volatileRecovery ? <div role="alert" className="border-b border-[#a4473c] bg-[#fff4ee] px-4 py-2 text-center text-sm font-semibold text-[#83382f]">Some edits are only in this open tab. Keep it open while Pipeline retries saving them.</div> : null}
           <div className={mobileStyles.body}>

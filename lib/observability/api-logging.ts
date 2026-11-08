@@ -1,5 +1,7 @@
 import "server-only";
 
+import { mutationReplayErrorResponse } from "@/lib/persistence/mutation-replay";
+
 import { recordPipelineMetric } from "@/lib/observability/pipeline-metrics";
 import {
   acquireRequestCapacity,
@@ -86,13 +88,15 @@ export async function withApiLogging(
     });
 
     return response;
-  } catch {
+  } catch (error) {
+    const replayError = mutationReplayErrorResponse(error);
+    const status = replayError ? 409 : 500;
     const elapsed = Date.now() - startedAt;
-    logApi("error", {
+    logApi(replayError ? "info" : "error", {
       route,
       requestId,
       method: request.method,
-      status: 500,
+      status,
       ms: elapsed,
       msg: "failed",
       error: "request_failed",
@@ -100,18 +104,18 @@ export async function withApiLogging(
     recordPipelineMetric("pipeline.api.requests", 1, "count", {
       route,
       method: request.method,
-      status_class: "5xx",
+      status_class: `${Math.floor(status / 100)}xx`,
     });
     recordPipelineMetric("pipeline.api.duration", elapsed, "milliseconds", {
       route,
       method: request.method,
-      status_class: "5xx",
+      status_class: `${Math.floor(status / 100)}xx`,
     });
 
     return Response.json(
-      { error: "Internal server error", request_id: requestId },
+      replayError ? await replayError.json() : { error: "Internal server error", request_id: requestId },
       {
-        status: 500,
+        status,
         headers: {
           "x-request-id": requestId,
           "Cache-Control": "private, no-store, max-age=0",

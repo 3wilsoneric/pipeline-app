@@ -2,6 +2,7 @@
 
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { loadEntry } from "./contact-import-fixtures.mjs";
 
 const root = process.cwd();
 const read = (file) => readFileSync(path.join(root, file), "utf8");
@@ -34,7 +35,17 @@ check("clinical snapshot freshness is measured", clinicalHealth.includes('"pipel
 check("oldest active queue age is measured", operations.includes('"pipeline.queue.oldest_age"'));
 check("supervisor exception volume is measured", operations.includes('"pipeline.queue.supervisor_exceptions"'));
 check("API response latency includes normal responses", apiLogging.match(/"pipeline\.api\.duration"/g)?.length === 2);
-check("API response latency includes thrown failures", apiLogging.includes('status_class: "5xx"'));
+const failureMetrics = [];
+const logging = loadEntry("lib/observability/api-logging.ts", {
+  "@/lib/observability/pipeline-metrics": { recordPipelineMetric: (...args) => failureMetrics.push(args) },
+  "@/lib/reliability/request-governor": { acquireRequestCapacity: () => ({ ok: true, release: () => undefined }) },
+}, { console: { error: () => undefined } });
+const failedResponse = await logging.withApiLogging(new Request("http://localhost/api/metrics-fixture"), "/api/metrics-fixture", async () => {
+  throw new Error("Synthetic unexpected failure");
+});
+check("API response latency includes thrown failures", failedResponse.status === 500
+  && failureMetrics.some(([name, value, unit, dimensions]) => name === "pipeline.api.duration"
+    && Number.isFinite(value) && value >= 0 && unit === "milliseconds" && dimensions.status_class === "5xx"));
 check("overload rejections are counted", apiLogging.includes('"pipeline.api.overload_rejections"') && governor.includes("createOverloadResponse"));
 check("metric names and values are validated", metricContract.includes("Number.isFinite(value)") && metricContract.includes("/^[a-z][a-z0-9_.]{2,80}$/"));
 

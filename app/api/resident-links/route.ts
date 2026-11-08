@@ -8,6 +8,7 @@ import {
 } from "@/lib/clinical/clinical-data";
 import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
 import { withApiLogging } from "@/lib/observability/api-logging";
+import { mutationReplayRequest } from "@/lib/persistence/mutation-replay";
 import { getReferral, requireReferralStore } from "@/lib/pipeline/referral-store";
 import { canAccessReferral, isAssessorUser, requireReferralAccess } from "@/lib/pipeline/referral-access";
 import { isKeysetCursor } from "@/lib/pipeline/keyset-cursor";
@@ -122,7 +123,12 @@ export async function POST(request: Request) {
         },
         pipelineAuditActor(auth.user),
         validated.value.client_mutation_id,
+        mutationReplayRequest(auth.user, validated.value),
       );
+      if (result.link.referral_id) {
+        const savedAccess = await requireReferralAccess(auth.user, result.link.referral_id);
+        if (!savedAccess.ok) return savedAccess.response;
+      } else if (isAssessorUser(auth.user)) return jsonError("Resident link not found.", 404);
       return Response.json(result, { status: 201, headers: privateHeaders() });
     } catch (error) {
       if (error instanceof ClinicalDataError) return clinicalDataErrorResponse(error);

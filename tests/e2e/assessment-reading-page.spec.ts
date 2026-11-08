@@ -1,3 +1,4 @@
+import { openAssessmentFixture } from "./support/assessment-fixture";
 import { closeTestBrowser } from "./support/browser-lifecycle";
 import { expect, test, webkit } from "@playwright/test";
 import { randomUUID } from "node:crypto";
@@ -63,7 +64,7 @@ test("iPad reading page supports touch editing and leaves section navigation int
   const browser = await webkit.launch();
   try {
     const page = await browser.newPage({ baseURL, viewport: { width: 834, height: 1194 }, hasTouch: true, isMobile: true });
-    await page.goto("/?view=referrals&screen=packet&trainingAssessment=interview&demo=1&workspaceStage=assessment&assessmentSection=prior_history");
+    await openAssessmentFixture(page, { mode: "interview", section: "prior_history" });
     const reference = page.getByRole("complementary", { name: "Current information", exact: true });
     // The tablet shows a compact reference summary; open it before reading answers.
     await reference.getByRole("button", { name: /^Current information/ }).tap();

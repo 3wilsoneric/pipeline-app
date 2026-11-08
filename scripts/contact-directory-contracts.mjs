@@ -106,7 +106,7 @@ check("contact UI supports search, reuse, edit, primary selection, and unlink",
 
 check("scheduling preserves incomplete Intake and unavailable contacts as warnings while saving the appointment",
   scheduleRoute.includes("const warnings = await assessmentSchedulingAlerts")
-  && scheduleRoute.includes("return saveAssessmentSchedule(assessmentId, command, actor, canOverride, warnings)")
+  && scheduleRoute.includes("return saveAssessmentSchedule(assessmentId, command, actor, canOverride, warnings, replayRequest)")
   && scheduleRoute.includes("getContactSchedulingReadiness")
   && scheduleRoute.includes("The appointment can still be saved.")
   && scheduleRoute.includes("warnings: [...warnings, ...calendarWarning]")
