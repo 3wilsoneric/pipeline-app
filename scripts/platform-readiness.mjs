@@ -168,8 +168,8 @@ const checks = [
   },
   {
     name: "API behavior fixtures",
-    command: "node",
-    args: ["scripts/api-behavior-fixtures.mjs"],
+    command: "npm",
+    args: ["run", "check:api"],
   },
   {
     name: "Draft saving, offline recovery, audit values, and single-upload retries",
