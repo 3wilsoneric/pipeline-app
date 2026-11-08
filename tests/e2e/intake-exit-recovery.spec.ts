@@ -114,14 +114,21 @@ test("failed recovery cleanup does not replay a chart edit already saved to the 
   await referent.fill("Synthetic saved source");
   const { user } = await (await page.request.get("/api/auth/me")).json();
   const recoveryKey = canvasDraftStorageKey(referral.id, user.id);
-  await expect.poll(() => page.evaluate((key) => Boolean(sessionStorage.getItem(key)), recoveryKey)).toBe(true);
-  await page.evaluate((key) => {
+  await expect(page.getByTestId("workspace-save-status")).toContainText("Saved on this device");
+  const legacyDraft = {
+    schema: 1, savedAt: new Date().toISOString(), dirtyKeys: ["referent"],
+    fields: Object.fromEntries(referralCanvasFieldKeys.map(key => [key, { value: key === "referent" ? "Synthetic saved source" : "" }])),
+    conserved: "", tagsInput: "", documents: {},
+  };
+  // Old plaintext copies remain readable when their cleanup is interrupted.
+  await page.evaluate(({ key, draft }) => {
+    sessionStorage.setItem(key, JSON.stringify(draft));
     const remove = Storage.prototype.removeItem;
     Storage.prototype.removeItem = function (item: string) {
       if (this === sessionStorage && item === key) throw new Error("Synthetic recovery cleanup outage");
       return remove.call(this, item);
     };
-  }, recoveryKey);
+  }, { key: recoveryKey, draft: legacyDraft });
   await referent.press("Tab");
   await expect.poll(async () => (await (await page.request.get(`/api/referrals/${referral.id}`)).json()).referral.source).toBe("Synthetic saved source");
   await expect(page.getByTestId("workspace-save-status")).toContainText("Saved");

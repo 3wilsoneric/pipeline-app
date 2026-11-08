@@ -39,7 +39,7 @@ Dockerfile and a complete file/hash manifest. The build context manifest hash is
 `b7153f6f9be67230430527306315b536e0a0d5158198c08d2eeeb1da53611062`.
 
 `rollback-app.sh` defaults to a dry run. Execution requires the reviewed current
-revision. It checks PostgreSQL configuration in both revisions, single-revision
+revision. It checks Entra authentication, required browser authentication and PostgreSQL configuration in both revisions, single-revision
 traffic mode, image availability and the current revision again immediately
 before copying the baseline configuration with the repaired image. It never
 invokes database migration, restore, Blob deletion or data purge.
@@ -48,8 +48,8 @@ invokes database migration, restore, Blob deletion or data purge.
 bash /Users/eric/pipeline-app/output/whole-app-repair-2026-11-07/rollback/rollback-app.sh
 ```
 
-Eight command-guard scenarios passed with a stubbed Azure CLI, including a
-concurrent deployment, wrong storage mode, missing image and the exact-image
+Ten command-guard scenarios passed with a stubbed Azure CLI, including a
+concurrent deployment, wrong authentication/storage mode, disabled browser authentication, missing image and the exact-image
 copy request. The real script dry run also passed. Production traffic has not
 been switched by this recovery verification.
 
@@ -59,8 +59,12 @@ document preview and a controlled save afterward. Keep the referenced Azure
 revision and image available. The recovery image is approved for PostgreSQL only:
 it retains the production integrity repairs but predates the final local draft
 file repair and browser navigation/status refinements. Do not use it to downgrade
-a local-file deployment. Rebuild this fallback before any later incompatible
-schema or authorization change. Application rollback does not remove migration
+a local-file deployment. It also predates removal of legacy plaintext tab-draft writes.
+The recovery image was built with browser authentication required, which selects
+the encrypted/server recovery path; the rollback command enforces Entra and
+required browser authentication in both revisions. Never use this image for
+unauthenticated/demo browser recovery. Rebuild this fallback before changing
+those authentication flags or making any later incompatible schema or authorization change. Application rollback does not remove migration
 0048 or revert records accepted since deployment.
 
 ## Backup and restore evidence
@@ -353,3 +357,13 @@ Retired routes still exercise the existing access proxy: unauthenticated users
 are sent to sign-in, Note Lab-only users remain in their permitted app, and
 otherwise authorized users receive a retirement 404. Test assertions retain
 these distinct authorization outcomes.
+
+## Encrypted browser draft migration
+
+New browser-side referral recovery copies, including frozen create commands, use the existing
+encrypted, expiring, account/tab-bound device store. Legacy plaintext tab copies
+remain readable only for their confirmed account; unknown-owner copies remain
+untouched. An owned legacy copy is removed only after its encrypted replacement
+commits or its canonical save is confirmed. Interrupted encryption retains the
+original bytes and exposes retry. Storage failures retain the existing open-tab
+recovery behavior rather than writing sensitive fields to Web Storage.

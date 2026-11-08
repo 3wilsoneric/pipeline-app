@@ -1,9 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
+import { referralCanvasFieldKeys } from "../../lib/pipeline/referral-types";
 import { canvasDraftStorageKey } from "../../components/pipeline/referral-canvas-save-state";
 
 test("direct packet link replays a committed create after its response is lost and the page reloads", async ({ page }) => {
-  test.skip(process.env.PIPELINE_DESKTOP_E2E === "true", "This recovery path uses tab storage.");
+  test.skip(process.env.PIPELINE_DESKTOP_E2E === "true", "Exercises browser recovery with server workspace state disabled.");
   const name = `Direct link ${randomUUID().slice(0, 8)}`;
   const mutationIds: string[] = [];
   let committedId: number | undefined;
@@ -28,13 +29,29 @@ test("direct packet link replays a committed create after its response is lost a
   await page.goto("/?view=referrals&screen=packet");
   await expect.poll(() => new URL(page.url()).searchParams.get("draftId")).toMatch(/^[0-9a-f-]{36}$/i);
   const draftId = new URL(page.url()).searchParams.get("draftId");
-  const { user } = await (await page.request.get("/api/auth/me")).json();
-  const recoveryKey = canvasDraftStorageKey(`new-${draftId}`, user.id);
   await page.getByRole("textbox", { name: "NAME", exact: true }).fill(name);
-  await expect.poll(() => page.evaluate(key => Boolean(window.sessionStorage.getItem(key)), recoveryKey)).toBe(true);
+  await expect(page.getByTestId("workspace-save-status")).toContainText("Saved on this device");
+  expect(await page.evaluate(value => [...Object.values(sessionStorage), ...Object.values(localStorage)].some(raw => raw.includes(value)), name)).toBe(false);
+  const encrypted = await page.evaluate(async () => {
+    const database = await new Promise<IDBDatabase>((resolve, reject) => {
+      const opening = indexedDB.open("pipeline-offline-v1");
+      opening.onsuccess = () => resolve(opening.result);
+      opening.onerror = () => reject(opening.error);
+    });
+    try {
+      const records = await new Promise<Array<{ kind: string; ciphertext?: ArrayBuffer; iv?: ArrayBuffer }>>((resolve, reject) => {
+        const read = database.transaction("records").objectStore("records").getAll();
+        read.onsuccess = () => resolve(read.result); read.onerror = () => reject(read.error);
+      });
+      return records.some(record => record.kind === "referral-draft" && record.ciphertext instanceof ArrayBuffer
+        && record.ciphertext.byteLength > 0 && record.iv?.byteLength === 12);
+    } finally { database.close(); }
+  });
+  expect(encrypted).toBe(true);
   await page.getByRole("button", { name: "Create referral", exact: true }).click();
   await expect.poll(() => committedId).toBeGreaterThan(0);
   await expect(page.getByRole("alert").filter({ hasText: "Pipeline could not be reached." })).toBeVisible();
+  expect(await page.evaluate(value => [...Object.values(sessionStorage), ...Object.values(localStorage)].some(raw => raw.includes(value)), name)).toBe(false);
 
   await page.reload();
   expect(new URL(page.url()).searchParams.get("draftId")).toBe(draftId);
@@ -50,22 +67,40 @@ test("direct packet link replays a committed create after its response is lost a
   expect((await stored.json() as { referral: { id: number } }).referral.id).toBe(committedId);
 });
 
-test("direct packet link carries an account-bound generic pending intake into its durable draft ID", async ({ page }) => {
-  test.skip(process.env.PIPELINE_DESKTOP_E2E === "true", "This recovery path uses tab storage.");
+for (const interrupted of [false, true]) test(`direct packet link carries an account-bound generic pending intake into its durable draft ID${interrupted ? " after interrupted encryption" : ""}`, async ({ page }) => {
+  test.skip(process.env.PIPELINE_DESKTOP_E2E === "true", "Exercises browser recovery with server workspace state disabled.");
   const originalId = randomUUID();
   const name = `Legacy intake ${randomUUID().slice(0, 8)}`;
   await page.goto(`/?view=referrals&screen=packet&draftId=${originalId}`);
   const { user } = await (await page.request.get("/api/auth/me")).json();
-  const sourceKey = canvasDraftStorageKey(`new-${originalId}`, user.id);
   const pendingKey = canvasDraftStorageKey(undefined, user.id);
-  await page.getByRole("textbox", { name: "NAME", exact: true }).fill(name);
-  await expect.poll(() => page.evaluate(key => Boolean(window.sessionStorage.getItem(key)), sourceKey)).toBe(true);
-  await page.evaluate(({ sourceKey, pendingKey }) => {
-    window.sessionStorage.setItem(pendingKey, window.sessionStorage.getItem(sourceKey)!);
-    window.sessionStorage.removeItem(sourceKey);
-  }, { sourceKey, pendingKey });
+  const draft = {
+    schema: 1, savedAt: new Date().toISOString(), dirtyKeys: ["name"],
+    fields: Object.fromEntries(referralCanvasFieldKeys.map(key => [key, { value: key === "name" ? name : "" }])),
+    conserved: "", tagsInput: "", documents: {},
+  };
+  // Seed the old format explicitly: current app writes must remain encrypted.
+  await page.evaluate(({ pendingKey, draft }) => sessionStorage.setItem(pendingKey, JSON.stringify(draft)), { pendingKey, draft });
 
+  if (interrupted) {
+    await page.evaluate(() => sessionStorage.setItem("synthetic-encryption-interrupted", "true"));
+    await page.addInitScript(() => {
+      const put = IDBObjectStore.prototype.put;
+      IDBObjectStore.prototype.put = function (...args: Parameters<IDBObjectStore["put"]>) {
+        const request = Reflect.apply(put, this, args);
+        if (this.name === "records" && sessionStorage.getItem("synthetic-encryption-interrupted") === "true") this.transaction.abort();
+        return request;
+      };
+    });
+  }
   await page.goto("/?view=referrals&screen=packet");
+  if (interrupted) {
+    await expect(page.getByRole("alert").filter({ hasText: "Could not prepare your saved intake." })).toBeVisible();
+    expect(new URL(page.url()).searchParams.get("draftId")).toBeNull();
+    expect(await page.evaluate(key => sessionStorage.getItem(key), pendingKey)).toBe(JSON.stringify(draft));
+    await page.evaluate(() => sessionStorage.removeItem("synthetic-encryption-interrupted"));
+    await page.getByRole("button", { name: "Try again", exact: true }).click();
+  }
   await expect.poll(() => new URL(page.url()).searchParams.get("draftId")).toMatch(/^[0-9a-f-]{36}$/i);
   const durableId = new URL(page.url()).searchParams.get("draftId");
   expect(durableId).not.toBe(originalId);

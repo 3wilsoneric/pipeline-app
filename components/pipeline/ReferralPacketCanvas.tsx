@@ -880,6 +880,9 @@ export default function ReferralPacketCanvas({
     try {
       await local;
       savedOnDevice = true;
+      // Retire only this account's legacy plaintext copy, after encryption commits.
+      try { window.sessionStorage.removeItem(canvasDraftStorageKey(reference, principal)); }
+      catch { /* Keep the old copy if browser storage cleanup is unavailable. */ }
     } catch (localError) {
       try {
         if (!allowServerFallback || recovery.initialPacket || Object.keys(recovery.pendingDocuments).length || recovery.additionalFiles.length) throw localError;
@@ -978,35 +981,23 @@ export default function ReferralPacketCanvas({
   }, [serverDraftsEnabled]);
 
   const persistRecoveryDraft = (reportStatus: boolean) => {
-    const draft = captureRecoveryDraft();
-    if (!draft) return;
+    if (!captureRecoveryDraft() || trainingIntakeMode) return;
     const revision = draftRevisionRef.current;
-    const reference = recoveryDraftReferenceRef.current;
     const canReportRecovery = () => reportStatus && draftRevisionRef.current === revision
       && (!loadedReferralRef.current || dirtyKeysRef.current.size > 0);
-    if (serverDraftsEnabled) {
-      void preservePendingIntake(false)
-        .then(() => {
-          if (canReportRecovery()) setSavedAt("Saved on this device; not synced");
-        })
-        .catch((error) => {
-          if (canReportRecovery()) {
-            const message = error instanceof Error ? error.message : "Could not save on this device.";
-            setSavedAt(`Pending · ${message}`);
-          }
-        });
-      return;
-    }
-    try {
-      window.sessionStorage.setItem(canvasDraftStorageKey(reference, viewer?.id ?? recoveryPrincipalRef.current), JSON.stringify(draft));
-      if (reportStatus && !loadedReferralRef.current && draftRevisionRef.current === revision) setSavedAt("Draft saved in this tab");
-    } catch {
-      void preservePendingIntake(false).then(() => {
-        if (canReportRecovery()) setSavedAt(deviceOnlySaveStatus);
-      }).catch(() => {
-        if (canReportRecovery()) setSaveError("This browser could not keep a recovery draft. Your changes are still open in this tab.");
+    void preservePendingIntake(false)
+      .then(() => {
+        if (canReportRecovery()) setSavedAt(serverDraftsEnabled ? "Saved on this device; not synced" : deviceOnlySaveStatus);
+      })
+      .catch((error) => {
+        if (!canReportRecovery()) return;
+        if (serverDraftsEnabled) {
+          const message = error instanceof Error ? error.message : "Could not save on this device.";
+          setSavedAt(`Pending · ${message}`);
+        } else {
+          setSaveError("This browser could not keep a recovery draft. Your changes are still open in this tab.");
+        }
       });
-    }
   };
   persistRecoveryDraftRef.current = () => persistRecoveryDraft(false);
   persistRecoveryDraftWithStatusRef.current = () => persistRecoveryDraft(true);
@@ -1980,13 +1971,6 @@ export default function ReferralPacketCanvas({
       // The command is part of the recovery snapshot, even without a field edit.
       draftRevisionRef.current += 1;
       await preservePendingIntake().catch(() => undefined);
-      if (!serverDraftsEnabled) {
-        const recovery = captureRecoveryDraft();
-        if (recovery) {
-          try { window.sessionStorage.setItem(canvasDraftStorageKey(newDraftKey, viewer?.id ?? recoveryPrincipalRef.current), JSON.stringify(recovery)); }
-          catch { /* Encrypted recovery and the open tab retain the command. */ }
-        }
-      }
     }
 
     const creationRequest = creationRequestRef.current;

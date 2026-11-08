@@ -599,14 +599,8 @@ async function migrateLegacyNewReferralDraft(nextKey: `new-${string}`): Promise<
     try { return { draft: readCanvasSessionDraft(window.sessionStorage, undefined, principal), error: null }; }
     catch (error) { return { draft: null, error }; }
   })();
-  if (!usesServerReferralDrafts()) {
-    if (sessionDraft.error) throw sessionDraft.error;
-    if (sessionDraft.draft) window.sessionStorage.setItem(canvasDraftStorageKey(nextKey, principal), JSON.stringify(sessionDraft.draft));
-    return async () => { if (sessionDraft.draft) window.sessionStorage.removeItem(legacySessionKey); };
-  }
-
   const [server, local] = await Promise.allSettled([
-    loadServerReferralDraft(), loadLocalReferralRecovery(undefined),
+    usesServerReferralDrafts() ? loadServerReferralDraft() : Promise.resolve(null), loadLocalReferralRecovery(undefined),
   ]);
   if (server.status === "rejected") throw server.reason;
   if (local.status === "rejected") throw local.reason;

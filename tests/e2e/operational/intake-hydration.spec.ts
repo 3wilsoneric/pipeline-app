@@ -115,7 +115,8 @@ test("switching approved accounts does not display or erase the previous account
     await page.getByRole("combobox", { name: "Referral facility / source", exact: true }).fill("Private pending source");
     await page.getByRole("textbox", { name: "NAME", exact: true }).focus();
     if (sessionDrafts) {
-      await expect.poll(() => page.evaluate(key => JSON.parse(sessionStorage.getItem(key) ?? "null")?.fields.name.value, canvasDraftStorageKey(`new-${draftId}`, pipelineActors.assessorA.id))).toBe(name);
+      await expect(page.getByTestId("workspace-save-status")).toContainText("Saved on this device");
+      expect(await page.evaluate(key => sessionStorage.getItem(key), canvasDraftStorageKey(`new-${draftId}`, pipelineActors.assessorA.id))).toBeNull();
     } else {
       await expect.poll(async () => (await (await page.request.get(`/api/me/referral-drafts/new-${draftId}`)).json()).draft?.fields.name.value).toBe(name);
     }

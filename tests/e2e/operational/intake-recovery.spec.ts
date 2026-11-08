@@ -34,12 +34,7 @@ for (const reload of [false, true]) {
       await expect(page.getByText("Pipeline could not be reached.", { exact: true })).toBeVisible();
       await page.getByRole("combobox", { name: "Referral facility / source", exact: true }).fill("Edit after submission");
       if (reload) {
-        if (sessionDrafts) {
-          await expect.poll(() => page.evaluate(key => {
-            const draft = JSON.parse(sessionStorage.getItem(key) ?? "null");
-            return { source: draft?.fields.referent.value, command: Boolean(draft?.creationRequest) };
-          }, canvasDraftStorageKey(`new-${draftId}`, pipelineActors.assessorA.id))).toEqual({ source: "Edit after submission", command: true });
-        } else await expect(page.getByText("Saved on this device; not synced", { exact: true })).toBeVisible();
+        await expect(page.getByTestId("workspace-save-status")).toContainText("Saved on this device");
         await page.reload();
         await expect(page.getByRole("combobox", { name: "Referral facility / source", exact: true })).toHaveValue("Edit after submission");
       }

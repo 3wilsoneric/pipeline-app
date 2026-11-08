@@ -123,9 +123,11 @@ test("immediate browser Back preserves the latest tab draft before autosave", as
   await expect.poll(() => page.evaluate(key => window.sessionStorage.getItem(key), recoveryKey)).toBeNull();
   await page.goBack();
   await expect(page).toHaveURL("/");
-  await expect.poll(() => page.evaluate(key => JSON.parse(window.sessionStorage.getItem(key) ?? "null")?.fields?.name?.value, recoveryKey)).toBe("Immediate exit recovery");
+  expect(await page.evaluate(key => sessionStorage.getItem(key), recoveryKey)).toBeNull();
 
   await page.goForward();
   await expect.poll(() => new URL(page.url()).searchParams.get("draftId")).toBe(draftId);
+  await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toHaveValue("Immediate exit recovery");
+  await page.reload();
   await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toHaveValue("Immediate exit recovery");
 });

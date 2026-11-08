@@ -12,6 +12,7 @@ test.beforeEach(() => {
 async function openNote(panel: Locator, key: string) {
   const block = panel.locator(`[data-note-heading="${key}"]`);
   const field = block.locator("textarea");
+  await expect(field).toHaveCount(1);
   await expect(field).toBeEditable();
   return field;
 }
