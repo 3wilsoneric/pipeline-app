@@ -24,7 +24,10 @@ test.describe("retired tutorial links preserve shared Pipeline access", () => {
     try {
       for (const api of [anonymous, outsider]) {
         const response = await api.get("/tutorials/referral?task=review-chart", { maxRedirects: 0 });
-        expect(response.status()).toBe(404);
+        expect(response.status()).toBe(307);
+        const signIn = new URL(response.headers().location, url);
+        expect(signIn.pathname).toBe("/sign-in");
+        expect(signIn.searchParams.get("next")).toBe("/tutorials/referral?task=review-chart");
       }
     } finally { await anonymous.dispose(); await outsider.dispose(); }
   });

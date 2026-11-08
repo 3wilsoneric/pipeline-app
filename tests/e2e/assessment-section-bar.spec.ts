@@ -14,63 +14,54 @@ for (const width of [1440, 1024, 768, 640]) {
     const page = await browser.newPage({ baseURL });
     await page.setViewportSize({ width, height: 900 });
     await page.emulateMedia({ reducedMotion: "reduce" });
-    await openAssessmentFixture(page, { mode: "interview", section: "diagnosis_clinical" });
+    const fixture = await openAssessmentFixture(page, { mode: "interview", section: "diagnosis_clinical" });
     const bar = page.getByRole("navigation", { name: "Assessment sections", exact: true });
     const section = bar.getByRole("combobox", { name: "Assessment section", exact: true });
-    const progress = bar.getByRole("status");
-    const paging = page.getByRole("navigation", { name: "Assessment section steps" });
-    const previous = paging.getByRole("button", { name: "Previous section", exact: true });
-    const next = paging.getByRole("button", { name: "Next section", exact: true });
     const reference = page.getByRole("complementary", { name: "Current information", exact: true });
-    await expect(progress).toHaveText("2 / 2 recorded");
-    await expect(bar.getByLabel("Section 2 of 12", { exact: true })).toBeVisible();
+    const finish = page.locator('footer[aria-label="Assessment actions"]').getByRole("button", { name: "Continue to decision", exact: true });
     await expect(section.locator("option:checked")).toHaveText("How things are now");
+    await expect(reference.locator('[data-split-topic="diagnosis_clinical"]')).toBeVisible();
     await expect(bar.locator('input, summary')).toHaveCount(0);
     await expect(reference.getByRole("combobox")).toHaveCount(0);
-    // The narrow-tablet layout deliberately stacks the progress row below the select.
     expect((await bar.boundingBox())!.height).toBeLessThanOrEqual(width >= 760 && width < 960 ? 104 : 82);
     await page.screenshot({ path: info.outputPath(`section-bar-${width}.png`) });
 
-    const order = await section.locator("option").evaluateAll((items) => items.map((item) => (item as HTMLOptionElement).value));
+    const order = await section.locator("option").evaluateAll(items => items.map(item => (item as HTMLOptionElement).value));
+    expect(order).toEqual(["all-questions", "identity", "diagnosis_clinical", "functional_adl", "physical_health", "medication", "prior_placement", "prior_history", "substance_use", "behavioral_risk", "legal_conservatorship", "social_support", "provenance_qc"]);
     await editPreparedAnswer(page, "Current symptoms");
     const answer = page.getByRole("textbox", { name: "Current symptoms", exact: true });
     await answer.fill("Synthetic documented answer");
     await answer.blur();
-    await expect(progress).toHaveText("2 / 2 recorded");
-    expect(await section.locator("option").evaluateAll((items) => items.map((item) => (item as HTMLOptionElement).value))).toEqual(order);
+    await expect.poll(async () => (await fixture.read()).current_symptoms).toBe("Synthetic documented answer");
+    expect(await section.locator("option").evaluateAll(items => items.map(item => (item as HTMLOptionElement).value))).toEqual(order);
 
-    // Completed sections stay in place. Back and Next are exact inverses.
-    await previous.click();
-    await expect(section).toHaveValue("identity");
-    await expect(previous).toBeDisabled();
-    await next.click();
-    await expect(section).toHaveValue("diagnosis_clinical");
-    await expect(progress).toHaveText("2 / 2 recorded");
-    if (width < 960) await reference.getByRole("button", { name: "Current information", exact: true }).click();
+    // The continuous interview uses its section picker in both directions.
+    // Phone Previous/Next paging is verified separately below.
+    await section.selectOption("identity");
+    await expect(reference.locator('[data-split-topic="identity"]')).toBeVisible();
+    await section.selectOption("diagnosis_clinical");
     const recorded = reference.getByRole("button", { name: "Edit Current symptoms", exact: true });
     await expect(recorded).toContainText("Synthetic documented answer");
     await recorded.click();
     await expect(answer).toBeFocused();
-
-    await next.click();
-    await expect(section).toHaveValue("functional_adl");
+    await section.selectOption("functional_adl");
+    await expect(reference.locator('[data-split-topic="functional_adl"]')).toBeVisible();
     await expect(reference).not.toContainText("Synthetic documented answer");
-    await expect(bar.getByLabel("Section 3 of 12", { exact: true })).toBeVisible();
-    await previous.click();
-    await expect(section).toHaveValue("diagnosis_clinical");
+    await section.selectOption("diagnosis_clinical");
+    await expect(answer).toHaveValue("Synthetic documented answer");
     await section.selectOption("legal_conservatorship");
-    expect(await bar.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
-    for (const control of [previous, next, section]) {
+    expect(await bar.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+    for (const control of [section, finish]) {
       await expect(control).toBeInViewport();
       expect((await control.boundingBox())!.height).toBeGreaterThanOrEqual(44);
     }
     await section.selectOption("provenance_qc");
-    await expect(bar.getByLabel("Section 12 of 12", { exact: true })).toBeVisible();
-    await expect(paging.getByRole("button", { name: "Review assessment", exact: true })).toBeVisible();
+    await expect(reference.locator('[data-split-topic="provenance_qc"]')).toBeVisible();
+    await expect(finish).toBeVisible();
     await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
     const violations = await page.evaluate(async () => {
       const axe = (window as unknown as { axe: { run: (selector: string, options: object) => Promise<AxeResults> } }).axe;
-      return (await axe.run('[aria-label="Assessment sections"], [aria-label="Assessment section steps"]', { runOnly: ["color-contrast", "select-name", "button-name"] })).violations;
+      return (await axe.run('[aria-label="Assessment sections"], footer[aria-label="Assessment actions"]', { runOnly: ["color-contrast", "select-name", "button-name"] })).violations;
     });
     expect(violations).toEqual([]);
     } finally { await closeTestBrowser(browser); }

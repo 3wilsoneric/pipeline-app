@@ -118,7 +118,11 @@ test.describe("admission follow-through", () => {
       const future = await (await api.get(`/api/referrals?active=true&q=${encodeURIComponent(saved.name)}`)).json();
       expect(future.referrals.map((row: { id: number }) => row.id)).toContain(referral.id);
       expect(sends).toBe(0);
-    } finally { await context.close(); await api.dispose(); }
+    } finally {
+      await page.unrouteAll({ behavior: "wait" });
+      await context.close();
+      await api.dispose();
+    }
   });
 
   test("coordinator records an actual arrival from Placement", async ({ browser, baseURL }) => {

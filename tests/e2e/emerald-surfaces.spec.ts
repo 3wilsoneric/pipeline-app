@@ -5,6 +5,9 @@ import type { AxeResults } from "axe-core";
 import { randomUUID } from "node:crypto";
 import { pipelineWorkspaceLocationFromSearchParams } from "../../lib/pipeline/work-continuity";
 
+// These journeys control API responses; offline worker behavior has its own suite.
+test.use({ serviceWorkers: "block" });
+
 async function syntheticHome(page: Page, scope: "personal" | "team" = "team") {
   await page.route("**/api/auth/me", async (route) => {
     const response = await route.fetch();
@@ -93,7 +96,7 @@ for (const width of [1440, 1024, 437, 390]) {
     }
     expect(seen.sort()).toEqual(["Taylor Rivera", "Christopher Montgomery-Worthington", "Morgan Chen", "Casey Brooks", "Alex Reed"].sort());
 
-    await openAssessmentFixture(page, { mode: "interview", section: "diagnosis_clinical" });
+    const fixture = await openAssessmentFixture(page, { mode: "interview", section: "diagnosis_clinical" });
     const assessment = page.locator('[data-assessment-view="assessment"]');
     await expect(assessment).toBeVisible();
     const presentation = width < 640
@@ -122,20 +125,28 @@ for (const width of [1440, 1024, 437, 390]) {
     if (width >= 960) {
       const reference = await assessment.getByRole("complementary", { name: "Current information" }).boundingBox();
       const editor = await assessment.locator('[data-assessment-question-editor]').boundingBox();
-      expect(reference!.x + reference!.width).toBeLessThan(editor!.x);
-      const referenceHeader = await assessment.getByRole("complementary", { name: "Current information" }).locator("header").boundingBox();
-      expect(Math.abs(referenceHeader!.y - editor!.y)).toBeLessThan(2);
+      // The current split layout shares a divider; the two panes must not overlap.
+      expect(reference!.x + reference!.width).toBeLessThanOrEqual(editor!.x);
+      expect(reference!.y).toBe(editor!.y);
     }
     expect(await assessment.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
     await page.screenshot({ path: testInfo.outputPath(`assessment-${width}.png`) });
-    // Embedded practice is editable without recording a clinical start event.
+    // The real clinical editor persists answers without changing the recorded start.
     await expect(assessment.getByRole("button", { name: "Confirm chart", exact: true })).toHaveCount(0);
     await expect(secondary).toHaveValue("Synthetic referral history prepared for the interview.");
-    await assessment.locator("main").evaluate((element) => { element.scrollTop = element.scrollHeight; });
-    const next = assessment.getByRole("button", { name: "Next section", exact: true });
-    await expect(next).toBeInViewport();
-    await expect(next).toHaveCSS("background-color", presentation.button);
-    await next.click();
+    await expect.poll(async () => (await fixture.read()).current_symptoms).toBe("Synthetic referral history prepared for the interview.");
+    expect((await fixture.read()).started_at).toBe(fixture.assessment.started_at);
+    if (width < 640) {
+      await assessment.locator("main").evaluate((element) => { element.scrollTop = element.scrollHeight; });
+      const next = assessment.getByRole("button", { name: "Next section", exact: true });
+      await expect(next).toBeInViewport();
+      await expect(next).toHaveCSS("background-color", presentation.button);
+      await next.click();
+    } else {
+      await assessment.getByRole("combobox", { name: "Assessment section", exact: true }).selectOption({ label: "A usual day" });
+      await expect(assessment.getByRole("heading", { name: "A usual day", exact: true })).toBeInViewport();
+      await expect(assessment.getByRole("button", { name: "Continue to decision", exact: true })).toHaveCSS("background-color", presentation.button);
+    }
     await expect(actions).toBeInViewport();
     expect(errors).toEqual([]);
   });
@@ -190,7 +201,10 @@ test("folder cards remain stable on hover and keyboard focus without fetching or
   const dialog = page.getByRole("dialog", { name: "In progress folder", exact: true });
   const first = dialog.getByRole("button", { name: "Open Taylor Rivera", exact: true });
   const second = dialog.getByRole("button", { name: "Open Christopher Montgomery-Worthington", exact: true });
-  await page.waitForLoadState("networkidle");
+  await dialog.evaluate(async element => {
+    await document.fonts.ready;
+    await Promise.all(element.getAnimations({ subtree: true }).map(animation => animation.finished));
+  });
   const requests: string[] = [];
   page.on("request", request => { if (["fetch", "xhr"].includes(request.resourceType())) requests.push(request.url()); });
   const secondBefore = await second.boundingBox();

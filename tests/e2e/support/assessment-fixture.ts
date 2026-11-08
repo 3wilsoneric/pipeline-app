@@ -41,5 +41,5 @@ export async function openAssessmentFixture(page: Page, options: {
     expect(response.status(), await response.text()).toBe(200);
     return (await response.json()).assessment;
   };
-  return { referral, assessment, read };
+  return { referral, assessment: await read(), read };
 }

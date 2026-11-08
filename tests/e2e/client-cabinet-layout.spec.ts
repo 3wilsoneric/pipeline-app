@@ -10,7 +10,7 @@ for (const engine of ["chromium", "webkit"] as const) {
       const browser = await playwright[engine].launch();
       try {
         const height = width === 320 ? 480 : width < 400 ? 640 : 900;
-        const page = await browser.newPage({ baseURL, viewport: { width, height }, hasTouch: width < 960 });
+        const page = await browser.newPage({ baseURL, serviceWorkers: "block", viewport: { width, height }, hasTouch: width < 960 });
         await page.route("**/api/profiles/directory**", (route) => route.fulfill({ json: {
           ...clientDirectoryFixture,
           clients: communities.map((community, index) => ({

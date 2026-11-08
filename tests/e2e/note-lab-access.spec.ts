@@ -16,7 +16,12 @@ test("a lab-only account can use the lab but cannot enter Pipeline", async ({ pa
   await page.goto("/");
   await expect(page).toHaveURL(/\/note-lab\/practice$/);
 
-  const retired = await page.goto("/training/demo");
-  expect(retired?.status()).toBe(404);
+  // A lab-only identity is redirected before Pipeline resolves any page route.
+  const retired = await page.request.get("/training/demo", { maxRedirects: 0 });
+  expect(retired.status()).toBe(307);
+  expect(new URL(retired.headers().location, page.url()).pathname).toBe("/note-lab/practice");
+  await page.goto("/training/demo");
+  await expect(page).toHaveURL(/\/note-lab\/practice$/);
+  await expect(page.getByTestId("standalone-review-shell")).toBeVisible();
   await expect(page.getByTestId("packet-workspace")).toHaveCount(0);
 });

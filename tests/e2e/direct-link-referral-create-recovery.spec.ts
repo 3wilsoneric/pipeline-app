@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
+import { canvasDraftStorageKey } from "../../components/pipeline/referral-canvas-save-state";
 
 test("direct packet link replays a committed create after its response is lost and the page reloads", async ({ page }) => {
   test.skip(process.env.PIPELINE_DESKTOP_E2E === "true", "This recovery path uses tab storage.");
@@ -27,8 +28,10 @@ test("direct packet link replays a committed create after its response is lost a
   await page.goto("/?view=referrals&screen=packet");
   await expect.poll(() => new URL(page.url()).searchParams.get("draftId")).toMatch(/^[0-9a-f-]{36}$/i);
   const draftId = new URL(page.url()).searchParams.get("draftId");
+  const { user } = await (await page.request.get("/api/auth/me")).json();
+  const recoveryKey = canvasDraftStorageKey(`new-${draftId}`, user.id);
   await page.getByRole("textbox", { name: "NAME", exact: true }).fill(name);
-  await expect.poll(() => page.evaluate((id) => Boolean(window.sessionStorage.getItem(`pipeline-referral-draft:new-${id}`)), draftId)).toBe(true);
+  await expect.poll(() => page.evaluate(key => Boolean(window.sessionStorage.getItem(key)), recoveryKey)).toBe(true);
   await page.getByRole("button", { name: "Create referral", exact: true }).click();
   await expect.poll(() => committedId).toBeGreaterThan(0);
   await expect(page.getByRole("alert").filter({ hasText: "Pipeline could not be reached." })).toBeVisible();
@@ -47,25 +50,27 @@ test("direct packet link replays a committed create after its response is lost a
   expect((await stored.json() as { referral: { id: number } }).referral.id).toBe(committedId);
 });
 
-test("direct packet link carries a generic pending intake into its durable draft ID", async ({ page }) => {
+test("direct packet link carries an account-bound generic pending intake into its durable draft ID", async ({ page }) => {
   test.skip(process.env.PIPELINE_DESKTOP_E2E === "true", "This recovery path uses tab storage.");
   const originalId = randomUUID();
   const name = `Legacy intake ${randomUUID().slice(0, 8)}`;
   await page.goto(`/?view=referrals&screen=packet&draftId=${originalId}`);
+  const { user } = await (await page.request.get("/api/auth/me")).json();
+  const sourceKey = canvasDraftStorageKey(`new-${originalId}`, user.id);
+  const pendingKey = canvasDraftStorageKey(undefined, user.id);
   await page.getByRole("textbox", { name: "NAME", exact: true }).fill(name);
-  await expect.poll(() => page.evaluate((id) => Boolean(window.sessionStorage.getItem(`pipeline-referral-draft:new-${id}`)), originalId)).toBe(true);
-  await page.evaluate((id) => {
-    const key = `pipeline-referral-draft:new-${id}`;
-    window.sessionStorage.setItem("pipeline-referral-draft:new", window.sessionStorage.getItem(key)!);
-    window.sessionStorage.removeItem(key);
-  }, originalId);
+  await expect.poll(() => page.evaluate(key => Boolean(window.sessionStorage.getItem(key)), sourceKey)).toBe(true);
+  await page.evaluate(({ sourceKey, pendingKey }) => {
+    window.sessionStorage.setItem(pendingKey, window.sessionStorage.getItem(sourceKey)!);
+    window.sessionStorage.removeItem(sourceKey);
+  }, { sourceKey, pendingKey });
 
   await page.goto("/?view=referrals&screen=packet");
   await expect.poll(() => new URL(page.url()).searchParams.get("draftId")).toMatch(/^[0-9a-f-]{36}$/i);
   const durableId = new URL(page.url()).searchParams.get("draftId");
   expect(durableId).not.toBe(originalId);
   await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toHaveValue(name);
-  await expect.poll(() => page.evaluate(() => window.sessionStorage.getItem("pipeline-referral-draft:new"))).toBeNull();
+  await expect.poll(() => page.evaluate(key => window.sessionStorage.getItem(key), pendingKey)).toBeNull();
   await page.reload();
   expect(new URL(page.url()).searchParams.get("draftId")).toBe(durableId);
   await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toHaveValue(name);

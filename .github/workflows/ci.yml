@@ -430,6 +430,8 @@ jobs:
           PIPELINE_LOAD_USER_EMAIL=pipeline-load-user-1@example.invalid \
           PIPELINE_LOAD_REQUESTS=200 \
           npm run check:load
+      - name: Install Chromium for PostgreSQL draft recovery journeys
+        run: npx playwright install --with-deps chromium
       - name: Import identity and resident, referral, assessment and contact retry recovery on PostgreSQL
         env:
           PIPELINE_OPERATIONAL_PREBUILT: "true"

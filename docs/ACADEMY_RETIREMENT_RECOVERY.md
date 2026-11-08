@@ -6,41 +6,62 @@ It removes learning routes, progress APIs and their exclusive content. It does n
 drop tables, purge progress, rewrite migrations, delete uploaded documents or
 change client records. Historical migrations 0018/0019 remain intact.
 
-The old September checkout is not a release candidate. Production has 47 applied
+The old September checkout is not a release candidate. The recorded production baseline has 47 applied
 migrations; that checkout's proposed 0035/0036 collide with existing production
 migrations. Production already has Physical Health presence in 0043. Reconcile
 earlier defect reports against the deployed source before carrying any repair
 forward. Never deploy the entire older checkout to recover a removed feature.
 
-## Recorded application rollback
+## Verified repaired application recovery
 
-At November 7, 2026, 21:54 UTC, the healthy production revision was
-`pipeline-prod-web--d7bb9e9707-r42336901890-1` in `rg-pipeline-prod`.
-The recorded image is:
+The baseline configuration is revision
+`pipeline-prod-web--d7bb9e9707-r42336901890-1` in `rg-pipeline-prod`, recorded
+healthy on November 7, 2026, at 21:54 UTC. Its original image predates the retry
+and import fixes and is **not** an approved fallback for this repaired release.
+
+The production PostgreSQL recovery image is:
 
 ```
-pipelineprodacra6qdvl6ebenac.azurecr.io/pipeline-app@sha256:2e50b8f18a9ff8b44a40bb6b8b26d82b94980b23fcebf12322d41b8c9603f5b3
+pipelineprodacra6qdvl6ebenac.azurecr.io/pipeline-app@sha256:b5e5252d57c2327b69b9a185d5b3cc30115bd42364d43bd1a0a7271434d23ce9
 ```
+
+ACR build `cce2` completed on November 8, 2026. It uses the archived repaired
+checkpoint `16a51d6a34dc1331191be342dba15ab2873912fbca2ec2d1940124e78c26ae45`
+plus the concurrent Trash-access retry fix. The actual Linux image applied all
+48 migrations to disposable PostgreSQL and passed 43 API scenarios covering
+concurrent referral/workflow retries, assessment command binding, delegated
+principals and imported-file identity. All records were synthetic.
 
 The local recovery bundle is
 `/Users/eric/pipeline-app/output/whole-app-repair-2026-11-07/rollback/`.
-`rollback-app.sh` defaults to a dry run. It records the exact subscription, app,
-source revision and image digest. Execution requires the reviewed current revision
-as an argument and stops if it has changed. It copies the saved app revision;
-it never invokes database migration, restore, Blob deletion or data purge.
+It includes the original source archive, the additional route patch, the build
+Dockerfile and a complete file/hash manifest. The build context manifest hash is
+`b7153f6f9be67230430527306315b536e0a0d5158198c08d2eeeb1da53611062`.
+
+`rollback-app.sh` defaults to a dry run. Execution requires the reviewed current
+revision. It checks PostgreSQL configuration in both revisions, single-revision
+traffic mode, image availability and the current revision again immediately
+before copying the baseline configuration with the repaired image. It never
+invokes database migration, restore, Blob deletion or data purge.
 
 ```bash
 bash /Users/eric/pipeline-app/output/whole-app-repair-2026-11-07/rollback/rollback-app.sh
 ```
 
-For an incident after an authorized rollout, review schema/configuration
-compatibility, then use the explicit execution command printed by the dry run.
-Verify readiness, login, existing client/assessment reads, document preview and a
-controlled save afterward. Azure's single-revision rollout changes traffic when
-the new revision is ready; the recorded source revision and registry image must
-still exist. See [Microsoft's revision management documentation](https://learn.microsoft.com/en-us/azure/container-apps/revisions-manage).
-The source archives have SHA-256 manifests and were extracted into disposable
-directories successfully. Five command-guard cases passed with a stubbed Azure CLI: dry run, invalid arguments, stale reviewed revision, already-restored revision and an exact-image copy request. The actual production traffic switch has not been run.
+Eight command-guard scenarios passed with a stubbed Azure CLI, including a
+concurrent deployment, wrong storage mode, missing image and the exact-image
+copy request. The real script dry run also passed. Production traffic has not
+been switched by this recovery verification.
+
+For an incident, use the execution command printed by the dry run after reviewing
+the current revision. Verify readiness, login, existing client/assessment reads,
+document preview and a controlled save afterward. Keep the referenced Azure
+revision and image available. The recovery image is approved for PostgreSQL only:
+it retains the production integrity repairs but predates the final local draft
+file repair and browser navigation/status refinements. Do not use it to downgrade
+a local-file deployment. Rebuild this fallback before any later incompatible
+schema or authorization change. Application rollback does not remove migration
+0048 or revert records accepted since deployment.
 
 ## Backup and restore evidence
 
@@ -73,7 +94,7 @@ the production dump or a managed Azure PITR drill.
 
 ## Data recovery is separate from app rollback
 
-Prefer application rollback for this schema-neutral retirement. Restoring an old
+Prefer application rollback with the repaired image for this release. Restoring an old
 database over the current one can discard legitimate work accepted after the
 backup. If data recovery becomes necessary, freeze writes, retain the current
 state, restore to a separate server/database, reconcile accepted writes and Blob
@@ -81,8 +102,9 @@ references, and validate before any connection/traffic switch. Azure PostgreSQL
 [PITR creates a new server](https://learn.microsoft.com/en-us/azure/postgresql/backup-restore/how-to-restore-custom-restore-point).
 Follow [Database Recovery](DATABASE_RECOVERY.md) and [Release Operations](RELEASE_OPERATIONS.md).
 
-There is no zero-data-loss guarantee. No app deployment, production restore,
-schema rollback, client mutation or document purge was performed for this change.
+There is no zero-data-loss guarantee. The pre-release recovery verification did
+not deploy the app, restore production, reverse schema, mutate client records or
+purge documents. Release execution and its new backup are recorded separately.
 
 ## Imported-file identity repair and recovery
 
@@ -307,3 +329,27 @@ Temporary files receive private permissions before atomic replacement. This is
 the existing single-process development/test adapter; production uses PostgreSQL.
 No draft schema, applied migration, progress row or production data is removed.
 Preserve the original file if validation fails and reconcile it explicitly.
+
+
+## Release browser and retry corrections
+
+The release checks exposed a delete retry arriving between its receipt lookup
+and access check. The route now revalidates the bound receipt after that access
+failure; it does not repeat deletion or bypass authorization. Three controlled
+route scenarios cover the exact race, a missing receipt and inaccessible records.
+The real recovery-image concurrency suite also exercises the repaired route.
+
+Preparation's first section now keeps the existing interview entry controls in
+view. A later workspace selection supersedes an earlier navigation waiting for
+save, preserving the current assessment and its prepared answers.
+The encrypted offline editor restores its existing pending-sync message after
+reload. The 12-section offline test verifies answers through a second offline
+reload and subsequent canonical synchronization.
+
+Clinical browser tests use real synthetic API records instead of retired tutorial
+editors. They verify the current continuous desktop interview, phone paging,
+recorded answers, canonical saves, scheduling, keyboard/touch access and contrasts.
+Retired routes still exercise the existing access proxy: unauthenticated users
+are sent to sign-in, Note Lab-only users remain in their permitted app, and
+otherwise authorized users receive a retirement 404. Test assertions retain
+these distinct authorization outcomes.

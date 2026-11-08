@@ -739,7 +739,12 @@ export default function AssessmentWorkspace({
       // A fully answered topic has no question heading, but its reference and
       // picker still belong to the section named by the link or history entry.
       flushSync(() => setSpyGroup(key));
-      heading?.scrollIntoView({ block: "start" });
+      // The first preparation group begins with scheduling/start controls above
+      // its questions. Keep those controls reachable when opening preparation.
+      const target = preparing && key === assessmentPreparationGroups[0].key
+        ? document.querySelector('[data-interview-entry="top"]') ?? heading
+        : heading;
+      target?.scrollIntoView({ block: "start" });
     });
     return () => window.cancelAnimationFrame(frame);
     // Wait until the loaded questionnaire is mounted. An exact question target owns its own scroll.

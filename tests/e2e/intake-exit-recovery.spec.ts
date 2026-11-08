@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { createOperationalReferral } from "./support/operational-api";
 import { confirmReferralFileLabels } from "./support/referral-upload";
 import { referralCanvasFieldKeys } from "../../lib/pipeline/referral-types";
+import { canvasDraftStorageKey } from "../../components/pipeline/referral-canvas-save-state";
 
 test.use({ serviceWorkers: "block" });
 
@@ -111,7 +112,8 @@ test("failed recovery cleanup does not replay a chart edit already saved to the 
   await page.getByRole("button", { name: "Edit referral details", exact: true }).click();
   const referent = page.locator('[data-workspace-field="referent"] input');
   await referent.fill("Synthetic saved source");
-  const recoveryKey = `pipeline-referral-draft:${referral.id}`;
+  const { user } = await (await page.request.get("/api/auth/me")).json();
+  const recoveryKey = canvasDraftStorageKey(referral.id, user.id);
   await expect.poll(() => page.evaluate((key) => Boolean(sessionStorage.getItem(key)), recoveryKey)).toBe(true);
   await page.evaluate((key) => {
     const remove = Storage.prototype.removeItem;

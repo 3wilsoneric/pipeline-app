@@ -1,9 +1,13 @@
+import { openAssessmentFixture } from "./support/assessment-fixture";
 import { closeTestBrowser } from "./support/browser-lifecycle";
 import { openRecipients, confirmRecipients } from "./support/handoff-review";
 import { expect, test, webkit } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import type { CommunicationView } from "../../lib/notifications/communication-contract";
 import { completeOperationalAssessment, createOperationalAssessment, createOperationalReferral, recordOperationalAcceptance, signOperationalAssessment } from "./support/operational-api";
+
+// These journeys control API responses; offline worker behavior has its own suite.
+test.use({ serviceWorkers: "block" });
 
 test.skip(process.env.PIPELINE_DESKTOP_E2E !== "true", "Recipient drafts require the isolated desktop workspace-state store.");
 
@@ -345,4 +349,42 @@ test("iPad WebKit keeps signing and finishing in the same folder", async ({ base
     await page.getByRole("button", { name: "Close email preview", exact: true }).tap();
     await expect(page.getByRole("button", { name: "Preview email", exact: true })).toBeFocused();
   } finally { await closeTestBrowser(browser); }
+});
+
+
+test("the latest phone stage selection wins while assessment saving is delayed", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const fixture = await openAssessmentFixture(page, { mode: "prepare", section: "diagnosis_clinical" });
+  const partial = page.locator("#assessment-secondary_diagnoses");
+  let releaseSave!: () => void;
+  const held = new Promise<void>(resolve => { releaseSave = resolve; });
+  let saveStarted!: () => void;
+  const started = new Promise<void>(resolve => { saveStarted = resolve; });
+  await page.evaluate(() => {
+    Object.defineProperty(indexedDB, "open", { configurable: true, value: () => { throw new Error("Synthetic device storage outage"); } });
+  });
+  await page.route(`**/api/**/${fixture.assessment.assessment_id}`, async route => {
+    if (["PATCH", "PUT"].includes(route.request().method())) {
+      saveStarted();
+      await held;
+    }
+    await route.continue();
+  });
+  try {
+    await partial.fill("Synthetic answer retained after cancelling a pending navigation");
+    await partial.blur();
+    const picker = page.getByRole("combobox", { name: "Workspace view", exact: true });
+    await picker.selectOption("files");
+    await started;
+    await picker.selectOption({ label: "Assessment" });
+    releaseSave();
+    await expect.poll(async () => (await fixture.read()).secondary_diagnoses).toEqual(["Synthetic answer retained after cancelling a pending navigation"]);
+    // Preparation is displayed under Chart in the rail; its canonical route
+    // and editor must remain open after the later Assessment selection.
+    await expect(partial).toBeVisible();
+    await expect(page).toHaveURL(/workspaceStage=assessment/);
+  } finally {
+    releaseSave();
+    if (!page.isClosed()) await page.unrouteAll({ behavior: "wait" });
+  }
 });

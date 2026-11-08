@@ -66,8 +66,7 @@ test("iPad reading page supports touch editing and leaves section navigation int
     const page = await browser.newPage({ baseURL, viewport: { width: 834, height: 1194 }, hasTouch: true, isMobile: true });
     await openAssessmentFixture(page, { mode: "interview", section: "prior_history" });
     const reference = page.getByRole("complementary", { name: "Current information", exact: true });
-    // The tablet shows a compact reference summary; open it before reading answers.
-    await reference.getByRole("button", { name: /^Current information/ }).tap();
+    await expect(reference.locator("[data-split-chart]")).toBeVisible();
     const recorded = reference.getByRole("button", { name: "Edit Earlier care placements", exact: true });
     await expect(recorded).toBeVisible();
     await page.screenshot({ path: info.outputPath("reading-page-ipad.png"), animations: "disabled" });
@@ -76,6 +75,6 @@ test("iPad reading page supports touch editing and leaves section navigation int
     await page.getByRole("combobox", { name: "Assessment section", exact: true }).selectOption("medication");
     await expect(reference).not.toContainText("facility discharge note");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    await expect(page.getByRole("button", { name: "Next section", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Continue to decision", exact: true })).toBeVisible();
   } finally { await closeTestBrowser(browser); }
 });

@@ -85,6 +85,9 @@
 
       workingSet = await decryptWorkingSet(encryptionKey, activeRecord.principal, activeRecord.recordId, storedRecord);
       if (!validWorkingSet(workingSet)) throw new Error("The offline working set is invalid.");
+      if (Array.isArray(workingSet.draft.dirtySections) && workingSet.draft.dirtySections.length) {
+        elements.saveStatus.textContent = savedOnDeviceStatus();
+      }
       activeSection = firstUsefulSection(workingSet);
       elements.empty.classList.add("hidden");
       elements.app.classList.remove("hidden");

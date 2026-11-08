@@ -507,6 +507,7 @@ export default function ReferralPacketCanvas({
   const [emailSending, setEmailSending] = useState(false);
   const [emailFinishing, setEmailFinishing] = useState(false);
   const emailSendingRef = useRef(false);
+  const workspaceNavigationIntentRef = useRef(0);
   const assessmentNavigationRef = useRef<((destination?: "email") => Promise<void>) | null>(null);
   const [decisionReviewTarget, setDecisionReviewTarget] = useState<HTMLDivElement | null>(null);
   const assessmentExitRef = useRef<(() => Promise<void>) | null>(null);
@@ -1769,6 +1770,7 @@ export default function ReferralPacketCanvas({
   });
 
   const navigatePage = async (page: WorkspaceView, editField?: ReferralChartEditField, assessmentMode?: "prepare" | "interview" | "review" | null) => {
+    const intent = ++workspaceNavigationIntentRef.current;
     entryResolvedRef.current = true;
     // Kept-mounted steps: every step stays mounted and saves as it goes, so moving between them (or to
     // Files and Activity) needs no save-before-leaving. Only leaving intake, which unmounts, keeps its save.
@@ -1779,9 +1781,11 @@ export default function ReferralPacketCanvas({
     if ((page === activePage && !(page === 2 && routedWorkspaceLocation.assessmentMode === "review")) || emailSendingRef.current) return;
     try {
       await assessmentNavigationRef.current?.(page === "email" ? "email" : undefined);
+      if (intent !== workspaceNavigationIntentRef.current) return;
       if (activePage === 1) await preserveIntakeBeforeNavigationRef.current();
+      if (intent !== workspaceNavigationIntentRef.current) return;
       if (assessmentMode === undefined && (activePage === 1 || activePage === 3) && page === 2 && hasReferralRecord(loadedReferralRef.current, referral?.id)) {
-        await openQuestionnaireFromIntake();
+        await openQuestionnaireFromIntake(intent);
       } else {
         openPage(page, editField, assessmentMode);
       }
@@ -2320,11 +2324,12 @@ export default function ReferralPacketCanvas({
     if (pending && !await saveWorkspaceDraft()) throw new Error("Finish saving this intake before switching accounts.");
   });
 
-  const openQuestionnaireFromIntake = async () => {
+  const openQuestionnaireFromIntake = async (intent = ++workspaceNavigationIntentRef.current) => {
     const id = activeReferralId(loadedReferralRef.current, referral);
     if (!id) return;
     await preserveIntakeBeforeNavigationRef.current();
     await intakeSaveQueueRef.current;
+    if (intent !== workspaceNavigationIntentRef.current) return;
     setPreparingReferralId(id);
     openPage(2);
   };

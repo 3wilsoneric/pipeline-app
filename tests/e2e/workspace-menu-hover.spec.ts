@@ -11,7 +11,7 @@ for (const [engine, browserType] of [["Chromium", chromium], ["WebKit", webkit]]
       },
     });
     sidebarTest.describe(`${engine} fixed navigation at ${width}px`, () => {
-      for (const path of ["/", "/?screen=calendar", "/?screen=profiles", "/?screen=operations", "/?view=referrals&screen=packet", "/settings", "/training"]) {
+      for (const path of ["/", "/?screen=calendar", "/?screen=profiles", "/?screen=operations", "/?view=referrals&screen=packet", "/settings"]) {
         sidebarTest(`visible destinations and stable layout on ${path}`, async ({ sidebarPage: page }) => {
           await page.goto(path);
           await expect(page.locator("html")).toHaveAttribute("data-pipeline-keyboard-shortcuts-ready", "true");
