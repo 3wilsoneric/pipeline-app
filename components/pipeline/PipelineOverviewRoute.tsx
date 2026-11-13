@@ -7,6 +7,7 @@ import { useDesignV2 } from "@/components/design/DesignSwitch";
 
 import ClientProfileDirectory, { preloadCurrentClientDirectory } from "@/components/pipeline/ClientProfileDirectory";
 import PipelineCensusBriefing from "@/components/pipeline/PipelineCensusBriefing";
+import ReportsFrame from "@/components/pipeline/ReportsFrame";
 import PipelineCalendar from "@/components/pipeline/PipelineCalendar";
 import PipelineTrash from "@/components/pipeline/PipelineTrash";
 import ReferralHome from "@/components/pipeline/ReferralHome";
@@ -50,6 +51,7 @@ import {
 } from "@/lib/pipeline/work-continuity";
 
 const OperationsDashboard = dynamic(() => import("@/components/pipeline/OperationsDashboard"), { loading: () => <DeferredScreenLoading /> });
+const AssessorScorecard = dynamic(() => import("@/components/pipeline/AssessorScorecard"), { loading: () => <DeferredScreenLoading /> });
 
 async function loadDeferredWorkSurfaces() {
   const [profile, referral] = await Promise.all([
@@ -175,7 +177,7 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
   const teamAccess = viewerRoles === undefined ? undefined : canAccessSupervisorOperations(viewerRoles);
   const showTeamOnPhone = viewerRoles?.some((role) => role === "admin" || role === "assessment_coordinator") ?? false;
   const [viewerId, setViewerId] = useState(() => initialUser?.id ?? initialBriefing?.viewer.id);
-  const [activityAccess, setActivityAccess] = useState(() => canAccessApplicationActivity(initialUser));
+  const [activityAccess, setActivityAccess] = useState<boolean | undefined>(() => initialUser ? canAccessApplicationActivity(initialUser) : undefined);
   const [entryBriefing, setEntryBriefing] = useState(initialBriefing ?? null);
   const [directDraftError, setDirectDraftError] = useState("");
   const [directDraftRetry, setDirectDraftRetry] = useState(0);
@@ -285,11 +287,14 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
   }, [activeSearchParams, reportAccess, screen]);
 
   useEffect(() => {
-    if (screen !== "operations" || activeSearchParams.get("report") !== "admission_flow" || admissionFlowAccess !== false) return;
+    if (screen !== "operations") return;
+    const report = activeSearchParams.get("report");
+    if (!(report === "admission_flow" && admissionFlowAccess === false)
+      && !(report === "assessor_scorecard" && activityAccess === false)) return;
     const params = new URLSearchParams(activeSearchParams.toString());
     params.delete("report");
     replacePipelineHistory(`/?${params.toString()}`);
-  }, [activeSearchParams, admissionFlowAccess, screen]);
+  }, [activeSearchParams, admissionFlowAccess, activityAccess, screen]);
 
   const navigationRequestRef = useRef(0);
   const navigate = async (
@@ -368,7 +373,7 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
         viewerId={viewerId}
         initialBriefing={entryBriefing}
         canAccessReports={reportAccess === true}
-        canViewApplicationActivity={activityAccess}
+        canViewApplicationActivity={activityAccess === true}
         showTeamOnPhone={showTeamOnPhone}
         onOpenPacket={(referral, location, action, exact) => navigate("packet", referral, undefined, location, !exact, action)}
         onOpenProfile={(clientId) => navigate("profile", undefined, clientId)}
@@ -461,15 +466,17 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
     page = <WeeklyCompletionMemoPage onBack={() => { void navigate("home"); }}
       onOpenPacket={(referral, location) => { void navigate("packet", referral, undefined, location, false, undefined, true); }} />;
   } else if (screen === "operations") {
-    const admissionFlow = activeSearchParams.get("report") === "admission_flow";
-    page = reportAccess === true ? admissionFlow
+    const report = activeSearchParams.get("report");
+    page = reportAccess === true ? <ReportsFrame report={report} admissionFlow={admissionFlowAccess === true} scorecard={activityAccess === true}>
+      {report === "assessor_scorecard" ? activityAccess === true ? <AssessorScorecard /> : null : report === "admission_flow"
       ? admissionFlowAccess === true ? <OperationsDashboard
           standaloneReport="admission_flow"
           onOpenPacket={(referral) => { void navigate("packet", referral); }}
           onOpenProfile={(clientId) => { void navigate("profile", undefined, clientId); }}
           onOpenProfiles={() => { void navigate("profiles"); }}
         /> : null
-      : <PipelineCensusBriefing showAdmissionFlow={admissionFlowAccess === true} /> : null;
+      : <PipelineCensusBriefing />}
+    </ReportsFrame> : null;
   } else if (screen === "calendar") {
     page = <PipelineCalendar onOpenPacket={(referral, location) => void navigate("packet", referral, undefined, location, false)} />;
   } else if (screen === "trash") {

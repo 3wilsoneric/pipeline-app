@@ -1,0 +1,11 @@
+.frame { display: flex; flex-direction: column; height: 100%; min-height: 0; background: var(--color-report-ground); }
+.navigation { display: flex; flex: none; width: calc(100% - 2 * clamp(16px, 3vw, 40px)); max-width: 1240px; margin: 0 auto; border-bottom: 1px solid var(--color-report-rule); font-family: var(--font-report); }
+.navigation a { display: flex; align-items: center; min-height: var(--spacing-report-tab); padding: 10px 20px; border-bottom: 3px solid transparent; color: var(--color-report-muted); font-size: var(--text-label); line-height: var(--text-label--line-height); font-weight: var(--text-label--font-weight); text-decoration: none; }
+.navigation a:hover { background: var(--color-report-hover); }
+.navigation a[aria-current="page"] { background: var(--color-report-blue-soft); color: var(--color-report-blue); border-bottom-color: var(--color-report-blue); }
+.navigation a:focus-visible { outline: 2px solid var(--color-report-blue); outline-offset: -4px; }
+.content { flex: 1; min-height: 0; overflow: hidden; }
+@media (max-width: 640px) {
+  .navigation { width: 100%; }
+  .navigation a { flex: 1; min-width: 0; padding: 10px 12px; }
+}

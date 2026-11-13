@@ -603,3 +603,45 @@ disclosure of the provided attachment names. Escape closes that disclosure first
 The list describes the packet; it does not create a second selection or upload
 flow. Preserve the existing return-to-writing position and cursor. This pass
 does not change message generation, packet contents, sending, or persistence.
+
+
+## Assessor scorecard in Reports (owner, 2026-11-13)
+
+Place the assessor scorecard on its own Reports page alongside Admissions &
+census and Admission flow. Remove its temporary Home modal entry. The tabs are
+page-navigation links with current-page state and native keyboard, direct-link,
+reload and browser-history support. Keep the existing report access policies.
+
+The scorecard adopts Platform Admissions’ design system from
+`src/features/admissions/admissionsVisual.css` at Platform commit `c70b519`: warm
+paper, navy ink, blue accents, restrained borders, a shallow header wash and
+underlined navigation. Report tokens live in `app/design-tokens.css`; they do
+not recolor the rest of Pipeline. Keep the scorecard’s existing measures,
+comparison bars, drill-downs and explanatory copy. Do not copy Platform’s
+visualizations or change other reports’ charts. On phones, retain readable
+assessor names and stacked metric cells.
+
+### Scorecard spacing refinement (owner, 2026-11-13)
+
+Keep the Platform Admissions palette and current content. Align Period, Sort by
+and Refresh in one toolbar. Use a common number baseline and row padding in the
+comparison table, with larger assessor names and stronger column labels. On
+smaller screens, group metrics under each full assessor name; use two columns
+on phones so labels fit. Detail measures use equal-width rows rather than an
+uneven wrap of links. Keep all metrics, ordering, access and routes unchanged.
+
+The owner then requested less top framing and stronger content hierarchy: keep
+the scorecard heading accessible but visually omit its repeated title banner.
+Put compact filters above the table and date/source context below it. Use the
+Platform navy for column labels, bold names for assessor identity, blue for
+completed-work totals and warm current-work columns. Preserve all content and
+measures; this is presentation only.
+
+### Scorecard PDF export (owner, 2026-11-13)
+
+Add a quiet Export PDF action beside Refresh. The export carries the selected
+period and ordering, uses Platform report colors and the Alamo wordmark, and
+separates comparison, activity detail and counting notes. Keep names intact,
+repeat table headers across pages, and use embedded selectable text. Client
+evidence stays in the signed-in report. This authorizes the new export labels
+and document copy without revising existing workflow language.

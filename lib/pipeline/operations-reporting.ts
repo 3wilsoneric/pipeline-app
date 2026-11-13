@@ -1,5 +1,8 @@
 import "server-only";
 
+import { admissionFlowCohort, admissionFlowStartDate } from "./admission-flow-cohort";
+export { admissionFlowCohort } from "./admission-flow-cohort";
+
 import type { PipelineUser } from "@/lib/auth/pipeline-auth";
 import { pipelineAuditActor } from "@/lib/auth/assessor-session-policy";
 import { getAssessmentCompletionReport, listAssessments } from "@/lib/assessment/assessment-store";
@@ -42,11 +45,6 @@ import {
 
 const previewLimit = 500;
 const exportLimit = 5_000;
-// Reporting cutoff inferred from the first nonhistorical Pipeline workspace.
-// Audited November 5, 2026: 93 native workspaces from September 18 onward;
-// the earlier native charts and later legacy imports are historical records.
-const admissionFlowStartDate = "2026-09-18";
-
 const reportCatalog: OperationsReportDefinition[] = [
   {
     id: "clients_by_community", label: "Clients by community",
@@ -505,15 +503,6 @@ async function reportRows(
   if (reportId === "missing_documents") return missingDocumentRows(referrals, contexts);
   if (reportId === "decisions") return decisionRows(referrals, filters.month);
   return ehrHandoffRows(referrals);
-}
-
-export function admissionFlowCohort(referrals: Referral[], receivedMonth: string) {
-  return referrals.filter((referral) => {
-    if (referral.workspaceOrigin !== "pipeline" || referral.workspaceStatus === "historical" || referral.deletedAt) return false;
-    const created = new Date(referral.createdAt);
-    if (!Number.isFinite(created.getTime()) || admissionFlowToday(created) < admissionFlowStartDate) return false;
-    return !receivedMonth || Boolean(normalizeCalendarDate(referral.date)?.startsWith(receivedMonth));
-  });
 }
 
 async function loadReportReferrals(

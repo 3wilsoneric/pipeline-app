@@ -10,6 +10,23 @@
 /* Carelog family preview: tokens from CareConnector 5e549b6, 2026-10-30.
  * Workflow status families retain their existing meanings. Orange identifies an action only. */
 @theme static {
+  /* Platform Admissions design system, admissionsVisual.css at c70b519.
+     Reports only; workflow stage colors and existing visualizations are unchanged. */
+  --font-report: "Helvetica Neue", Arial, sans-serif;
+  --color-report-ink: #16283a;
+  --color-report-muted: #65717d;
+  --color-report-paper: #fcfbf7;
+  --color-report-ground: #f2f4f3;
+  --color-report-blue: #164d7c;
+  --color-report-blue-soft: #e9f0f5;
+  --color-report-header: #e8f0f6;
+  --color-report-hover: #edf2f4;
+  --color-report-rule: #d3d8dd;
+  --color-report-border: #c4d2dc;
+  --color-report-detail: #f5f8fa;
+  --radius-report: 7px;
+  --spacing-report-tab: 62px;
+  --shadow-report: 0 8px 20px #172a3c16;
   --color-night: #032f30;
   --color-rail-text: #cfe5e6;
   --color-rail-hover: #124343;

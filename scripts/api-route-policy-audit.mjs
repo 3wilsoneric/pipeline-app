@@ -27,6 +27,8 @@ const personalStateWrites = new Set([
   "app/api/me/home-layout/route.ts#PUT",
   "app/api/me/meet-client-layout/route.ts#PUT",
   "app/api/me/work-continuity/route.ts#PATCH",
+  // Bounded interaction counts owned only by the authenticated principal.
+  "app/api/me/usage/route.ts#POST",
 ]);
 const authenticatedBaseMethods = new Set([
   "app/api/auth/me/route.ts#GET",
@@ -185,6 +187,10 @@ for (const absoluteFile of routeFiles) {
     }
     if (personalStateWrites.has(key)) {
       check(`${key} writes only principal-scoped personal state`, body.includes("auth.user.id") && body.includes("requirePipelineUser("));
+    }
+    if (key === "app/api/me/usage/route.ts#POST") {
+      check(`${key} binds bounded usage samples to the current account`, body.includes('request.headers.get("x-pipeline-usage-account") !== auth.user.id') && body.includes("parseUsageBatch(body.value)") && body.includes("saveAssessorUsage(auth.user.id, batch)") && body.includes("readJsonBody(request, 2048)"));
+      check(`${key} excludes delegated and demo usage`, body.includes("auth.user.delegation || auth.user.demoPersona") && body.includes('getPipelineAuthMode() !== "entra_jwt"'));
     }
 
 
