@@ -28,19 +28,19 @@ test("Eric can open the admission flow report from the weekly briefing and retur
   });
 
   await page.goto("/?screen=operations");
-  await page.getByRole("button", { name: "Admission flow", exact: true }).click();
+  await page.getByRole("link", { name: "Admission flow", exact: true }).click();
   await expect(page).toHaveURL(/screen=operations&report=admission_flow/);
   await expect(page.getByRole("heading", { name: "Admission flow" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Weekly briefing" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Admissions & census", exact: true })).toBeVisible();
   await expect(page.getByLabel("Report", { exact: true })).toHaveCount(0);
   await expect(page.getByLabel("Report period")).toHaveValue("all");
   await expect(page.getByLabel("Report period").getByRole("option", { name: "Since launch", exact: true })).toHaveCount(1);
   await expect.poll(() => reportRequests).toBe(1);
-  await page.getByRole("button", { name: "Weekly briefing" }).click();
+  await page.getByRole("link", { name: "Admissions & census", exact: true }).click();
   await expect(page).toHaveURL(/\?screen=operations$/);
   await expect(page.getByRole("heading", { name: "Admissions & census" })).toBeVisible();
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.getByRole("button", { name: "Admission flow", exact: true }).click();
+  await page.getByRole("link", { name: "Admission flow", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Admission flow" })).toBeVisible();
   expect(reportRequests).toBeGreaterThanOrEqual(1);
   expect(await page.getByRole("main", { name: "Reports" }).evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
@@ -61,6 +61,6 @@ test("another Reports user cannot open the executive report", async ({ page }) =
   });
   await page.goto("/?screen=operations&report=admission_flow");
   await expect(page).toHaveURL(/\?screen=operations$/);
-  await expect(page.getByRole("button", { name: "Admission flow", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Admission flow", exact: true })).toHaveCount(0);
   expect(reportRequests).toBe(0);
 });

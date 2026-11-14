@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import type { ClinicalCensusResponse } from "@/lib/clinical/clinical-contracts";
 import type { AdmissionsCensusReport } from "@/lib/pipeline/admissions-census-report";
-import { pushPipelineHistory } from "@/lib/pipeline/client-navigation";
 import styles from "./PipelineCensusBriefing.module.css";
 
 type ClientContext = { source_name: string | null; referring_county: string | null; prior_placement: string | null; owner: string };
@@ -24,7 +23,7 @@ function displayPhase(row: MovingRow, today: string): MovingPhase {
     ? "outcome_review" : row.phase;
 }
 
-export default function PipelineCensusBriefing({ showAdmissionFlow = false }: { showAdmissionFlow?: boolean }) {
+export default function PipelineCensusBriefing() {
   const [census, setCensus] = useState<ClinicalCensusResponse | null>(null);
   const [admissions, setAdmissions] = useState<AdmissionsCensusReport | null>(null);
   const [censusError, setCensusError] = useState(false);
@@ -54,7 +53,6 @@ export default function PipelineCensusBriefing({ showAdmissionFlow = false }: { 
         <div><p className={styles.overline}>Weekly briefing</p><h1>Admissions &amp; census</h1>
           {admissions ? <p className={styles.deck}>Week of {formatDate(admissions.briefing.week_start)} · Pacific time</p> : null}</div>
         <div className={styles.actions}>
-          {showAdmissionFlow ? <button type="button" onClick={() => pushPipelineHistory("/?screen=operations&report=admission_flow")} className={styles.refresh}>Admission flow</button> : null}
           <button type="button" onClick={() => { setLoading(true); setRetry((value) => value + 1); }} disabled={loading} className={styles.refresh}>Refresh report</button>
         </div>
       </header>

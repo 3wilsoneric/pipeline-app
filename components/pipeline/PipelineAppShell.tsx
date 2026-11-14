@@ -5,6 +5,7 @@ import { ReactNode, Suspense, useEffect, useRef, useState } from "react";
 import PipelineHeader from "@/components/pipeline/PipelineHeader";
 import { PipelineShellProvider } from "@/components/pipeline/pipeline-shell-context";
 import PipelinePerformanceObserver from "@/components/pipeline/PipelinePerformanceObserver";
+import AssessorUsageObserver from "@/components/pipeline/AssessorUsageObserver";
 import { useMobileViewport } from "@/components/pipeline/use-mobile-viewport";
 import mobileStyles from "@/components/pipeline/PipelineMobileShell.module.css";
 import { usePhoneAssessment } from "@/components/pipeline/use-phone-layout";
@@ -64,6 +65,7 @@ export default function PipelineAppShell({
           </div>
         </div>
         <PipelinePerformanceObserver />
+        <AssessorUsageObserver />
       </div>
     </PipelineShellProvider>
   );

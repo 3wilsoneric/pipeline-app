@@ -190,7 +190,7 @@ function OperationsDashboardView({
     <main aria-label="Reports" className="h-full overflow-y-auto pipeline-page-surface text-[#171917]">
       <div data-testid="operations-workspace" data-guide-target="operations-workspace" data-performance-ready={pipelineSurfaceReady("operations", loading, error)} className="mx-auto w-full max-w-[1500px] px-4 pb-12 pt-2 sm:px-6 lg:px-8">
         <div className="flex items-center py-3">
-          {standaloneReport ? <div className="flex w-full flex-wrap items-center justify-between gap-3"><h1 className="text-[var(--text-section)] font-semibold text-[var(--color-ink)]">Admission flow</h1><button type="button" onClick={() => pushPipelineHistory("/?screen=operations")} className="flex items-center gap-2 font-semibold text-[var(--color-link)]"><ArrowLeft size={16} /> Weekly briefing</button></div> :
+          {standaloneReport ? <h1 className="text-[var(--text-section)] font-semibold text-[var(--color-ink)]">Admission flow</h1> :
             <div role="group" aria-label="Reports view" className="pipeline-segmented inline-flex rounded-md bg-[#eef1ef] p-1">
               <ViewToggle selected={view === "reports"} onClick={() => onSelectView("reports")}>Reports</ViewToggle>
               <ViewToggle selected={view === "exceptions"} onClick={() => onSelectView("exceptions")}>Exceptions</ViewToggle>

@@ -1,4 +1,5 @@
 import "server-only";
+import { admissionFlowCohort } from "./admission-flow-cohort";
 import { supervisorQueuePage } from "./supervisor-queue-page";
 import { assumedAdmissionDate, getPlannedAdmissionDate, isAwaitingAdmission } from "./admission-lifecycle";
 
@@ -359,6 +360,19 @@ export async function getMyQueueSnapshot(user: PipelineUser): Promise<MyQueueSna
   return buildMyQueueSnapshot(homeWorkForViewer(await loadOperationalWork(user), user), user);
 }
 
+/** Read-only scorecard context: the same current status and completion rules as Home. */
+export async function getAssessorScorecardWork(user: PipelineUser) {
+  const operational = await loadOperationalWork(user, true);
+  if (operational.source !== "referral_store") throw new Error("Scorecard work is unavailable.");
+  const referrals = admissionFlowCohort(operational.referrals, "");
+  const ids = new Set(referrals.map((referral) => referral.id));
+  const work = operational.work.filter((item) => ids.has(item.referral_id));
+  const memo = buildWeeklyCompletionMemo({ work, referrals, contexts: operational.workflowContexts, viewer: user, now: operational.now });
+  return { work, memo, memoOwners: Object.fromEntries(referrals.map((referral) => [
+    referral.id, operational.workflowContexts.get(referral.id)?.assessmentAssessorId || referral.ownerId || null,
+  ])) };
+}
+
 export async function getHomeWorkflowSummary(user: PipelineUser): Promise<HomeWorkflowSummary> {
   const allWork = await loadOperationalWork(user);
   const operational = homeWorkForViewer(allWork, user);
@@ -661,13 +675,15 @@ async function buildSupervisorExceptionSnapshot(
   };
 }
 
-async function loadOperationalWork(user?: PipelineUser) {
+async function loadOperationalWork(user?: PipelineUser, allWorkspaces = false) {
   const referralReadiness = getReferralStoreReadiness();
   let referrals: Referral[] = [];
   let source: OperationsSnapshot["source"] = "unavailable";
 
   if (referralReadiness.ready) {
-    referrals = await loadOperationalReferrals(user);
+    referrals = allWorkspaces
+      ? await loadReferralPages({ ...(user ? scopeReferralListOptions(user, {}) : {}), workspaceStatus: "all" })
+      : await loadOperationalReferrals(user);
     source = "referral_store";
   }
 

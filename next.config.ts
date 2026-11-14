@@ -26,6 +26,7 @@ const nextConfig: NextConfig = {
     "tesseract.js",
   ],
   outputFileTracingIncludes: {
+    "/api/operations/assessor-scorecard": ["app/design-tokens.css", "public/brand/alamo-health-management.png"],
     "/*": [
       "node_modules/@napi-rs/canvas/**/*",
       "node_modules/@tesseract.js-data/eng/**/*",
