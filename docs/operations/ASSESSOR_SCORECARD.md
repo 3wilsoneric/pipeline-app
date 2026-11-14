@@ -88,8 +88,8 @@ intact; do not drop collected data. No clinical records or audit history are
 rewritten by this feature.
 
 **Export PDF** downloads a fresh read of the selected period in the selected sort
-order through the same owner-only endpoint. Its dated comparison and activity
-tables use the report palette, embedded fonts, repeated column headings and
+order through the same owner-only endpoint. Its dated comparison, confirmation timeline and activity
+charts use the report palette, embedded fonts, consistent scales across pages and
 page numbers; counting notes travel with the report. Client-level evidence is
 kept in the authenticated drill-down rather than copied into the summary PDF.
 Both JSON and PDF responses are private and no-store. The native PDF writer is
@@ -105,3 +105,15 @@ Focused checks:
 Test fixtures contain no real clients and send no mail.
 
 Production verification on November 13 found chart confirmations and starts but no explicit interview-finished events. The comparison therefore leads with Charts confirmed. Interviews finished remains a separate, explicitly recorded measure; missing events cannot establish that an interview did not happen.
+
+The report and PDF share the presentation owner for metric values, scale limits
+and Pacific-time confirmation buckets. Up to twelve weekly buckets are shown;
+longer ranges use months, quarters or years so no period is silently dropped.
+Partial periods are marked. Undated confirmations stay in totals and are identified
+outside the timeline. Revisit this aggregation only if users need finer long-range
+inspection; individual dated evidence remains available in the drill-down.
+
+Chart scales begin at zero and describe counts, not targets. Overdue work is a
+subset of current assignments. Mobile charts wrap full names and show dated
+confirmation cells beneath each assessor; keyboard and touch use native buttons.
+The PDF summary continues to exclude client names and clinical evidence.

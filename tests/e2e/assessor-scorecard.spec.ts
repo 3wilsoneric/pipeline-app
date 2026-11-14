@@ -6,14 +6,14 @@ const owner = { id: "f73371d5-d2b4-48b4-a32b-1edc7c88869f", email: "ericwilsonal
 const keys = ["interviews", "confirmed", "clients", "fields", "uploads", "handoffs", "resends", "sendIssues", "assigned", "overdue", "gaps"];
 const people = Array.from({ length: 8 }, (_, index) => ({
   id: `synthetic-${index}`, name: index === 0 ? "Alexandria Montgomery-Washington" : `Synthetic Assessor ${index + 1}`, active: index !== 7,
-  evidence: Object.fromEntries(keys.map((key, metric) => [key, Array.from({ length: index === 0 ? 3 : (index + metric) % 6 }, (_, item) => ({
+  evidence: Object.fromEntries(keys.map((key, metric) => [key, Array.from({ length: key === "overdue" ? (index === 0 ? 1 : 0) : index === 0 ? 3 : (index + metric) % 6 }, (_, item) => ({
     key: `${key}-${item}`, referralId: item + 1, client: item === 0 ? "Synthetic Client With A Long Full Name" : `Synthetic Client ${item + 1}`, community: "Santa Clarita", at: "2026-11-12T20:00:00Z", detail: key === "gaps" ? "Record referring county" : `${key} recorded`,
   }))])), interviewSpanHours: index === 7 ? null : 2.5, interviewSpanSamples: 3, activeDays: 6,
-  usage: { interactions: 200 - index * 20, activeMinutes: 60, days: 4 },
+  usage: index === 7 ? null : { interactions: 200 - index * 20, activeMinutes: 60, days: 4 },
 }));
 const snapshot = { period: "30d", since: "2026-10-15T07:00:00Z", through: "2026-11-13T20:00:00Z", usageSince: "2026-11-12T20:00:00Z", people, unattributedEvents: 2, unassignedWorkspaces: 1, unassignedGapItems: 4 };
 
-for (const width of [1440, 834, 390]) test(`scorecard sorting, evidence, keyboard and readable layout at ${width}px`, async ({ page }) => {
+for (const width of [1440, 834, 390, 320]) test(`scorecard sorting, evidence, keyboard and readable layout at ${width}px`, async ({ page }) => {
   await page.setViewportSize({ width, height: 960 });
   await page.route("**/api/auth/me", route => route.fulfill({ json: { user: owner } }));
   const periods: string[] = [];
@@ -28,15 +28,16 @@ for (const width of [1440, 834, 390]) test(`scorecard sorting, evidence, keyboar
   await page.keyboard.press("Enter");
   await expect(opener).toHaveAttribute("aria-current", "page");
   const report = page.getByRole("main", { name: "Assessor scorecard", exact: true });
-  await expect(report.getByText("Alexandria Montgomery-Washington", { exact: true })).toBeVisible();
+  const work = report.getByRole("region", { name: "Recorded work comparison", exact: true });
+  await expect(work.getByText("Alexandria Montgomery-Washington", { exact: true })).toBeVisible();
   await page.setViewportSize({ width, height: 960 });
   await expect(report.getByRole("combobox", { name: "Sort by" })).toHaveValue("confirmed");
-  await expect(report.getByRole("columnheader", { name: "Charts confirmed", exact: true })).toBeAttached();
+  await expect(work.getByRole("heading", { name: "Charts confirmed", exact: true })).toBeVisible();
   await report.getByRole("combobox", { name: "Sort by" }).selectOption("name");
-  await expect(report.locator("tbody tr").first()).toContainText("Alexandria Montgomery-Washington");
-  await expect(report.locator("tbody tr")).toHaveCount(8);
+  await expect(work.getByRole("listitem").first()).toContainText("Alexandria Montgomery-Washington");
+  await expect(work.getByRole("listitem")).toHaveCount(8);
   expect(await report.evaluate(node => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
-  for (const row of await report.locator("tbody tr").all()) expect(await row.evaluate(node => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
+  for (const row of await work.getByRole("listitem").all()) expect(await row.evaluate(node => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
   await report.getByRole("combobox", { name: "Period", exact: true }).selectOption("launch");
   await expect.poll(() => periods.at(-1)).toBe("launch");
   await report.getByRole("button", { name: "Alexandria Montgomery-Washington: 3 open completion items" }).click();
@@ -44,8 +45,25 @@ for (const width of [1440, 834, 390]) test(`scorecard sorting, evidence, keyboar
   await expect(breakdown).toBeFocused();
   await expect(breakdown.getByText("Record referring county").first()).toBeVisible();
   await expect(breakdown.getByRole("link", { name: "Synthetic Client With A Long Full Name" })).toHaveAttribute("href", /referralId=1&workspaceStage=chart/);
-  await breakdown.getByRole("button", { name: "3 Charts confirmed" }).click();
+  await breakdown.getByRole("combobox", { name: "Work measures" }).selectOption("confirmed");
   await expect(breakdown.getByRole("heading", { name: "Charts confirmed" })).toBeVisible();
+  await breakdown.getByRole("button", { name: "Back to charts" }).click();
+  await expect(report.getByRole("button", { name: "Alexandria Montgomery-Washington: 3 open completion items" })).toBeFocused();
+  await report.getByRole("combobox", { name: "Compare recorded work" }).selectOption("uploads");
+  await expect(work.getByRole("heading", { name: "Files uploaded", exact: true })).toBeVisible();
+  await report.getByRole("combobox", { name: "Compare recorded work" }).selectOption("interactions");
+  await expect(work.getByRole("listitem").filter({ hasText: "Synthetic Assessor 8" })).toContainText("Not tracked");
+  await expect(work.getByRole("listitem").filter({ hasText: "Alexandria Montgomery-Washington" })).toContainText("200 clicks / taps");
+  await expect(work.getByRole("button")).toHaveCount(0);
+  const week = report.getByRole("button", { name: /Alexandria Montgomery-Washington: 3 charts confirmed, week beginning Nov 9/ });
+  await week.focus(); await page.keyboard.press("Enter");
+  await expect(breakdown).toBeFocused();
+  await expect(breakdown.getByRole("link")).toHaveCount(3);
+  await expect(breakdown.getByRole("heading", { name: /Charts confirmed · Nov 9/ })).toBeVisible();
+  await breakdown.getByRole("button", { name: "Back to charts" }).click();
+  await expect(week).toBeFocused();
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await report.getByRole("combobox", { name: "Compare recorded work" }).selectOption("confirmed");
   await page.screenshot({ path: `.data/scorecard-detail-${width}.png` });
   await report.getByText("How this is counted", { exact: true }).click();
   await expect(report.getByText(/Notes have no complete author history/)).toBeVisible();
@@ -55,7 +73,7 @@ for (const width of [1440, 834, 390]) test(`scorecard sorting, evidence, keyboar
     return result.violations.filter(item => ["serious", "critical"].includes(item.impact));
   });
   expect(violations).toEqual([]);
-  await report.evaluate(node => node.scrollTop = 0);
+  await report.getByRole("combobox", { name: "Period", exact: true }).scrollIntoViewIfNeeded();
   await page.mouse.move(0, 0);
   await page.screenshot({ path: `.data/scorecard-${width}.png` });
   await page.reload();
@@ -123,12 +141,12 @@ test("Reports tabs keep history and delegated sessions cannot read the scorecard
   await page.goto("/?screen=operations");
   const tabs = page.getByRole("navigation", { name: "Reports", exact: true });
   await tabs.getByRole("link", { name: "Assessor scorecard" }).click();
-  await expect(page.getByRole("main", { name: "Assessor scorecard" }).getByRole("table")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Recorded work comparison", exact: true })).toBeVisible();
   await tabs.getByRole("link", { name: "Admissions & census", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Admissions & census" })).toBeVisible();
   await page.goBack();
   await expect(tabs.getByRole("link", { name: "Assessor scorecard" })).toHaveAttribute("aria-current", "page");
-  await expect(page.getByRole("main", { name: "Assessor scorecard" }).getByRole("table")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Recorded work comparison", exact: true })).toBeVisible();
   await page.goForward();
   await expect(tabs.getByRole("link", { name: "Admissions & census", exact: true })).toHaveAttribute("aria-current", "page");
   const before = reads;

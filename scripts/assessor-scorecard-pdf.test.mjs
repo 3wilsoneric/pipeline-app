@@ -53,7 +53,7 @@ test("empty exports are explicit and long rosters paginate without dropping peop
     try {
       let text = "";
       for (let n = 1; n <= doc.numPages; n++) text += (await (await doc.getPage(n)).getTextContent()).items.map(item => item.str ?? "").join(" ");
-      for (const person of people) assert.equal(text.split(person.name).length - 1, 2, `${person.name} appears in both tables`);
+      for (const person of people) assert.ok(text.split(person.name).length - 1 >= 12, `${person.name} appears in every visual measure and the timeline`);
       if (!people.length) assert.match(text, /No assessor records in this period/);
     } finally { await task.destroy(); }
   }
