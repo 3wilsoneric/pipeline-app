@@ -15,7 +15,7 @@ export async function GET(request: Request) {
     const period = params.get("period") ?? "30d";
     if (period !== "30d" && period !== "week" && period !== "launch") return Response.json({ error: "Choose a valid scorecard period." }, { status: 400 });
     const format = params.get("format") ?? "json";
-    const sort = params.get("sort") ?? "interviews";
+    const sort = params.get("sort") ?? "confirmed";
     if (!["json", "pdf"].includes(format) || !scorecardSorts.includes(sort as ScorecardSort)) return Response.json({ error: "Choose a valid scorecard export." }, { status: 400 });
     if (!getPipelineDatabaseReadiness().ready) return Response.json({ error: "The shared Pipeline database is required. Local records are not staff performance data." }, { status: 503 });
     const snapshot = await getAssessorScorecard(auth.user, period);

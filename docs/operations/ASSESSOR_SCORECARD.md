@@ -97,3 +97,5 @@ Focused checks:
 - `PORT=3342 PIPELINE_E2E_CLINICAL_PORT=3343 PIPELINE_E2E_PREBUILT=true npx playwright test tests/e2e/assessor-scorecard.spec.ts tests/e2e/application-activity.spec.ts --project=chromium` exercises synthetic eight-person data, long names, period/sort/drill-down, keyboard focus, responsive accessibility, reporting failure and aggregate usage collection.
 
 Test fixtures contain no real clients and send no mail.
+
+Production verification on November 13 found chart confirmations and starts but no explicit interview-finished events. The comparison therefore leads with Charts confirmed. Interviews finished remains a separate, explicitly recorded measure; missing events cannot establish that an interview did not happen.

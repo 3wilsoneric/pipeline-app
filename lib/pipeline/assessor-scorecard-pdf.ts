@@ -100,9 +100,9 @@ export async function renderAssessorScorecardPdf(snapshot: AssessorScorecard, so
 
   newPage("Assessor work & follow-through");
   paragraph(`Activity: ${period}, Pacific time. Assignments and completion items are current as of this export.`, 9);
-  table("Assessor work & follow-through", ["Assessor", "Interviews finished", "Clients worked", "Handoffs sent", "Assigned now", "Open completion items", "Clicks / taps"], [206, 85, 85, 85, 85, 85, 85], people.map(person => [
+  table("Assessor work & follow-through", ["Assessor", "Charts confirmed", "Clients worked", "Handoffs sent", "Assigned now", "Open completion items", "Clicks / taps"], [206, 85, 85, 85, 85, 85, 85], people.map(person => [
     { value: person.name, note: `${person.activeDays} days with recorded work${person.active ? "" : " | Inactive account"}` },
-    { value: String(person.evidence.interviews.length), note: `${person.evidence.confirmed.length} confirmed`, blue: true },
+    { value: String(person.evidence.confirmed.length), blue: true },
     { value: String(person.evidence.clients.length), blue: true }, { value: String(person.evidence.handoffs.length), blue: true },
     { value: String(person.evidence.assigned.length), blue: true, warm: true }, { value: String(person.evidence.gaps.length), blue: true, warm: true },
     { value: person.usage ? person.usage.interactions.toLocaleString("en-US") : "-", note: person.usage ? `${person.usage.activeMinutes} active min` : "Not tracked" },
@@ -121,7 +121,7 @@ export async function renderAssessorScorecardPdf(snapshot: AssessorScorecard, so
   if (snapshot.unattributedEvents || snapshot.unassignedWorkspaces || snapshot.unassignedGapItems) paragraph(`${snapshot.unattributedEvents} unlinked audit events | ${snapshot.unassignedWorkspaces} unassigned workspaces | ${snapshot.unassignedGapItems} completion items without a linked owner. These are not credited to an assessor.`, 10, ink);
   y += 12;
   paragraph("Counting rules", 12, ink);
-  paragraph("Charts confirmed appear below interviews finished on the comparison page. These are separate milestones, not additional interviews.");
+  paragraph("Charts confirmed are the primary completion measure. Separate interview-finished events are not available for every completed assessment; absence of that event does not mean no interview occurred.");
   paragraph("Completions count the first interview finish or chart confirmation per assessment, including denied cases. Later reconfirmations add no credit. Credit follows the person who recorded the action, not today's owner.");
   paragraph("Clients worked are distinct workspaces with a recorded contribution. Fields are counted once per assessor and assessment. Handoffs count accepted sends, not confirmed recipient delivery; retries and additional sends are separate.");
   paragraph("Current assignments and gaps use Home and completion-memo rules. Gaps may depend on other teams. Clicks and active minutes are approximate foreground usage, not work hours or an assessment of quality. No overall performance grade is calculated.");

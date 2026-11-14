@@ -30,6 +30,8 @@ for (const width of [1440, 834, 390]) test(`scorecard sorting, evidence, keyboar
   const report = page.getByRole("main", { name: "Assessor scorecard", exact: true });
   await expect(report.getByText("Alexandria Montgomery-Washington", { exact: true })).toBeVisible();
   await page.setViewportSize({ width, height: 960 });
+  await expect(report.getByRole("combobox", { name: "Sort by" })).toHaveValue("confirmed");
+  await expect(report.getByRole("columnheader", { name: "Charts confirmed", exact: true })).toBeAttached();
   await report.getByRole("combobox", { name: "Sort by" }).selectOption("name");
   await expect(report.locator("tbody tr").first()).toContainText("Alexandria Montgomery-Washington");
   await expect(report.locator("tbody tr")).toHaveCount(8);

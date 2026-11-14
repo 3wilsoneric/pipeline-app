@@ -7,12 +7,12 @@ import type { AssessorScorecard as Snapshot, ScorecardEvidence, ScorecardMetric,
 import { scorecardLabels as labels, sortScorecardPeople, type ScorecardSort as Sort } from "@/lib/pipeline/assessor-scorecard-presentation";
 import styles from "./AssessorScorecard.module.css";
 
-const columns: ScorecardMetric[] = ["interviews", "clients", "handoffs", "assigned", "gaps"];
+const columns: ScorecardMetric[] = ["confirmed", "clients", "handoffs", "assigned", "gaps"];
 
 export default function AssessorScorecard() {
   const [period, setPeriod] = useState<ScorecardPeriod>("30d");
   const [refresh, setRefresh] = useState(0);
-  const [sort, setSort] = useState<Sort>("interviews");
+  const [sort, setSort] = useState<Sort>("confirmed");
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState(false);
   const exportPdf = async () => {
@@ -30,12 +30,12 @@ export default function AssessorScorecard() {
     } catch { setExportError(true); }
     finally { setExporting(false); }
   };
-  const reload = () => { setSort("interviews"); setRefresh((value) => value + 1); };
+  const reload = () => { setSort("confirmed"); setRefresh((value) => value + 1); };
   return <main aria-label="Assessor scorecard" data-testid="operations-workspace" className={styles.page}>
     <article className={styles.body}>
       <h1 className="sr-only">Assessor scorecard</h1>
       <header className={styles.toolbar}>
-        <div className={styles.controls}><label><span>Period</span><select value={period} onChange={(event) => { setSort("interviews"); setPeriod(event.target.value as ScorecardPeriod); }}>
+        <div className={styles.controls}><label><span>Period</span><select value={period} onChange={(event) => { setSort("confirmed"); setPeriod(event.target.value as ScorecardPeriod); }}>
           <option value="30d">Last 30 days</option><option value="week">This week</option><option value="launch">Since Pipeline launch</option>
         </select></label>
         <label><span>Sort by</span><select value={sort} onChange={(event) => setSort(event.target.value as Sort)}>
@@ -67,21 +67,20 @@ function ScorecardResults({ period, sort, retry }: { period: ScorecardPeriod; so
   if (!snapshot) return <p role="status">Loading scorecard…</p>;
   const people = sortScorecardPeople(snapshot.people, sort);
   const selected = people.find((person) => person.id === selection?.person);
-  const maximum = Math.max(1, ...people.map((person) => person.evidence.interviews.length));
+  const maximum = Math.max(1, ...people.map((person) => person.evidence.confirmed.length));
   return <>
     {!people.length ? <p className={styles.notice}>No assessor records in this period.</p> : <table className={styles.table}>
       <caption className="sr-only">Assessor work and current follow-through. Select a total to see its records.</caption>
       <thead><tr><th scope="col">Assessor</th>{columns.map((metric) => <th key={metric} scope="col">{labels[metric]}</th>)}<th scope="col">Clicks / taps</th></tr></thead>
       <tbody>{people.map((person) => <tr key={person.id} data-selected={selection?.person === person.id}>
-        <th scope="row"><button className={styles.name} type="button" onClick={() => setSelection({ person: person.id, metric: "interviews" })}>{person.name}</button>
+        <th scope="row"><button className={styles.name} type="button" onClick={() => setSelection({ person: person.id, metric: "confirmed" })}>{person.name}</button>
           <span className={styles.sub}>{person.activeDays} days with recorded work{person.active ? "" : " · Inactive account"}</span></th>
         {columns.map((metric) => <td key={metric} data-current={metric === "assigned" || metric === "gaps"}>
           <span className={styles.mobileLabel}>{labels[metric]}</span>
           <button type="button" aria-label={`${person.name}: ${person.evidence[metric].length} ${labels[metric].toLowerCase()}`} onClick={() => setSelection({ person: person.id, metric })} className={styles.total}>
             {person.evidence[metric].length}
-            {metric === "interviews" ? <span aria-hidden="true" className={styles.bar}><span style={{ width: `${100 * person.evidence.interviews.length / maximum}%` }} /></span> : null}
+            {metric === "confirmed" ? <span aria-hidden="true" className={styles.bar}><span style={{ width: `${100 * person.evidence.confirmed.length / maximum}%` }} /></span> : null}
           </button>
-          {metric === "interviews" ? <span className={styles.sub}>{person.evidence.confirmed.length} charts confirmed</span> : null}
         </td>)}
         <td><span className={styles.mobileLabel}>Clicks / taps</span><span className={styles.usage}>{person.usage ? person.usage.interactions.toLocaleString() : "—"}</span>
           <span className={styles.sub}>{person.usage ? `${person.usage.activeMinutes} active min` : "Not tracked"}</span></td>
@@ -107,7 +106,7 @@ function ScorecardResults({ period, sort, retry }: { period: ScorecardPeriod; so
     </div> : null}
     <details className={styles.methods}><summary>How this is counted</summary>
       <ul>
-        <li>Interviews and chart confirmations count the first recorded completion per assessment, including denied cases. Later reconfirmations do not add completions. Credit follows the actor who recorded the action, not today’s owner.</li>
+        <li>Charts confirmed count the first recorded chart confirmation per assessment, including denied cases. Interviews finished counts explicit finish events only; an absent event does not mean no interview occurred. Later reconfirmations do not add completions. Credit follows the actor who recorded the action, not today’s owner.</li>
         <li>Clients worked counts distinct workspaces with a recorded contribution. Fields touched counts a field once per assessor and assessment in the period. It does not judge answer quality. Notes have no complete author history and are not counted.</li>
         <li>Handoffs count the first accepted send per workspace. Additional handoffs and failed or unknown attempts are separate; “sent” does not prove recipient delivery.</li>
         <li>Assigned and completion items reflect the current record, using the same rules as Home and the completion memo. Gaps may depend on other teams; they are not a grade.</li>
