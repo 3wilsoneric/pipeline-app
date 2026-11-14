@@ -1,4 +1,4 @@
-.page { overflow-y:auto; padding:24px clamp(16px,3vw,40px); background:var(--color-report-ground); color:var(--color-report-ink); font-family:var(--font-report); font-size:var(--text-label); line-height:var(--text-value--line-height); }
+.page { height:100%; overflow-y:auto; padding:24px clamp(16px,3vw,40px); background:var(--color-report-ground); color:var(--color-report-ink); font-family:var(--font-report); font-size:var(--text-label); line-height:var(--text-value--line-height); }
 .body { max-width:1240px; margin:0 auto; }
 .results { padding-bottom:24px; }
 .body :is(button,select,summary,a) { touch-action:manipulation; }
