@@ -14,6 +14,11 @@ export type ScorecardEvent = {
 export type ScorecardUsage = { actorId: string; minute: string; interactions: number };
 const metricKeys: ScorecardMetric[] = ["interviews", "confirmed", "clients", "fields", "uploads", "handoffs", "resends", "sendIssues", "assigned", "overdue", "gaps"];
 const questionLabels = new Map(assessmentToolFieldDefinitions.map((field) => [field.key as string, field.label]));
+// Owner-requested report exclusions, keyed by identity rather than display name.
+const excludedPrincipals = [
+  "f73371d5-d2b4-48b4-a32b-1edc7c88869f", // Eric Wilson
+  "e9f39185-d751-45c0-bcf5-c24d3565bdd9", // Andrew Dominici
+];
 
 // Calendar boundaries follow the operations reports, including DST changes.
 function pacificMidnight(day: string) {
@@ -149,5 +154,6 @@ export function buildAssessorScorecard(input: {
     value.interviewSpanHours = times.length ? (times[Math.floor((times.length - 1) / 2)] + times[Math.floor(times.length / 2)]) / 2 : null;
     if (value.usage) { value.usage.activeMinutes = usageMinutes.get(value.id)?.size ?? 0; value.usage.days = usageDays.get(value.id)?.size ?? 0; }
   }
-  return { period: input.period, since: input.since, through: input.through, usageSince: input.usageSince, people: [...people.values()].sort((a, b) => b.evidence.interviews.length - a.evidence.interviews.length || a.name.localeCompare(b.name)), unattributedEvents, unassignedWorkspaces, unassignedGapItems };
+  const excluded = new Set(excludedPrincipals.map(canonical).filter(Boolean));
+  return { period: input.period, since: input.since, through: input.through, usageSince: input.usageSince, people: [...people.values()].filter((person) => !excluded.has(person.id)).sort((a, b) => b.evidence.interviews.length - a.evidence.interviews.length || a.name.localeCompare(b.name)), unattributedEvents, unassignedWorkspaces, unassignedGapItems };
 }

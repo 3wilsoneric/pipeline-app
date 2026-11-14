@@ -39,6 +39,12 @@ reported separately rather than guessed. Assessment lifecycle projections on
 referrals do not count as additional assessments. Recorded God mode actions are
 excluded. Notes have no complete author history and contribute no totals.
 
+At the owner's request, Eric Wilson and Andrew Dominici are excluded from the
+comparison and PDF by principal ID, including merged identities. Their work is
+not reassigned or mislabeled as unattributed. This report-only exclusion does
+not change accounts, permissions or clinical records. Revisit the explicit list
+only when the owner changes the reporting roster.
+
 Each work total opens the underlying workspaces and dated evidence. The median
 start-to-finish interval uses first recorded interview starts and completions;
 it includes pauses and shows the sample count. Missing milestones remain

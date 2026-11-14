@@ -73,6 +73,29 @@ test("earlier completion, repeated delivery acknowledgments and later resends ne
   assert.equal(a.evidence.sendIssues.length, 1);
 });
 
+test("Eric and Andrew are omitted from every report metric without losing attribution or changing access", () => {
+  const andrew = "e9f39185-d751-45c0-bcf5-c24d3565bdd9";
+  const result = buildAssessorScorecard({ ...base, usageSince: base.since,
+    members: [...members,
+      { id: owner.id, name: "Renamed owner", active: true, roles: ["admin"], mergedInto: null },
+      { id: andrew, name: "Earlier Andrew", active: false, roles: ["reviewer"], mergedInto: "current-andrew" },
+      { id: "current-andrew", name: "Andrew", active: true, roles: ["reviewer"], mergedInto: null },
+      { id: "old-eric", name: "Earlier Eric", active: false, roles: ["admin"], mergedInto: owner.id },
+    ],
+    events: [event("assessment_signed", { actorId: "old-eric" }),
+      event("assessment_signed", { actorId: "a", at: "2026-11-11T19:00:00.000Z" }),
+      event("document_uploaded", { actorId: andrew })],
+    usage: [{ actorId: "current-andrew", minute: "2026-11-10T18:00:00.000Z", interactions: 4 }],
+    work: [{ referral_id: 1, client_name: "Synthetic", community: "Turlock", board: { stage: "In progress" }, owner_id: owner.id, assignment_overdue: true }],
+    memo: { clients: [{ referral_id: 1, client_name: "Synthetic", community: "Turlock", tasks: [{ id: "dob", label: "Record date of birth" }] }] }, memoOwners: { 1: andrew },
+  });
+  assert.deepEqual(clean(result.people.map(p => p.id).sort()), ["a", "b"]);
+  assert.equal(result.people.find(p => p.id === "a").evidence.confirmed.length, 0, "excluded work is not credited to another assessor");
+  assert.equal(result.unattributedEvents, 0);
+  assert.equal(result.unassignedWorkspaces, 0);
+  assert.equal(result.unassignedGapItems, 0);
+});
+
 test("lifecycle projections never double credit; scheduling and post-send corrections remain contributions", () => {
   const result = buildAssessorScorecard({ ...base, events: [
     event("assessment_signed", { entityType: "referral", entityId: "1", rootId: null, fields: ["workflowStatus"] }),
