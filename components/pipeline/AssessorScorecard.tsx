@@ -4,10 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import { fetchPipelineApi, fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import { toPipelinePath } from "@/lib/pipeline/base-path";
 import type { AssessorScorecard as Snapshot, ScorecardEvidence, ScorecardMetric, ScorecardPeriod } from "@/lib/pipeline/assessor-scorecard-types";
-import { scorecardLabels as labels, sortScorecardPeople, type ScorecardSort as Sort } from "@/lib/pipeline/assessor-scorecard-presentation";
+import { scorecardBucketEvidence, scorecardLabels as labels, sortScorecardPeople, type ScorecardSort as Sort } from "@/lib/pipeline/assessor-scorecard-presentation";
 import styles from "./AssessorScorecard.module.css";
-
-const columns: ScorecardMetric[] = ["confirmed", "clients", "handoffs", "assigned", "gaps"];
+import AssessorScorecardCharts, { type ScorecardSelection } from "./AssessorScorecardCharts";
 
 export default function AssessorScorecard() {
   const [period, setPeriod] = useState<ScorecardPeriod>("30d");
@@ -53,8 +52,9 @@ export default function AssessorScorecard() {
 function ScorecardResults({ period, sort, retry }: { period: ScorecardPeriod; sort: Sort; retry: () => void }) {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [error, setError] = useState(false);
-  const [selection, setSelection] = useState<{ person: string; metric: ScorecardMetric } | null>(null);
+  const [selection, setSelection] = useState<ScorecardSelection | null>(null);
   const details = useRef<HTMLDivElement>(null);
+  const source = useRef<HTMLButtonElement | null>(null);
   useEffect(() => {
     const controller = new AbortController();
     void fetchPipelineJson<Snapshot>(`/api/operations/assessor-scorecard?period=${period}`, { signal: controller.signal, cache: "no-store" })
@@ -67,25 +67,8 @@ function ScorecardResults({ period, sort, retry }: { period: ScorecardPeriod; so
   if (!snapshot) return <p role="status">Loading scorecard…</p>;
   const people = sortScorecardPeople(snapshot.people, sort);
   const selected = people.find((person) => person.id === selection?.person);
-  const maximum = Math.max(1, ...people.map((person) => person.evidence.confirmed.length));
   return <>
-    {!people.length ? <p className={styles.notice}>No assessor records in this period.</p> : <table className={styles.table}>
-      <caption className="sr-only">Assessor work and current follow-through. Select a total to see its records.</caption>
-      <thead><tr><th scope="col">Assessor</th>{columns.map((metric) => <th key={metric} scope="col">{labels[metric]}</th>)}<th scope="col">Clicks / taps</th></tr></thead>
-      <tbody>{people.map((person) => <tr key={person.id} data-selected={selection?.person === person.id}>
-        <th scope="row"><button className={styles.name} type="button" onClick={() => setSelection({ person: person.id, metric: "confirmed" })}>{person.name}</button>
-          <span className={styles.sub}>{person.activeDays} days with recorded work{person.active ? "" : " · Inactive account"}</span></th>
-        {columns.map((metric) => <td key={metric} data-current={metric === "assigned" || metric === "gaps"}>
-          <span className={styles.mobileLabel}>{labels[metric]}</span>
-          <button type="button" aria-label={`${person.name}: ${person.evidence[metric].length} ${labels[metric].toLowerCase()}`} onClick={() => setSelection({ person: person.id, metric })} className={styles.total}>
-            {person.evidence[metric].length}
-            {metric === "confirmed" ? <span aria-hidden="true" className={styles.bar}><span style={{ width: `${100 * person.evidence.confirmed.length / maximum}%` }} /></span> : null}
-          </button>
-        </td>)}
-        <td><span className={styles.mobileLabel}>Clicks / taps</span><span className={styles.usage}>{person.usage ? person.usage.interactions.toLocaleString() : "—"}</span>
-          <span className={styles.sub}>{person.usage ? `${person.usage.activeMinutes} active min` : "Not tracked"}</span></td>
-      </tr>)}</tbody>
-    </table>}
+    {!people.length ? <p className={styles.notice}>No assessor records in this period.</p> : <AssessorScorecardCharts snapshot={snapshot} people={people} onSelect={(next, trigger) => { source.current = trigger; setSelection(next); }} />}
     <div className={styles.context}>
       <p>{day(snapshot.since)}–{day(snapshot.through)} · Pacific time<br /><span>Native Pipeline workspaces · Current assignments and gaps as of {day(snapshot.through)}</span></p>
     </div>
@@ -94,15 +77,13 @@ function ScorecardResults({ period, sort, retry }: { period: ScorecardPeriod; so
       {snapshot.unattributedEvents} unlinked audit events · {snapshot.unassignedWorkspaces} unassigned workspaces · {snapshot.unassignedGapItems} completion items without a linked owner. These are not credited to an assessor.
     </p> : null}
     {selected && selection ? <div ref={details} tabIndex={-1} className={styles.detail} aria-label={`${selected.name} breakdown`}>
-      <div className={styles.detailHeader}><h3>{selected.name}</h3><span>{selected.usage ? `${selected.usage.days} days with tracked interaction` : "Usage not tracked"}</span></div>
-      <div className={styles.metrics} aria-label="Work measures">
-        {(Object.keys(labels) as ScorecardMetric[]).map((metric) => <button key={metric} type="button" aria-pressed={selection.metric === metric} onClick={() => setSelection({ person: selected.id, metric })}>
-          <strong>{selected.evidence[metric].length}</strong> {labels[metric]}
-        </button>)}
-      </div>
+      <div className={styles.detailHeader}><h3>{selected.name}</h3><button type="button" className={styles.back} onClick={() => { setSelection(null); source.current?.focus(); }}>Back to charts</button></div>
+      <label className={styles.detailMeasure}><span>Work measures</span><select value={selection.metric} onChange={event => setSelection({ person: selected.id, metric: event.target.value as ScorecardMetric })}>
+        {(Object.keys(labels) as ScorecardMetric[]).map(metric => <option key={metric} value={metric}>{labels[metric]} · {selected.evidence[metric].length}</option>)}
+      </select></label>
       <p className={styles.coverage}>Median start-to-finish interval: {selected.interviewSpanHours === null ? "not available" : `${selected.interviewSpanHours.toFixed(1)} hours (${selected.interviewSpanSamples} interviews)`}. Elapsed time includes pauses; it is not time worked.</p>
-      <h4>{labels[selection.metric]}</h4>
-      <EvidenceList key={`${selected.id}:${selection.metric}`} evidence={selected.evidence[selection.metric]} />
+      <h4>{labels[selection.metric]}{selection.bucket ? ` · ${selection.bucket.label}${selection.bucket.partial ? " (partial period)" : ""}` : ""}</h4>
+      <EvidenceList key={`${selected.id}:${selection.metric}:${selection.bucket?.start ?? ""}`} evidence={selection.bucket ? scorecardBucketEvidence(selected.evidence[selection.metric], selection.bucket) : selected.evidence[selection.metric]} />
     </div> : null}
     <details className={styles.methods}><summary>How this is counted</summary>
       <ul>

@@ -44,7 +44,7 @@ const checks = [
   {
     name: "Assessor scorecard attribution and aggregate usage boundaries",
     command: "node",
-    args: ["--test", "scripts/assessor-scorecard.test.mjs", "scripts/assessor-scorecard-pdf.test.mjs"],
+    args: ["--test", "scripts/assessor-scorecard.test.mjs", "scripts/assessor-scorecard-presentation.test.mjs", "scripts/assessor-scorecard-pdf.test.mjs"],
   },
   {
     name: "Private server entry and bounded instant navigation",

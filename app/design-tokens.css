@@ -24,6 +24,10 @@
   --color-report-rule: #d3d8dd;
   --color-report-border: #c4d2dc;
   --color-report-detail: #f5f8fa;
+  --color-report-heat-0: #eef1f3;
+  --color-report-heat-1: #dce7ef;
+  --color-report-heat-2: #b9cddd;
+  --color-report-heat-3: #8cabc4;
   --radius-report: 7px;
   --spacing-report-tab: 62px;
   --shadow-report: 0 8px 20px #172a3c16;

@@ -645,3 +645,20 @@ separates comparison, activity detail and counting notes. Keep names intact,
 repeat table headers across pages, and use embedded selectable text. Client
 evidence stays in the signed-in report. This authorizes the new export labels
 and document copy without revising existing workflow language.
+
+### Visual assessor scorecard (owner, 2026-11-13)
+
+The owner approved replacing the numeric comparison grid with meaningful charts:
+selectable recorded-work bars, a Pacific-time confirmation timeline, current
+assignment bars with overdue portions, and completion-item bars. Each work mark
+opens its existing client evidence; a timeline cell limits evidence to that
+period. Keep assessor order consistent across views. Replace the detail metric
+grid with a selector and return focus to the originating chart control.
+
+The PDF carries the same aggregates and scales, real staff data, Alamo branding,
+and readable charts. Keep current assignments/gaps distinct from period activity,
+unknown usage distinct from zero, and completion items distinct from a quality
+rating. Eric and Andrew stay excluded by the existing principal rules. This
+supersedes the scorecard's table-specific layout decisions above and approves
+concise chart labels, units and navigation copy. Other reports and workflows
+are unchanged.

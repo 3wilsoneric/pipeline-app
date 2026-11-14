@@ -2,11 +2,10 @@ import "server-only";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { loadImage, PDFDocument, type CanvasRenderingContext2D, type SKRSContext2D } from "@napi-rs/canvas";
-import { sortScorecardPeople, type ScorecardSort } from "./assessor-scorecard-presentation";
-import type { AssessorScorecard } from "./assessor-scorecard-types";
+import { scorecardAxisMaximum, scorecardMeasures, scorecardTrend, scorecardValue, sortScorecardPeople, type ScorecardMeasure, type ScorecardSort } from "./assessor-scorecard-presentation";
+import type { AssessorScorecard, AssessorScorecardPerson } from "./assessor-scorecard-types";
 
 type Context = CanvasRenderingContext2D & Pick<SKRSContext2D, "drawImage">;
-type Cell = { value: string; note?: string; blue?: boolean; warm?: boolean };
 const date = (value: string) => new Intl.DateTimeFormat("en-US", { timeZone: "America/Los_Angeles", month: "short", day: "numeric", year: "numeric" }).format(new Date(value));
 
 // Reuse Pipeline's installed, embedded-font PDF engine and the report palette.
@@ -26,7 +25,7 @@ export async function renderAssessorScorecardPdf(snapshot: AssessorScorecard, so
   const people = sortScorecardPeople(snapshot.people, sort);
   const left = 38, width = 716, bottom = 552;
   const period = `${date(snapshot.since)} - ${date(snapshot.through)}`;
-  let ctx: Context, y = 0, page = 0;
+  let ctx: Context, y = 0, page = 0, pageTitle = "";
   const font = (size: number, bold = false) => { ctx.font = `${bold ? "bold " : ""}${size}px "Noto Sans", Arial, sans-serif`; ctx.textBaseline = "top"; };
   const text = (value: string, x: number, top: number, size: number, bold = false, fill = ink) => {
     font(size, bold); ctx.fillStyle = fill; ctx.fillText(value, x, top);
@@ -50,6 +49,7 @@ export async function renderAssessorScorecardPdf(snapshot: AssessorScorecard, so
     return result;
   };
   const newPage = (title: string) => {
+    pageTitle = title;
     if (page) pdf.endPage();
     ctx = pdf.beginPage(792, 612) as Context; page++;
     ctx.fillStyle = color("on-fill"); ctx.fillRect(0, 0, 792, 612);
@@ -71,54 +71,99 @@ export async function renderAssessorScorecardPdf(snapshot: AssessorScorecard, so
     }
     y += 6;
   };
-  const table = (title: string, headers: string[], widths: number[], rows: Cell[][]) => {
-    const header = () => {
-      const wrapped = headers.map((label, i) => lines(label, widths[i] - 20, 9, true));
-      const height = Math.max(...wrapped.map(item => item.length)) * 12 + 16;
-      ctx.fillStyle = blue; ctx.fillRect(left, y, width, height);
-      let x = left;
-      wrapped.forEach((items, i) => { items.forEach((line, j) => text(line, x + 10, y + 8 + j * 12, 9, true, color("on-fill"))); x += widths[i]; });
-      y += height;
-    };
-    header();
-    for (const row of rows) {
-      const wrapped = row.map((cell, i) => ({ value: lines(cell.value, widths[i] - 20, i ? 13 : 10, true), note: cell.note ? lines(cell.note, widths[i] - 20, 8) : [] }));
-      const height = Math.max(36, ...wrapped.map((item, i) => item.value.length * (i ? 17 : 14) + item.note.length * 11 + 12));
-      if (y + height > bottom) { newPage(`${title} (continued)`); header(); }
-      let x = left;
-      row.forEach((cell, i) => {
-        ctx.fillStyle = cell.warm ? color("task-peach") : color("report-paper"); ctx.fillRect(x, y, widths[i], height);
-        const item = wrapped[i], lineHeight = i ? 17 : 14;
-        item.value.forEach((line, j) => text(line, x + 10, y + 6 + j * lineHeight, i ? 13 : 10, true, cell.blue ? blue : ink));
-        item.note.forEach((line, j) => text(line, x + 10, y + 6 + item.value.length * lineHeight + j * 11, 8, false, muted));
-        x += widths[i];
-      });
-      ctx.fillStyle = rule; ctx.fillRect(left, y + height - .5, width, .5); y += height;
+  const groups: AssessorScorecardPerson[][] = [];
+  for (let i = 0; i < people.length; i += 5) groups.push(people.slice(i, i + 5));
+  const trend = scorecardTrend(snapshot);
+  const chart = (group: AssessorScorecardPerson[], measure: ScorecardMeasure, x: number, top: number, w: number) => {
+    text(scorecardMeasures[measure], x, top, 12, true);
+    const maximum = scorecardAxisMaximum(people.map(person => scorecardValue(person, measure)));
+    let row = top + 28;
+    for (const person of group) {
+      const value = scorecardValue(person, measure);
+      const overdue = measure === "assigned" ? person.evidence.overdue.length : 0;
+      const label = value === null ? "Not tracked" : `${value.toLocaleString("en-US")}${overdue ? ` / ${overdue} overdue` : ""}`;
+      font(value === null ? 8 : 11, true);
+      const nameLines = lines(person.name, w - ctx.measureText(label).width - 12, 9, true);
+      nameLines.forEach((line, i) => text(line, x, row + i * 12, 9, true));
+      font(value === null ? 8 : 11, true);
+      text(label, x + w - ctx.measureText(label).width, row, value === null ? 8 : 11, true, value === null ? muted : ink);
+      row += nameLines.length * 12 + 5;
+      ctx.fillStyle = color("report-blue-soft"); ctx.fillRect(x, row, w, 8);
+      if (value !== null && value > 0) {
+        const barWidth = w * value / maximum;
+        ctx.fillStyle = blue; ctx.fillRect(x, row, barWidth, 8);
+        if (measure === "assigned" && person.evidence.overdue.length) {
+          const overdueWidth = w * person.evidence.overdue.length / maximum;
+          ctx.fillStyle = color("action-edge"); ctx.fillRect(x + barWidth - overdueWidth, row, overdueWidth, 8);
+        }
+      }
+      row += 17;
     }
-    y += 16;
+    text("0", x, row, 8, false, muted);
+    const ceiling = maximum.toLocaleString("en-US"); font(8);
+    text(ceiling, x + w - ctx.measureText(ceiling).width, row, 8, false, muted);
+    return row + 18;
+  };
+  const pair = (group: AssessorScorecardPerson[], measures: ScorecardMeasure[], top: number) => {
+    const gap = 28, w = (width - gap * (measures.length - 1)) / measures.length;
+    const height = 46 + group.reduce((sum, person) => sum + lines(person.name, w - 100, 9, true).length * 12 + 22, 0);
+    if (top + height > bottom) { newPage(`${pageTitle.replace(/ \(continued\)$/, "")} (continued)`); top = y; }
+    return Math.max(...measures.map((measure, i) => chart(group, measure, left + i * (w + gap), top, w)));
+  };
+  const timeline = (group: AssessorScorecardPerson[], top: number) => {
+    const height = 85 + group.reduce((sum, person) => sum + Math.max(24, lines(person.name, 148, 9, true).length * 12 + 6) + 4, 0);
+    if (top + height > bottom) { newPage("Assessor work (continued)"); top = y; }
+    text("When charts were confirmed", left, top, 13, true);
+    text(`${trend.unit} beginning | Pacific time | * Partial period`, left, top + 20, 8, false, muted);
+    if (!trend.buckets.length) return top + 42;
+    const nameWidth = 160, gap = 4, w = (width - nameWidth) / trend.buckets.length;
+    const maximum = Math.max(1, ...trend.buckets.flatMap(bucket => Object.values(bucket.counts)));
+    let row = top + 43;
+    const headingLines = trend.buckets.map(bucket => lines(`${bucket.label}${bucket.partial ? " *" : ""}`, w - gap, 8));
+    headingLines.forEach((labels, i) => labels.forEach((label, n) => text(label, left + nameWidth + i * w, row + n * 11, 8, false, muted)));
+    row += Math.max(...headingLines.map(labels => labels.length)) * 11 + 8;
+    for (const person of group) {
+      const names = lines(person.name, nameWidth - 12, 9, true);
+      const h = Math.max(24, names.length * 12 + 6);
+      names.forEach((label, n) => text(label, left, row + 5 + n * 12, 9, true));
+      trend.buckets.forEach((bucket, i) => {
+        const value = bucket.counts[person.id] ?? 0, tone = value === 0 ? 0 : Math.ceil(4 * value / maximum);
+        ctx.fillStyle = tone === 4 ? blue : color(`report-heat-${tone}`);
+        ctx.fillRect(left + nameWidth + i * w, row, w - gap, h);
+        const valueLabel = String(value); font(10, true);
+        text(valueLabel, left + nameWidth + i * w + (w - gap - ctx.measureText(valueLabel).width) / 2, row + (h - 10) / 2, 10, true, tone === 4 ? color("on-fill") : ink);
+      });
+      row += h + 4;
+    }
+    if (trend.undated) { text(`${trend.undated} undated confirmations are included in totals, outside this timeline.`, left, row + 5, 8, false, muted); row += 20; }
+    return row;
   };
 
-  newPage("Assessor work & follow-through");
-  paragraph(`Activity: ${period}, Pacific time. Assignments and completion items are current as of this export.`, 9);
-  table("Assessor work & follow-through", ["Assessor", "Charts confirmed", "Clients worked", "Handoffs sent", "Assigned now", "Open completion items", "Clicks / taps"], [206, 85, 85, 85, 85, 85, 85], people.map(person => [
-    { value: person.name, note: `${person.activeDays} days with recorded work${person.active ? "" : " | Inactive account"}` },
-    { value: String(person.evidence.confirmed.length), blue: true },
-    { value: String(person.evidence.clients.length), blue: true }, { value: String(person.evidence.handoffs.length), blue: true },
-    { value: String(person.evidence.assigned.length), blue: true, warm: true }, { value: String(person.evidence.gaps.length), blue: true, warm: true },
-    { value: person.usage ? person.usage.interactions.toLocaleString("en-US") : "-", note: person.usage ? `${person.usage.activeMinutes} active min` : "Not tracked" },
-  ]));
-  if (!people.length) paragraph("No assessor records in this period.", 12, ink);
-  newPage("Activity detail");
-  table("Activity detail", ["Assessor", "Fields touched", "Files uploaded", "Additional handoffs", "Failed / unknown sends", "Overdue assignments", "Interview interval"], [206, 85, 85, 85, 85, 85, 85], people.map(person => [
-    { value: person.name, note: person.usage ? `${person.usage.days} days with tracked interaction` : "Usage not tracked" },
-    { value: String(person.evidence.fields.length), blue: true }, { value: String(person.evidence.uploads.length), blue: true },
-    { value: String(person.evidence.resends.length), blue: true }, { value: String(person.evidence.sendIssues.length) }, { value: String(person.evidence.overdue.length), warm: true },
-    { value: person.interviewSpanHours === null ? "-" : `${person.interviewSpanHours.toFixed(1)} h`, note: person.interviewSpanHours === null ? "Not available" : `${person.interviewSpanSamples} interviews` },
-  ]));
-  paragraph("Interview interval is the median recorded start-to-finish span. It includes pauses and is not time worked.");
+  if (!people.length) { newPage("Assessor work"); paragraph("No assessor records in this period.", 12, ink); }
+  for (const group of groups) {
+    newPage("Assessor work");
+    y = pair(group, ["confirmed", "clients", "handoffs"], y);
+    y = timeline(group, y + 24);
+  }
+  for (const group of groups) {
+    newPage("Current follow-through");
+    paragraph(`Assignments and completion items as of ${date(snapshot.through)}. Gaps include admitted clients; they are not a quality grade.`);
+    y = pair(group, ["assigned", "gaps"], y);
+    text("Overdue assignments are shown in orange within the assigned total.", left, y, 8, false, muted); y += 24;
+    y = pair(group, ["fields", "uploads"], y);
+  }
+  for (const group of groups) {
+    newPage("Activity detail");
+    paragraph(snapshot.usageSince ? `Usage tracking began ${date(snapshot.usageSince)}. Earlier clicks and active minutes are unavailable.` : "Historical clicks and active minutes are unavailable. Tracking starts when this release is enabled.");
+    y = pair(group, ["interactions", "activeMinutes"], y);
+    y = pair(group, ["resends", "sendIssues"], y + 24);
+  }
   newPage("Reading the scorecard");
   paragraph(snapshot.usageSince ? `Usage tracking began ${date(snapshot.usageSince)}. Earlier clicks and active minutes are unavailable.` : "Historical clicks and active minutes are unavailable. Tracking starts when this release is enabled.", 11, ink);
   if (snapshot.unattributedEvents || snapshot.unassignedWorkspaces || snapshot.unassignedGapItems) paragraph(`${snapshot.unattributedEvents} unlinked audit events | ${snapshot.unassignedWorkspaces} unassigned workspaces | ${snapshot.unassignedGapItems} completion items without a linked owner. These are not credited to an assessor.`, 10, ink);
+  for (const person of people) {
+    paragraph(`${person.name}: ${person.activeDays} days with recorded work; ${person.evidence.interviews.length} explicit interviews finished. Interview interval: ${person.interviewSpanHours === null ? "not available" : `${person.interviewSpanHours.toFixed(1)} hours (${person.interviewSpanSamples} interviews)`}.${person.active ? "" : " Inactive account."}`, 9, ink);
+  }
   y += 12;
   paragraph("Counting rules", 12, ink);
   paragraph("Charts confirmed are the primary completion measure. Separate interview-finished events are not available for every completed assessment; absence of that event does not mean no interview occurred.");
