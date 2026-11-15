@@ -9,6 +9,8 @@ export async function readPdfText(bytes: Uint8Array) {
       const content = await (await document.getPage(page)).getTextContent();
       pages.push(content.items.map((item) => "str" in item ? item.str : "").join(" "));
     }
-    return pages.join(" ");
+    // PDF text runs may include their own spacing between glyph groups.
+    // Content assertions should compare words, independent of that segmentation.
+    return pages.join(" ").replace(/\s+/g, " ").trim();
   } finally { await task.destroy(); }
 }
