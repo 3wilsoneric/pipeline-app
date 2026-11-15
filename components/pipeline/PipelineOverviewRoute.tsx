@@ -13,7 +13,7 @@ import PipelineTrash from "@/components/pipeline/PipelineTrash";
 import ReferralHome from "@/components/pipeline/ReferralHome";
 import PipelineWelcome from "@/components/pipeline/PipelineWelcome";
 import { WeeklyCompletionMemoPage } from "@/components/pipeline/WeeklyCompletionMemo";
-import { canAccessApplicationActivity } from "@/lib/pipeline/application-activity-access";
+import { canAccessApplicationActivity, canAccessAssessorStatus } from "@/lib/pipeline/application-activity-access";
 import CurrentWorkOverlay from "@/components/pipeline/CurrentWorkOverlay";
 import { usePipelineAuth } from "@/components/auth/PipelineAuthProvider";
 import { usePipelineShell } from "@/components/pipeline/pipeline-shell-context";
@@ -178,6 +178,7 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
   const showTeamOnPhone = viewerRoles?.some((role) => role === "admin" || role === "assessment_coordinator") ?? false;
   const [viewerId, setViewerId] = useState(() => initialUser?.id ?? initialBriefing?.viewer.id);
   const [activityAccess, setActivityAccess] = useState<boolean | undefined>(() => initialUser ? canAccessApplicationActivity(initialUser) : undefined);
+  const [assessorStatusAccess, setAssessorStatusAccess] = useState(() => canAccessAssessorStatus(initialUser));
   const [entryBriefing, setEntryBriefing] = useState(initialBriefing ?? null);
   const [directDraftError, setDirectDraftError] = useState("");
   const [directDraftRetry, setDirectDraftRetry] = useState(0);
@@ -257,6 +258,7 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
         if (cancelled) return;
         setViewerId(user.id);
         setActivityAccess(canAccessApplicationActivity(user));
+        setAssessorStatusAccess(canAccessAssessorStatus(user));
         setReportAccess(canAccessOperationsReports(user));
         setAdmissionFlowAccess(canAccessExecutiveAdmissionFlow(user));
         setViewerRoles(user.roles);
@@ -270,6 +272,7 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
           setReportAccess(false);
           setAdmissionFlowAccess(false);
           setActivityAccess(false);
+          setAssessorStatusAccess(false);
           setViewerRoles([]);
         }
       });
@@ -374,6 +377,7 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
         initialBriefing={entryBriefing}
         canAccessReports={reportAccess === true}
         canViewApplicationActivity={activityAccess === true}
+        canViewAssessorStatus={assessorStatusAccess}
         showTeamOnPhone={showTeamOnPhone}
         onOpenPacket={(referral, location, action, exact) => navigate("packet", referral, undefined, location, !exact, action)}
         onOpenProfile={(clientId) => navigate("profile", undefined, clientId)}

@@ -5,6 +5,7 @@ import postgres from "postgres";
 import { loadEntry } from "./contact-import-fixtures.mjs";
 
 const owner = { id: "f73371d5-d2b4-48b4-a32b-1edc7c88869f", email: "ericwilsonalamo@outlook.com", name: "Eric", roles: ["admin"], accessScope: "pipeline" };
+const andrew = { ...owner, id: "e9f39185-d751-45c0-bcf5-c24d3565bdd9", email: "andrew@aaahealthservices.com", name: "Andrew" };
 const policy = loadEntry("lib/pipeline/application-activity-access.ts");
 const cursor = loadEntry("lib/pipeline/keyset-cursor.ts");
 const logging = loadEntry("lib/observability/api-logging.ts", {
@@ -13,7 +14,7 @@ const logging = loadEntry("lib/observability/api-logging.ts", {
 }, { console: { log() {}, error() {} } });
 
 test("private dashboard denies other admins, role-only access, delegation, demos and anonymous requests", async () => {
-  const people = [null, { ...owner, id: "andrew", email: "andrew@aaahealthservices.com" }, { ...owner, id: "vince", email: "vince@aaahealthservices.com" }, { ...owner, roles: ["viewer"] }, { ...owner, delegation: { initiatedBy: owner } }, { ...owner, demoPersona: "supervisor" }];
+  const people = [null, andrew, { ...owner, id: "vince", email: "vince@aaahealthservices.com" }, { ...owner, roles: ["viewer"] }, { ...owner, delegation: { initiatedBy: owner } }, { ...owner, demoPersona: "supervisor" }];
   for (const user of people) {
     let reads = 0;
     const route = activityRoute(user, async () => { reads++; return {}; });
@@ -24,6 +25,41 @@ test("private dashboard denies other admins, role-only access, delegation, demos
   }
   assert.equal(policy.canAccessApplicationActivity({ ...owner, email: "guest#EXT#@tenant.onmicrosoft.com" }), true);
   assert.equal(policy.canAccessApplicationActivity({ ...owner, id: "email-linked", email: " ERICWILSONALAMO@OUTLOOK.COM " }), true);
+});
+
+test("Eric and Andrew share the Home names and colors without granting private dashboard access", async () => {
+  for (const user of [owner, andrew, { ...andrew, email: "guest#EXT#@tenant.onmicrosoft.com" }, { ...andrew, id: "email-linked", email: " ANDREW@AAAHEALTHSERVICES.COM " }]) {
+    let reads = 0;
+    const now = Date.now();
+    const route = statusRoute(user, async () => {
+      reads++;
+      return [
+        { principal_id: "online", display_name: "Online Assessor", profile: { preferred_name: "Preferred Name" }, roles: ["reviewer"], last_seen_at: new Date(now - 30_000).toISOString() },
+        { principal_id: "today", display_name: "Today Assessor", profile: {}, roles: ["reviewer"], last_seen_at: new Date(now - 600_000).toISOString() },
+        { principal_id: "away", display_name: "Away Assessor", profile: {}, roles: ["reviewer"], last_seen_at: null },
+        { principal_id: "merged", display_name: "Old account", profile: {}, roles: ["reviewer"], merged_into_principal_id: "today" },
+      ];
+    });
+    const response = await route.GET(request());
+    assert.equal(response.status, 200);
+    assert.equal(reads, 1);
+    assert.deepEqual(await response.json(), { people: [
+      { id: "online", name: "Preferred Name", status: "online" },
+      { id: "today", name: "Today Assessor", status: "today" },
+      { id: "away", name: "Away Assessor", status: "away" },
+    ] });
+    assert.match(response.headers.get("cache-control"), /private, no-store/);
+  }
+  assert.equal(policy.canAccessApplicationActivity(andrew), false);
+});
+
+test("Home status rejects unauthorized, delegated and demo sessions before reading staff data", async () => {
+  for (const user of [null, { ...andrew, id: "other", email: "other@example.invalid" }, { ...andrew, roles: ["reviewer"] }, { ...andrew, roles: ["viewer"] }, { ...andrew, delegation: {} }, { ...andrew, demoPersona: "supervisor" }, { ...andrew, id: "b72c34f0-0ee8-4ab4-8359-81c8f7b0d3b2", email: "sandeep@aaahealthservices.com" }]) {
+    const route = statusRoute(user, () => assert.fail("Unauthorized status must not read members"));
+    assert.equal((await route.GET(request())).status, user ? 403 : 401);
+  }
+  const route = statusRoute(andrew, () => assert.fail("Invalid dates must not read members"));
+  assert.equal((await route.GET(request("since=invalid"))).status, 400);
 });
 
 test("activity endpoint bounds date windows and cursor IDs before querying storage", async () => {
@@ -142,6 +178,15 @@ function activityRoute(user, getApplicationActivity, ready = true) {
     "@/lib/auth/pipeline-auth": { requirePipelineUser: () => user ? { ok: true, user } : { ok: false, response: Response.json({}, { status: 401 }) } },
     "@/lib/database/pipeline-database": { getPipelineDatabaseReadiness: () => ({ ready }) },
     "@/lib/pipeline/application-activity": { getApplicationActivity },
+    "@/lib/observability/api-logging": logging,
+  });
+}
+
+function statusRoute(user, listWorkspaceMembers) {
+  return loadEntry("app/api/operations/assessor-status/route.ts", {
+    "@/lib/auth/pipeline-auth": { requirePipelineUser: () => user ? { ok: true, user } : { ok: false, response: Response.json({}, { status: 401 }) } },
+    "@/lib/database/pipeline-database": { getPipelineDatabaseReadiness: () => ({ ready: true }), getPipelineSql: () => async () => [{ actor_id: "today" }] },
+    "@/lib/pipeline/workspace-members": { listWorkspaceMembers },
     "@/lib/observability/api-logging": logging,
   });
 }

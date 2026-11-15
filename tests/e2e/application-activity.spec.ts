@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 
 const axeSource = readFileSync(require.resolve("axe-core/axe.min.js"), "utf8");
 const owner = { id: "f73371d5-d2b4-48b4-a32b-1edc7c88869f", email: "ericwilsonalamo@outlook.com", name: "Eric", roles: ["admin"] };
+const andrew = { ...owner, id: "e9f39185-d751-45c0-bcf5-c24d3565bdd9", email: "andrew@aaahealthservices.com", name: "Andrew" };
 const person = { id: "fixture-assessor", name: "Synthetic Assessor", email: "assessor@example.invalid", last_seen_at: "2026-09-26T03:00:00Z", last_sign_in_at: "2026-09-26T02:00:00Z", sign_ins: 1, recorded_actions: 2 };
 const event = { id: "first", actor_id: person.id, actor_name: person.name, action: "referral_updated", entity_type: "referral", entity_id: "42", fields: ["Primary assignee", "Admission date"], created_at: "2026-09-26T03:00:00Z", workspace: { id: 42, name: "Synthetic Client", deleted: false } };
 
@@ -96,13 +97,53 @@ for (const width of [1440, 1024, 834]) test(`owner activity is readable, filtera
   await expect(card).toBeFocused();
 });
 
-test("phone Home keeps owner monitoring out of the personal assessment workflow", async ({ page }) => {
+for (const width of [1440, 834]) test(`Andrew sees the same status names and colors without private monitoring at ${width}px`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 900 });
+  await page.route("**/api/auth/me", route => route.fulfill({ json: { user: andrew } }));
+  const privateRequests: string[] = [];
+  page.on("request", request => {
+    if (/\/api\/operations\/(azure-usage|application-activity|assessor-scorecard)/.test(request.url())) privateRequests.push(request.url());
+  });
+  let status: "online" | "today" = "online";
+  await page.route("**/api/operations/assessor-status?*", route => route.fulfill({ json: { people: [
+    { id: "one", name: "Annette Everhart", status },
+    { id: "two", name: "Jazmine Saldana", status: "today" },
+    { id: "three", name: "Sandeep Singh", status: "away" },
+    { id: "four", name: "Vince Ceja", status: "online" },
+  ] } }));
+  await page.goto("/");
+  const card = page.getByRole("region", { name: "Application activity", exact: true });
+  await expect(card).toBeVisible();
+  await expect(card.locator('[data-status="online"]')).toHaveCount(2);
+  await expect(card.locator('[data-status="online"] .bg-status-done')).toHaveCount(2);
+  await expect(card.locator('[data-status="today"] .bg-status-in-progress')).toHaveCount(1);
+  await expect(card.locator('[data-status="away"] .bg-status-pending')).toHaveCount(1);
+  for (const name of ["Annette Everhart", "Jazmine Saldana", "Sandeep Singh", "Vince Ceja"]) await expect(card.getByText(name, { exact: true })).toBeVisible();
+  await expect(card).toHaveAttribute("aria-describedby", /.+/);
+  await expect(page.getByRole("button", { name: "Open application activity" })).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Live database usage" })).toHaveCount(0);
+  status = "today";
+  await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+  await expect(card.locator('[data-status="today"]')).toHaveCount(2);
+  expect(privateRequests).toEqual([]);
+  expect(await card.evaluate(element => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
+  await page.addScriptTag({ content: axeSource });
+  const violations = await page.evaluate(async () => {
+    const axe = (window as unknown as { axe: { run: (context: string) => Promise<{ violations: { impact: string; id: string }[] }> } }).axe;
+    return (await axe.run('section[aria-label="Application activity"]')).violations.filter(item => ["serious", "critical"].includes(item.impact));
+  });
+  expect(violations).toEqual([]);
+  await page.screenshot({ path: `.data/andrew-status-${width}.png` });
+});
+
+for (const user of [owner, andrew]) test(`phone Home keeps ${user.name}'s monitoring out of the personal assessment workflow`, async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.route("**/api/auth/me", route => route.fulfill({ json: { user: owner } }));
+  await page.route("**/api/auth/me", route => route.fulfill({ json: { user } }));
   await page.goto("/");
   await expect(page.getByRole("region", { name: "Current work", exact: true })).toBeVisible();
   await expect(page.getByRole("region", { name: "Live database usage" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Open application activity" })).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Application activity", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Upcoming assessments", exact: true })).toBeVisible();
 });
 

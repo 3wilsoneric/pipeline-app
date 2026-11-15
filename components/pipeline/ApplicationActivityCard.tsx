@@ -18,7 +18,7 @@ const statusPresentation = {
 // shared dialog can restore keyboard focus to it on close.
 const ApplicationActivityDashboard = dynamic(() => import("./ApplicationActivityDashboard"), { loading: () => null });
 
-export default function ApplicationActivityCard() {
+export default function ApplicationActivityCard({ canViewDetails = false }: { canViewDetails?: boolean }) {
   const [open, setOpen] = useState(false);
   const [people, setPeople] = useState<TeamStatus[] | null>(null);
   const [unavailable, setUnavailable] = useState(false);
@@ -48,15 +48,10 @@ export default function ApplicationActivityCard() {
     };
   }, []);
 
-  return <>
-    <span id={descriptionId} className="sr-only">
-      {people ? people.map((person) => `${person.name}: ${statusPresentation[person.status].label}`).join("; ") : unavailable ? "Team status is temporarily unavailable." : "Loading team status."}
-    </span>
-    <div className="my-3 grid items-stretch gap-2 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] xl:grid-cols-[minmax(0,28rem)_minmax(0,1fr)]">
-      <button type="button" aria-label="Open application activity" aria-describedby={descriptionId} onClick={() => setOpen(true)} className="flex min-w-0 flex-col items-stretch justify-start rounded-paper border border-card-border bg-paper px-4 py-2.5 text-left hover:bg-sheet focus-visible:outline-2 focus-visible:outline-focus">
+  const contents = <>
         <span className="flex min-w-0 items-start gap-2">
-          <span className="min-w-0 flex-1"><span className="block text-sm font-semibold leading-5">Application activity</span><span className="block text-xs leading-4 text-ink-muted">Only you · green now · blue today · gray none</span></span>
-          <ArrowUpRight size={16} aria-hidden="true" className="mt-0.5 shrink-0 text-ink-muted" />
+          <span className="min-w-0 flex-1"><span className="block text-sm font-semibold leading-5">Application activity</span><span className="block text-xs leading-4 text-ink-muted">green now · blue today · gray none</span></span>
+          {canViewDetails ? <ArrowUpRight size={16} aria-hidden="true" className="mt-0.5 shrink-0 text-ink-muted" /> : null}
         </span>
         <span className="mt-2 flex max-w-md min-w-0 flex-wrap gap-x-4 gap-y-1">
           {people?.length ? people.map((person) => <span key={person.id} data-status={person.status} title={`${person.name}: ${statusPresentation[person.status].label}`} className="inline-flex max-w-full min-w-0 items-center gap-1.5 text-xs leading-4">
@@ -64,9 +59,17 @@ export default function ApplicationActivityCard() {
             <span className="truncate">{person.name}</span>
           </span>) : <span className="text-xs text-ink-muted">{unavailable ? "Team status unavailable" : people ? "No users listed" : "Loading team…"}</span>}
         </span>
-      </button>
-      <AzureUsageMeter />
+  </>;
+  const cardClass = "flex min-w-0 flex-col items-stretch justify-start rounded-paper border border-card-border bg-paper px-4 py-2.5 text-left";
+  return <>
+    <span id={descriptionId} className="sr-only">
+      {people ? people.map((person) => `${person.name}: ${statusPresentation[person.status].label}`).join("; ") : unavailable ? "Team status is temporarily unavailable." : "Loading team status."}
+    </span>
+    <div className={`my-3 grid items-stretch gap-2 ${canViewDetails ? "lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] xl:grid-cols-[minmax(0,28rem)_minmax(0,1fr)]" : "max-w-md"}`}>
+      {canViewDetails ? <button type="button" aria-label="Open application activity" aria-describedby={descriptionId} onClick={() => setOpen(true)} className={`${cardClass} hover:bg-sheet focus-visible:outline-2 focus-visible:outline-focus`}>{contents}</button>
+        : <section aria-label="Application activity" aria-describedby={descriptionId} className={cardClass}>{contents}</section>}
+      {canViewDetails ? <AzureUsageMeter /> : null}
     </div>
-    {open ? <ApplicationActivityDashboard onClose={() => setOpen(false)} /> : null}
+    {canViewDetails && open ? <ApplicationActivityDashboard onClose={() => setOpen(false)} /> : null}
   </>;
 }

@@ -678,3 +678,12 @@ interview-finish events remain in detail. Show click-tracking coverage next to
 clicks. Its detail contains collected aggregates only, never invented per-client
 activity. Preserve audit counts, principal exclusions, authorization, routes and
 PDF export. No overall score, quality grade or inferred hours worked is added.
+
+### Andrew's Home activity status (owner, 2026-11-14)
+
+Show Andrew the same assessor names and green/blue/gray presence indicators as
+Eric on desktop and tablet Home. Reuse the status component, data and refresh
+behavior. The status-only view has no dashboard opener or database usage meter;
+those retain Eric's existing access. Remove the obsolete “Only you” qualifier
+from the shared status legend. Keep phone Home focused on its existing workflow,
+and keep Eric and Andrew excluded from assessor scorecard comparisons.

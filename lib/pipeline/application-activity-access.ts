@@ -1,3 +1,5 @@
+import { canAccessExecutiveAdmissionFlow } from "./report-access";
+
 type ActivityPrincipal = {
   id?: string;
   email: string;
@@ -13,4 +15,10 @@ export function canAccessApplicationActivity(user: ActivityPrincipal | null | un
     user.id?.toLowerCase() === "f73371d5-d2b4-48b4-a32b-1edc7c88869f"
     || user.email.trim().toLowerCase() === "ericwilsonalamo@outlook.com"
   ));
+}
+
+// The Home status names/dots are shared with Andrew; detailed activity and
+// infrastructure monitoring retain their separate owner-only access.
+export function canAccessAssessorStatus(user: ActivityPrincipal | null | undefined) {
+  return Boolean(user && !user.delegation && !user.demoPersona && canAccessExecutiveAdmissionFlow(user));
 }

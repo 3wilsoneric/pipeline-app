@@ -1,7 +1,7 @@
 import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
 import { getPipelineDatabaseReadiness, getPipelineSql } from "@/lib/database/pipeline-database";
 import { withApiLogging } from "@/lib/observability/api-logging";
-import { canAccessApplicationActivity } from "@/lib/pipeline/application-activity-access";
+import { canAccessAssessorStatus } from "@/lib/pipeline/application-activity-access";
 import { listWorkspaceMembers } from "@/lib/pipeline/workspace-members";
 
 export const runtime = "nodejs";
@@ -10,7 +10,7 @@ export async function GET(request: Request) {
   return withApiLogging(request, "/api/operations/assessor-status", async () => {
     const auth = await requirePipelineUser(request);
     if (!auth.ok) return auth.response;
-    if (!canAccessApplicationActivity(auth.user)) return Response.json({ error: "Team activity is private to Eric." }, { status: 403 });
+    if (!canAccessAssessorStatus(auth.user)) return Response.json({ error: "Team activity is restricted." }, { status: 403 });
 
     const since = new URL(request.url).searchParams.get("since") ?? "";
     const sinceTime = Date.parse(since);
