@@ -1,6 +1,5 @@
 import { assessmentToolFieldDefinitions } from "@/lib/assessment/assessment-tool-schema";
 import { admissionFlowToday } from "./admission-flow-day";
-import { admissionFlowStartDate } from "./admission-flow-cohort";
 import type { OperationsWorkItem } from "./operations-types";
 import type { WeeklyCompletionMemo } from "./weekly-completion-memo";
 import type { AssessorScorecard, AssessorScorecardPerson, ScorecardEvidence, ScorecardMetric, ScorecardPeriod } from "./assessor-scorecard-types";
@@ -20,24 +19,8 @@ const excludedPrincipals = [
   "e9f39185-d751-45c0-bcf5-c24d3565bdd9", // Andrew Dominici
 ];
 
-// Calendar boundaries follow the operations reports, including DST changes.
-function pacificMidnight(day: string) {
-  const utc = Date.parse(`${day}T00:00:00Z`);
-  const offset = new Intl.DateTimeFormat("en-US", { timeZone: "America/Los_Angeles", timeZoneName: "shortOffset" })
-    .formatToParts(new Date(utc)).find((part) => part.type === "timeZoneName")!.value;
-  // Pacific DST changes at 02:00, so the offset before midnight applies.
-  return new Date(utc - Number(offset.replace("GMT", "")) * 3600_000).toISOString();
-}
-export function scorecardRange(period: ScorecardPeriod, now = new Date()) {
-  const today = admissionFlowToday(now);
-  const day = new Date(`${today}T12:00:00Z`);
-  if (period === "week") day.setUTCDate(day.getUTCDate() - (day.getUTCDay() + 6) % 7);
-  if (period === "30d") day.setUTCDate(day.getUTCDate() - 29);
-  return { since: pacificMidnight(period === "launch" ? admissionFlowStartDate : day.toISOString().slice(0, 10)), through: now.toISOString() };
-}
-
 export function buildAssessorScorecard(input: {
-  period: ScorecardPeriod; since: string; through: string; usageSince: string | null;
+  period: ScorecardPeriod; since: string; through: string; endExclusive?: string; complete?: boolean; asOf?: string; usageSince: string | null;
   members: ScorecardMember[]; events: ScorecardEvent[]; usage: ScorecardUsage[];
   work: OperationsWorkItem[]; memo: WeeklyCompletionMemo; memoOwners: Record<number, string | null>;
 }): AssessorScorecard {
@@ -58,7 +41,7 @@ export function buildAssessorScorecard(input: {
     let value = people.get(id);
     if (!value) {
       const member = members.get(id)!;
-      value = { id, name: member.name, active: member.active, evidence: Object.fromEntries(metricKeys.map((key) => [key, [] as ScorecardEvidence[]])) as AssessorScorecardPerson["evidence"], interviewSpanHours: null, interviewSpanSamples: 0, activeDays: 0, recordedWork: [], usage: input.usageSince ? { interactions: 0, activeMinutes: 0, days: 0 } : null };
+      value = { id, name: member.name, active: member.active, evidence: Object.fromEntries(metricKeys.map((key) => [key, [] as ScorecardEvidence[]])) as AssessorScorecardPerson["evidence"], interviewSpanHours: null, interviewSpanSamples: 0, activeDays: 0, recordedWork: [], usage: input.usageSince && input.usageSince <= input.through ? { interactions: 0, activeMinutes: 0, days: 0 } : null };
       people.set(id, value);
     }
     return value;
@@ -82,7 +65,7 @@ export function buildAssessorScorecard(input: {
   const substantiveActions = new Set([...fieldActions, "referral_created", "referral_updated", "referral_stage_changed", "assessment_created", "assessment_assigned", "assessment_scheduled", "assessment_rescheduled", "assessment_cancelled", "assessment_no_show", "assessment_started", "assessment_interview_completed", "assessment_addendum_added", "admission_decision_recorded", "document_uploaded", "requirement_updated", "meet_client_summary_sent", "meet_client_summary_failed", "meet_client_summary_unconfirmed"]);
   // Stable sorting preserves the database's microsecond order for same-ms events.
   for (const event of [...input.events].sort((a, b) => a.at.localeCompare(b.at))) {
-    if (event.at > input.through) continue;
+    if (input.endExclusive ? event.at >= input.endExclusive : event.at > input.through) continue;
     // Lifecycle writes also project their action onto the referral. That is the
     // same work, not another completed assessment or another set of answers.
     if ((event.action.startsWith("assessment_") || event.action === "extraction_confirmed") && event.entityType !== "assessment") continue;
@@ -146,7 +129,7 @@ export function buildAssessorScorecard(input: {
   const usageMinutes = new Map<string, Set<string>>(), usageDays = new Map<string, Set<string>>();
   for (const sample of input.usage) {
     const actor = canonical(sample.actorId);
-    if (!actor || sample.minute < input.since || sample.minute > input.through) continue;
+    if (!actor || sample.minute < input.since || (input.endExclusive ? sample.minute >= input.endExclusive : sample.minute > input.through)) continue;
     const usage = person(actor).usage;
     if (!usage) continue;
     usage.interactions += sample.interactions;
@@ -162,5 +145,5 @@ export function buildAssessorScorecard(input: {
     if (value.usage) { value.usage.activeMinutes = usageMinutes.get(value.id)?.size ?? 0; value.usage.days = usageDays.get(value.id)?.size ?? 0; }
   }
   const excluded = new Set(excludedPrincipals.map(canonical).filter(Boolean));
-  return { period: input.period, since: input.since, through: input.through, usageSince: input.usageSince, people: [...people.values()].filter((person) => !excluded.has(person.id)).sort((a, b) => b.evidence.interviews.length - a.evidence.interviews.length || a.name.localeCompare(b.name)), unattributedEvents, unassignedWorkspaces, unassignedGapItems };
+  return { period: input.period, since: input.since, through: input.through, asOf: input.asOf ?? input.through, complete: input.complete ?? false, usageSince: input.usageSince, people: [...people.values()].filter((person) => !excluded.has(person.id)).sort((a, b) => b.evidence.interviews.length - a.evidence.interviews.length || a.name.localeCompare(b.name)), unattributedEvents, unassignedWorkspaces, unassignedGapItems };
 }

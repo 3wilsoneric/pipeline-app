@@ -207,7 +207,7 @@ const rootStubs = {
   },
   "@/components/pipeline/ClientProfileDirectory": { default: () => null, preloadCurrentClientDirectory: async () => { startupReads.push("current-clients"); } },
   "@/lib/pipeline/application-activity-access": loadTypeScriptModule(process.cwd(), "lib/pipeline/application-activity-access.ts"),
-  "@/components/pipeline/referral-home-directory-model": { buildReferralParams: () => "kind=all" },
+  "@/components/pipeline/referral-home-directory-model": loadTypeScriptModule(process.cwd(), "components/pipeline/referral-home-directory-model.ts"),
   "@/lib/pipeline/report-access": {
     canAccessOperationsReports: (principal) => principal?.roles.includes("admin"),
     canAccessExecutiveAdmissionFlow: (principal) => principal?.roles.includes("admin"),

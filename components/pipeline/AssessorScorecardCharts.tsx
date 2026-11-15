@@ -7,7 +7,7 @@ import { scorecardAxisMaximum, scorecardDefinitions, scorecardDisplayLabels as l
 import styles from "./AssessorScorecard.module.css";
 import AssessorScorecardTrend from "./AssessorScorecardTrend";
 
-export type ScorecardSelection = { person: string; metric: ScorecardMeasure; bucket?: ScorecardBucket };
+export type ScorecardSelection = { person: string; metric: ScorecardMeasure; bucket?: ScorecardBucket; comparison?: boolean };
 type Select = (selection: ScorecardSelection, trigger: HTMLButtonElement) => void;
 type Highlight = (id: string | null, source: "pointer" | "focus") => void;
 const number = (value: number) => value.toLocaleString("en-US");
@@ -41,7 +41,7 @@ export default function AssessorScorecardCharts({ snapshot, people, measure, onS
         <p className={styles.chartNote}>{snapshot.usageSince ? <>Tracked since {shortDay(snapshot.usageSince)} · Earlier activity unavailable</> : "Historical click and active-time data are unavailable."}</p>
       </section>
       <section className={styles.chart} aria-label="Current follow-through">
-        <header className={styles.sectionHeader}><h2>Still open</h2><span>As of {shortDay(snapshot.through)} · All dates</span></header>
+        <header className={styles.sectionHeader}><h2>Still open</h2><span>As of {shortDay(snapshot.asOf ?? snapshot.through)} · All dates</span></header>
         <div className={styles.workloadHead} aria-hidden="true"><span /><span>Assigned now</span><span>Items to complete</span></div>
         <ul className={styles.workload}>
           {people.map(person => <li key={person.id}>

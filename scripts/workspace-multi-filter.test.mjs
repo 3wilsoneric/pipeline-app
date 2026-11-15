@@ -13,6 +13,15 @@ const clean = (value) => JSON.parse(JSON.stringify(value));
 const query = loadTypeScriptModule(root, "lib/pipeline/referral-query.ts");
 const directoryModel = loadTypeScriptModule(root, "components/pipeline/referral-home-directory-model.ts");
 const ownerIdentity = loadTypeScriptModule(root, "lib/pipeline/referral-owner-identity.ts");
+
+test("Andrew's supervisor identity defaults to team work without changing other users or delegated sessions", () => {
+  const andrew = { id: "e9f39185-d751-45c0-bcf5-c24d3565bdd9", email: "guest#EXT#@tenant.invalid", roles: ["assessment_coordinator"] };
+  assert.equal(directoryModel.prefersTeamWorkspaceScope(andrew), true);
+  assert.equal(directoryModel.prefersTeamWorkspaceScope({ ...andrew, id: "email-linked", email: " ANDREW@AAAHEALTHSERVICES.COM " }), true);
+  for (const user of [null, { ...andrew, id: "other-admin", email: "other@example.invalid" }, { ...andrew, roles: ["reviewer"] }, { ...andrew, delegation: {} }, { ...andrew, demoPersona: "supervisor" }, { ...andrew, accessScope: "note_lab" }]) {
+    assert.equal(directoryModel.prefersTeamWorkspaceScope(user), false);
+  }
+});
 const referrals = Array.from({ length: 12 }, (_, i) => ({
   id: i + 1, name: `Filter Fixture ${i + 1}`, stage: "New", date: "2026-09-17",
   community: ["San Pablo", "Santa Clarita", "Turlock"][i % 3], county: "Fixture County",

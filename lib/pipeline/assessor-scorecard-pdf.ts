@@ -103,7 +103,7 @@ export async function renderAssessorScorecardPdf(snapshot: AssessorScorecard, so
   }
   for (const group of groups) {
     newPage("Current follow-through");
-    paragraph(`Assignments and completion items as of ${date(snapshot.through)}. Gaps include admitted clients; they are not a quality grade.`);
+    paragraph(`Assignments and completion items as of ${date(snapshot.asOf ?? snapshot.through)}. Gaps include admitted clients; they are not a quality grade.`);
     y = ledger(group, ["assigned", "overdue", "gaps"], y);
     text("Selected period", left, y, 12, true);
     y = ledger(group, ["confirmed", "clients", "handoffs", "fields", "uploads"], y + 24);
@@ -127,6 +127,8 @@ export async function renderAssessorScorecardPdf(snapshot: AssessorScorecard, so
   y += 12;
   if (y + 90 > bottom) newPage("Report notes");
   paragraph("Counting rules", 12, ink);
+  paragraph(snapshot.complete ? "Activity covers completed days. Prior-period comparisons use an equal number of calendar days." : "Activity includes the partial final day. A full prior-period comparison is not shown.");
+  if (snapshot.complete && !snapshot.comparison) paragraph("A full prior-period comparison is unavailable before Pipeline's launch.");
   paragraph("Recorded-work days count substantive saved work, not attendance or time worked. Empty autosaves do not count. A client can appear in multiple weeks; weekly client counts must not be added to produce a distinct total.");
   paragraph("Charts confirmed are the primary completion measure. Separate interview-finished events are not available for every completed assessment; absence of that event does not mean no interview occurred.");
   paragraph("Completions count the first interview finish or chart confirmation per assessment, including denied cases. Later reconfirmations add no credit. Credit follows the person who recorded the action, not today's owner.");

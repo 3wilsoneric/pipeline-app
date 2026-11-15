@@ -2,7 +2,7 @@ import { admissionFlowToday } from "./admission-flow-day";
 import type { AssessorScorecard, AssessorScorecardPerson } from "./assessor-scorecard-types";
 import { scorecardRecentWindow, scorecardSelection, type ScorecardBucket, type ScorecardMeasure } from "./assessor-scorecard-presentation";
 
-export type ScorecardNarrativeFact = { text: string; metric: ScorecardMeasure; bucket?: ScorecardBucket };
+export type ScorecardNarrativeFact = { text: string; metric: ScorecardMeasure; bucket?: ScorecardBucket; comparison?: boolean };
 export type ScorecardNarrativeParagraph = (string | ScorecardNarrativeFact)[];
 export const scorecardNarrativeText = (paragraph: ScorecardNarrativeParagraph) => paragraph.map(part => typeof part === "string" ? part : part.text).join("");
 const singularLabels: Record<string, string> = {
@@ -74,10 +74,29 @@ export function scorecardNarrative(snapshot: AssessorScorecard, person: Assessor
 
   if (count("confirmed", recent) >= 2 && count("confirmed", recent) > teamConfirmations / 2) change.push(`${change.length ? " " : ""}Also ${count("confirmed", recent)} of the team's ${teamConfirmations} first chart confirmations in that window.`);
 
-  const open: ScorecardNarrativeParagraph = ["Currently ", fact("assigned", "assigned workspaces"), ...(count("overdue") ? [", including ", fact("overdue", "overdue assignments")] : []), ", plus ", fact("gaps", "completion items"), ". Completion items can include already-admitted clients."];
+  const prior = snapshot.comparison;
+  const priorPerson = prior?.people.find(other => other.id === person.id);
+  const periodChange: ScorecardNarrativeParagraph = [];
+  const periodCompletions: ScorecardNarrativeParagraph = [];
+  if (prior && priorPerson) {
+    const priorFact = (metric: ScorecardMeasure, label: string): ScorecardNarrativeFact => {
+      const value = scorecardSelection(priorPerson, metric).value ?? 0;
+      return { text: `${number(value)} ${value === 1 ? singularLabels[label] ?? label : label}`, metric, comparison: true };
+    };
+    const movement = (metric: ScorecardMeasure, label: string, subject: string): ScorecardNarrativeParagraph => {
+      const before = scorecardSelection(priorPerson, metric).value ?? 0;
+      const current = count(metric);
+      return before === current ? [subject, " stayed at ", fact(metric, label), "."]
+        : [subject, current > before ? " rose from " : " fell from ", priorFact(metric, label), " to ", fact(metric, label), "."];
+    };
+    periodChange.push(`Compared with ${date(admissionFlowToday(new Date(prior.since)))}–${date(admissionFlowToday(new Date(prior.through)))}: `,
+      ...movement("days", "days", "Saved work"), " ", ...movement("clients", "workspaces", "Client involvement"));
+    periodCompletions.push(...movement("confirmed", "first confirmations", "Chart confirmations"), " ", ...movement("handoffs", "first handoffs", "Handoffs"));
+  }
+  const open: ScorecardNarrativeParagraph = [`As of ${date(admissionFlowToday(new Date(snapshot.asOf ?? snapshot.through)))}: `, fact("assigned", "assigned workspaces"), ...(count("overdue") ? [", including ", fact("overdue", "overdue assignments")] : []), ", plus ", fact("gaps", "completion items"), ". Completion items can include already-admitted clients."];
   const trackedStart = snapshot.usageSince && snapshot.usageSince > snapshot.since ? snapshot.usageSince : snapshot.since;
   const trackedDates = `${date(admissionFlowToday(new Date(trackedStart)))}–${date(admissionFlowToday(new Date(snapshot.through)))}`;
-  const usage: ScorecardNarrativeParagraph = person.usage === null || !snapshot.usageSince ? ["Click and active-time history are unavailable for this assessor."] : [
+  const usage: ScorecardNarrativeParagraph = person.usage === null || !snapshot.usageSince ? ["Click and active-time history are unavailable for this assessor in this period."] : [
     `Click tracking covers ${trackedDates} here: `, fact("interactions", "clicks / taps"), " and ", fact("activeMinutes", "minutes with foreground activity"), ". Earlier activity is unavailable; active minutes are not hours worked.",
   ];
   const question = count("assigned") && count("clients", recent) && !count("confirmed", recent) && !recentHandoffs
@@ -89,9 +108,10 @@ export function scorecardNarrative(snapshot: AssessorScorecard, person: Assessor
     : "No current assignments or completion items are recorded for this assessor.";
   const sections = [
     { kind: "overview", paragraphs: [work, comparison, completed, shared].filter(paragraph => paragraph.length > 0) },
-    { kind: "recent", paragraphs: [pattern, change].filter(paragraph => paragraph.length > 0) },
+    { kind: "comparison", paragraphs: [periodChange, periodCompletions].filter(paragraph => paragraph.length > 0) },
+    { kind: "recent", paragraphs: snapshot.complete && recent.start === coveredStart ? [] : [pattern, change].filter(paragraph => paragraph.length > 0) },
     { kind: "current", paragraphs: [open] },
     { kind: "usage", paragraphs: [usage] },
-  ];
+  ].filter(section => section.paragraphs.length > 0);
   return { lead, sections, paragraphs: sections.flatMap(section => section.paragraphs), question };
 }

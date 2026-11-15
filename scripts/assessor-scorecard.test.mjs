@@ -4,7 +4,8 @@ import { readFile, readdir } from "node:fs/promises";
 import postgres from "postgres";
 import { loadEntry, clean } from "./contact-import-fixtures.mjs";
 
-const { buildAssessorScorecard, scorecardRange } = loadEntry("lib/pipeline/assessor-scorecard-model.ts");
+const { buildAssessorScorecard } = loadEntry("lib/pipeline/assessor-scorecard-model.ts");
+const { scorecardRange } = loadEntry("lib/pipeline/assessor-scorecard-period.ts");
 const { admissionFlowCohort } = loadEntry("lib/pipeline/admission-flow-cohort.ts");
 const { parseUsageBatch } = loadEntry("lib/observability/assessor-usage-contract.ts");
 const owner = { id: "f73371d5-d2b4-48b4-a32b-1edc7c88869f", email: "ericwilsonalamo@outlook.com", name: "Eric", roles: ["admin"] };
@@ -25,6 +26,47 @@ test("Pacific reporting periods include DST midnight and stable launch cohort, n
   const referral = { workspaceOrigin: "pipeline", workspaceStatus: "active", createdAt: "2026-09-18T07:00:00Z", date: "2020-01-01" };
   assert.equal(admissionFlowCohort([referral], "").length, 1);
   for (const patch of [{ workspaceStatus: "historical" }, { workspaceOrigin: "legacy" }, { deletedAt: "2026-10-01" }, { createdAt: "2026-09-18T06:59:59Z" }]) assert.equal(admissionFlowCohort([{ ...referral, ...patch }], "").length, 0);
+});
+
+test("completed weeks, inclusive custom days and comparisons stay correct across Mondays, DST and launch", () => {
+  const { scorecardRange, scorecardPreviousRange } = loadEntry("lib/pipeline/assessor-scorecard-period.ts");
+  const sunday = scorecardRange("4w", new Date("2026-11-16T07:59:59Z"));
+  assert.equal(sunday.since, "2026-10-12T07:00:00.000Z");
+  assert.equal(sunday.endExclusive, "2026-11-09T08:00:00.000Z");
+  assert.equal(sunday.through, "2026-11-09T07:59:59.999Z");
+  assert.equal(scorecardPreviousRange(sunday), null, "preceding four weeks start before launch");
+  const monday = scorecardRange("4w", new Date("2026-11-16T08:00:00Z"));
+  assert.equal(monday.since, "2026-10-19T07:00:00.000Z");
+  assert.equal(monday.endExclusive, "2026-11-16T08:00:00.000Z");
+  const before = scorecardPreviousRange(monday);
+  assert.equal(before.since, "2026-09-21T07:00:00.000Z");
+  assert.equal(before.endExclusive, monday.since);
+  const week = scorecardRange("last_week", new Date("2027-01-04T20:00:00Z"));
+  assert.equal(week.since, "2026-12-28T08:00:00.000Z");
+  assert.equal(week.endExclusive, "2027-01-04T08:00:00.000Z");
+  const spring = scorecardRange("last_week", new Date("2027-03-15T18:00:00Z"));
+  assert.equal(spring.since, "2027-03-08T08:00:00.000Z");
+  assert.equal(spring.endExclusive, "2027-03-15T07:00:00.000Z");
+  const now = new Date("2026-11-15T20:00:00Z");
+  const fall = scorecardRange("custom", now, { start: "2026-11-01", end: "2026-11-01" });
+  assert.equal(fall.since, "2026-11-01T07:00:00.000Z");
+  assert.equal(fall.endExclusive, "2026-11-02T08:00:00.000Z");
+  const partial = scorecardRange("custom", now, { start: "2026-11-01", end: "2026-11-15" });
+  assert.equal(partial.complete, false);
+  assert.equal(scorecardPreviousRange(partial), null);
+  for (const dates of [{}, { start: "2026-10-32", end: "2026-11-01" }, { start: "2026-09-17", end: "2026-11-01" }, { start: "2026-11-02", end: "2026-11-01" }, { start: "2026-11-01", end: "2026-11-16" }, { start: "11/01/2026", end: "2026-11-02" }]) assert.throws(() => scorecardRange("custom", now, dates), /Choose dates/);
+});
+
+test("closed-period reports exclude the next midnight and never present untracked historical usage as zero", () => {
+  const range = scorecardRange("last_week", new Date("2026-11-09T20:00:00Z"));
+  const result = buildAssessorScorecard({ ...base, ...range, asOf: "2026-11-09T20:00:00Z", usageSince: "2026-11-12T20:00:00Z", events: [
+    event("assessment_updated", { at: range.since, fields: ["resident_name"] }),
+    event("assessment_updated", { at: range.through, fields: ["date_of_birth"] }),
+    event("assessment_updated", { at: range.endExclusive, fields: ["gender"] }),
+  ] });
+  assert.equal(result.people[0].evidence.fields.length, 2);
+  assert.equal(result.people[0].usage, null);
+  assert.equal(result.asOf, "2026-11-09T20:00:00Z");
 });
 
 test("actual actors, merged identities, distinct field work, empty saves and first completion attribution", () => {
@@ -177,6 +219,7 @@ test("scorecard access is private, rejects delegation and invalid periods, and n
   for (const user of [null, { ...owner, roles: ["reviewer"] }, { ...owner, id: "b", email: "b@example.invalid" }, { ...owner, delegation: {} }, { ...owner, demoPersona: "supervisor" }]) assert.equal((await route(user).GET(request)).status, user ? 403 : 401);
   assert.equal((await route(owner).GET(new Request(`${request.url}?period=bad`))).status, 400);
   assert.equal((await route(owner, false).GET(request)).status, 503);
+  for (const query of ["period=custom", "period=custom&start=2026-11-31&end=2026-12-01", "period=custom&start=2026-09-01&end=2026-10-01", "period=custom&start=2026-10-02&end=2026-10-01"]) assert.equal((await route(owner).GET(new Request(`${request.url}?${query}`))).status, 400);
   assert.equal(reads, 0);
   assert.equal((await route(owner).GET(request)).status, 200);
   assert.equal(reads, 1);
@@ -255,6 +298,28 @@ test("PostgreSQL scorecard uses real audit joins; usage retries and reordered co
     assert.deepEqual(clean(person.usage), { interactions: 14, activeMinutes: 1, days: 1 });
     assert.doesNotMatch(JSON.stringify(result), /never expose|secret/);
     assert.deepEqual(await sql`select count(*)::integer as count from pipeline.audit_events`, before);
+    // Exercise the real SQL window, including PostgreSQL's sub-millisecond day end.
+    await sql`delete from pipeline.audit_events`;
+    for (const at of ["2026-10-04T07:00:00Z", "2026-10-11T07:00:00Z", "2026-10-12T06:59:59.999999Z", "2026-10-12T07:00:00Z"]) {
+      await sql`insert into pipeline.audit_events (entity_type, entity_id, action, actor_id, actor_name, changed_fields, created_at) values ('assessment', 'test-assessment', 'assessment_updated', 'a', 'Synthetic Assessor', ${["resident_name"]}, ${at}::text::timestamptz)`;
+    }
+    await sql`insert into pipeline.audit_events (entity_type, entity_id, action, actor_id, actor_name, changed_fields, created_at) values ('assessment', 'test-assessment', 'assessment_signed', 'a', 'Synthetic Assessor', ${[]}, '2026-10-04T08:00:00Z'::timestamptz), ('assessment', 'test-assessment', 'assessment_signed', 'a', 'Synthetic Assessor', ${[]}, '2026-10-11T08:00:00Z'::timestamptz)`;
+    const closed = await getAssessorScorecard(owner, "last_week", {}, new Date("2026-10-12T20:00:00Z"));
+    const current = closed.people.find(p => p.id === "a"), previous = closed.comparison.people.find(p => p.id === "a");
+    assert.equal(current.evidence.fields.length, 1, "fields deduplicate within each period");
+    assert.equal(current.evidence.confirmed.length, 0, "reconfirmation does not become first completion");
+    assert.equal(previous.evidence.confirmed.length, 1);
+    assert.equal(previous.evidence.fields.length, 1);
+    assert.equal(current.activeDays, 1, "next Monday's event must be excluded");
+    assert.equal(current.usage, null, "period precedes tracking");
+    const tail = await getAssessorScorecard(owner, "custom", { start: "2026-10-11", end: "2026-10-11" }, new Date("2026-10-12T20:00:00Z"));
+    assert.equal(tail.people.find(p => p.id === "a").recordedWork.length, 1);
+    const edge = await sql`select count(*)::integer as count from pipeline.audit_events where created_at > '2026-10-12T06:59:59.999Z' and created_at < '2026-10-12T07:00:00Z'`;
+    assert.equal(edge[0].count, 1);
+    // A unique field proves the last microsecond was returned, not just the earlier Sunday event.
+    await sql`update pipeline.audit_events set changed_fields = ${["date_of_birth"]} where created_at > '2026-10-12T06:59:59.999Z' and created_at < '2026-10-12T07:00:00Z'`;
+    const micro = await getAssessorScorecard(owner, "custom", { start: "2026-10-11", end: "2026-10-11" }, new Date("2026-10-12T20:00:00Z"));
+    assert.equal(micro.people.find(p => p.id === "a").evidence.fields.length, 2);
     await sql.unsafe(await readFile("database/rollbacks/0049_assessor_usage.sql", "utf8"));
     const replay = await sql.reserve();
     try { await replay.unsafe(await readFile("database/migrations/0049_assessor_usage.sql", "utf8")); } finally { replay.release(); }

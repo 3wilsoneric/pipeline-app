@@ -23,16 +23,16 @@ export default function AssessorScorecardDetail({ person, snapshot, selection, o
   return <HomeDialog label={`${person.name} breakdown`} title={person.name} size="browser" className={styles.detailDialog} expandFrom={origin} onClose={onClose}>
     <div className={styles.detailBody}>
       <div className={styles.detailToolbar}>
-        <label className={styles.detailMeasure}><span className="sr-only">Work measures</span><select value={metric} onChange={event => onSelect({ person: person.id, metric: event.target.value as ScorecardMeasure })}>
+        <label className={styles.detailMeasure}><span className="sr-only">Work measures</span><select value={metric} onChange={event => onSelect({ person: person.id, comparison: selection.comparison, metric: event.target.value as ScorecardMeasure })}>
           {(Object.keys(labels) as ScorecardMeasure[]).map(key => <option key={key} value={key}>{labels[key]} · {scorecardValue(person, key) ?? "Not tracked"}</option>)}
         </select></label>
-        <span>{selection.bucket ? `${selection.bucket.label}${selection.bucket.partial ? " · Partial period" : ""}` : ["assigned", "overdue", "gaps"].includes(metric) ? `As of ${day(snapshot.through)}` : `${day(snapshot.since)}–${day(snapshot.through)}`}</span>
+        <span>{selection.bucket ? `${selection.bucket.label}${selection.bucket.partial ? " · Partial period" : ""}` : ["assigned", "overdue", "gaps"].includes(metric) ? `As of ${day(snapshot.asOf ?? snapshot.through)}` : `${selection.comparison ? "Previous period · " : ""}${day(snapshot.since)}–${day(snapshot.through)}`}</span>
       </div>
       <div className={styles.detailSummary}>
         <strong>{value === null ? "—" : value.toLocaleString("en-US")}</strong>
         <div><h3>{labels[metric]}{selection.bucket ? ` · ${selection.bucket.label}` : ""}</h3><p>{scorecardDefinitions[metric]}</p></div>
       </div>
-      {selection.bucket ? <button type="button" className={styles.back} onClick={() => onSelect({ person: person.id, metric })}>Show full period</button> : null}
+      {selection.bucket ? <button type="button" className={styles.back} onClick={() => onSelect({ person: person.id, metric, comparison: selection.comparison })}>Show full period</button> : null}
       <details className={styles.recentContext}>
         <summary>Recent activity &amp; current workload</summary>
         <p>{day(`${recent.start}T12:00:00Z`)}–{day(snapshot.through)}: {recentCount("days")} days with recorded work across {recentCount("clients")} workspaces; {recentCount("confirmed")} first chart confirmations and {recentCount("handoffs")} first handoffs.</p>
