@@ -8,7 +8,8 @@ const people = Array.from({ length: 8 }, (_, index) => ({
   id: `synthetic-${index}`, name: index === 0 ? "Alexandria Montgomery-Washington" : `Synthetic Assessor ${index + 1}`, active: index !== 7,
   evidence: Object.fromEntries(keys.map((key, metric) => [key, Array.from({ length: key === "overdue" ? (index === 0 ? 1 : 0) : index === 0 ? 3 : (index + metric) % 6 }, (_, item) => ({
     key: `${key}-${item}`, referralId: item + 1, client: item === 0 ? "Synthetic Client With A Long Full Name" : `Synthetic Client ${item + 1}`, community: "Santa Clarita", at: "2026-11-12T20:00:00Z", detail: key === "gaps" ? "Record referring county" : `${key} recorded`,
-  }))])), interviewSpanHours: index === 7 ? null : 2.5, interviewSpanSamples: 3, activeDays: 6,
+  }))])), interviewSpanHours: index === 7 ? null : 2.5, interviewSpanSamples: 3, activeDays: index + 3,
+  recordedWork: Array.from({ length: index + 3 }, (_, day) => ({ key: `work-${day}`, referralId: day + 1, client: `Synthetic Client ${day + 1}`, community: "San Pablo", at: new Date(Date.UTC(2026, 9, 16 + (day * 3 + index) % 28, 20)).toISOString(), detail: "Assessment updated" })),
   usage: index === 7 ? null : { interactions: 200 - index * 20, activeMinutes: 60, days: 4 },
 }));
 const snapshot = { period: "30d", since: "2026-10-15T07:00:00Z", through: "2026-11-13T20:00:00Z", usageSince: "2026-11-12T20:00:00Z", people, unattributedEvents: 2, unassignedWorkspaces: 1, unassignedGapItems: 4 };
@@ -23,15 +24,16 @@ for (const width of [1440, 390]) test(`scorecard priority measures and contained
   await page.route("**/api/operations/assessor-scorecard?*", route => route.fulfill({ json: { ...snapshot, people: preview } }));
   await page.goto("/?screen=operations&report=assessor_scorecard");
   const report = page.getByRole("main", { name: "Assessor scorecard", exact: true });
-  for (const name of ["Assessments confirmed", "Clients worked", "Handoffs sent", "Clicks / taps"]) {
+  for (const name of ["Days with recorded work", "Work over time", "Clicks / taps"]) {
     const heading = report.getByRole("heading", { name, exact: true });
     await expect(heading).toBeVisible();
     if (width === 1440) await expect(heading).toBeInViewport();
   }
   await expect.poll(() => report.evaluate(node => node.getAnimations({ subtree: true }).filter(animation => animation.playState === "running").length)).toBe(0);
   await page.screenshot({ path: `.data/scorecard-clarity-overview-${width}.png` });
+  await report.getByRole("combobox", { name: "Measure", exact: true }).selectOption("clients");
   const trigger = report.getByRole("button", { name: "Alexandria Montgomery-Washington: 26 clients worked" });
-  const linkedRow = report.getByRole("button", { name: "Alexandria Montgomery-Washington: 3 assessments confirmed", exact: true });
+  const linkedRow = report.getByRole("button", { name: "Alexandria Montgomery-Washington: 200 clicks / taps", exact: true });
   await trigger.hover();
   await expect(linkedRow).toHaveAttribute("data-highlighted", "true");
   await trigger.click();
@@ -72,7 +74,7 @@ for (const touch of [false, true]) test(`scorecard scrolls inside the report fra
     await page.route("**/api/operations/assessor-scorecard?*", route => route.fulfill({ json: snapshot }));
     await page.goto("/?screen=operations&report=assessor_scorecard");
     const report = page.getByRole("main", { name: "Assessor scorecard", exact: true });
-    await expect(report.getByRole("heading", { name: "Assessments confirmed", exact: true })).toBeVisible();
+    await expect(report.getByRole("heading", { name: "Days with recorded work", exact: true })).toBeVisible();
     const bounds = (await report.boundingBox())!;
     if (touch) {
       const session = await context.newCDPSession(page);
@@ -121,10 +123,11 @@ for (const width of [1440, 834, 390, 320]) test(`scorecard sorting, evidence, ke
   await page.keyboard.press("Enter");
   await expect(opener).toHaveAttribute("aria-current", "page");
   const report = page.getByRole("main", { name: "Assessor scorecard", exact: true });
+  await report.getByRole("combobox", { name: "Measure", exact: true }).selectOption("confirmed");
   const work = report.getByRole("region", { name: "Assessments confirmed", exact: true });
   await expect(work.getByText("Alexandria Montgomery-Washington", { exact: true })).toBeVisible();
   await page.setViewportSize({ width, height: 960 });
-  await expect(report.getByRole("combobox", { name: "Sort by" })).toHaveValue("confirmed");
+  await expect(report.getByRole("combobox", { name: "Sort by" })).toHaveValue("days");
   await expect(work.getByRole("heading", { name: "Assessments confirmed", exact: true })).toBeVisible();
   await report.getByRole("combobox", { name: "Sort by" }).selectOption("name");
   await expect(work.getByRole("listitem").first()).toContainText("Alexandria Montgomery-Washington");
@@ -154,7 +157,8 @@ for (const width of [1440, 834, 390, 320]) test(`scorecard sorting, evidence, ke
   await expect(breakdown.getByRole("link")).toHaveCount(0);
   await page.keyboard.press("Escape");
   await expect(breakdown).toHaveCount(0);
-  const week = report.getByRole("button", { name: /Alexandria Montgomery-Washington: 3 assessments confirmed, week beginning Nov 9/ });
+  await report.getByRole("group", { name: "Assessor to explore" }).getByRole("button", { name: "Alexandria Montgomery-Washington", exact: true }).click();
+  const week = report.getByRole("button", { name: /Alexandria Montgomery-Washington: 3 assessments confirmed, week beginning Nov 9/ }).filter({ visible: true });
   await week.focus(); await page.keyboard.press("Enter");
   await expect(breakdown).toBeVisible();
   expect(await breakdown.evaluate(node => node.contains(document.activeElement))).toBe(true);
@@ -293,4 +297,18 @@ test("usage captures native keyboard activation once, omits content, and stops a
   await button.click();
   await page.clock.fastForward(30_000);
   expect(posted.length).toBe(2);
+});
+
+
+test("Andrew can open the same report and export without gaining the private activity dashboard", async ({ page }) => {
+  const andrew = { ...owner, id: "e9f39185-d751-45c0-bcf5-c24d3565bdd9", email: "andrew@example.invalid", name: "Andrew" };
+  await page.route("**/api/auth/me", route => route.fulfill({ json: { user: andrew } }));
+  await page.route("**/api/operations/assessor-scorecard?*", route => route.fulfill({ json: snapshot }));
+  await page.goto("/?screen=operations");
+  await page.getByRole("navigation", { name: "Reports", exact: true }).getByRole("link", { name: "Assessor scorecard", exact: true }).click();
+  const report = page.getByRole("main", { name: "Assessor scorecard", exact: true });
+  await expect(report.getByRole("combobox", { name: "Period", exact: true })).toHaveValue("launch");
+  await expect(report.getByRole("button", { name: "Export PDF" })).toBeVisible();
+  await expect(report.getByRole("group", { name: "Recorded work comparison" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Application activity", exact: true })).toHaveCount(0);
 });

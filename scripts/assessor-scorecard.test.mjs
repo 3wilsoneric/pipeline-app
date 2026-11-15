@@ -54,6 +54,22 @@ test("actual actors, merged identities, distinct field work, empty saves and fir
   assert.equal(a.usage, null, "no historical zero that pretends tracking existed");
 });
 
+test("recorded-work history retains later contributions without counting empty autosaves or duplicate projections", () => {
+  const events = [
+    event("assessment_updated", { fields: ["resident_name"], at: "2026-11-02T07:50:00Z" }),
+    event("assessment_updated", { fields: ["resident_name"], at: "2026-11-02T07:55:00Z", actorId: "old-a" }),
+    event("assessment_updated", { fields: ["resident_name"], at: "2026-11-02T08:10:00Z" }),
+    event("assessment_updated", { fields: ["resident_name"], at: "2026-11-02T08:15:00Z", referralId: 2 }),
+    event("assessment_updated", { fields: [], at: "2026-11-03T18:00:00Z" }),
+    event("assessment_signed", { entityType: "referral", at: "2026-11-04T18:00:00Z" }),
+    event("document_uploaded", { entityId: "doc", at: "2026-11-09T18:00:00Z" }),
+  ];
+  const a = buildAssessorScorecard({ ...base, events }).people.find(p => p.id === "a");
+  assert.equal(a.activeDays, 3);
+  assert.equal(a.evidence.clients.length, 2);
+  assert.deepEqual(clean(a.recordedWork.map(item => item.key)), ["2026-11-01:1", "2026-11-02:1", "2026-11-02:2", "2026-11-09:1"]);
+});
+
 test("earlier completion, repeated delivery acknowledgments and later resends never inflate new output", () => {
   const result = buildAssessorScorecard({ ...base, events: [
     event("assessment_signed", { at: "2026-10-25T17:00:00.000Z" }),
@@ -164,6 +180,13 @@ test("scorecard access is private, rejects delegation and invalid periods, and n
   assert.equal(reads, 0);
   assert.equal((await route(owner).GET(request)).status, 200);
   assert.equal(reads, 1);
+  const andrew = { ...owner, id: "e9f39185-d751-45c0-bcf5-c24d3565bdd9", email: "andrew_guest#EXT#@tenant.invalid", roles: ["assessment_coordinator"] };
+  const response = await route(andrew).GET(request);
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get("cache-control"), /private, no-store/);
+  assert.equal(reads, 2);
+  for (const patch of [{ roles: ["reviewer"] }, { delegation: {} }, { demoPersona: "supervisor" }]) assert.equal((await route({ ...andrew, ...patch }).GET(request)).status, 403);
+  assert.equal(access.canAccessApplicationActivity(andrew), false, "private database/activity dashboard stays Eric-only");
 });
 
 test("usage authenticates account and origin, suppresses mock/delegation and saves no payload identity", async () => {

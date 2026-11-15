@@ -687,3 +687,16 @@ behavior. The status-only view has no dashboard opener or database usage meter;
 those retain Eric's existing access. Remove the obsolete “Only you” qualifier
 from the shared status legend. Keep phone Home focused on its existing workflow,
 and keep Eric and Andrew excluded from assessor scorecard comparisons.
+
+
+## 2026-11-14 — Consolidate assessor usage context in Reports
+
+Owner direction: “nice do another lap and consolidate this and add it to reports for me and andrew.”
+
+- The existing scorecard now defaults to since launch and days with substantive recorded work. One measure selector controls the totals comparison and weekly trend (days, clients, confirmations, handoffs, uploads).
+- Weekly client contributions retain repeat work in later weeks; whole-period distinct clients keep their existing meaning. Period points open the existing client-evidence dialog, with a fourteen-day activity summary and a separate current-assignment view.
+- Click/tap tracking stays separate, with its actual collection start and unknown history visible. No attendance, quality or hours-worked inference is added.
+- Eric and Andrew share the Reports scorecard, PDF export and existing Home status names/colors. Neither is added to assessor rankings. Private application-activity/database monitoring remains Eric-only; delegation and demo sessions remain excluded.
+- Use the existing Platform Admissions report tokens, native buttons/SVG and existing dialog. Phone/touch users get larger period targets, reduced motion is respected, and the page keeps its established scroll container.
+- PDF summaries use the same trend calculation, colors and recent-window logic. Client-level evidence stays inside authenticated Pipeline.
+- Scope ceiling: saved contributions describe recorded usage, not all work. Revisit the report only when a newly instrumented source can be linked to an identified actor with reliable coverage; do not fabricate historic click or note authorship data.

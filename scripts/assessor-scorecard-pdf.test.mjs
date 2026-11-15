@@ -12,6 +12,7 @@ const snapshot = {
   people: Array.from({ length: 8 }, (_, i) => ({
     id: String(i), name: i === 0 ? "Alexandria Montgomery-Washington" : `Synthetic Assessor ${i + 1}`, active: i !== 7,
     evidence: Object.fromEntries(["interviews", "confirmed", "clients", "fields", "uploads", "handoffs", "resends", "sendIssues", "assigned", "overdue", "gaps"].map(key => [key, Array.from({ length: i + 1 }, () => ({ client: "PRIVATE CLIENT SHOULD NOT BE EXPORTED", detail: "PRIVATE NOTES", referralId: 1 }))])),
+    recordedWork: Array.from({ length: i + 2 }, (_, day) => ({ key: `day-${day}`, at: `2026-11-${String(1 + day).padStart(2, "0")}T20:00:00Z`, referralId: 1 })),
     activeDays: i + 2, interviewSpanHours: i ? 12.25 : null, interviewSpanSamples: i,
     usage: i ? { interactions: 1000 + i, activeMinutes: 98, days: 3 } : null,
   })),
@@ -35,7 +36,7 @@ test("PDF keeps all summary measures, full names, provenance and private evidenc
     }
     const content = pages.join(" ").replace(/\s+/g, " ");
     for (const person of snapshot.people) assert.ok(content.includes(person.name));
-    for (const label of ["Charts confirmed", "Fields touched", "Files uploaded", "Additional handoffs", "Overdue assignments", "Interview interval", "Counting rules"]) assert.ok(content.toLowerCase().includes(label.toLowerCase()), label);
+    for (const label of ["Charts confirmed", "Fields touched", "Files uploaded", "Additional handoffs", "Overdue assignments", "Interview interval", "Counting rules", "Days with recorded work", "Recent activity"]) assert.ok(content.toLowerCase().includes(label.toLowerCase()), label);
     assert.match(content, /Sep 18, 2026 - Nov 13, 2026/);
     assert.match(content, /Historical clicks and active minutes are unavailable/);
     assert.doesNotMatch(content, /PRIVATE CLIENT|PRIVATE NOTES/);
@@ -77,4 +78,7 @@ test("PDF endpoint shares private access, fresh database reads, validated filter
   assert.match(response.headers.get("cache-control"), /private, no-store/);
   assert.match(response.headers.get("content-disposition"), /launch-2026-11-13.pdf/);
   assert.equal(await response.text(), "%PDF-test"); assert.equal(reads, 1); assert.equal(rendered, 1);
+  const andrew = { ...owner, id: "e9f39185-d751-45c0-bcf5-c24d3565bdd9", email: "andrew_guest#EXT#@tenant.invalid" };
+  assert.equal((await route(andrew).GET(new Request(url))).status, 200);
+  assert.equal(reads, 2); assert.equal(rendered, 2);
 });

@@ -22,3 +22,6 @@ export function canAccessApplicationActivity(user: ActivityPrincipal | null | un
 export function canAccessAssessorStatus(user: ActivityPrincipal | null | undefined) {
   return Boolean(user && !user.delegation && !user.demoPersona && canAccessExecutiveAdmissionFlow(user));
 }
+
+// The executive scorecard has the same named audience as the Home assessor status.
+export const canAccessAssessorScorecard = canAccessAssessorStatus;

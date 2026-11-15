@@ -16,6 +16,9 @@ export type AssessorScorecardPerson = {
   interviewSpanHours: number | null;
   interviewSpanSamples: number;
   activeDays: number;
+  // First substantive contribution per assessor, Pacific day and workspace.
+  // Unlike evidence.clients, a workspace can recur on subsequent days.
+  recordedWork: ScorecardEvidence[];
   usage: { interactions: number; activeMinutes: number; days: number } | null;
 };
 export type AssessorScorecard = {

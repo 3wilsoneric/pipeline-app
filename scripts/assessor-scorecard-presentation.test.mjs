@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { clean, loadEntry } from './contact-import-fixtures.mjs';
-const { scorecardTrend, scorecardBucketEvidence, scorecardAxisMaximum, scorecardValue } = loadEntry('lib/pipeline/assessor-scorecard-presentation.ts');
+const { scorecardTrend, scorecardBucketEvidence, scorecardAxisMaximum, scorecardValue, scorecardSelection, scorecardRecentWindow } = loadEntry('lib/pipeline/assessor-scorecard-presentation.ts');
 const event = (at, key = at) => ({ at, key });
 const person = { id: 'a', evidence: { confirmed: [] }, usage: null };
 const snapshot = { since: '2026-10-30T07:00:00Z', through: '2026-11-10T20:00:00Z', people: [person] };
@@ -35,4 +35,31 @@ test('scales include all observations and preserve unknown usage versus a measur
     assert.ok(axis >= Math.max(0,...values));
     assert.ok(Number.isInteger(axis / 2));
   }
+});
+
+
+test('weekly clients recur across weeks; days deduplicate multiple clients and DST retries', () => {
+  const work = [
+    { ...event('2026-11-02T07:50:00Z', 'one'), referralId: 1 },
+    { ...event('2026-11-02T08:10:00Z', 'two'), referralId: 1 },
+    { ...event('2026-11-02T09:10:00Z', 'three'), referralId: 2 },
+    { ...event('2026-11-03T18:00:00Z', 'four'), referralId: 1 },
+    { ...event('2026-11-09T18:00:00Z', 'five'), referralId: 1 },
+  ];
+  const assessor = { ...person, activeDays: 4, recordedWork: work, evidence: { clients: work.slice(0, 2) } };
+  const data = { ...snapshot, people: [assessor] };
+  for (const [measure, expected] of [['days', [1,2,1]], ['clients', [1,2,1]]]) {
+    const { buckets } = scorecardTrend(data, measure);
+    assert.deepEqual(clean(buckets.map(bucket => bucket.counts.a)), expected);
+    for (const bucket of buckets) assert.equal(scorecardSelection(assessor, measure, bucket).value, bucket.counts.a);
+  }
+  assert.equal(scorecardSelection(assessor, 'clients').value, 2, 'whole-period clients remain distinct');
+  assert.equal(scorecardSelection(assessor, 'days').value, 4);
+});
+
+test('recent context is fourteen Pacific calendar days and respects shorter selected periods', () => {
+  const recent = scorecardRecentWindow({ ...snapshot, since: '2026-09-18T07:00:00Z' });
+  assert.equal(recent.start, '2026-10-28');
+  assert.equal(recent.end, '2026-11-11');
+  assert.equal(scorecardRecentWindow(snapshot).start, '2026-10-30');
 });

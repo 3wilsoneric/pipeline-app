@@ -179,6 +179,7 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
   const [viewerId, setViewerId] = useState(() => initialUser?.id ?? initialBriefing?.viewer.id);
   const [activityAccess, setActivityAccess] = useState<boolean | undefined>(() => initialUser ? canAccessApplicationActivity(initialUser) : undefined);
   const [assessorStatusAccess, setAssessorStatusAccess] = useState(() => canAccessAssessorStatus(initialUser));
+  const scorecardAccess = activityAccess === undefined ? undefined : assessorStatusAccess;
   const [entryBriefing, setEntryBriefing] = useState(initialBriefing ?? null);
   const [directDraftError, setDirectDraftError] = useState("");
   const [directDraftRetry, setDirectDraftRetry] = useState(0);
@@ -293,11 +294,11 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
     if (screen !== "operations") return;
     const report = activeSearchParams.get("report");
     if (!(report === "admission_flow" && admissionFlowAccess === false)
-      && !(report === "assessor_scorecard" && activityAccess === false)) return;
+      && !(report === "assessor_scorecard" && scorecardAccess === false)) return;
     const params = new URLSearchParams(activeSearchParams.toString());
     params.delete("report");
     replacePipelineHistory(`/?${params.toString()}`);
-  }, [activeSearchParams, admissionFlowAccess, activityAccess, screen]);
+  }, [activeSearchParams, admissionFlowAccess, scorecardAccess, screen]);
 
   const navigationRequestRef = useRef(0);
   const navigate = async (
@@ -471,8 +472,8 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
       onOpenPacket={(referral, location) => { void navigate("packet", referral, undefined, location, false, undefined, true); }} />;
   } else if (screen === "operations") {
     const report = activeSearchParams.get("report");
-    page = reportAccess === true ? <ReportsFrame report={report} admissionFlow={admissionFlowAccess === true} scorecard={activityAccess === true}>
-      {report === "assessor_scorecard" ? activityAccess === true ? <AssessorScorecard /> : null : report === "admission_flow"
+    page = reportAccess === true ? <ReportsFrame report={report} admissionFlow={admissionFlowAccess === true} scorecard={scorecardAccess === true}>
+      {report === "assessor_scorecard" ? scorecardAccess === true ? <AssessorScorecard /> : null : report === "admission_flow"
       ? admissionFlowAccess === true ? <OperationsDashboard
           standaloneReport="admission_flow"
           onOpenPacket={(referral) => { void navigate("packet", referral); }}

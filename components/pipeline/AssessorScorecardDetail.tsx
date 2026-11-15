@@ -4,7 +4,7 @@ import { useState } from "react";
 import { ArrowUpRight, CalendarDays, Clock3, MousePointer2 } from "lucide-react";
 import { toPipelinePath } from "@/lib/pipeline/base-path";
 import type { AssessorScorecard, AssessorScorecardPerson, ScorecardEvidence } from "@/lib/pipeline/assessor-scorecard-types";
-import { scorecardBucketEvidence, scorecardDefinitions, scorecardDisplayLabels as labels, scorecardValue, type ScorecardMeasure } from "@/lib/pipeline/assessor-scorecard-presentation";
+import { scorecardRecentWindow, scorecardSelection, scorecardDefinitions, scorecardDisplayLabels as labels, scorecardValue, type ScorecardMeasure } from "@/lib/pipeline/assessor-scorecard-presentation";
 import HomeDialog, { type HomeDialogOrigin } from "./HomeDialog";
 import type { ScorecardSelection } from "./AssessorScorecardCharts";
 import styles from "./AssessorScorecard.module.css";
@@ -17,8 +17,9 @@ export default function AssessorScorecardDetail({ person, snapshot, selection, o
 }) {
   const metric = selection.metric;
   const usage = metric === "interactions" || metric === "activeMinutes";
-  const evidence = usage ? [] : selection.bucket ? scorecardBucketEvidence(person.evidence[metric], selection.bucket) : person.evidence[metric];
-  const value = usage ? scorecardValue(person, metric) : evidence.length;
+  const { evidence, value } = scorecardSelection(person, metric, selection.bucket);
+  const recent = scorecardRecentWindow(snapshot);
+  const recentCount = (measure: ScorecardMeasure) => scorecardSelection(person, measure, recent).value;
   return <HomeDialog label={`${person.name} breakdown`} title={person.name} size="browser" className={styles.detailDialog} expandFrom={origin} onClose={onClose}>
     <div className={styles.detailBody}>
       <div className={styles.detailToolbar}>
@@ -32,6 +33,12 @@ export default function AssessorScorecardDetail({ person, snapshot, selection, o
         <div><h3>{labels[metric]}{selection.bucket ? ` · ${selection.bucket.label}` : ""}</h3><p>{scorecardDefinitions[metric]}</p></div>
       </div>
       {selection.bucket ? <button type="button" className={styles.back} onClick={() => onSelect({ person: person.id, metric })}>Show full period</button> : null}
+      <details className={styles.recentContext}>
+        <summary>Recent activity &amp; current workload</summary>
+        <p>{day(`${recent.start}T12:00:00Z`)}–{day(snapshot.through)}: {recentCount("days")} days with recorded work across {recentCount("clients")} workspaces; {recentCount("confirmed")} first chart confirmations and {recentCount("handoffs")} first handoffs.</p>
+        <button type="button" className={styles.back} onClick={() => onSelect({ person: person.id, metric: "assigned" })}>{person.evidence.assigned.length} assigned now</button>
+        <p>Activity is credited to the person who recorded it. Preparation and handoff may be shared; current assignments do not measure past workload.</p>
+      </details>
       {usage ? <>
         <div className={styles.usageFacts}>
           {[
