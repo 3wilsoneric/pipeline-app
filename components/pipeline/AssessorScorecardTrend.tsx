@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { AssessorScorecard, AssessorScorecardPerson } from "@/lib/pipeline/assessor-scorecard-types";
-import { scorecardPersonColor, scorecardAxisMaximum, scorecardDisplayLabels, scorecardTrend, type ScorecardTrendMeasure } from "@/lib/pipeline/assessor-scorecard-presentation";
+import { scorecardPersonColor, scorecardAxisMaximum, scorecardDisplayLabels, scorecardTrend, scorecardTrendCopy, type ScorecardTrendMeasure } from "@/lib/pipeline/assessor-scorecard-presentation";
 import type { ScorecardSelection } from "./AssessorScorecardCharts";
 import styles from "./AssessorScorecard.module.css";
 
@@ -18,8 +18,9 @@ export default function AssessorScorecardTrend({ snapshot, people, measure, onSe
   const x = (index: number) => trend.buckets.length === 1 ? 50 : 4 + 92 * index / (trend.buckets.length - 1);
   const y = (value: number) => 8 + 84 * (1 - value / maximum);
   const label = scorecardDisplayLabels[measure];
-  return <section className={styles.chart} aria-label="Recorded work over time">
-    <header className={styles.chartHeader}><div><h2>Work over time</h2><p>{label} · {trend.unit.toLowerCase()} beginning · Pacific time</p></div></header>
+  const copy = scorecardTrendCopy(measure, trend.unit);
+  return <section className={styles.chart} aria-label={copy.title}>
+    <header className={styles.chartHeader}><div><h2>{copy.title}</h2><p>{copy.description}</p></div></header>
     <div className={styles.trendLegend} role="group" aria-label="Assessor to explore">
       {people.map(person => <button key={person.id} type="button" aria-pressed={selected?.id === person.id} onClick={() => setSelectedId(person.id)}>
         <span style={{ background: color(person.id) }} aria-hidden="true" />{person.name}
@@ -48,7 +49,7 @@ export default function AssessorScorecardTrend({ snapshot, people, measure, onSe
         <span>{bucket.label}{bucket.partial ? " *" : ""}</span><strong>{bucket.counts[selected.id] ?? 0}</strong>
       </button>)}
     </div> : null}
-    <footer className={styles.timelineLegend}><span>* Partial period</span><span>Select a period for client details</span></footer>
+    <footer className={styles.timelineLegend}><span>{trend.unit} beginning · Pacific time<br />* Partial period</span><span>Select a period for client details</span></footer>
     {trend.undated ? <p className={styles.chartNote}>{trend.undated} undated records are included in totals, outside the timeline.</p> : null}
   </section>;
 }

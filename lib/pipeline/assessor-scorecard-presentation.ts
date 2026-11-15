@@ -66,6 +66,19 @@ export function scorecardPersonColor(people: AssessorScorecardPerson[], id: stri
 export const scorecardTrendMeasures = ["days", "clients", "confirmed", "handoffs", "uploads"] as const;
 export type ScorecardTrendMeasure = typeof scorecardTrendMeasures[number];
 
+export function scorecardTrendCopy(measure: ScorecardTrendMeasure, unit: string) {
+  const period = unit.toLowerCase();
+  const labels = { days: "Days with saved work", clients: "Clients worked on", confirmed: "Assessments confirmed", handoffs: "First handoffs sent", uploads: "Files uploaded" };
+  const descriptions = {
+    days: "One day counts once, whether one change or many were saved. App visits alone do not count.",
+    clients: `Each client counts once per ${period} with recorded activity. The same client can count again in another ${period}.`,
+    confirmed: "First chart confirmations, credited to the assessor who confirmed. Later confirmations do not add to the count.",
+    handoffs: "First email send accepted per workspace. Resends are excluded; recipient delivery is not confirmed.",
+    uploads: "Documents uploaded by each assessor, counted when uploaded.",
+  };
+  return { title: `${labels[measure]} per ${period}`, description: descriptions[measure] };
+}
+
 export function scorecardSelection(person: AssessorScorecardPerson, measure: ScorecardMeasure, bucket?: ScorecardBucket) {
   if (measure === "interactions" || measure === "activeMinutes") return { value: scorecardValue(person, measure), evidence: [] };
   const source = measure === "days" || (measure === "clients" && bucket) ? person.recordedWork : person.evidence[measure];
@@ -82,22 +95,6 @@ export function scorecardRecentWindow(snapshot: AssessorScorecard): ScorecardBuc
   const start = new Date(end);
   start.setUTCDate(start.getUTCDate() - 14);
   return { start: [start.toISOString().slice(0, 10), pacificDay(snapshot.since)!].sort().at(-1)!, end: end.toISOString().slice(0, 10), label: "Recent activity", partial: true, counts: {} };
-}
-
-// Daily activity is a presence mark for saved work, never inferred attendance.
-export function scorecardRecentDays(snapshot: AssessorScorecard): ScorecardBucket[] {
-  const window = scorecardRecentWindow(snapshot);
-  const days: ScorecardBucket[] = [];
-  const cursor = new Date(`${window.start}T00:00:00Z`);
-  const format = new Intl.DateTimeFormat("en-US", { timeZone: "UTC", month: "short", day: "numeric" });
-  while (cursor.toISOString().slice(0, 10) < window.end) {
-    const start = cursor.toISOString().slice(0, 10), label = format.format(cursor);
-    cursor.setUTCDate(cursor.getUTCDate() + 1);
-    const bucket: ScorecardBucket = { start, end: cursor.toISOString().slice(0, 10), label, partial: true, counts: {} };
-    for (const person of snapshot.people) bucket.counts[person.id] = scorecardSelection(person, "clients", bucket).value ?? 0;
-    days.push(bucket);
-  }
-  return days;
 }
 
 // Calendar arithmetic uses UTC date-only values after conversion to Pacific days,

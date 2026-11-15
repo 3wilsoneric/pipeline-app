@@ -36,10 +36,11 @@ test("PDF keeps all summary measures, full names, provenance and private evidenc
     }
     const content = pages.join(" ").replace(/\s+/g, " ");
     for (const person of snapshot.people) assert.ok(content.includes(person.name));
-    for (const label of ["Charts confirmed", "Fields touched", "Files uploaded", "Additional handoffs", "Overdue assignments", "Interview interval", "Counting rules", "Days with recorded work", "Recent activity"]) assert.ok(content.toLowerCase().includes(label.toLowerCase()), label);
+    for (const label of ["Charts confirmed", "Fields touched", "Files uploaded", "Additional handoffs", "Overdue assignments", "Interview interval", "Counting rules", "Days with recorded work", "Recent activity", "Follow-up"]) assert.ok(content.toLowerCase().includes(label.toLowerCase()), label);
     assert.match(content, /Sep 18, 2026 - Nov 13, 2026/);
     assert.match(content, /Historical clicks and active minutes are unavailable/);
-    assert.doesNotMatch(content, /PRIVATE CLIENT|PRIVATE NOTES/);
+    assert.doesNotMatch(content, /PRIVATE CLIENT|PRIVATE NOTES|Filled = saved work|Recorded work over time/);
+    assert.match(content, /Recorded work on 2 days across 1 client workspace/);
     pages.forEach((text, i) => assert.match(text, new RegExp(`Page ${i + 1}`)));
     await mkdir("tmp/pdfs", { recursive: true });
     await writeFile("tmp/pdfs/assessor-scorecard-preview.pdf", bytes);
@@ -62,7 +63,7 @@ test("empty exports are explicit and long rosters paginate without dropping peop
           const values = measures.map(measure => measure === "interactions" || measure === "activeMinutes" ? person.usage?.[measure]?.toLocaleString("en-US") ?? "Not tracked" : person.evidence[measure].length.toLocaleString("en-US"));
           assert.ok(content.includes(`${person.name} ${values.join(" ")}`), `${person.name}: all ${measures.join(", ")} values are retained`);
         }
-        assert.ok(content.includes(`${person.name} / ${person.activeDays} days`), `${person.name}: timeline legend retained`);
+        assert.ok(content.includes(`Recorded work on ${person.activeDays} days`), `${person.name}: narrative workdays retained`);
       }
       if (!people.length) assert.match(text, /No assessor records in this period/);
     } finally { await task.destroy(); }

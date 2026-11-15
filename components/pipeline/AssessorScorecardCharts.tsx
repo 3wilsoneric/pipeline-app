@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, type CSSProperties } from "react";
+import { useState } from "react";
 import { ArrowUpRight, Info, MousePointer2 } from "lucide-react";
 import type { AssessorScorecard, AssessorScorecardPerson } from "@/lib/pipeline/assessor-scorecard-types";
-import { scorecardAxisMaximum, scorecardRecentDays, scorecardPersonColor, scorecardDefinitions, scorecardDisplayLabels as labels, scorecardValue, type ScorecardBucket, type ScorecardMeasure, type ScorecardTrendMeasure } from "@/lib/pipeline/assessor-scorecard-presentation";
+import { scorecardAxisMaximum, scorecardDefinitions, scorecardDisplayLabels as labels, scorecardValue, type ScorecardBucket, type ScorecardMeasure, type ScorecardTrendMeasure } from "@/lib/pipeline/assessor-scorecard-presentation";
 import styles from "./AssessorScorecard.module.css";
 import AssessorScorecardTrend from "./AssessorScorecardTrend";
 
@@ -25,7 +25,6 @@ export default function AssessorScorecardCharts({ snapshot, people, measure, onS
       <AssessorScorecardTrend snapshot={snapshot} people={people} measure={measure} onSelect={onSelect} />
     </div>
     <div className={styles.activityPair}>
-      <RecentActivity snapshot={snapshot} people={people} onSelect={onSelect} />
       <section className={styles.chart} data-measure="interactions" aria-label="Clicks / taps">
         <header className={styles.chartHeader}><span className={styles.chartIcon}><MousePointer2 size={23} aria-hidden="true" /></span><div><h2>Clicks / taps</h2><p>Recorded app activity</p></div><CountHelp measure="interactions" /></header>
         <ul className={styles.activityReadout}>
@@ -41,49 +40,27 @@ export default function AssessorScorecardCharts({ snapshot, people, measure, onS
         </ul>
         <p className={styles.chartNote}>{snapshot.usageSince ? <>Tracked since {shortDay(snapshot.usageSince)} · Earlier activity unavailable</> : "Historical click and active-time data are unavailable."}</p>
       </section>
+      <section className={styles.chart} aria-label="Current follow-through">
+        <header className={styles.sectionHeader}><h2>Still open</h2><span>As of {shortDay(snapshot.through)} · All dates</span></header>
+        <div className={styles.workloadHead} aria-hidden="true"><span /><span>Assigned now</span><span>Items to complete</span></div>
+        <ul className={styles.workload}>
+          {people.map(person => <li key={person.id}>
+            <strong className={styles.workloadName}>{person.name}{!person.active ? <small>Inactive account</small> : null}</strong>
+            <button type="button" aria-label={`${person.name}: ${person.evidence.assigned.length} assigned now${person.evidence.overdue.length ? `, ${person.evidence.overdue.length} overdue assignments included` : ""}`}
+              onClick={event => onSelect({ person: person.id, metric: "assigned" }, event.currentTarget)}>
+              <span className={styles.mobileMetric}>Assigned now</span><strong>{person.evidence.assigned.length}</strong><ArrowUpRight size={16} aria-hidden="true" />
+              {person.evidence.overdue.length ? <small className={styles.overdueLabel}>{person.evidence.overdue.length} overdue</small> : null}
+            </button>
+            <button type="button" aria-label={`${person.name}: ${person.evidence.gaps.length} items to complete`}
+              onClick={event => onSelect({ person: person.id, metric: "gaps" }, event.currentTarget)}>
+              <span className={styles.mobileMetric}>Items to complete</span><strong>{person.evidence.gaps.length}</strong><ArrowUpRight size={16} aria-hidden="true" />
+            </button>
+          </li>)}
+        </ul>
+        <p className={styles.chartNote}>Completion items include admitted clients.</p>
+      </section>
     </div>
-    <section className={styles.chart} aria-label="Current follow-through">
-      <header className={styles.sectionHeader}><h2>Still open</h2><span>As of {shortDay(snapshot.through)} · All dates</span></header>
-      <div className={styles.workloadHead} aria-hidden="true"><span /><span>Assigned now</span><span>Items to complete</span></div>
-      <ul className={styles.workload}>
-        {people.map(person => <li key={person.id}>
-          <strong className={styles.workloadName}>{person.name}{!person.active ? <small>Inactive account</small> : null}</strong>
-          <button type="button" aria-label={`${person.name}: ${person.evidence.assigned.length} assigned now${person.evidence.overdue.length ? `, ${person.evidence.overdue.length} overdue assignments included` : ""}`}
-            onClick={event => onSelect({ person: person.id, metric: "assigned" }, event.currentTarget)}>
-            <span className={styles.mobileMetric}>Assigned now</span><strong>{person.evidence.assigned.length}</strong><ArrowUpRight size={16} aria-hidden="true" />
-            {person.evidence.overdue.length ? <small className={styles.overdueLabel}>{person.evidence.overdue.length} overdue</small> : null}
-          </button>
-          <button type="button" aria-label={`${person.name}: ${person.evidence.gaps.length} items to complete`}
-            onClick={event => onSelect({ person: person.id, metric: "gaps" }, event.currentTarget)}>
-            <span className={styles.mobileMetric}>Items to complete</span><strong>{person.evidence.gaps.length}</strong><ArrowUpRight size={16} aria-hidden="true" />
-          </button>
-        </li>)}
-      </ul>
-      <p className={styles.chartNote}>Completion items include admitted clients.</p>
-    </section>
   </div>;
-}
-
-function RecentActivity({ snapshot, people, onSelect }: { snapshot: AssessorScorecard; people: AssessorScorecardPerson[]; onSelect: Select }) {
-  const days = scorecardRecentDays(snapshot);
-  return <section className={styles.chart} aria-label="Recent recorded work">
-    <header className={styles.chartHeader}><div><h2>Recent activity</h2><p>{days[0]?.label}–{days.at(-1)?.label} · Pacific time</p></div><CountHelp measure="days" /></header>
-    <ul className={styles.activityCalendar}>
-      {people.map(person => <li key={person.id}>
-        <strong>{person.name}</strong>
-        <div className={styles.activityDays} role="group" aria-label={`${person.name} recorded-work days`}>
-          {days.map(day => <button type="button" key={day.start} data-recorded={day.counts[person.id] > 0 || undefined}
-            style={{ "--day-color": `var(--color-${scorecardPersonColor(snapshot.people, person.id)})` } as CSSProperties}
-            aria-label={`${person.name}: ${day.counts[person.id]} clients worked on ${day.label}`}
-            title={`${day.label}: ${day.counts[person.id]} clients worked`}
-            onClick={event => onSelect({ person: person.id, metric: "clients", bucket: day }, event.currentTarget)}>
-            <span aria-hidden="true">{Number(day.start.slice(-2))}</span>
-          </button>)}
-        </div>
-      </li>)}
-    </ul>
-    <p className={styles.chartNote}><span className={styles.calendarKey} aria-hidden="true" /> Saved work · Select a day for clients</p>
-  </section>;
 }
 
 function CountHelp({ measure }: { measure: ScorecardMeasure }) {
