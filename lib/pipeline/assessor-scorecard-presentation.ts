@@ -84,6 +84,22 @@ export function scorecardRecentWindow(snapshot: AssessorScorecard): ScorecardBuc
   return { start: [start.toISOString().slice(0, 10), pacificDay(snapshot.since)!].sort().at(-1)!, end: end.toISOString().slice(0, 10), label: "Recent activity", partial: true, counts: {} };
 }
 
+// Daily activity is a presence mark for saved work, never inferred attendance.
+export function scorecardRecentDays(snapshot: AssessorScorecard): ScorecardBucket[] {
+  const window = scorecardRecentWindow(snapshot);
+  const days: ScorecardBucket[] = [];
+  const cursor = new Date(`${window.start}T00:00:00Z`);
+  const format = new Intl.DateTimeFormat("en-US", { timeZone: "UTC", month: "short", day: "numeric" });
+  while (cursor.toISOString().slice(0, 10) < window.end) {
+    const start = cursor.toISOString().slice(0, 10), label = format.format(cursor);
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+    const bucket: ScorecardBucket = { start, end: cursor.toISOString().slice(0, 10), label, partial: true, counts: {} };
+    for (const person of snapshot.people) bucket.counts[person.id] = scorecardSelection(person, "clients", bucket).value ?? 0;
+    days.push(bucket);
+  }
+  return days;
+}
+
 // Calendar arithmetic uses UTC date-only values after conversion to Pacific days,
 // so the fall/spring clock changes cannot move events into an adjacent week.
 // Up to 12 bins stay readable; longer ranges use months, quarters, then years.

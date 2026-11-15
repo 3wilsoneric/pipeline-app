@@ -2,7 +2,7 @@ import "server-only";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { loadImage, PDFDocument, type CanvasRenderingContext2D, type SKRSContext2D } from "@napi-rs/canvas";
-import { scorecardRecentWindow, scorecardSelection, scorecardPersonColor, scorecardAxisMaximum, scorecardMeasures, scorecardTrend, scorecardValue, sortScorecardPeople, type ScorecardMeasure, type ScorecardSort } from "./assessor-scorecard-presentation";
+import { scorecardRecentDays, scorecardRecentWindow, scorecardSelection, scorecardPersonColor, scorecardAxisMaximum, scorecardMeasures, scorecardTrend, scorecardValue, sortScorecardPeople, type ScorecardMeasure, type ScorecardSort } from "./assessor-scorecard-presentation";
 import type { AssessorScorecard, AssessorScorecardPerson } from "./assessor-scorecard-types";
 
 type Context = CanvasRenderingContext2D & Pick<SKRSContext2D, "drawImage">;
@@ -105,11 +105,39 @@ export async function renderAssessorScorecardPdf(snapshot: AssessorScorecard, so
     text(ceiling, x + w - ctx.measureText(ceiling).width, row, 8, false, muted);
     return row + 18;
   };
-  const pair = (group: AssessorScorecardPerson[], measures: ScorecardMeasure[], top: number) => {
-    const gap = 28, w = (width - gap * (measures.length - 1)) / measures.length;
-    const height = 46 + group.reduce((sum, person) => sum + lines(person.name, w - 100, 9, true).length * 12 + 22, 0);
-    if (top + height > bottom) { newPage(`${pageTitle.replace(/ \(continued\)$/, "")} (continued)`); top = y; }
-    return Math.max(...measures.map((measure, i) => chart(group, measure, left + i * (w + gap), top, w)));
+  const ledger = (group: AssessorScorecardPerson[], measures: ScorecardMeasure[], top: number) => {
+    const nameWidth = 210, column = (width - nameWidth) / measures.length;
+    const headerHeight = Math.max(...measures.map(measure => lines(scorecardMeasures[measure], column - 14, 9, true).length)) * 13 + 12;
+    const heights = group.map(person => Math.max(34, lines(person.name, nameWidth - 16, 10, true).length * 14 + 14));
+    if (top + headerHeight + heights.reduce((a, b) => a + b, 0) > bottom) { newPage(`${pageTitle.replace(/ \(continued\)$/, "")} (continued)`); top = y; }
+    measures.forEach((measure, i) => lines(scorecardMeasures[measure], column - 14, 9, true).forEach((line, n) => text(line, left + nameWidth + i * column, top + n * 13, 9, true, muted)));
+    let row = top + headerHeight;
+    group.forEach((person, i) => {
+      ctx.fillStyle = rule; ctx.fillRect(left, row, width, .5);
+      lines(person.name, nameWidth - 16, 10, true).forEach((line, n) => text(line, left, row + 10 + n * 14, 10, true));
+      measures.forEach((measure, n) => { const value = scorecardValue(person, measure); text(value === null ? "Not tracked" : value.toLocaleString("en-US"), left + nameWidth + n * column, row + 10, value === null ? 9 : 13, true, measure === "overdue" ? color("warning") : blue); });
+      row += heights[i];
+    });
+    return row + 20;
+  };
+  const calendar = (group: AssessorScorecardPerson[], top: number) => {
+    const days = scorecardRecentDays(snapshot), labelWidth = 210, step = (width - labelWidth) / Math.max(14, days.length);
+    const heights = group.map(person => Math.max(30, lines(person.name, labelWidth - 16, 9, true).length * 12 + 8));
+    if (top + 45 + heights.reduce((a, b) => a + b, 0) > bottom) { newPage("Recent activity"); top = y; }
+    text("Recent activity", left, top, 13, true);
+    text(`${days[0]?.label ?? ""} - ${days.at(-1)?.label ?? ""} | Filled = saved work | Pacific time`, left, top + 20, 8, false, muted);
+    let row = top + 42;
+    for (const [index, person] of group.entries()) {
+      lines(person.name, labelWidth - 16, 9, true).forEach((line, n) => text(line, left, row + n * 12, 9, true));
+      days.forEach((day, i) => {
+        const x = left + labelWidth + i * step;
+        ctx.fillStyle = day.counts[person.id] ? color(scorecardPersonColor(snapshot.people, person.id)) : color("report-blue-soft"); ctx.fillRect(x, row, step - 5, 20);
+        const label = String(Number(day.start.slice(-2))); font(8);
+        text(label, x + (step - 5 - ctx.measureText(label).width) / 2, row + 5, 8, false, day.counts[person.id] ? color("on-fill") : muted);
+      });
+      row += heights[index];
+    }
+    return row + 18;
   };
   const timeline = (group: AssessorScorecardPerson[], top: number) => {
     const height = 180 + group.length * 14;
@@ -143,21 +171,21 @@ export async function renderAssessorScorecardPdf(snapshot: AssessorScorecard, so
   if (!people.length) { newPage("Assessor work"); paragraph("No assessor records in this period.", 12, ink); }
   for (const group of groups) {
     newPage("Assessor work");
-    y = pair(group, ["confirmed", "clients", "handoffs"], y);
+    y = chart(group, "days", left, y, width);
     y = timeline(group, y + 16);
   }
   for (const group of groups) {
     newPage("Current follow-through");
     paragraph(`Assignments and completion items as of ${date(snapshot.through)}. Gaps include admitted clients; they are not a quality grade.`);
-    y = pair(group, ["assigned", "gaps"], y);
-    text("Overdue assignments are shown in orange within the assigned total.", left, y, 8, false, muted); y += 24;
-    y = pair(group, ["fields", "uploads"], y);
+    y = ledger(group, ["assigned", "overdue", "gaps"], y);
+    text("Selected period", left, y, 12, true);
+    y = ledger(group, ["confirmed", "clients", "handoffs", "fields", "uploads"], y + 24);
   }
   for (const group of groups) {
     newPage("Activity detail");
     paragraph(snapshot.usageSince ? `Usage tracking began ${date(snapshot.usageSince)}. Earlier clicks and active minutes are unavailable.` : "Historical clicks and active minutes are unavailable. Tracking starts when this release is enabled.");
-    y = pair(group, ["interactions", "activeMinutes"], y);
-    y = pair(group, ["resends", "sendIssues"], y + 24);
+    y = calendar(group, y);
+    y = ledger(group, ["interactions", "activeMinutes", "resends", "sendIssues"], y);
   }
   newPage("Reading the scorecard");
   paragraph(snapshot.usageSince ? `Usage tracking began ${date(snapshot.usageSince)}. Earlier clicks and active minutes are unavailable.` : "Historical clicks and active minutes are unavailable. Tracking starts when this release is enabled.", 11, ink);

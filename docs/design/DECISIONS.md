@@ -700,3 +700,15 @@ Owner direction: “nice do another lap and consolidate this and add it to repor
 - Use the existing Platform Admissions report tokens, native buttons/SVG and existing dialog. Phone/touch users get larger period targets, reduced motion is respected, and the page keeps its established scroll container.
 - PDF summaries use the same trend calculation, colors and recent-window logic. Client-level evidence stays inside authenticated Pipeline.
 - Scope ceiling: saved contributions describe recorded usage, not all work. Revisit the report only when a newly instrumented source can be linked to an identified actor with reliable coverage; do not fabricate historic click or note authorship data.
+
+### Reduce repeated scorecard charts (owner, 2026-11-14)
+
+Owner feedback: “too many bar charts.” Keep one selected-measure comparison and
+its weekly trend. Replace the repeated click bars with a compact activity
+readout, combine assignments/overdue work/completion items into one current-work
+ledger, and show the last fourteen days of substantive saved work as a calendar.
+Calendar dates open the existing client evidence; blank dates mean no recorded
+contribution, not absence from work. Keep counts, coverage, access and sorting.
+The PDF uses the same calendar and a compact ledger for secondary measures,
+instead of repeating a bar chart for every total. No new scoring or ranking is
+introduced.

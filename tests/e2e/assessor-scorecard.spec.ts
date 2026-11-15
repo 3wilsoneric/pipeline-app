@@ -157,6 +157,18 @@ for (const width of [1440, 834, 390, 320]) test(`scorecard sorting, evidence, ke
   await expect(breakdown.getByRole("link")).toHaveCount(0);
   await page.keyboard.press("Escape");
   await expect(breakdown).toHaveCount(0);
+  const calendar = report.getByRole("region", { name: "Recent recorded work", exact: true });
+  const day = calendar.getByRole("button", { name: "Synthetic Assessor 8: 1 clients worked on Nov 1", exact: true });
+  await expect(day).toHaveAttribute("data-recorded", "true");
+  await day.focus(); await page.keyboard.press("Enter");
+  const dailyDetail = page.getByRole("dialog", { name: "Synthetic Assessor 8 breakdown", exact: true });
+  await expect(dailyDetail.getByRole("link", { name: "Synthetic Client 4", exact: true })).toBeVisible();
+  await expect(dailyDetail.getByRole("link")).toHaveCount(1);
+  await page.keyboard.press("Escape");
+  await expect(day).toBeFocused();
+  expect(await calendar.evaluate(node => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
+  await calendar.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `.data/scorecard-calendar-${width}.png` });
   await report.getByRole("group", { name: "Assessor to explore" }).getByRole("button", { name: "Alexandria Montgomery-Washington", exact: true }).click();
   const week = report.getByRole("button", { name: /Alexandria Montgomery-Washington: 3 assessments confirmed, week beginning Nov 9/ }).filter({ visible: true });
   await week.focus(); await page.keyboard.press("Enter");

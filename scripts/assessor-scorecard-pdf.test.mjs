@@ -54,7 +54,16 @@ test("empty exports are explicit and long rosters paginate without dropping peop
     try {
       let text = "";
       for (let n = 1; n <= doc.numPages; n++) text += (await (await doc.getPage(n)).getTextContent()).items.map(item => item.str ?? "").join(" ");
-      for (const person of people) assert.ok(text.split(person.name).length - 1 >= 12, `${person.name} appears in every visual measure and the timeline`);
+      const content = text.replace(/\s+/g, " ");
+      for (const person of people) {
+        // Each ledger names the assessor once for several measures. Assert the
+        // actual values survive pagination rather than requiring repeated names.
+        for (const measures of [["assigned", "overdue", "gaps"], ["confirmed", "clients", "handoffs", "fields", "uploads"], ["interactions", "activeMinutes", "resends", "sendIssues"]]) {
+          const values = measures.map(measure => measure === "interactions" || measure === "activeMinutes" ? person.usage?.[measure]?.toLocaleString("en-US") ?? "Not tracked" : person.evidence[measure].length.toLocaleString("en-US"));
+          assert.ok(content.includes(`${person.name} ${values.join(" ")}`), `${person.name}: all ${measures.join(", ")} values are retained`);
+        }
+        assert.ok(content.includes(`${person.name} / ${person.activeDays} days`), `${person.name}: timeline legend retained`);
+      }
       if (!people.length) assert.match(text, /No assessor records in this period/);
     } finally { await task.destroy(); }
   }
