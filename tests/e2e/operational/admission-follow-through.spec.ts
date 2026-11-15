@@ -69,6 +69,15 @@ test.describe("admission follow-through", () => {
     const url = requireOperationalBaseURL(baseURL);
     const api = await actorApiContext("assessorA", url);
     const { page, context } = await actorPage(browser, "assessorA", url);
+    let simulateSentMail = true;
+    let pendingWorkflowReads = 0;
+    const stopSentMailOverride = async () => {
+      simulateSentMail = false;
+      // Removing interception can continue a route before its fetch finishes,
+      // even with unrouteAll({ behavior: "wait" }). Drain it first.
+      await expect.poll(() => pendingWorkflowReads).toBe(0);
+      await page.unrouteAll({ behavior: "wait" });
+    };
     try {
       const created = await createOperationalReferral(api, "assessorA", { name: `Synthetic date admission ${randomUUID()}` });
       const referral = await recordOperationalAcceptance(api, created);
@@ -76,11 +85,14 @@ test.describe("admission follow-through", () => {
       const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Los_Angeles", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
       // Simulate only the existing sent-mail state; all date writes, permissions and directory reads use the real isolated server.
       await page.route(`**${path}/workflow`, async (route) => {
-        if (route.request().method() !== "GET") return route.continue();
-        const response = await route.fetch();
-        const body = await response.json();
-        body.context.packetSentAt = "2026-01-01T12:00:00Z";
-        await route.fulfill({ response, json: body });
+        if (!simulateSentMail || route.request().method() !== "GET") return route.continue();
+        pendingWorkflowReads += 1;
+        try {
+          const response = await route.fetch();
+          const body = await response.json();
+          body.context.packetSentAt = "2026-01-01T12:00:00Z";
+          await route.fulfill({ response, json: body });
+        } finally { pendingWorkflowReads -= 1; }
       });
       let sends = 0;
       page.on("request", (request) => {
@@ -118,14 +130,14 @@ test.describe("admission follow-through", () => {
       await expect(handoff.getByRole("status").filter({ hasText: /^Admitted$/ })).toBeVisible();
       // Drain the synthetic mail-state read before navigation cancels requests.
       // The reload must retain admission using the actual persisted workflow.
-      await page.unrouteAll({ behavior: "wait" });
+      await stopSentMailOverride();
       await page.reload();
       await expect(handoff.getByRole("status").filter({ hasText: /^Admitted$/ })).toBeVisible();
       await page.screenshot({ path: info.outputPath(`admitted-by-date-${width}.png`), fullPage: true });
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
       expect(sends).toBe(0);
     } finally {
-      await page.unrouteAll({ behavior: "wait" });
+      await stopSentMailOverride();
       await context.close();
       await api.dispose();
     }

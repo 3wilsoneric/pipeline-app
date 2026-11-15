@@ -13,6 +13,48 @@ const people = Array.from({ length: 8 }, (_, index) => ({
 }));
 const snapshot = { period: "30d", since: "2026-10-15T07:00:00Z", through: "2026-11-13T20:00:00Z", usageSince: "2026-11-12T20:00:00Z", people, unattributedEvents: 2, unassignedWorkspaces: 1, unassignedGapItems: 4 };
 
+for (const touch of [false, true]) test(`scorecard scrolls inside the report frame with ${touch ? "touch" : "wheel and keyboard"}`, async ({ browser, baseURL }) => {
+  const context = await browser.newContext({ baseURL, viewport: { width: touch ? 390 : 1440, height: 844 }, hasTouch: touch, isMobile: touch });
+  const page = await context.newPage();
+  try {
+    await page.route("**/api/auth/me", route => route.fulfill({ json: { user: owner } }));
+    await page.route("**/api/operations/assessor-scorecard?*", route => route.fulfill({ json: snapshot }));
+    await page.goto("/?screen=operations&report=assessor_scorecard");
+    const report = page.getByRole("main", { name: "Assessor scorecard", exact: true });
+    await expect(report.getByRole("heading", { name: "Charts confirmed", exact: true })).toBeVisible();
+    const bounds = (await report.boundingBox())!;
+    if (touch) {
+      const session = await context.newCDPSession(page);
+      const x = bounds.x + bounds.width / 2;
+      const y = Math.min(bounds.y + bounds.height, 844) - 70;
+      await session.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] });
+      for (let step = 1; step <= 8; step += 1) {
+        await session.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x, y: y - step * 40 }] });
+        await page.waitForTimeout(25);
+      }
+      await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+      await session.detach();
+    } else {
+      await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + 300);
+      await page.mouse.wheel(0, 650);
+    }
+    // Locator clicks/focus can scroll clipped ancestors and hide a broken native scroll area.
+    await expect.poll(() => report.evaluate(node => node.scrollTop)).toBeGreaterThan(100);
+    expect(bounds.y + bounds.height).toBeLessThanOrEqual(845);
+    if (!touch) {
+      await page.mouse.wheel(0, 20_000);
+      await expect(report.getByText("How this is counted", { exact: true })).toBeInViewport();
+      await report.getByRole("button", { name: "Refresh", exact: true }).focus();
+      await expect.poll(() => report.evaluate(node => node.scrollTop)).toBe(0);
+      await page.keyboard.press("PageDown");
+      await expect.poll(() => report.evaluate(node => node.scrollTop)).toBeGreaterThan(100);
+    }
+    await expect(page.getByRole("navigation", { name: "Reports", exact: true })).toBeInViewport();
+  } finally {
+    await context.close();
+  }
+});
+
 for (const width of [1440, 834, 390, 320]) test(`scorecard sorting, evidence, keyboard and readable layout at ${width}px`, async ({ page }) => {
   await page.setViewportSize({ width, height: 960 });
   await page.route("**/api/auth/me", route => route.fulfill({ json: { user: owner } }));
