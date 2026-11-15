@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { fetchPipelineApi, fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
-import { toPipelinePath } from "@/lib/pipeline/base-path";
-import type { AssessorScorecard as Snapshot, ScorecardEvidence, ScorecardMetric, ScorecardPeriod } from "@/lib/pipeline/assessor-scorecard-types";
-import { scorecardBucketEvidence, scorecardLabels as labels, sortScorecardPeople, type ScorecardSort as Sort } from "@/lib/pipeline/assessor-scorecard-presentation";
+import { Download, RefreshCw } from "lucide-react";
+import type { AssessorScorecard as Snapshot, ScorecardPeriod } from "@/lib/pipeline/assessor-scorecard-types";
+import { sortScorecardPeople, type ScorecardSort as Sort } from "@/lib/pipeline/assessor-scorecard-presentation";
 import styles from "./AssessorScorecard.module.css";
+import AssessorScorecardDetail from "./AssessorScorecardDetail";
+import type { HomeDialogOrigin } from "./HomeDialog";
 import AssessorScorecardCharts, { type ScorecardSelection } from "./AssessorScorecardCharts";
 
 export default function AssessorScorecard() {
@@ -35,13 +37,13 @@ export default function AssessorScorecard() {
       <h1 className="sr-only">Assessor scorecard</h1>
       <header className={styles.toolbar}>
         <div className={styles.controls}><label><span>Period</span><select value={period} onChange={(event) => { setSort("confirmed"); setPeriod(event.target.value as ScorecardPeriod); }}>
-          <option value="30d">Last 30 days</option><option value="week">This week</option><option value="launch">Since Pipeline launch</option>
+          <option value="30d">Last 30 days</option><option value="week">This week</option><option value="launch">Since launch</option>
         </select></label>
         <label><span>Sort by</span><select value={sort} onChange={(event) => setSort(event.target.value as Sort)}>
-          <option value="interviews">Interviews finished</option><option value="confirmed">Charts confirmed</option><option value="clients">Clients worked</option><option value="handoffs">Handoffs sent</option><option value="gaps">Open completion items</option><option value="interactions">Clicks / taps</option><option value="name">Name</option>
+          <option value="interviews">Interviews</option><option value="confirmed">Confirmations</option><option value="clients">Clients worked</option><option value="handoffs">Handoffs sent</option><option value="gaps">Open items</option><option value="interactions">Clicks / taps</option><option value="name">Name</option>
         </select></label>
-        <div className={styles.actions}><button className={styles.refresh} type="button" onClick={reload}>Refresh</button>
-        <button className={styles.refresh} type="button" disabled={exporting} onClick={() => void exportPdf()}>{exporting ? "Exporting…" : "Export PDF"}</button></div></div>
+        <div className={styles.actions}><button className={styles.refresh} type="button" onClick={reload}><RefreshCw size={17} aria-hidden="true" />Refresh</button>
+        <button className={styles.refresh} type="button" disabled={exporting} onClick={() => void exportPdf()}><Download size={17} aria-hidden="true" />{exporting ? "Exporting…" : "Export PDF"}</button></div></div>
       </header>
       {exportError ? <p className={styles.notice} role="alert">PDF unavailable. Try Export PDF again.</p> : null}
       <div className={styles.results}><ScorecardResults key={`${period}:${refresh}`} period={period} sort={sort} retry={reload} /></div>
@@ -52,9 +54,7 @@ export default function AssessorScorecard() {
 function ScorecardResults({ period, sort, retry }: { period: ScorecardPeriod; sort: Sort; retry: () => void }) {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [error, setError] = useState(false);
-  const [selection, setSelection] = useState<ScorecardSelection | null>(null);
-  const details = useRef<HTMLDivElement>(null);
-  const source = useRef<HTMLButtonElement | null>(null);
+  const [selection, setSelection] = useState<(ScorecardSelection & { origin: HomeDialogOrigin }) | null>(null);
   useEffect(() => {
     const controller = new AbortController();
     void fetchPipelineJson<Snapshot>(`/api/operations/assessor-scorecard?period=${period}`, { signal: controller.signal, cache: "no-store" })
@@ -62,30 +62,21 @@ function ScorecardResults({ period, sort, retry }: { period: ScorecardPeriod; so
       .catch(() => { if (!controller.signal.aborted) setError(true); });
     return () => controller.abort();
   }, [period]);
-  useEffect(() => { if (selection) details.current?.focus({ preventScroll: false }); }, [selection]);
   if (error) return <div role="alert" className={styles.notice}>Scorecard unavailable. Your workspaces are still available. <button type="button" onClick={retry}>Retry</button></div>;
   if (!snapshot) return <p role="status">Loading scorecard…</p>;
   const people = sortScorecardPeople(snapshot.people, sort);
   const selected = people.find((person) => person.id === selection?.person);
   return <>
-    {!people.length ? <p className={styles.notice}>No assessor records in this period.</p> : <AssessorScorecardCharts snapshot={snapshot} people={people} onSelect={(next, trigger) => { source.current = trigger; setSelection(next); }} />}
-    <div className={styles.context}>
-      <p>{day(snapshot.since)}–{day(snapshot.through)} · Pacific time<br /><span>Native Pipeline workspaces · Current assignments and gaps as of {day(snapshot.through)}</span></p>
-    </div>
-    <p className={styles.coverage}>{snapshot.usageSince ? `Usage tracking began ${day(snapshot.usageSince)}. Earlier clicks and active minutes are unavailable.` : "Historical click and active-time data are unavailable. Tracking starts when this release is enabled."}</p>
-    {(snapshot.unattributedEvents || snapshot.unassignedWorkspaces || snapshot.unassignedGapItems) ? <p className={styles.notice}>
-      {snapshot.unattributedEvents} unlinked audit events · {snapshot.unassignedWorkspaces} unassigned workspaces · {snapshot.unassignedGapItems} completion items without a linked owner. These are not credited to an assessor.
-    </p> : null}
-    {selected && selection ? <div ref={details} tabIndex={-1} className={styles.detail} aria-label={`${selected.name} breakdown`}>
-      <div className={styles.detailHeader}><h3>{selected.name}</h3><button type="button" className={styles.back} onClick={() => { setSelection(null); source.current?.focus(); }}>Back to charts</button></div>
-      <label className={styles.detailMeasure}><span>Work measures</span><select value={selection.metric} onChange={event => setSelection({ person: selected.id, metric: event.target.value as ScorecardMetric })}>
-        {(Object.keys(labels) as ScorecardMetric[]).map(metric => <option key={metric} value={metric}>{labels[metric]} · {selected.evidence[metric].length}</option>)}
-      </select></label>
-      <p className={styles.coverage}>Median start-to-finish interval: {selected.interviewSpanHours === null ? "not available" : `${selected.interviewSpanHours.toFixed(1)} hours (${selected.interviewSpanSamples} interviews)`}. Elapsed time includes pauses; it is not time worked.</p>
-      <h4>{labels[selection.metric]}{selection.bucket ? ` · ${selection.bucket.label}${selection.bucket.partial ? " (partial period)" : ""}` : ""}</h4>
-      <EvidenceList key={`${selected.id}:${selection.metric}:${selection.bucket?.start ?? ""}`} evidence={selection.bucket ? scorecardBucketEvidence(selected.evidence[selection.metric], selection.bucket) : selected.evidence[selection.metric]} />
-    </div> : null}
+    <div className={styles.context}><span>{day(snapshot.since)}–{day(snapshot.through)} · Pacific time</span><span>Select an assessor to explore</span></div>
+    {!people.length ? <p className={styles.notice}>No assessor records in this period.</p> : <AssessorScorecardCharts snapshot={snapshot} people={people} onSelect={(next, trigger) => {
+      const { left, top, width, height } = trigger.getBoundingClientRect();
+      setSelection({ ...next, origin: { left, top, width, height } });
+    }} />}
+    {selected && selection ? <AssessorScorecardDetail person={selected} snapshot={snapshot} selection={selection} origin={selection.origin}
+      onSelect={next => setSelection({ ...next, origin: selection.origin })} onClose={() => setSelection(null)} /> : null}
     <details className={styles.methods}><summary>How this is counted</summary>
+      <p>Native Pipeline workspaces · {snapshot.usageSince ? `Usage tracking began ${day(snapshot.usageSince)}. Earlier clicks and active minutes are unavailable.` : "Historical click and active-time data are unavailable. Tracking starts when this release is enabled."}</p>
+      {(snapshot.unattributedEvents || snapshot.unassignedWorkspaces || snapshot.unassignedGapItems) ? <p>{snapshot.unattributedEvents} unlinked audit events · {snapshot.unassignedWorkspaces} unassigned workspaces · {snapshot.unassignedGapItems} completion items without a linked owner. These are not credited to an assessor.</p> : null}
       <ul>
         <li>Charts confirmed count the first recorded chart confirmation per assessment, including denied cases. Interviews finished counts explicit finish events only; an absent event does not mean no interview occurred. Later reconfirmations do not add completions. Credit follows the actor who recorded the action, not today’s owner.</li>
         <li>Clients worked counts distinct workspaces with a recorded contribution. Fields touched counts a field once per assessor and assessment in the period. It does not judge answer quality. Notes have no complete author history and are not counted.</li>
@@ -98,22 +89,6 @@ function ScorecardResults({ period, sort, retry }: { period: ScorecardPeriod; so
   </>;
 }
 
-function EvidenceList({ evidence }: { evidence: ScorecardEvidence[] }) {
-  const [limit, setLimit] = useState(20);
-  const grouped = new Map<number, { first: ScorecardEvidence; items: ScorecardEvidence[] }>();
-  for (const item of evidence) {
-    const group = grouped.get(item.referralId) ?? { first: item, items: [] };
-    group.items.push(item); grouped.set(item.referralId, group);
-  }
-  const groups = [...grouped.values()].sort((a, b) => a.first.client.localeCompare(b.first.client));
-  return !groups.length ? <p className={styles.coverage}>No records for this measure.</p> : <>
-    <ul className={styles.evidence}>{groups.slice(0, limit).map(({ first, items }) => <li key={first.referralId}>
-      <div><a href={toPipelinePath(`/?view=referrals&screen=packet&referralId=${first.referralId}&workspaceStage=chart`)}>{first.client}</a><span>{first.community} · Workspace #{first.referralId}</span></div>
-      {items.length === 1 ? <p>{first.detail}{first.at ? <time dateTime={first.at}> · {day(first.at)}</time> : null}</p> : <details><summary>{items.length} records</summary><ul>{items.map((item) => <li key={item.key}>{item.detail}{item.at ? <time dateTime={item.at}> · {day(item.at)}</time> : null}</li>)}</ul></details>}
-    </li>)}</ul>
-    {groups.length > limit ? <button type="button" className={styles.more} onClick={() => setLimit((value) => value + 20)}>Show more clients</button> : null}
-  </>;
-}
 function day(value: string) {
   return new Intl.DateTimeFormat("en-US", { timeZone: "America/Los_Angeles", month: "short", day: "numeric", year: "numeric" }).format(new Date(value));
 }

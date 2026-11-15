@@ -662,3 +662,19 @@ rating. Eric and Andrew stay excluded by the existing principal rules. This
 supersedes the scorecard's table-specific layout decisions above and approves
 concise chart labels, units and navigation copy. Other reports and workflows
 are unchanged.
+
+### Scorecard meaning and drill-down (owner, 2026-11-14)
+
+Following the visual audit, the owner approved showing assessments confirmed,
+clients worked, handoffs and clicks together, shorter labels, and expandable
+assessor/client evidence. Use a distinct, relevant icon and restrained existing
+color for each measure; keep Platform report typography and materials. Reuse the
+native HomeDialog with origin expansion and focus restoration rather than jumping
+to a breakdown below all charts. Reduced motion removes the transitions.
+
+Keep current assignments and completion items secondary and explicitly current.
+Confirmation history is the historical completion measure; incomplete separate
+interview-finish events remain in detail. Show click-tracking coverage next to
+clicks. Its detail contains collected aggregates only, never invented per-client
+activity. Preserve audit counts, principal exclusions, authorization, routes and
+PDF export. No overall score, quality grade or inferred hours worked is added.

@@ -13,6 +13,25 @@ export function sortScorecardPeople(people: AssessorScorecardPerson[], sort: Sco
 
 export const scorecardMeasures = { ...scorecardLabels, interactions: "Clicks / taps", activeMinutes: "Active minutes" };
 export type ScorecardMeasure = keyof typeof scorecardMeasures;
+// Presentation names only: the audit measures and PDF counting rules are unchanged.
+export const scorecardDisplayLabels: Record<ScorecardMeasure, string> = {
+  ...scorecardMeasures, confirmed: "Assessments confirmed", handoffs: "Handoffs sent", gaps: "Items to complete",
+};
+export const scorecardDefinitions: Record<ScorecardMeasure, string> = {
+  confirmed: "First chart confirmation per assessment. Later confirmations add no credit; denied cases count too.",
+  interviews: "Recorded interview-finish events only. Older assessments may have no separate finish event.",
+  clients: "Distinct workspaces this assessor contributed to during the selected period.",
+  handoffs: "First accepted email send per workspace. This does not confirm recipient delivery.",
+  interactions: "Recorded clicks, taps and keyboard activations. Activity, not a performance grade.",
+  activeMinutes: "Minutes with a foreground interaction, deduplicated across tabs. Not hours worked.",
+  fields: "Each assessment field counts once per assessor in the period. This does not measure answer quality.",
+  uploads: "Documents uploaded by this assessor during the selected period.",
+  resends: "Accepted sends after the first handoff. Recipient delivery is not confirmed by this count.",
+  sendIssues: "Send attempts that failed or returned an unknown result.",
+  assigned: "Workspaces currently assigned to this assessor. Overdue assignments are included.",
+  overdue: "Current assignments whose due date has passed.",
+  gaps: "Open completion-memo items, including admitted clients. Items can depend on other teams; this is not a quality grade.",
+};
 export function scorecardValue(person: AssessorScorecardPerson, measure: ScorecardMeasure): number | null {
   return measure === "interactions" || measure === "activeMinutes" ? person.usage?.[measure] ?? null : person.evidence[measure].length;
 }
