@@ -203,7 +203,7 @@ test("usage batches reject arbitrary identity, timestamps, amounts, duplicate mi
 });
 
 const logging = { withApiLogging: async (_request, _route, run) => run() };
-test("scorecard access is private, rejects delegation and invalid periods, and never fabricates local metrics", async () => {
+test("scorecard access is private, rejects unauthorized delegation and invalid periods, and never fabricates local metrics", async () => {
   const access = loadEntry("lib/pipeline/application-activity-access.ts");
   let reads = 0;
   function route(user, ready = true) {
@@ -228,6 +228,9 @@ test("scorecard access is private, rejects delegation and invalid periods, and n
   assert.equal(response.status, 200);
   assert.match(response.headers.get("cache-control"), /private, no-store/);
   assert.equal(reads, 2);
+  const preview = { ...andrew, delegation: { initiatedBy: owner, target: andrew } };
+  assert.equal((await route(preview).GET(request)).status, 200);
+  assert.equal(reads, 3);
   for (const patch of [{ roles: ["reviewer"] }, { delegation: {} }, { demoPersona: "supervisor" }]) assert.equal((await route({ ...andrew, ...patch }).GET(request)).status, 403);
   assert.equal(access.canAccessApplicationActivity(andrew), false, "private database/activity dashboard stays Eric-only");
 });

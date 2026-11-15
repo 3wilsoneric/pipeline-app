@@ -4,6 +4,9 @@ import { readFileSync } from "node:fs";
 const axeSource = readFileSync(require.resolve("axe-core/axe.min.js"), "utf8");
 const owner = { id: "f73371d5-d2b4-48b4-a32b-1edc7c88869f", email: "ericwilsonalamo@outlook.com", name: "Eric", roles: ["admin"] };
 const andrew = { ...owner, id: "e9f39185-d751-45c0-bcf5-c24d3565bdd9", email: "andrew@aaahealthservices.com", name: "Andrew" };
+const andrewPreview = { ...andrew, delegation: { sessionId: "synthetic-preview", initiatedBy: owner,
+  target: { ...andrew, identityStatus: "entra_linked" }, reason: "Verify Andrew preview",
+  startedAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 3600000).toISOString() } };
 const person = { id: "fixture-assessor", name: "Synthetic Assessor", email: "assessor@example.invalid", last_seen_at: "2026-09-26T03:00:00Z", last_sign_in_at: "2026-09-26T02:00:00Z", sign_ins: 1, recorded_actions: 2 };
 const event = { id: "first", actor_id: person.id, actor_name: person.name, action: "referral_updated", entity_type: "referral", entity_id: "42", fields: ["Primary assignee", "Admission date"], created_at: "2026-09-26T03:00:00Z", workspace: { id: 42, name: "Synthetic Client", deleted: false } };
 
@@ -97,9 +100,9 @@ for (const width of [1440, 1024, 834]) test(`owner activity is readable, filtera
   await expect(card).toBeFocused();
 });
 
-for (const width of [1440, 834]) test(`Andrew sees the same status names and colors without private monitoring at ${width}px`, async ({ page }) => {
+for (const user of [andrew, andrewPreview]) for (const width of [1440, 834]) test(`${"delegation" in user ? "Work as Andrew" : "Andrew"} sees the same status names and colors without private monitoring at ${width}px`, async ({ page }) => {
   await page.setViewportSize({ width, height: 900 });
-  await page.route("**/api/auth/me", route => route.fulfill({ json: { user: andrew } }));
+  await page.route("**/api/auth/me", route => route.fulfill({ json: { user } }));
   const privateRequests: string[] = [];
   page.on("request", request => {
     if (/\/api\/operations\/(azure-usage|application-activity|assessor-scorecard)/.test(request.url())) privateRequests.push(request.url());
@@ -136,11 +139,11 @@ for (const width of [1440, 834]) test(`Andrew sees the same status names and col
   await page.screenshot({ path: `.data/andrew-status-${width}.png` });
 });
 
-for (const width of [1440, 390]) test(`Andrew opens all current workspaces by default at ${width}px`, async ({ page }, info) => {
+for (const user of [andrew, andrewPreview]) for (const width of [1440, 390]) test(`${"delegation" in user ? "Work as Andrew" : "Andrew"} opens all current workspaces by default at ${width}px`, async ({ page }, info) => {
   const directoryReads: URLSearchParams[] = [];
   page.on("request", request => { if (request.url().includes("/api/referrals/directory?")) directoryReads.push(new URL(request.url()).searchParams); });
   await page.setViewportSize({ width, height: 900 });
-  await page.route("**/api/auth/me", route => route.fulfill({ json: { user: { ...andrew, email: "guest#EXT#@tenant.invalid", roles: ["assessment_coordinator"] } } }));
+  await page.route("**/api/auth/me", route => route.fulfill({ json: { user: { ...user, email: "guest#EXT#@tenant.invalid", roles: ["assessment_coordinator"] } } }));
   await page.route("**/api/operations/home", async route => {
     const response = await route.fetch(); const payload = await response.json();
     const item = { referral_id: 710001, client_name: "Team Assessment", community: "Turlock", workflow_status: "ready_to_schedule", flow_state: "ready_to_schedule", outcome_state: "pending", owner: "Synthetic Assessor", completion_pct: 30, missing_document_count: 0, received_at: "2026-09-18", next_action: "Schedule interview", location: { view: "intake" }, board: { stage: "received", detail: "Referral created", next_action: "Schedule interview", location: { view: "intake" } } };
