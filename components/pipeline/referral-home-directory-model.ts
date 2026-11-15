@@ -5,6 +5,15 @@ import { isRecordedWorkspaceCommunity } from "@/lib/pipeline/workspace-presentat
 
 export type WorkspaceScope = NonNullable<ReferralListOptions["scope"]>;
 
+// Andrew oversees the team rather than carrying a personal assessment queue.
+// This is a presentation default; the existing API still authorizes every read.
+export function prefersTeamWorkspaceScope(user: { id?: string; email?: string; roles: readonly string[]; delegation?: unknown; demoPersona?: string; accessScope?: string } | null | undefined) {
+  return Boolean(user && !user.delegation && !user.demoPersona && user.accessScope !== "note_lab"
+    && user.roles.some(role => role === "admin" || role === "assessment_coordinator")
+    && (user.id?.trim().toLowerCase() === "e9f39185-d751-45c0-bcf5-c24d3565bdd9"
+      || user.email?.trim().toLowerCase() === "andrew@aaahealthservices.com"));
+}
+
 export type ReferralFilter = {
   kind: "all" | "completed" | "admitted" | "files";
   communities?: string[];

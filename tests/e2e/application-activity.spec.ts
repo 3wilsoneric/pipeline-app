@@ -136,7 +136,60 @@ for (const width of [1440, 834]) test(`Andrew sees the same status names and col
   await page.screenshot({ path: `.data/andrew-status-${width}.png` });
 });
 
-for (const user of [owner, andrew]) test(`phone Home keeps ${user.name}'s monitoring out of the personal assessment workflow`, async ({ page }) => {
+for (const width of [1440, 390]) test(`Andrew opens all current workspaces by default at ${width}px`, async ({ page }, info) => {
+  const directoryReads: URLSearchParams[] = [];
+  page.on("request", request => { if (request.url().includes("/api/referrals/directory?")) directoryReads.push(new URL(request.url()).searchParams); });
+  await page.setViewportSize({ width, height: 900 });
+  await page.route("**/api/auth/me", route => route.fulfill({ json: { user: { ...andrew, email: "guest#EXT#@tenant.invalid", roles: ["assessment_coordinator"] } } }));
+  await page.route("**/api/operations/home", async route => {
+    const response = await route.fetch(); const payload = await response.json();
+    const item = { referral_id: 710001, client_name: "Team Assessment", community: "Turlock", workflow_status: "ready_to_schedule", flow_state: "ready_to_schedule", outcome_state: "pending", owner: "Synthetic Assessor", completion_pct: 30, missing_document_count: 0, received_at: "2026-09-18", next_action: "Schedule interview", location: { view: "intake" }, board: { stage: "received", detail: "Referral created", next_action: "Schedule interview", location: { view: "intake" } } };
+    payload.viewer = { id: andrew.id, name: andrew.name };
+    payload.workflow.board_items = []; payload.workflow.active_items = [];
+    payload.workflow.all_board_items = [item,
+      { ...item, referral_id: 710002, client_name: "Team Handoff", outcome_state: "accepted", board: { ...item.board, stage: "decision", detail: "Accepted" } },
+      { ...item, referral_id: 710003, client_name: "Completed Admission", board: { ...item.board, stage: null } },
+      { ...item, referral_id: 710004, client_name: "Declined Referral", outcome_state: "declined", board: { ...item.board, stage: "decision" } },
+    ];
+    payload.continuity.recent_referral_ids = [];
+    await route.fulfill({ response, json: payload });
+  });
+  await page.goto("/");
+  const progress = page.getByRole("button", { name: "Open in progress folder", exact: true });
+  const handoff = page.getByRole("button", { name: "Open clients in handoff folder", exact: true });
+  await expect(progress).toHaveText(/In progress1 file/);
+  await expect(handoff).toHaveText(/Clients in handoff1 file/);
+  await expect(page.getByRole("region", { name: "Recent workspaces", exact: true })).toHaveCount(0);
+  for (const [opener, label, client] of [[progress, "In progress folder", "Team Assessment"], [handoff, "Clients in handoff folder", "Team Handoff"]] as const) {
+    await opener.click();
+    const folder = page.getByRole("dialog", { name: label, exact: true });
+    await expect(folder.getByRole("button", { name: "All", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await expect(folder.getByRole("button", { name: `Open ${client}`, exact: true })).toBeVisible();
+    await expect(folder.locator("[data-client-file]")).toHaveCount(1);
+    await folder.getByRole("button", { name: "Mine", exact: true }).click();
+    await expect(folder.locator("[data-client-file]")).toHaveCount(0);
+    await folder.getByRole("button", { name: "All", exact: true }).click();
+    await expect(folder.locator("[data-client-file]")).toHaveCount(1);
+    await page.screenshot({ path: info.outputPath(`andrew-${width}-${client}.png`), animations: "disabled" });
+    await page.keyboard.press("Escape");
+    await expect(opener).toBeFocused();
+  }
+  if (width < 640) await page.getByRole("button", { name: /^Open page menu/ }).click();
+  await page.getByRole("button", { name: "Open referrals", exact: true }).click();
+  await expect(page.getByRole("searchbox", { name: "Search all workspaces", exact: true })).toBeVisible();
+  await expect.poll(() => directoryReads.some(params => params.get("scope") === "team" && params.get("active") === "true")).toBe(true);
+  if (width < 640) {
+    const scope = page.getByRole("group", { name: "Workspace scope" });
+    await expect(scope.getByRole("button", { name: "All", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await scope.getByRole("button", { name: "Mine", exact: true }).click();
+    await expect(page.getByRole("searchbox", { name: "Search my workspaces", exact: true })).toBeVisible();
+    await page.reload();
+    await expect(page.getByRole("searchbox", { name: "Search all workspaces", exact: true })).toBeVisible();
+  }
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+for (const user of [owner, andrew]) test(`phone Home keeps ${user.name}'s monitoring out of the assessment workflow`, async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.route("**/api/auth/me", route => route.fulfill({ json: { user } }));
   await page.goto("/");

@@ -762,3 +762,13 @@ calendar dates currently displayed, even across a Monday rollover.
 
 Retain the narrative layout, staff colors, exclusions, access boundaries and
 counting rules. No assessment, assignment, admission or email data is changed.
+
+### Andrew's workspace default (owner, 2026-11-15)
+
+Andrew's Home folder counts and initial folder contents use all current
+workspaces. His phone Workspaces directory also defaults to All. Keep the
+existing Mine/All controls and personal defaults for assessors and other users.
+Recent workspaces still contains only records that person actually opened.
+Use the validated Andrew principal (including its guest-email alias), preserve
+delegation/demo boundaries, and retain the existing API authorization. This is
+a default selection change, not an ownership or access grant.

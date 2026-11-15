@@ -66,16 +66,17 @@ type ReferralHomeProps = {
   onOpenProfile: (canonicalClientId: string) => void;
   canViewTeam: boolean | undefined;
   showTeamOnPhone?: boolean;
+  defaultTeamScope?: boolean;
 };
 
 export default function ScopedReferralHome(props: ReferralHomeProps) {
   const phone = usePhoneAssessment();
-  const [phoneScope, setPhoneScope] = useState<WorkspaceScope>("mine");
+  const [phoneScope, setPhoneScope] = useState<WorkspaceScope | null>(null);
   if (props.canViewTeam === undefined) {
     return <div role="status" aria-busy="true" className="px-6 py-5 text-sm text-[#626a66]">Loading workspaces…</div>;
   }
   const canSwitchScope = phone && props.canViewTeam && props.showTeamOnPhone;
-  const scope = phone ? (canSwitchScope ? phoneScope : "mine") : props.canViewTeam ? "team" : "mine";
+  const scope = phone ? (canSwitchScope ? phoneScope ?? (props.defaultTeamScope ? "team" : "mine") : "mine") : props.canViewTeam ? "team" : "mine";
   const directory = <ReferralHome key={scope} {...props} scope={scope} />;
   return canSwitchScope ? <div className="flex h-full min-h-0 flex-col">
     <div className="shrink-0 px-4 pb-3 sm:px-5">

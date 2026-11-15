@@ -18,7 +18,7 @@ import CurrentWorkOverlay from "@/components/pipeline/CurrentWorkOverlay";
 import { usePipelineAuth } from "@/components/auth/PipelineAuthProvider";
 import { usePipelineShell } from "@/components/pipeline/pipeline-shell-context";
 import { fetchCurrentPipelineUser, fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
-import { buildReferralParams } from "@/components/pipeline/referral-home-directory-model";
+import { buildReferralParams, prefersTeamWorkspaceScope } from "@/components/pipeline/referral-home-directory-model";
 import {
   recordRecentDestination,
 } from "@/lib/pipeline/recent-destinations";
@@ -174,6 +174,7 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
   const [reportAccess, setReportAccess] = useState<boolean | undefined>(() => initialUser ? canAccessOperationsReports(initialUser) : undefined);
   const [admissionFlowAccess, setAdmissionFlowAccess] = useState<boolean | undefined>(() => initialUser ? canAccessExecutiveAdmissionFlow(initialUser) : undefined);
   const [viewerRoles, setViewerRoles] = useState<readonly string[] | undefined>(() => initialUser?.roles);
+  const [defaultTeamScope, setDefaultTeamScope] = useState(() => prefersTeamWorkspaceScope(initialUser));
   const teamAccess = viewerRoles === undefined ? undefined : canAccessSupervisorOperations(viewerRoles);
   const showTeamOnPhone = viewerRoles?.some((role) => role === "admin" || role === "assessment_coordinator") ?? false;
   const [viewerId, setViewerId] = useState(() => initialUser?.id ?? initialBriefing?.viewer.id);
@@ -263,6 +264,7 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
         setReportAccess(canAccessOperationsReports(user));
         setAdmissionFlowAccess(canAccessExecutiveAdmissionFlow(user));
         setViewerRoles(user.roles);
+        setDefaultTeamScope(prefersTeamWorkspaceScope(user));
         // Warm the first workspace page and complete current census after authentication.
         // GET-only reads use the same cache as navigation; no charts or files
         // are downloaded in bulk and no background user session is created.
@@ -275,6 +277,7 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
           setActivityAccess(false);
           setAssessorStatusAccess(false);
           setViewerRoles([]);
+          setDefaultTeamScope(false);
         }
       });
     return () => {
@@ -380,6 +383,7 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
         canViewApplicationActivity={activityAccess === true}
         canViewAssessorStatus={assessorStatusAccess}
         showTeamOnPhone={showTeamOnPhone}
+        defaultTeamScope={defaultTeamScope}
         onOpenPacket={(referral, location, action, exact) => navigate("packet", referral, undefined, location, !exact, action)}
         onOpenProfile={(clientId) => navigate("profile", undefined, clientId)}
         onOpenSearchDestination={(destination: PipelineSiteScreen) => navigate(destination)}
@@ -497,6 +501,7 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
         onOpenProfile={(clientId) => navigate("profile", undefined, clientId)}
         canViewTeam={teamAccess}
         showTeamOnPhone={showTeamOnPhone}
+        defaultTeamScope={defaultTeamScope}
       />
     );
   }
