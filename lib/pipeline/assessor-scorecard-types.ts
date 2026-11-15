@@ -1,4 +1,4 @@
-export type ScorecardPeriod = "30d" | "week" | "launch";
+export type ScorecardPeriod = "4w" | "last_week" | "custom" | "30d" | "week" | "launch";
 export type ScorecardMetric = "interviews" | "confirmed" | "clients" | "fields" | "uploads" | "handoffs" | "resends" | "sendIssues" | "assigned" | "overdue" | "gaps";
 export type ScorecardEvidence = {
   key: string;
@@ -25,6 +25,9 @@ export type AssessorScorecard = {
   period: ScorecardPeriod;
   since: string;
   through: string;
+  asOf?: string;
+  complete?: boolean;
+  comparison?: AssessorScorecard;
   usageSince: string | null;
   people: AssessorScorecardPerson[];
   unattributedEvents: number;

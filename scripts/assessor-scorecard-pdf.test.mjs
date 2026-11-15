@@ -92,3 +92,26 @@ test("PDF endpoint shares private access, fresh database reads, validated filter
   assert.equal((await route(andrew).GET(new Request(url))).status, 200);
   assert.equal(reads, 2); assert.equal(rendered, 2);
 });
+
+test("PDF keeps completed activity, previous-period findings and current workload dates distinct", async () => {
+  const data = { ...snapshot, period: "4w", since: "2026-10-19T07:00:00Z", through: "2026-11-16T07:59:59.999Z", complete: true, asOf: "2026-11-16T20:00:00Z",
+    comparison: { ...snapshot, since: "2026-09-21T07:00:00Z", through: "2026-10-19T06:59:59.999Z", complete: true } };
+  const bytes = await renderAssessorScorecardPdf(data, "days");
+  const task = getDocument({ data: new Uint8Array(bytes) });
+  const doc = await task.promise;
+  try {
+    let content = "";
+    for (let n = 1; n <= doc.numPages; n++) {
+      for (const item of (await (await doc.getPage(n)).getTextContent()).items.filter(item => "str" in item)) {
+        content += item.str + " ";
+        if (item.str.trim()) assert.ok(item.transform[4] >= 35 && item.transform[4] + item.width <= 758 && item.transform[5] >= 12 && item.transform[5] <= 600, "comparison prose fits the page");
+      }
+    }
+    content = content.replace(/\s+/g, " ");
+    assert.match(content, /Oct 19, 2026 - Nov 15, 2026/);
+    assert.match(content, /Compared with Sep 21–Oct 18/);
+    assert.match(content, /Assignments and completion items as of Nov 16, 2026/);
+    assert.match(content, /Activity covers completed days/);
+    assert.doesNotMatch(content, /includes the partial/);
+  } finally { await task.destroy(); }
+});

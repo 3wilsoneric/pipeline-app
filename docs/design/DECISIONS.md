@@ -744,3 +744,21 @@ type, bounded line lengths, shorter paragraphs for comparisons and shared credit
 and a distinct date line for recent work. Keep evidence figures in the prose,
 with keyboard focus and subtle link styling; keep all original facts and
 counting rules. No new staff judgments or data changes are introduced.
+
+
+### Ongoing assessor report periods (owner, 2026-11-15)
+
+Default the assessor narratives to the last four completed Monday–Sunday weeks,
+rolling forward each Monday in Pacific time. A quiet date disclosure offers last
+four weeks, last week, custom inclusive dates and since launch. This supersedes
+the previous since-launch default without restoring the large toolbar.
+
+Compare equal completed periods only when both fall within launch coverage.
+Prior figures open their own evidence. Keep a short final-week account within a
+multiweek report, and label assignments and completion items with today's date.
+A custom range through today is partial and has no complete-period comparison.
+Clicks before tracking began are unavailable, not zero. PDF exports use the
+calendar dates currently displayed, even across a Monday rollover.
+
+Retain the narrative layout, staff colors, exclusions, access boundaries and
+counting rules. No assessment, assignment, admission or email data is changed.

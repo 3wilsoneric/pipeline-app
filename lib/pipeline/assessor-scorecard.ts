@@ -2,13 +2,17 @@ import "server-only";
 import type { PipelineUser } from "@/lib/auth/pipeline-auth";
 import { getPipelineSql } from "@/lib/database/pipeline-database";
 import { getAssessorScorecardWork } from "./operations-snapshot";
-import { buildAssessorScorecard, scorecardRange, type ScorecardEvent, type ScorecardMember } from "./assessor-scorecard-model";
+import { buildAssessorScorecard, type ScorecardEvent, type ScorecardMember } from "./assessor-scorecard-model";
+import { scorecardRange, scorecardPreviousRange, type ScorecardDates } from "./assessor-scorecard-period";
 import type { ScorecardPeriod } from "./assessor-scorecard-types";
 
-export async function getAssessorScorecard(user: PipelineUser, period: ScorecardPeriod) {
+export async function getAssessorScorecard(user: PipelineUser, period: ScorecardPeriod, dates: ScorecardDates = {}, now = new Date()) {
   const sql = getPipelineSql();
-  const through = new Date();
-  const range = scorecardRange(period, through);
+  const range = scorecardRange(period, now, dates);
+  const previous = scorecardPreviousRange(range);
+  const since = previous?.since ?? range.since;
+  // Exclusive closed-period boundaries retain PostgreSQL microseconds at day end.
+  const endExclusive = range.endExclusive ?? new Date(Date.parse(range.through) + 1).toISOString();
   const context = await getAssessorScorecardWork(user);
   const ids = context.work.map((work) => work.referral_id);
   const [members, rows, coverage] = await Promise.all([
@@ -30,8 +34,8 @@ export async function getAssessorScorecard(user: PipelineUser, period: Scorecard
         case when e.entity_type = 'referral' and e.entity_id ~ '^[0-9]{1,15}$' then e.entity_id::bigint end,
         a.referral_id, d.referral_id, w.referral_id, decision.referral_id)
       join pipeline.people p on p.person_id = r.person_id
-      where r.referral_id = any(${ids}::bigint[]) and e.created_at <= ${range.through}::timestamptz
-        and (e.created_at >= ${range.since}::timestamptz or e.action in ('assessment_started', 'assessment_signed', 'assessment_interview_completed', 'meet_client_summary_sent'))
+      where r.referral_id = any(${ids}::bigint[]) and e.created_at < ${endExclusive}::timestamptz
+        and (e.created_at >= ${since}::timestamptz or e.action in ('assessment_started', 'assessment_signed', 'assessment_interview_completed', 'meet_client_summary_sent'))
       order by e.created_at, e.audit_event_id limit 50001
     `,
     sql<{ applied_at: Date }[]>`select applied_at from pipeline.schema_migrations where migration_id = '0049_assessor_usage'`,
@@ -41,11 +45,14 @@ export async function getAssessorScorecard(user: PipelineUser, period: Scorecard
   const usage = usageSince ? await sql<{ actorId: string; minute: Date; interactions: string }[]>`
     select principal_id as "actorId", minute, sum(interactions)::text as interactions
     from pipeline.assessor_usage_minutes
-    where minute >= ${range.since}::timestamptz and minute <= ${range.through}::timestamptz
+    where minute >= ${since}::timestamptz and minute < ${endExclusive}::timestamptz
     group by principal_id, minute
   ` : [];
-  return buildAssessorScorecard({ period, ...range, ...context, usageSince, members,
+  const input = { period, ...context, asOf: now.toISOString(), usageSince, members,
     events: rows.map((row) => ({ ...row, at: row.at.toISOString() })),
     usage: usage.map((row) => ({ ...row, minute: row.minute.toISOString(), interactions: Number(row.interactions) })),
-  });
+  };
+  const snapshot = buildAssessorScorecard({ ...input, ...range });
+  if (previous) snapshot.comparison = buildAssessorScorecard({ ...input, ...previous });
+  return snapshot;
 }

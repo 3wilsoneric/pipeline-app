@@ -93,8 +93,8 @@ export function scorecardRecentWindow(snapshot: AssessorScorecard): ScorecardBuc
   const end = new Date(`${last}T00:00:00Z`);
   end.setUTCDate(end.getUTCDate() + 1);
   const start = new Date(end);
-  start.setUTCDate(start.getUTCDate() - 14);
-  return { start: [start.toISOString().slice(0, 10), pacificDay(snapshot.since)!].sort().at(-1)!, end: end.toISOString().slice(0, 10), label: "Recent activity", partial: true, counts: {} };
+  start.setUTCDate(start.getUTCDate() - (snapshot.complete ? 7 : 14));
+  return { start: [start.toISOString().slice(0, 10), pacificDay(snapshot.since)!].sort().at(-1)!, end: end.toISOString().slice(0, 10), label: snapshot.complete ? "Last week in period" : "Recent activity", partial: !snapshot.complete, counts: {} };
 }
 
 // Calendar arithmetic uses UTC date-only values after conversion to Pacific days,

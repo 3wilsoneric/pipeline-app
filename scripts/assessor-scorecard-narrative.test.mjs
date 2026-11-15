@@ -53,3 +53,20 @@ test("ties, empty periods, tracked zero and later or ambiguous confirmations do 
   a.activeDays = b.activeDays = 5;
   assert.doesNotMatch(scorecardNarrative(data, a).lead, /Most days|Most recorded/);
 });
+
+
+test("completed-period narratives link prior evidence separately and keep today's work distinct", () => {
+  const a = person("A", { clients: [event(1)], assigned: [event(3)], confirmed: [event(1, "2026-11-12T18:00:00Z")] }, [event(1, "2026-11-12T18:00:00Z")]);
+  const before = person("A", { clients: [event(2)] }, [event(2, "2026-10-02T18:00:00Z"), event(2, "2026-10-03T18:00:00Z")]);
+  const data = { ...snapshot([a]), since: "2026-10-19T07:00:00Z", through: "2026-11-16T07:59:59.999Z", asOf: "2026-11-16T20:00:00Z", complete: true,
+    comparison: { ...snapshot([before]), since: "2026-09-21T07:00:00Z", through: "2026-10-19T06:59:59.999Z", complete: true } };
+  const review = scorecardNarrative(data, a);
+  assert.match(prose(review), /Compared with Sep 21–Oct 18/);
+  assert.match(prose(review), /Nov 9–Nov 15/);
+  assert.match(prose(review), /As of Nov 16: 1 assigned workspace/);
+  const facts = review.paragraphs.flat().filter(part => typeof part !== "string");
+  assert.ok(facts.some(part => part.comparison));
+  for (const part of facts) assert.ok(part.text.startsWith(String(scorecardSelection(part.comparison ? before : a, part.metric, part.bucket).value)));
+  const week = scorecardNarrative({ ...data, since: "2026-11-09T08:00:00Z" }, a);
+  assert.equal(week.sections.some(section => section.kind === "recent"), false, "one-week view does not repeat all its facts as a last-week summary");
+});

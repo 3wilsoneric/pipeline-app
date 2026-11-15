@@ -24,7 +24,7 @@ for (const width of [1440, 390, 320]) test(`assessor narratives lead with linked
   await expect(reviews.getByRole("article")).toHaveCount(8);
   await expect(report.getByRole("group", { name: "Recorded work comparison", exact: true })).toBeHidden();
   await expect(report.getByRole("combobox", { name: "Sort by" })).toHaveCount(0);
-  await expect(report.getByRole("combobox", { name: "Period", exact: true })).toHaveCount(0);
+  await expect(report.getByRole("combobox", { name: "Period", exact: true })).toBeHidden();
   await expect(report.getByRole("button", { name: "Refresh", exact: true })).toHaveCount(0);
   await expect(report.getByText("Select a figure for its evidence", { exact: true })).toHaveCount(0);
   const review = reviews.getByRole("article", { name: "Alexandria Montgomery-Washington usage review", exact: true });
@@ -148,7 +148,7 @@ for (const touch of [false, true]) test(`scorecard scrolls inside the report fra
   }
 });
 
-for (const width of [1440, 834, 390, 320]) test(`scorecard launch ordering, evidence, keyboard and readable layout at ${width}px`, async ({ page }) => {
+for (const width of [1440, 834, 390, 320]) test(`scorecard default ordering, evidence, keyboard and readable layout at ${width}px`, async ({ page }) => {
   await page.setViewportSize({ width, height: 960 });
   await page.route("**/api/auth/me", route => route.fulfill({ json: { user: owner } }));
   const periods: string[] = [];
@@ -174,8 +174,8 @@ for (const width of [1440, 834, 390, 320]) test(`scorecard launch ordering, evid
   await expect(work.getByRole("listitem")).toHaveCount(8);
   expect(await report.evaluate(node => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
   for (const row of await work.getByRole("listitem").all()) expect(await row.evaluate(node => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
-  await expect(report.getByRole("combobox", { name: "Period", exact: true })).toHaveCount(0);
-  await expect.poll(() => periods.at(-1)).toBe("launch");
+  await expect(report.getByRole("combobox", { name: "Period", exact: true })).toBeHidden();
+  await expect.poll(() => periods.at(-1)).toBe("4w");
   await report.getByRole("button", { name: "Alexandria Montgomery-Washington: 3 items to complete" }).click();
   const breakdown = page.getByRole("dialog", { name: "Alexandria Montgomery-Washington breakdown", exact: true });
   await expect(breakdown).toBeVisible();
@@ -249,7 +249,7 @@ test("failure is retryable, zero results are honest and other users cannot see t
   expect(privateRequests).toBe(0);
 });
 
-test("quiet footer PDF export keeps the launch scope and ordering, downloads once and can retry a failure", async ({ page }) => {
+test("quiet footer PDF export pins the displayed dates and ordering, downloads once and can retry a failure", async ({ page }) => {
   await page.route("**/api/auth/me", route => route.fulfill({ json: { user: owner } }));
   let fail = true;
   const exports: URL[] = [];
@@ -271,7 +271,7 @@ test("quiet footer PDF export keeps the launch scope and ordering, downloads onc
   expect(download.suggestedFilename()).toBe("pipeline-assessor-scorecard-launch.pdf");
   expect(readFileSync((await download.path())!, "utf8")).toBe("%PDF-Synthetic download");
   expect(exports).toHaveLength(2);
-  for (const url of exports) { expect(url.searchParams.get("period")).toBe("launch"); expect(url.searchParams.get("sort")).toBe("days"); }
+  for (const url of exports) { expect(url.searchParams.get("period")).toBe("custom"); expect(url.searchParams.get("start")).toBe("2026-10-15"); expect(url.searchParams.get("end")).toBe("2026-11-13"); expect(url.searchParams.get("sort")).toBe("days"); }
   await expect(exportError).toHaveCount(0);
 });
 
@@ -349,8 +349,53 @@ test("Andrew can open the same report and export without gaining the private act
   await page.goto("/?screen=operations");
   await page.getByRole("navigation", { name: "Reports", exact: true }).getByRole("link", { name: "Assessor scorecard", exact: true }).click();
   const report = page.getByRole("main", { name: "Assessor scorecard", exact: true });
-  await expect(report.getByRole("combobox", { name: "Period", exact: true })).toHaveCount(0);
+  await expect(report.getByRole("combobox", { name: "Period", exact: true })).toBeHidden();
   await expect(report.getByRole("button", { name: "Export PDF" })).toBeVisible();
   await expect(report.getByRole("region", { name: "Assessor usage review" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Application activity", exact: true })).toHaveCount(0);
+});
+
+
+for (const width of [1440, 320]) test(`compact period picker, comparison evidence and matching custom PDF at ${width}px`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 960 });
+  await page.route("**/api/auth/me", route => route.fulfill({ json: { user: owner } }));
+  const requests: URL[] = [];
+  await page.route("**/api/operations/assessor-scorecard?*", route => {
+    const url = new URL(route.request().url()); requests.push(url);
+    if (url.searchParams.get("format") === "pdf") return route.fulfill({ contentType: "application/pdf", body: Buffer.from("%PDF-Synthetic") });
+    const period = url.searchParams.get("period")!;
+    const since = period === "custom" ? `${url.searchParams.get("start")}T08:00:00Z` : period === "last_week" ? "2026-11-02T08:00:00Z" : "2026-10-12T07:00:00Z";
+    const through = period === "custom" ? `${url.searchParams.get("end")}T23:00:00Z` : "2026-11-09T07:59:59.999Z";
+    return route.fulfill({ json: { ...snapshot, period, since, through, complete: true, asOf: "2026-11-15T20:00:00Z",
+      comparison: { ...snapshot, since: "2026-10-05T07:00:00Z", through: "2026-10-12T06:59:59.999Z", complete: true, asOf: "2026-11-15T20:00:00Z", people: people.map(person => ({ ...person, activeDays: 2 })) } } });
+  });
+  await page.goto("/?screen=operations&report=assessor_scorecard");
+  const report = page.getByRole("main", { name: "Assessor scorecard", exact: true });
+  const scope = report.locator("summary").filter({ hasText: "Last four weeks" });
+  await expect(scope).toBeVisible();
+  await scope.focus(); await page.keyboard.press("Enter");
+  await report.getByRole("combobox", { name: "Period", exact: true }).selectOption("last_week");
+  await expect(report.locator("summary").filter({ hasText: "Last week" })).toBeFocused();
+  const priorFact = report.getByRole("button", { name: /2 days · Previous period/ }).first();
+  await priorFact.click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByText(/Previous period · Oct 5, 2026–Oct 11, 2026/)).toBeVisible();
+  await expect(dialog.getByRole("heading", { name: "Days with recorded work", exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(priorFact).toBeFocused();
+  await report.locator("summary").filter({ hasText: "Last week" }).click();
+  await report.getByRole("combobox", { name: "Period", exact: true }).selectOption("custom");
+  await report.getByLabel("From", { exact: true }).fill("2026-10-20");
+  await report.getByLabel("Through", { exact: true }).fill("2026-10-19");
+  const before = requests.length;
+  await report.getByRole("button", { name: "Apply dates" }).click();
+  expect(requests.length).toBe(before);
+  await report.getByLabel("Through", { exact: true }).fill("2026-10-27");
+  await report.getByRole("button", { name: "Apply dates" }).click();
+  await expect(report.locator("summary").filter({ hasText: "Custom dates" })).toContainText("Oct 20, 2026–Oct 27, 2026");
+  expect(await report.evaluate(node => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
+  const download = page.waitForEvent("download");
+  await report.getByRole("button", { name: "Export PDF", exact: true }).click(); await download;
+  const exported = requests.at(-1)!;
+  expect(exported.searchParams.get("start")).toBe("2026-10-20"); expect(exported.searchParams.get("end")).toBe("2026-10-27");
 });
