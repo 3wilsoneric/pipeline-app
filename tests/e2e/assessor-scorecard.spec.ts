@@ -23,7 +23,10 @@ for (const width of [1440, 390, 320]) test(`assessor narratives lead with linked
   const reviews = report.getByRole("region", { name: "Assessor usage review", exact: true });
   await expect(reviews.getByRole("article")).toHaveCount(8);
   await expect(report.getByRole("group", { name: "Recorded work comparison", exact: true })).toBeHidden();
-  await report.getByRole("combobox", { name: "Sort by" }).selectOption("name");
+  await expect(report.getByRole("combobox", { name: "Sort by" })).toHaveCount(0);
+  await expect(report.getByRole("combobox", { name: "Period", exact: true })).toHaveCount(0);
+  await expect(report.getByRole("button", { name: "Refresh", exact: true })).toHaveCount(0);
+  await expect(report.getByText("Select a figure for its evidence", { exact: true })).toHaveCount(0);
   const review = reviews.getByRole("article", { name: "Alexandria Montgomery-Washington usage review", exact: true });
   await expect(review.getByText(/Recorded work on/)).toContainText("3 days across 3 client workspaces");
   await expect(review.getByText(/Click tracking covers/)).toContainText("Nov 12–Nov 13");
@@ -35,7 +38,7 @@ for (const width of [1440, 390, 320]) test(`assessor narratives lead with linked
   await page.keyboard.press("Escape");
   await expect(trigger).toBeFocused();
   for (const article of await reviews.getByRole("article").all()) expect(await article.evaluate(node => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
-  await report.getByRole("combobox", { name: "Period", exact: true }).scrollIntoViewIfNeeded();
+  await review.scrollIntoViewIfNeeded();
   await page.screenshot({ path: `.data/scorecard-narrative-${width}.png` });
   await page.addScriptTag({ content: readFileSync(require.resolve("axe-core/axe.min.js"), "utf8") });
   const violations = await page.evaluate(async () => {
@@ -134,8 +137,8 @@ for (const touch of [false, true]) test(`scorecard scrolls inside the report fra
     if (!touch) {
       await page.mouse.wheel(0, 20_000);
       await expect(report.getByText("How this is counted", { exact: true })).toBeInViewport();
-      await report.getByRole("button", { name: "Refresh", exact: true }).focus();
-      await expect.poll(() => report.evaluate(node => node.scrollTop)).toBe(0);
+      await report.getByRole("region", { name: "Assessor usage review" }).getByRole("button").first().focus();
+      await expect.poll(() => report.evaluate(node => node.scrollTop)).toBeLessThan(100);
       await page.keyboard.press("PageDown");
       await expect.poll(() => report.evaluate(node => node.scrollTop)).toBeGreaterThan(100);
     }
@@ -145,7 +148,7 @@ for (const touch of [false, true]) test(`scorecard scrolls inside the report fra
   }
 });
 
-for (const width of [1440, 834, 390, 320]) test(`scorecard sorting, evidence, keyboard and readable layout at ${width}px`, async ({ page }) => {
+for (const width of [1440, 834, 390, 320]) test(`scorecard launch ordering, evidence, keyboard and readable layout at ${width}px`, async ({ page }) => {
   await page.setViewportSize({ width, height: 960 });
   await page.route("**/api/auth/me", route => route.fulfill({ json: { user: owner } }));
   const periods: string[] = [];
@@ -165,14 +168,13 @@ for (const width of [1440, 834, 390, 320]) test(`scorecard sorting, evidence, ke
   const work = report.getByRole("region", { name: "Assessments confirmed", exact: true });
   await expect(work.getByText("Alexandria Montgomery-Washington", { exact: true })).toBeVisible();
   await page.setViewportSize({ width, height: 960 });
-  await expect(report.getByRole("combobox", { name: "Sort by" })).toHaveValue("days");
+  await expect(report.getByRole("combobox", { name: "Sort by" })).toHaveCount(0);
   await expect(work.getByRole("heading", { name: "Assessments confirmed", exact: true })).toBeVisible();
-  await report.getByRole("combobox", { name: "Sort by" }).selectOption("name");
-  await expect(work.getByRole("listitem").first()).toContainText("Alexandria Montgomery-Washington");
+  await expect(work.getByRole("listitem").first()).toContainText("Synthetic Assessor 8");
   await expect(work.getByRole("listitem")).toHaveCount(8);
   expect(await report.evaluate(node => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
   for (const row of await work.getByRole("listitem").all()) expect(await row.evaluate(node => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
-  await report.getByRole("combobox", { name: "Period", exact: true }).selectOption("launch");
+  await expect(report.getByRole("combobox", { name: "Period", exact: true })).toHaveCount(0);
   await expect.poll(() => periods.at(-1)).toBe("launch");
   await report.getByRole("button", { name: "Alexandria Montgomery-Washington: 3 items to complete" }).click();
   const breakdown = page.getByRole("dialog", { name: "Alexandria Montgomery-Washington breakdown", exact: true });
@@ -218,7 +220,7 @@ for (const width of [1440, 834, 390, 320]) test(`scorecard sorting, evidence, ke
     return result.violations.filter(item => ["serious", "critical"].includes(item.impact));
   });
   expect(violations).toEqual([]);
-  await report.getByRole("combobox", { name: "Period", exact: true }).scrollIntoViewIfNeeded();
+  await report.getByRole("region", { name: "Assessor usage review" }).getByRole("article").first().scrollIntoViewIfNeeded();
   await page.mouse.move(0, 0);
   await page.screenshot({ path: `.data/scorecard-${width}.png` });
   await page.reload();
@@ -247,7 +249,7 @@ test("failure is retryable, zero results are honest and other users cannot see t
   expect(privateRequests).toBe(0);
 });
 
-test("PDF export keeps selected filters, downloads once and can retry a failure", async ({ page }) => {
+test("quiet footer PDF export keeps the launch scope and ordering, downloads once and can retry a failure", async ({ page }) => {
   await page.route("**/api/auth/me", route => route.fulfill({ json: { user: owner } }));
   let fail = true;
   const exports: URL[] = [];
@@ -258,8 +260,7 @@ test("PDF export keeps selected filters, downloads once and can retry a failure"
     return route.fulfill(fail ? { status: 503, json: { error: "Unavailable" } } : { contentType: "application/pdf", headers: { "content-disposition": 'attachment; filename="pipeline-assessor-scorecard-launch.pdf"' }, body: Buffer.from("%PDF-Synthetic download") });
   });
   await page.goto("/?screen=operations&report=assessor_scorecard");
-  await page.getByRole("combobox", { name: "Period", exact: true }).selectOption("launch");
-  await page.getByRole("combobox", { name: "Sort by" }).selectOption("name");
+  await expect(page.getByRole("button", { name: "Export PDF" })).not.toBeInViewport();
   await page.getByRole("button", { name: "Export PDF" }).click();
   const exportError = page.getByRole("alert").filter({ hasText: "PDF unavailable" });
   await expect(exportError).toBeVisible();
@@ -270,7 +271,7 @@ test("PDF export keeps selected filters, downloads once and can retry a failure"
   expect(download.suggestedFilename()).toBe("pipeline-assessor-scorecard-launch.pdf");
   expect(readFileSync((await download.path())!, "utf8")).toBe("%PDF-Synthetic download");
   expect(exports).toHaveLength(2);
-  for (const url of exports) { expect(url.searchParams.get("period")).toBe("launch"); expect(url.searchParams.get("sort")).toBe("name"); }
+  for (const url of exports) { expect(url.searchParams.get("period")).toBe("launch"); expect(url.searchParams.get("sort")).toBe("days"); }
   await expect(exportError).toHaveCount(0);
 });
 
@@ -348,7 +349,7 @@ test("Andrew can open the same report and export without gaining the private act
   await page.goto("/?screen=operations");
   await page.getByRole("navigation", { name: "Reports", exact: true }).getByRole("link", { name: "Assessor scorecard", exact: true }).click();
   const report = page.getByRole("main", { name: "Assessor scorecard", exact: true });
-  await expect(report.getByRole("combobox", { name: "Period", exact: true })).toHaveValue("launch");
+  await expect(report.getByRole("combobox", { name: "Period", exact: true })).toHaveCount(0);
   await expect(report.getByRole("button", { name: "Export PDF" })).toBeVisible();
   await expect(report.getByRole("region", { name: "Assessor usage review" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Application activity", exact: true })).toHaveCount(0);

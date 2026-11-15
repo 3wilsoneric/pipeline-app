@@ -41,7 +41,7 @@ export function scorecardNarrative(snapshot: AssessorScorecard, person: Assessor
 
   const work: ScorecardNarrativeParagraph = ["Recorded work on ", fact("days", "days"), " across ", fact("clients", "client workspaces"), ", with ", fact("fields", "assessment fields touched"), " and ", fact("uploads", "files uploaded"), "."];
   if (fieldClients) work.push(` Field contributions cover ${number(fieldClients)} of those workspaces.`);
-  if (comparable) work.push(` ${comparable.name} also contributed to ${number(count("clients"))} workspaces, with assessment-field activity on ${new Set(comparable.evidence.fields.map(item => item.referralId)).size}.`);
+  const comparison: ScorecardNarrativeParagraph = comparable ? [`${comparable.name} also contributed to ${number(count("clients"))} workspaces, with assessment-field activity on ${new Set(comparable.evidence.fields.map(item => item.referralId)).size}.`] : [];
 
   const completed: ScorecardNarrativeParagraph = ["Recorded ", fact("confirmed", "first chart confirmations"), " and ", fact("handoffs", "first handoffs"), " in the selected period."];
   // Attribute shared work only when a dated confirmation precedes the handoff.
@@ -55,10 +55,12 @@ export function scorecardNarrative(snapshot: AssessorScorecard, person: Assessor
     const actor = actors.size === 1 ? [...actors.values()][0] : undefined;
     if (actor && actor.id !== person.id) collaborators.set(actor.name, (collaborators.get(actor.name) ?? 0) + 1);
   }
-  for (const [name, total] of collaborators) completed.push(` ${total} of these handoffs followed charts confirmed by ${name}.`);
-  if (collaborators.size) completed.push(" Sending and preparing the record are shared contributions.");
+  const shared: ScorecardNarrativeParagraph = [];
+  for (const [name, total] of collaborators) shared.push(`${shared.length ? " " : ""}${total} of these handoffs followed charts confirmed by ${name}.`);
+  if (collaborators.size) shared.push(" Sending and preparing the record are shared contributions.");
 
   const pattern: ScorecardNarrativeParagraph = [`${recentDates}: `, fact("days", "days with saved work", recent), " across ", fact("clients", "workspaces", recent), ", ", fact("confirmed", "first confirmations", recent), ", ", fact("handoffs", "first handoffs", recent), ", and ", fact("uploads", "uploads", recent), "."];
+  const change: ScorecardNarrativeParagraph = [];
   const length = Math.round((Date.parse(recent.end) - Date.parse(recent.start)) / 86_400_000);
   const previousStart = dateShift(recent.start, -length);
   // Do not compare with an earlier window outside the selected data coverage.
@@ -66,11 +68,11 @@ export function scorecardNarrative(snapshot: AssessorScorecard, person: Assessor
   if (length === 14 && previousStart >= coveredStart) {
     const previous: ScorecardBucket = { start: previousStart, end: recent.start, label: `${date(previousStart)}–${date(dateShift(recent.start, -1))}`, partial: false, counts: {} };
     const before = count("days", previous), now = count("days", recent);
-    if (before !== now) pattern.push(` Saved-work days ${now < before ? "fell" : "rose"} from `, fact("days", `in ${previous.label}`, previous), ` to ${now} in the recent window.`);
+    if (before !== now) change.push(`Saved-work days ${now < before ? "fell" : "rose"} from `, fact("days", `in ${previous.label}`, previous), ` to ${now} in the recent window.`);
   }
-  if (concentrated) pattern.push(` This is ${recentHandoffs} of the team's ${teamHandoffs} first handoffs in that window.`);
+  if (concentrated) change.push(`${change.length ? " " : ""}This is ${recentHandoffs} of the team's ${teamHandoffs} first handoffs in that window.`);
 
-  if (count("confirmed", recent) >= 2 && count("confirmed", recent) > teamConfirmations / 2) pattern.push(` Also ${count("confirmed", recent)} of the team's ${teamConfirmations} first chart confirmations in that window.`);
+  if (count("confirmed", recent) >= 2 && count("confirmed", recent) > teamConfirmations / 2) change.push(`${change.length ? " " : ""}Also ${count("confirmed", recent)} of the team's ${teamConfirmations} first chart confirmations in that window.`);
 
   const open: ScorecardNarrativeParagraph = ["Currently ", fact("assigned", "assigned workspaces"), ...(count("overdue") ? [", including ", fact("overdue", "overdue assignments")] : []), ", plus ", fact("gaps", "completion items"), ". Completion items can include already-admitted clients."];
   const trackedStart = snapshot.usageSince && snapshot.usageSince > snapshot.since ? snapshot.usageSince : snapshot.since;
@@ -85,5 +87,11 @@ export function scorecardNarrative(snapshot: AssessorScorecard, person: Assessor
     : count("assigned") ? "Which current clients are ready for the next step, and what is keeping the others open?"
     : count("gaps") ? "Which completion items still need this assessor's information or correction?"
     : "No current assignments or completion items are recorded for this assessor.";
-  return { lead, paragraphs: [work, completed, pattern, open, usage], question };
+  const sections = [
+    { kind: "overview", paragraphs: [work, comparison, completed, shared].filter(paragraph => paragraph.length > 0) },
+    { kind: "recent", paragraphs: [pattern, change].filter(paragraph => paragraph.length > 0) },
+    { kind: "current", paragraphs: [open] },
+    { kind: "usage", paragraphs: [usage] },
+  ];
+  return { lead, sections, paragraphs: sections.flatMap(section => section.paragraphs), question };
 }

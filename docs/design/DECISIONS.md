@@ -730,3 +730,17 @@ Remove the daily calendar. Keep the existing comparison and explicitly labelled
 trend under “Compare measures.” Use the same narratives in the PDF, with numeric
 ledgers as supporting detail. Eric and Andrew retain access and remain excluded
 from the assessor cohort. No workflow or storage behavior changes.
+
+### Readable assessor briefing (owner, 2026-11-15)
+
+The owner requested removal of the period/sort/refresh toolbar and instruction
+strip, plus substantially better paragraph formatting. Open directly on the
+assessor narratives, using the established since-launch scope and recorded-workday
+ordering. Keep PDF export as a quiet footer action and retain date coverage in
+the counting details. The error-state retry remains available.
+
+Give each assessor's name and takeaway a clear hierarchy. Use larger reading
+type, bounded line lengths, shorter paragraphs for comparisons and shared credit,
+and a distinct date line for recent work. Keep evidence figures in the prose,
+with keyboard focus and subtle link styling; keep all original facts and
+counting rules. No new staff judgments or data changes are introduced.

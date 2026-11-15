@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { fetchPipelineApi, fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
-import { Download, RefreshCw } from "lucide-react";
+import { Download } from "lucide-react";
 import type { AssessorScorecard as Snapshot, ScorecardPeriod } from "@/lib/pipeline/assessor-scorecard-types";
 import { scorecardTrendMeasures, scorecardDisplayLabels, type ScorecardTrendMeasure, sortScorecardPeople, type ScorecardSort as Sort } from "@/lib/pipeline/assessor-scorecard-presentation";
 import styles from "./AssessorScorecard.module.css";
@@ -12,9 +12,9 @@ import type { HomeDialogOrigin } from "./HomeDialog";
 import AssessorScorecardCharts, { type ScorecardSelection } from "./AssessorScorecardCharts";
 
 export default function AssessorScorecard() {
-  const [period, setPeriod] = useState<ScorecardPeriod>("launch");
+  const period: ScorecardPeriod = "launch";
   const [refresh, setRefresh] = useState(0);
-  const [sort, setSort] = useState<Sort>("days");
+  const sort: Sort = "days";
   const [measure, setMeasure] = useState<ScorecardTrendMeasure>("days");
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState(false);
@@ -33,22 +33,15 @@ export default function AssessorScorecard() {
     } catch { setExportError(true); }
     finally { setExporting(false); }
   };
-  const reload = () => { setSort("days"); setRefresh((value) => value + 1); };
+  const reload = () => setRefresh((value) => value + 1);
   return <main aria-label="Assessor scorecard" data-testid="operations-workspace" className={styles.page}>
     <article className={styles.body}>
       <h1 className="sr-only">Assessor scorecard</h1>
-      <header className={styles.toolbar}>
-        <div className={styles.controls}><label><span>Period</span><select value={period} onChange={(event) => { setSort("days"); setPeriod(event.target.value as ScorecardPeriod); }}>
-          <option value="30d">Last 30 days</option><option value="week">This week</option><option value="launch">Since launch</option>
-        </select></label>
-        <label><span>Sort by</span><select value={sort} onChange={(event) => setSort(event.target.value as Sort)}>
-          <option value="days">Recorded workdays</option><option value="interviews">Interviews</option><option value="confirmed">Confirmations</option><option value="clients">Clients worked</option><option value="handoffs">Handoffs sent</option><option value="gaps">Open items</option><option value="interactions">Clicks / taps</option><option value="name">Name</option>
-        </select></label>
-        <div className={styles.actions}><button className={styles.refresh} type="button" onClick={reload}><RefreshCw size={17} aria-hidden="true" />Refresh</button>
-        <button className={styles.refresh} type="button" disabled={exporting} onClick={() => void exportPdf()}><Download size={17} aria-hidden="true" />{exporting ? "Exporting…" : "Export PDF"}</button></div></div>
-      </header>
-      {exportError ? <p className={styles.notice} role="alert">PDF unavailable. Try Export PDF again.</p> : null}
       <div className={styles.results}><ScorecardResults key={`${period}:${refresh}`} period={period} sort={sort} measure={measure} onMeasureChange={setMeasure} retry={reload} /></div>
+      <footer className={styles.exportFooter}>
+        {exportError ? <p className={styles.notice} role="alert">PDF unavailable. Try Export PDF again.</p> : null}
+        <button className={styles.exportLink} type="button" disabled={exporting} onClick={() => void exportPdf()}><Download size={17} aria-hidden="true" />{exporting ? "Exporting…" : "Export PDF"}</button>
+      </footer>
     </article>
   </main>;
 }
@@ -73,7 +66,6 @@ function ScorecardResults({ period, sort, measure, onMeasureChange, retry }: { p
     setSelection({ ...next, origin: { left, top, width, height } });
   };
   return <>
-    <div className={styles.context}><span>{day(snapshot.since)}–{day(snapshot.through)} · Pacific time</span><span>Select a figure for its evidence</span></div>
     {!people.length ? <p className={styles.notice}>No assessor records in this period.</p> : <>
       <AssessorScorecardNarratives snapshot={snapshot} people={people} onSelect={openDetail} />
       <p className={styles.coverage}>Saved work is not attendance or clinical quality. Recent activity includes the partial current day; current assignments do not establish why a client is waiting.</p>
@@ -90,6 +82,7 @@ function ScorecardResults({ period, sort, measure, onMeasureChange, retry }: { p
     {selected && selection ? <AssessorScorecardDetail person={selected} snapshot={snapshot} selection={selection} origin={selection.origin}
       onSelect={next => setSelection({ ...next, origin: selection.origin })} onClose={() => setSelection(null)} /> : null}
     <details className={styles.methods}><summary>How this is counted</summary>
+      <p>{day(snapshot.since)}–{day(snapshot.through)} · Pacific time</p>
       <p>Native Pipeline workspaces · {snapshot.usageSince ? `Usage tracking began ${day(snapshot.usageSince)}. Earlier clicks and active minutes are unavailable.` : "Historical click and active-time data are unavailable. Tracking starts when this release is enabled."}</p>
       {(snapshot.unattributedEvents || snapshot.unassignedWorkspaces || snapshot.unassignedGapItems) ? <p>{snapshot.unattributedEvents} unlinked audit events · {snapshot.unassignedWorkspaces} unassigned workspaces · {snapshot.unassignedGapItems} completion items without a linked owner. These are not credited to an assessor.</p> : null}
       <ul>
