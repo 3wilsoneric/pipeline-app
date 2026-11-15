@@ -64,12 +64,12 @@ export async function renderAssessorScorecardPdf(snapshot: AssessorScorecard, so
   };
   const paragraph = (value: string, size = 9, fill = muted) => {
     const wrapped = lines(value, width, size);
-    if (y + wrapped.length * size * 1.5 + 6 > bottom) newPage("Report notes");
+    if (y + wrapped.length * size * 1.4 + 4 > bottom) newPage("Report notes");
     for (const line of wrapped) {
-      if (y + size * 1.5 > bottom) newPage("Report notes");
-      text(line, left, y, size, false, fill); y += size * 1.5;
+      if (y + size * 1.4 > bottom) newPage("Report notes");
+      text(line, left, y, size, false, fill); y += size * 1.4;
     }
-    y += 6;
+    y += 4;
   };
   const groups: AssessorScorecardPerson[][] = [];
   for (let i = 0; i < people.length; i += 5) groups.push(people.slice(i, i + 5));
@@ -112,13 +112,13 @@ export async function renderAssessorScorecardPdf(snapshot: AssessorScorecard, so
     return Math.max(...measures.map((measure, i) => chart(group, measure, left + i * (w + gap), top, w)));
   };
   const timeline = (group: AssessorScorecardPerson[], top: number) => {
-    const height = 225 + group.length * 16;
+    const height = 180 + group.length * 14;
     if (top + height > bottom) { newPage("Recorded work over time"); top = y; }
     text("Days with recorded work", left, top, 13, true);
     text(`${trend.unit} beginning | Pacific time | * Partial period`, left, top + 20, 8, false, muted);
     if (!trend.buckets.length) return top + 42;
     const maximum = scorecardAxisMaximum(trend.buckets.flatMap(bucket => Object.values(bucket.counts)));
-    const plotTop = top + 46, plotHeight = 126, plotLeft = left + 28, plotWidth = width - 48;
+    const plotTop = top + 46, plotHeight = 100, plotLeft = left + 28, plotWidth = width - 48;
     const x = (index: number) => plotLeft + plotWidth * (trend.buckets.length === 1 ? .5 : index / (trend.buckets.length - 1));
     const pointY = (value: number) => plotTop + plotHeight * (1 - value / maximum);
     for (const value of [0, maximum / 2, maximum]) {
@@ -135,7 +135,7 @@ export async function renderAssessorScorecardPdf(snapshot: AssessorScorecard, so
     let row = plotTop + plotHeight + 34;
     for (const person of group) {
       ctx.fillStyle = color(scorecardPersonColor(snapshot.people, person.id)); ctx.fillRect(left, row + 3, 16, 3);
-      text(`${person.name}  /  ${person.activeDays} days in the selected period`, left + 24, row, 9, true); row += 16;
+      text(`${person.name}  /  ${person.activeDays} days in the selected period`, left + 24, row, 9, true); row += 14;
     }
     return row;
   };
@@ -144,7 +144,7 @@ export async function renderAssessorScorecardPdf(snapshot: AssessorScorecard, so
   for (const group of groups) {
     newPage("Assessor work");
     y = pair(group, ["confirmed", "clients", "handoffs"], y);
-    y = timeline(group, y + 24);
+    y = timeline(group, y + 16);
   }
   for (const group of groups) {
     newPage("Current follow-through");
