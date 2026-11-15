@@ -1,4 +1,5 @@
 import { formatClientIdentityTitle } from "@/lib/pipeline/client-identity-presentation.mjs";
+import { isAndrewSupervisorPreview } from "@/lib/pipeline/application-activity-access";
 import type { Referral, ReferralFile } from "@/lib/pipeline/referral-types";
 import type { ReferralListOptions } from "@/lib/pipeline/referral-store";
 import { isRecordedWorkspaceCommunity } from "@/lib/pipeline/workspace-presentation";
@@ -8,7 +9,7 @@ export type WorkspaceScope = NonNullable<ReferralListOptions["scope"]>;
 // Andrew oversees the team rather than carrying a personal assessment queue.
 // This is a presentation default; the existing API still authorizes every read.
 export function prefersTeamWorkspaceScope(user: { id?: string; email?: string; roles: readonly string[]; delegation?: unknown; demoPersona?: string; accessScope?: string } | null | undefined) {
-  return Boolean(user && !user.delegation && !user.demoPersona && user.accessScope !== "note_lab"
+  return Boolean(user && (!user.delegation || isAndrewSupervisorPreview(user)) && !user.demoPersona && user.accessScope !== "note_lab"
     && user.roles.some(role => role === "admin" || role === "assessment_coordinator")
     && (user.id?.trim().toLowerCase() === "e9f39185-d751-45c0-bcf5-c24d3565bdd9"
       || user.email?.trim().toLowerCase() === "andrew@aaahealthservices.com"));

@@ -772,3 +772,13 @@ Recent workspaces still contains only records that person actually opened.
 Use the validated Andrew principal (including its guest-email alias), preserve
 delegation/demo boundaries, and retain the existing API authorization. This is
 a default selection change, not an ownership or access grant.
+
+
+### Andrew supervisor preview (owner, 2026-11-15)
+
+Eric's “Work as Andrew” view shows Andrew's shared assessor status and Reports
+scorecard and defaults current workspaces to All, matching Andrew's direct sign-in.
+Only the authenticated Eric-to-Andrew delegation receives this exception. Private
+application activity and database monitoring remain excluded from delegation;
+assessor telemetry still ignores delegated activity. Other users retain their
+existing scopes and report boundaries.

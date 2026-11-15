@@ -6,6 +6,7 @@ import { loadEntry } from "./contact-import-fixtures.mjs";
 
 const owner = { id: "f73371d5-d2b4-48b4-a32b-1edc7c88869f", email: "ericwilsonalamo@outlook.com", name: "Eric", roles: ["admin"], accessScope: "pipeline" };
 const andrew = { ...owner, id: "e9f39185-d751-45c0-bcf5-c24d3565bdd9", email: "andrew@aaahealthservices.com", name: "Andrew" };
+const preview = { ...andrew, delegation: { initiatedBy: owner, target: { ...andrew, identityStatus: "entra_linked" } } };
 const policy = loadEntry("lib/pipeline/application-activity-access.ts");
 const cursor = loadEntry("lib/pipeline/keyset-cursor.ts");
 const logging = loadEntry("lib/observability/api-logging.ts", {
@@ -14,7 +15,7 @@ const logging = loadEntry("lib/observability/api-logging.ts", {
 }, { console: { log() {}, error() {} } });
 
 test("private dashboard denies other admins, role-only access, delegation, demos and anonymous requests", async () => {
-  const people = [null, andrew, { ...owner, id: "vince", email: "vince@aaahealthservices.com" }, { ...owner, roles: ["viewer"] }, { ...owner, delegation: { initiatedBy: owner } }, { ...owner, demoPersona: "supervisor" }];
+  const people = [null, andrew, preview, { ...owner, id: "vince", email: "vince@aaahealthservices.com" }, { ...owner, roles: ["viewer"] }, { ...owner, delegation: { initiatedBy: owner } }, { ...owner, demoPersona: "supervisor" }];
   for (const user of people) {
     let reads = 0;
     const route = activityRoute(user, async () => { reads++; return {}; });
@@ -28,7 +29,7 @@ test("private dashboard denies other admins, role-only access, delegation, demos
 });
 
 test("Eric and Andrew share the Home names and colors without granting private dashboard access", async () => {
-  for (const user of [owner, andrew, { ...andrew, email: "guest#EXT#@tenant.onmicrosoft.com" }, { ...andrew, id: "email-linked", email: " ANDREW@AAAHEALTHSERVICES.COM " }]) {
+  for (const user of [owner, andrew, preview, { ...andrew, email: "guest#EXT#@tenant.onmicrosoft.com" }, { ...andrew, id: "email-linked", email: " ANDREW@AAAHEALTHSERVICES.COM " }]) {
     let reads = 0;
     const now = Date.now();
     const route = statusRoute(user, async () => {
@@ -53,13 +54,32 @@ test("Eric and Andrew share the Home names and colors without granting private d
   assert.equal(policy.canAccessApplicationActivity(andrew), false);
 });
 
-test("Home status rejects unauthorized, delegated and demo sessions before reading staff data", async () => {
+test("Home status rejects unauthorized, unrelated delegated and demo sessions before reading staff data", async () => {
   for (const user of [null, { ...andrew, id: "other", email: "other@example.invalid" }, { ...andrew, roles: ["reviewer"] }, { ...andrew, roles: ["viewer"] }, { ...andrew, delegation: {} }, { ...andrew, demoPersona: "supervisor" }, { ...andrew, id: "b72c34f0-0ee8-4ab4-8359-81c8f7b0d3b2", email: "sandeep@aaahealthservices.com" }]) {
     const route = statusRoute(user, () => assert.fail("Unauthorized status must not read members"));
     assert.equal((await route.GET(request())).status, user ? 403 : 401);
   }
   const route = statusRoute(andrew, () => assert.fail("Invalid dates must not read members"));
   assert.equal((await route.GET(request("since=invalid"))).status, 400);
+});
+
+test("Andrew preview is limited to Eric, the matching target, and Andrew's actual report access", async () => {
+  const sessionPolicy = loadEntry("lib/auth/assessor-session-policy.ts");
+  const effectiveUser = sessionPolicy.delegatedUserFromSession(owner, preview.delegation);
+  assert.equal(policy.canAccessAssessorScorecard(effectiveUser), true);
+  assert.equal(policy.canAccessApplicationActivity(effectiveUser), false);
+  for (const user of [
+    { ...preview, id: owner.id },
+    { ...preview, roles: ["reviewer"] },
+    { ...preview, accessScope: "note_lab" },
+    { ...preview, demoPersona: "supervisor" },
+    { ...preview, delegation: { ...preview.delegation, initiatedBy: { ...owner, id: "other-admin" } } },
+    { ...preview, delegation: { ...preview.delegation, target: owner } },
+    ...[{}, "invalid", 1, { initiatedBy: null, target: null }].map(delegation => ({ ...andrew, delegation })),
+  ]) {
+    assert.equal(policy.canAccessAssessorScorecard(user), false);
+    assert.equal((await statusRoute(user, () => assert.fail("Unauthorized preview must not read staff")).GET(request())).status, 403);
+  }
 });
 
 test("activity endpoint bounds date windows and cursor IDs before querying storage", async () => {

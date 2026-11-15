@@ -14,9 +14,14 @@ const query = loadTypeScriptModule(root, "lib/pipeline/referral-query.ts");
 const directoryModel = loadTypeScriptModule(root, "components/pipeline/referral-home-directory-model.ts");
 const ownerIdentity = loadTypeScriptModule(root, "lib/pipeline/referral-owner-identity.ts");
 
-test("Andrew's supervisor identity defaults to team work without changing other users or delegated sessions", () => {
+test("Andrew's supervisor identity defaults to team work including Eric’s matching preview without changing other users", () => {
   const andrew = { id: "e9f39185-d751-45c0-bcf5-c24d3565bdd9", email: "guest#EXT#@tenant.invalid", roles: ["assessment_coordinator"] };
   assert.equal(directoryModel.prefersTeamWorkspaceScope(andrew), true);
+  const delegation = { initiatedBy: { id: "f73371d5-d2b4-48b4-a32b-1edc7c88869f" }, target: andrew };
+  assert.equal(directoryModel.prefersTeamWorkspaceScope({ ...andrew, delegation }), true);
+  for (const patch of [{ id: "other" }, { roles: ["reviewer"] }, { demoPersona: "supervisor" }, { accessScope: "note_lab" }, { delegation: { ...delegation, initiatedBy: { id: "other-admin" } } }, { delegation: { ...delegation, target: { id: "other" } } }]) {
+    assert.equal(directoryModel.prefersTeamWorkspaceScope({ ...andrew, delegation, ...patch }), false);
+  }
   assert.equal(directoryModel.prefersTeamWorkspaceScope({ ...andrew, id: "email-linked", email: " ANDREW@AAAHEALTHSERVICES.COM " }), true);
   for (const user of [null, { ...andrew, id: "other-admin", email: "other@example.invalid" }, { ...andrew, roles: ["reviewer"] }, { ...andrew, delegation: {} }, { ...andrew, demoPersona: "supervisor" }, { ...andrew, accessScope: "note_lab" }]) {
     assert.equal(directoryModel.prefersTeamWorkspaceScope(user), false);

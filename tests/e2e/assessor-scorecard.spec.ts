@@ -342,9 +342,12 @@ test("usage captures native keyboard activation once, omits content, and stops a
 });
 
 
-test("Andrew can open the same report and export without gaining the private activity dashboard", async ({ page }) => {
+for (const delegated of [false, true]) test(`${delegated ? "Work as Andrew" : "Andrew"} can open the same report and export without gaining the private activity dashboard`, async ({ page }) => {
   const andrew = { ...owner, id: "e9f39185-d751-45c0-bcf5-c24d3565bdd9", email: "andrew@example.invalid", name: "Andrew" };
-  await page.route("**/api/auth/me", route => route.fulfill({ json: { user: andrew } }));
+  const user = delegated ? { ...andrew, delegation: { sessionId: "synthetic-preview", initiatedBy: owner,
+    target: { ...andrew, identityStatus: "entra_linked" }, reason: "Verify Andrew preview",
+    startedAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 3600000).toISOString() } } : andrew;
+  await page.route("**/api/auth/me", route => route.fulfill({ json: { user } }));
   await page.route("**/api/operations/assessor-scorecard?*", route => route.fulfill({ json: snapshot }));
   await page.goto("/?screen=operations");
   await page.getByRole("navigation", { name: "Reports", exact: true }).getByRole("link", { name: "Assessor scorecard", exact: true }).click();

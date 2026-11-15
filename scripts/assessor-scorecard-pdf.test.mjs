@@ -91,6 +91,8 @@ test("PDF endpoint shares private access, fresh database reads, validated filter
   const andrew = { ...owner, id: "e9f39185-d751-45c0-bcf5-c24d3565bdd9", email: "andrew_guest#EXT#@tenant.invalid" };
   assert.equal((await route(andrew).GET(new Request(url))).status, 200);
   assert.equal(reads, 2); assert.equal(rendered, 2);
+  assert.equal((await route({ ...andrew, delegation: { initiatedBy: owner, target: andrew } }).GET(new Request(url))).status, 200);
+  assert.equal(reads, 3); assert.equal(rendered, 3);
 });
 
 test("PDF keeps completed activity, previous-period findings and current workload dates distinct", async () => {
