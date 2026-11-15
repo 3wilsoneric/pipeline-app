@@ -712,3 +712,21 @@ contribution, not absence from work. Keep counts, coverage, access and sorting.
 The PDF uses the same calendar and a compact ledger for secondary measures,
 instead of repeating a bar chart for every total. No new scoring or ranking is
 introduced.
+
+
+### Assessor narratives lead the report (owner, 2026-11-15)
+
+The owner rejected the calendar and vague trend, then clarified: “you already did
+what i asked in chat, you gave me the narrative of each assessor's work, do that.”
+Lead with a separate narrative for each assessor: overall usage, recorded
+completions, recent changes, shared handoff contributions, current assignments,
+and a concrete follow-up question. Inline figures open the existing evidence
+viewer. Calculate findings from the selected snapshot; do not hardcode staff
+judgments or stale counts. Comparisons distinguish ties, partial periods and
+unknown click coverage. Questions identify what needs investigation, not an
+inferred cause or quality grade.
+
+Remove the daily calendar. Keep the existing comparison and explicitly labelled
+trend under “Compare measures.” Use the same narratives in the PDF, with numeric
+ledgers as supporting detail. Eric and Andrew retain access and remain excluded
+from the assessor cohort. No workflow or storage behavior changes.

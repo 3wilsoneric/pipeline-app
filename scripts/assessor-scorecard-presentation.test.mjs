@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { clean, loadEntry } from './contact-import-fixtures.mjs';
-const { scorecardTrend, scorecardBucketEvidence, scorecardAxisMaximum, scorecardValue, scorecardSelection, scorecardRecentWindow, scorecardRecentDays } = loadEntry('lib/pipeline/assessor-scorecard-presentation.ts');
+const { scorecardTrend, scorecardBucketEvidence, scorecardAxisMaximum, scorecardValue, scorecardSelection, scorecardRecentWindow } = loadEntry('lib/pipeline/assessor-scorecard-presentation.ts');
 const event = (at, key = at) => ({ at, key });
 const person = { id: 'a', evidence: { confirmed: [] }, usage: null };
 const snapshot = { since: '2026-10-30T07:00:00Z', through: '2026-11-10T20:00:00Z', people: [person] };
@@ -62,19 +62,4 @@ test('recent context is fourteen Pacific calendar days and respects shorter sele
   assert.equal(recent.start, '2026-10-28');
   assert.equal(recent.end, '2026-11-11');
   assert.equal(scorecardRecentWindow(snapshot).start, '2026-10-30');
-});
-
-test('daily calendar marks saved clients across DST and opens exactly those clients', () => {
-  const assessor = { ...person, recordedWork: [
-    { ...event('2026-11-02T07:59:59Z'), referralId: 1 },
-    { ...event('2026-11-02T08:00:00Z'), referralId: 2 },
-    { ...event('2026-11-02T09:00:00Z'), referralId: 2 },
-  ] };
-  const data = { ...snapshot, people: [assessor] };
-  const days = scorecardRecentDays(data);
-  assert.equal(days.length, 12);
-  assert.equal(days.find(day => day.start === '2026-11-01').counts.a, 1);
-  assert.equal(days.find(day => day.start === '2026-11-02').counts.a, 1);
-  assert.equal(days.find(day => day.start === '2026-11-03').counts.a, 0);
-  for (const day of days) assert.equal(day.counts.a, scorecardSelection(assessor, 'clients', day).evidence.length);
 });

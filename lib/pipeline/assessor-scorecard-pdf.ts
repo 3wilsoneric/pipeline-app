@@ -2,7 +2,8 @@ import "server-only";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { loadImage, PDFDocument, type CanvasRenderingContext2D, type SKRSContext2D } from "@napi-rs/canvas";
-import { scorecardRecentDays, scorecardRecentWindow, scorecardSelection, scorecardPersonColor, scorecardAxisMaximum, scorecardMeasures, scorecardTrend, scorecardValue, sortScorecardPeople, type ScorecardMeasure, type ScorecardSort } from "./assessor-scorecard-presentation";
+import { scorecardRecentWindow, scorecardSelection, scorecardPersonColor, scorecardMeasures, scorecardValue, sortScorecardPeople, type ScorecardMeasure, type ScorecardSort } from "./assessor-scorecard-presentation";
+import { scorecardNarrative, scorecardNarrativeText } from "./assessor-scorecard-narrative";
 import type { AssessorScorecard, AssessorScorecardPerson } from "./assessor-scorecard-types";
 
 type Context = CanvasRenderingContext2D & Pick<SKRSContext2D, "drawImage">;
@@ -73,38 +74,7 @@ export async function renderAssessorScorecardPdf(snapshot: AssessorScorecard, so
   };
   const groups: AssessorScorecardPerson[][] = [];
   for (let i = 0; i < people.length; i += 5) groups.push(people.slice(i, i + 5));
-  const trend = scorecardTrend(snapshot, "days");
   const recent = scorecardRecentWindow(snapshot);
-  const chart = (group: AssessorScorecardPerson[], measure: ScorecardMeasure, x: number, top: number, w: number) => {
-    text(scorecardMeasures[measure], x, top, 12, true);
-    const maximum = scorecardAxisMaximum(people.map(person => scorecardValue(person, measure)));
-    let row = top + 28;
-    for (const person of group) {
-      const value = scorecardValue(person, measure);
-      const overdue = measure === "assigned" ? person.evidence.overdue.length : 0;
-      const label = value === null ? "Not tracked" : `${value.toLocaleString("en-US")}${overdue ? ` / ${overdue} overdue` : ""}`;
-      font(value === null ? 8 : 11, true);
-      const nameLines = lines(person.name, w - ctx.measureText(label).width - 12, 9, true);
-      nameLines.forEach((line, i) => text(line, x, row + i * 12, 9, true));
-      font(value === null ? 8 : 11, true);
-      text(label, x + w - ctx.measureText(label).width, row, value === null ? 8 : 11, true, value === null ? muted : ink);
-      row += nameLines.length * 12 + 5;
-      ctx.fillStyle = color("report-blue-soft"); ctx.fillRect(x, row, w, 8);
-      if (value !== null && value > 0) {
-        const barWidth = w * value / maximum;
-        ctx.fillStyle = blue; ctx.fillRect(x, row, barWidth, 8);
-        if (measure === "assigned" && person.evidence.overdue.length) {
-          const overdueWidth = w * person.evidence.overdue.length / maximum;
-          ctx.fillStyle = color("action-edge"); ctx.fillRect(x + barWidth - overdueWidth, row, overdueWidth, 8);
-        }
-      }
-      row += 17;
-    }
-    text("0", x, row, 8, false, muted);
-    const ceiling = maximum.toLocaleString("en-US"); font(8);
-    text(ceiling, x + w - ctx.measureText(ceiling).width, row, 8, false, muted);
-    return row + 18;
-  };
   const ledger = (group: AssessorScorecardPerson[], measures: ScorecardMeasure[], top: number) => {
     const nameWidth = 210, column = (width - nameWidth) / measures.length;
     const headerHeight = Math.max(...measures.map(measure => lines(scorecardMeasures[measure], column - 14, 9, true).length)) * 13 + 12;
@@ -120,59 +90,16 @@ export async function renderAssessorScorecardPdf(snapshot: AssessorScorecard, so
     });
     return row + 20;
   };
-  const calendar = (group: AssessorScorecardPerson[], top: number) => {
-    const days = scorecardRecentDays(snapshot), labelWidth = 210, step = (width - labelWidth) / Math.max(14, days.length);
-    const heights = group.map(person => Math.max(30, lines(person.name, labelWidth - 16, 9, true).length * 12 + 8));
-    if (top + 45 + heights.reduce((a, b) => a + b, 0) > bottom) { newPage("Recent activity"); top = y; }
-    text("Recent activity", left, top, 13, true);
-    text(`${days[0]?.label ?? ""} - ${days.at(-1)?.label ?? ""} | Filled = saved work | Pacific time`, left, top + 20, 8, false, muted);
-    let row = top + 42;
-    for (const [index, person] of group.entries()) {
-      lines(person.name, labelWidth - 16, 9, true).forEach((line, n) => text(line, left, row + n * 12, 9, true));
-      days.forEach((day, i) => {
-        const x = left + labelWidth + i * step;
-        ctx.fillStyle = day.counts[person.id] ? color(scorecardPersonColor(snapshot.people, person.id)) : color("report-blue-soft"); ctx.fillRect(x, row, step - 5, 20);
-        const label = String(Number(day.start.slice(-2))); font(8);
-        text(label, x + (step - 5 - ctx.measureText(label).width) / 2, row + 5, 8, false, day.counts[person.id] ? color("on-fill") : muted);
-      });
-      row += heights[index];
-    }
-    return row + 18;
-  };
-  const timeline = (group: AssessorScorecardPerson[], top: number) => {
-    const height = 180 + group.length * 14;
-    if (top + height > bottom) { newPage("Recorded work over time"); top = y; }
-    text("Days with recorded work", left, top, 13, true);
-    text(`${trend.unit} beginning | Pacific time | * Partial period`, left, top + 20, 8, false, muted);
-    if (!trend.buckets.length) return top + 42;
-    const maximum = scorecardAxisMaximum(trend.buckets.flatMap(bucket => Object.values(bucket.counts)));
-    const plotTop = top + 46, plotHeight = 100, plotLeft = left + 28, plotWidth = width - 48;
-    const x = (index: number) => plotLeft + plotWidth * (trend.buckets.length === 1 ? .5 : index / (trend.buckets.length - 1));
-    const pointY = (value: number) => plotTop + plotHeight * (1 - value / maximum);
-    for (const value of [0, maximum / 2, maximum]) {
-      text(String(value), left, pointY(value) - 4, 8, false, muted);
-      ctx.beginPath(); ctx.moveTo(plotLeft, pointY(value)); ctx.lineTo(plotLeft + plotWidth, pointY(value)); ctx.strokeStyle = rule; ctx.lineWidth = .5; ctx.stroke();
-    }
-    for (const person of group) {
-      ctx.strokeStyle = color(scorecardPersonColor(snapshot.people, person.id)); ctx.lineWidth = 2; ctx.beginPath();
-      trend.buckets.forEach((bucket, i) => { if (i === 0) ctx.moveTo(x(i), pointY(bucket.counts[person.id] ?? 0)); else ctx.lineTo(x(i), pointY(bucket.counts[person.id] ?? 0)); });
-      ctx.stroke();
-      trend.buckets.forEach((bucket, i) => { ctx.beginPath(); ctx.arc(x(i), pointY(bucket.counts[person.id] ?? 0), 2.5, 0, Math.PI * 2); ctx.fillStyle = color(scorecardPersonColor(snapshot.people, person.id)); ctx.fill(); });
-    }
-    trend.buckets.forEach((bucket, i) => { const label = `${bucket.label}${bucket.partial ? " *" : ""}`; font(7); text(label, Math.min(left + width - ctx.measureText(label).width, Math.max(left, x(i) - ctx.measureText(label).width / 2)), plotTop + plotHeight + 10, 7, false, muted); });
-    let row = plotTop + plotHeight + 34;
-    for (const person of group) {
-      ctx.fillStyle = color(scorecardPersonColor(snapshot.people, person.id)); ctx.fillRect(left, row + 3, 16, 3);
-      text(`${person.name}  /  ${person.activeDays} days in the selected period`, left + 24, row, 9, true); row += 14;
-    }
-    return row;
-  };
-
   if (!people.length) { newPage("Assessor work"); paragraph("No assessor records in this period.", 12, ink); }
-  for (const group of groups) {
-    newPage("Assessor work");
-    y = chart(group, "days", left, y, width);
-    y = timeline(group, y + 16);
+  for (const person of people) {
+    const review = scorecardNarrative(snapshot, person);
+    newPage(person.name);
+    if (!person.active) paragraph("Inactive account", 10);
+    paragraph(review.lead, 15, color(scorecardPersonColor(snapshot.people, person.id)));
+    y += 10;
+    for (const section of review.paragraphs) { paragraph(scorecardNarrativeText(section), 11, ink); y += 8; }
+    paragraph("Follow-up", 11, color("stage-amber"));
+    paragraph(review.question, 11, ink);
   }
   for (const group of groups) {
     newPage("Current follow-through");
@@ -184,7 +111,6 @@ export async function renderAssessorScorecardPdf(snapshot: AssessorScorecard, so
   for (const group of groups) {
     newPage("Activity detail");
     paragraph(snapshot.usageSince ? `Usage tracking began ${date(snapshot.usageSince)}. Earlier clicks and active minutes are unavailable.` : "Historical clicks and active minutes are unavailable. Tracking starts when this release is enabled.");
-    y = calendar(group, y);
     y = ledger(group, ["interactions", "activeMinutes", "resends", "sendIssues"], y);
   }
   newPage("Reading the scorecard");

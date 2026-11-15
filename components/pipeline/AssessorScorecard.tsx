@@ -7,6 +7,7 @@ import type { AssessorScorecard as Snapshot, ScorecardPeriod } from "@/lib/pipel
 import { scorecardTrendMeasures, scorecardDisplayLabels, type ScorecardTrendMeasure, sortScorecardPeople, type ScorecardSort as Sort } from "@/lib/pipeline/assessor-scorecard-presentation";
 import styles from "./AssessorScorecard.module.css";
 import AssessorScorecardDetail from "./AssessorScorecardDetail";
+import AssessorScorecardNarratives from "./AssessorScorecardNarratives";
 import type { HomeDialogOrigin } from "./HomeDialog";
 import AssessorScorecardCharts, { type ScorecardSelection } from "./AssessorScorecardCharts";
 
@@ -43,19 +44,16 @@ export default function AssessorScorecard() {
         <label><span>Sort by</span><select value={sort} onChange={(event) => setSort(event.target.value as Sort)}>
           <option value="days">Recorded workdays</option><option value="interviews">Interviews</option><option value="confirmed">Confirmations</option><option value="clients">Clients worked</option><option value="handoffs">Handoffs sent</option><option value="gaps">Open items</option><option value="interactions">Clicks / taps</option><option value="name">Name</option>
         </select></label>
-        <label className={styles.measureControl}><span>Measure</span><select value={measure} onChange={event => setMeasure(event.target.value as ScorecardTrendMeasure)}>
-          {scorecardTrendMeasures.map(key => <option key={key} value={key}>{scorecardDisplayLabels[key]}</option>)}
-        </select></label>
         <div className={styles.actions}><button className={styles.refresh} type="button" onClick={reload}><RefreshCw size={17} aria-hidden="true" />Refresh</button>
         <button className={styles.refresh} type="button" disabled={exporting} onClick={() => void exportPdf()}><Download size={17} aria-hidden="true" />{exporting ? "Exporting…" : "Export PDF"}</button></div></div>
       </header>
       {exportError ? <p className={styles.notice} role="alert">PDF unavailable. Try Export PDF again.</p> : null}
-      <div className={styles.results}><ScorecardResults key={`${period}:${refresh}`} period={period} sort={sort} measure={measure} retry={reload} /></div>
+      <div className={styles.results}><ScorecardResults key={`${period}:${refresh}`} period={period} sort={sort} measure={measure} onMeasureChange={setMeasure} retry={reload} /></div>
     </article>
   </main>;
 }
 
-function ScorecardResults({ period, sort, measure, retry }: { period: ScorecardPeriod; sort: Sort; measure: ScorecardTrendMeasure; retry: () => void }) {
+function ScorecardResults({ period, sort, measure, onMeasureChange, retry }: { period: ScorecardPeriod; sort: Sort; measure: ScorecardTrendMeasure; onMeasureChange: (measure: ScorecardTrendMeasure) => void; retry: () => void }) {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [error, setError] = useState(false);
   const [selection, setSelection] = useState<(ScorecardSelection & { origin: HomeDialogOrigin }) | null>(null);
@@ -70,12 +68,25 @@ function ScorecardResults({ period, sort, measure, retry }: { period: ScorecardP
   if (!snapshot) return <p role="status">Loading scorecard…</p>;
   const people = sortScorecardPeople(snapshot.people, sort);
   const selected = people.find((person) => person.id === selection?.person);
+  const openDetail = (next: ScorecardSelection, trigger: HTMLButtonElement) => {
+    const { left, top, width, height } = trigger.getBoundingClientRect();
+    setSelection({ ...next, origin: { left, top, width, height } });
+  };
   return <>
-    <div className={styles.context}><span>{day(snapshot.since)}–{day(snapshot.through)} · Pacific time</span><span>Select an assessor to explore</span></div>
-    {!people.length ? <p className={styles.notice}>No assessor records in this period.</p> : <AssessorScorecardCharts measure={measure} snapshot={snapshot} people={people} onSelect={(next, trigger) => {
-      const { left, top, width, height } = trigger.getBoundingClientRect();
-      setSelection({ ...next, origin: { left, top, width, height } });
-    }} />}
+    <div className={styles.context}><span>{day(snapshot.since)}–{day(snapshot.through)} · Pacific time</span><span>Select a figure for its evidence</span></div>
+    {!people.length ? <p className={styles.notice}>No assessor records in this period.</p> : <>
+      <AssessorScorecardNarratives snapshot={snapshot} people={people} onSelect={openDetail} />
+      <p className={styles.coverage}>Saved work is not attendance or clinical quality. Recent activity includes the partial current day; current assignments do not establish why a client is waiting.</p>
+      <details className={styles.comparisons}>
+        <summary>Compare measures</summary>
+        <div className={styles.controls}>
+        <label className={styles.measureControl}><span>Measure</span><select value={measure} onChange={event => onMeasureChange(event.target.value as ScorecardTrendMeasure)}>
+          {scorecardTrendMeasures.map(key => <option key={key} value={key}>{scorecardDisplayLabels[key]}</option>)}
+        </select></label>
+        </div>
+        <AssessorScorecardCharts measure={measure} snapshot={snapshot} people={people} onSelect={openDetail} />
+      </details>
+    </>}
     {selected && selection ? <AssessorScorecardDetail person={selected} snapshot={snapshot} selection={selection} origin={selection.origin}
       onSelect={next => setSelection({ ...next, origin: selection.origin })} onClose={() => setSelection(null)} /> : null}
     <details className={styles.methods}><summary>How this is counted</summary>
