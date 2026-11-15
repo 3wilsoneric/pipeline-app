@@ -39,6 +39,7 @@ export default function PipelineWelcome({
   onFinishEditingHome,
   canAccessReports = false,
   canViewApplicationActivity = false,
+  canViewAssessorStatus = false,
   showTeamOnPhone = false,
   initialBriefing,
   viewerId,
@@ -55,6 +56,7 @@ export default function PipelineWelcome({
   onFinishEditingHome?: () => void;
   canAccessReports?: boolean;
   canViewApplicationActivity?: boolean;
+  canViewAssessorStatus?: boolean;
   showTeamOnPhone?: boolean;
   initialBriefing?: HomeBriefingSnapshot | null;
   viewerId?: string;
@@ -185,7 +187,7 @@ export default function PipelineWelcome({
               />
             </div>
           ) : null}
-          {canViewApplicationActivity && !phone ? <ApplicationActivityCard /> : null}
+          {(canViewApplicationActivity || canViewAssessorStatus) && !phone ? <ApplicationActivityCard canViewDetails={canViewApplicationActivity} /> : null}
           {!briefing && !error ? <HomeSkeleton /> : null}
         </div>
       </main>

@@ -1,7 +1,7 @@
 import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
 import { getPipelineDatabaseReadiness } from "@/lib/database/pipeline-database";
 import { withApiLogging } from "@/lib/observability/api-logging";
-import { canAccessApplicationActivity } from "@/lib/pipeline/application-activity-access";
+import { canAccessAssessorScorecard } from "@/lib/pipeline/application-activity-access";
 import { getAssessorScorecard } from "@/lib/pipeline/assessor-scorecard";
 import { renderAssessorScorecardPdf } from "@/lib/pipeline/assessor-scorecard-pdf";
 import { scorecardSorts, type ScorecardSort } from "@/lib/pipeline/assessor-scorecard-presentation";
@@ -10,7 +10,7 @@ export async function GET(request: Request) {
   return withApiLogging(request, "/api/operations/assessor-scorecard", async () => {
     const auth = await requirePipelineUser(request);
     if (!auth.ok) return auth.response;
-    if (!canAccessApplicationActivity(auth.user)) return Response.json({ error: "This scorecard is private to Eric." }, { status: 403 });
+    if (!canAccessAssessorScorecard(auth.user)) return Response.json({ error: "This scorecard is restricted to its executive audience." }, { status: 403 });
     const params = new URL(request.url).searchParams;
     const period = params.get("period") ?? "30d";
     if (period !== "30d" && period !== "week" && period !== "launch") return Response.json({ error: "Choose a valid scorecard period." }, { status: 400 });

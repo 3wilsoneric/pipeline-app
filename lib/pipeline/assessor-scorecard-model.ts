@@ -58,7 +58,7 @@ export function buildAssessorScorecard(input: {
     let value = people.get(id);
     if (!value) {
       const member = members.get(id)!;
-      value = { id, name: member.name, active: member.active, evidence: Object.fromEntries(metricKeys.map((key) => [key, [] as ScorecardEvidence[]])) as AssessorScorecardPerson["evidence"], interviewSpanHours: null, interviewSpanSamples: 0, activeDays: 0, usage: input.usageSince ? { interactions: 0, activeMinutes: 0, days: 0 } : null };
+      value = { id, name: member.name, active: member.active, evidence: Object.fromEntries(metricKeys.map((key) => [key, [] as ScorecardEvidence[]])) as AssessorScorecardPerson["evidence"], interviewSpanHours: null, interviewSpanSamples: 0, activeDays: 0, recordedWork: [], usage: input.usageSince ? { interactions: 0, activeMinutes: 0, days: 0 } : null };
       people.set(id, value);
     }
     return value;
@@ -108,7 +108,14 @@ export function buildAssessorScorecard(input: {
     const evidence = { key: String(event.referralId), referralId: event.referralId, client: event.client, community: event.community, at: event.at, detail: "Recorded contribution" };
     add(actor, "clients", evidence);
     if (!days.has(actor)) days.set(actor, new Set());
-    days.get(actor)!.add(admissionFlowToday(new Date(event.at)));
+    const workDay = admissionFlowToday(new Date(event.at));
+    days.get(actor)!.add(workDay);
+    const contributionKey = `${workDay}:${event.referralId}`;
+    const uniqueContribution = `${actor}:recordedWork:${contributionKey}`;
+    if (!unique.has(uniqueContribution)) {
+      unique.add(uniqueContribution);
+      person(actor).recordedWork.push({ ...evidence, key: contributionKey });
+    }
     if (milestone && first) {
       add(actor, event.action === "assessment_signed" ? "confirmed" : "interviews", { ...evidence, key: root, detail: event.action === "assessment_signed" ? "First chart confirmation" : "Interview finished" });
       const start = started.get(root);

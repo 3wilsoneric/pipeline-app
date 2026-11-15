@@ -662,3 +662,53 @@ rating. Eric and Andrew stay excluded by the existing principal rules. This
 supersedes the scorecard's table-specific layout decisions above and approves
 concise chart labels, units and navigation copy. Other reports and workflows
 are unchanged.
+
+### Scorecard meaning and drill-down (owner, 2026-11-14)
+
+Following the visual audit, the owner approved showing assessments confirmed,
+clients worked, handoffs and clicks together, shorter labels, and expandable
+assessor/client evidence. Use a distinct, relevant icon and restrained existing
+color for each measure; keep Platform report typography and materials. Reuse the
+native HomeDialog with origin expansion and focus restoration rather than jumping
+to a breakdown below all charts. Reduced motion removes the transitions.
+
+Keep current assignments and completion items secondary and explicitly current.
+Confirmation history is the historical completion measure; incomplete separate
+interview-finish events remain in detail. Show click-tracking coverage next to
+clicks. Its detail contains collected aggregates only, never invented per-client
+activity. Preserve audit counts, principal exclusions, authorization, routes and
+PDF export. No overall score, quality grade or inferred hours worked is added.
+
+### Andrew's Home activity status (owner, 2026-11-14)
+
+Show Andrew the same assessor names and green/blue/gray presence indicators as
+Eric on desktop and tablet Home. Reuse the status component, data and refresh
+behavior. The status-only view has no dashboard opener or database usage meter;
+those retain Eric's existing access. Remove the obsolete “Only you” qualifier
+from the shared status legend. Keep phone Home focused on its existing workflow,
+and keep Eric and Andrew excluded from assessor scorecard comparisons.
+
+
+## 2026-11-14 — Consolidate assessor usage context in Reports
+
+Owner direction: “nice do another lap and consolidate this and add it to reports for me and andrew.”
+
+- The existing scorecard now defaults to since launch and days with substantive recorded work. One measure selector controls the totals comparison and weekly trend (days, clients, confirmations, handoffs, uploads).
+- Weekly client contributions retain repeat work in later weeks; whole-period distinct clients keep their existing meaning. Period points open the existing client-evidence dialog, with a fourteen-day activity summary and a separate current-assignment view.
+- Click/tap tracking stays separate, with its actual collection start and unknown history visible. No attendance, quality or hours-worked inference is added.
+- Eric and Andrew share the Reports scorecard, PDF export and existing Home status names/colors. Neither is added to assessor rankings. Private application-activity/database monitoring remains Eric-only; delegation and demo sessions remain excluded.
+- Use the existing Platform Admissions report tokens, native buttons/SVG and existing dialog. Phone/touch users get larger period targets, reduced motion is respected, and the page keeps its established scroll container.
+- PDF summaries use the same trend calculation, colors and recent-window logic. Client-level evidence stays inside authenticated Pipeline.
+- Scope ceiling: saved contributions describe recorded usage, not all work. Revisit the report only when a newly instrumented source can be linked to an identified actor with reliable coverage; do not fabricate historic click or note authorship data.
+
+### Reduce repeated scorecard charts (owner, 2026-11-14)
+
+Owner feedback: “too many bar charts.” Keep one selected-measure comparison and
+its weekly trend. Replace the repeated click bars with a compact activity
+readout, combine assignments/overdue work/completion items into one current-work
+ledger, and show the last fourteen days of substantive saved work as a calendar.
+Calendar dates open the existing client evidence; blank dates mean no recorded
+contribution, not absence from work. Keep counts, coverage, access and sorting.
+The PDF uses the same calendar and a compact ledger for secondary measures,
+instead of repeating a bar chart for every total. No new scoring or ranking is
+introduced.

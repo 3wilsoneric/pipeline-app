@@ -1,3 +1,5 @@
+import { canAccessExecutiveAdmissionFlow } from "./report-access";
+
 type ActivityPrincipal = {
   id?: string;
   email: string;
@@ -14,3 +16,12 @@ export function canAccessApplicationActivity(user: ActivityPrincipal | null | un
     || user.email.trim().toLowerCase() === "ericwilsonalamo@outlook.com"
   ));
 }
+
+// The Home status names/dots are shared with Andrew; detailed activity and
+// infrastructure monitoring retain their separate owner-only access.
+export function canAccessAssessorStatus(user: ActivityPrincipal | null | undefined) {
+  return Boolean(user && !user.delegation && !user.demoPersona && canAccessExecutiveAdmissionFlow(user));
+}
+
+// The executive scorecard has the same named audience as the Home assessor status.
+export const canAccessAssessorScorecard = canAccessAssessorStatus;
