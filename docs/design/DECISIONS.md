@@ -782,3 +782,45 @@ Only the authenticated Eric-to-Andrew delegation receives this exception. Privat
 application activity and database monitoring remain excluded from delegation;
 assessor telemetry still ignores delegated activity. Other users retain their
 existing scopes and report boundaries.
+
+### Monday briefing (owner, 2026-11-16)
+
+Make the weekly briefing accessible from Home and the first Reports tab for
+existing report-authorized users, including Eric and Andrew. Use the Platform
+report materials and typography. Read as a weekly account: assessments and their
+origins/outcomes, acceptance decisions and admissions, the remaining interviews
+and planned admissions this week, then community admissions versus discharges.
+Short factual paragraphs support the visual counts and client drilldowns.
+Keep source, county, prior placement and assessor attached to each client.
+
+Weekly groups are separate event cohorts, not a conversion funnel. Use Pacific
+Monday–Sunday windows and the first recorded interview finish or chart confirmation
+per native workspace; later reconfirmations do not count it again. Accepted lists
+reflect current decisions and their recorded dates. Existing entered-admit-date
+and subsequent census-reconciliation rules remain unchanged. Incomplete or absent
+community movement must read as unavailable, not zero or a different week's flow.
+
+This remains a client count, not a count of repeated assessments. Add a separate
+reassessment measure only if that becomes an explicit reporting requirement.
+
+### Monday briefing cleanup (owner, 2026-11-16)
+
+Keep the short weekly account and client drilldowns. Remove redundant client-list
+headings, navigation instructions, one-option filters, and repeated status copy.
+Show three initial records per weekly group with the full list on demand; keep
+source and counting detail in one footer disclosure. County, prior placement and
+assessor remain available. Data-quality and incomplete-coverage warnings stay visible.
+
+Census bars represent occupied beds divided by each community's operating capacity
+from Platform's shared capacity configuration, with both numbers visible. Never
+scale to the largest census or substitute licensed capacity. Missing or future-dated
+capacity is unavailable; excess occupancy is explicit. Weekly admission and discharge
+counts sit beside each bar without a second chart. No admission or record edits.
+
+### Monday Home pin (owner, 2026-11-16)
+
+Pin the weekly briefing at the top of Home for Eric, Andrew and Sandeep on
+Pacific Mondays only. Reuse their existing report authorization, including
+validated aliases and the authorized Andrew preview. On other days remove only
+the Home promotion; the normal Reports page stays available. Refresh the day on
+focus and the existing Home timer so an open app changes over at midnight.

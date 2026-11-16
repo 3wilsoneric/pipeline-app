@@ -22,17 +22,28 @@ export type ClinicalCensusCommunity = {
   city: string;
   state: string;
   current_census: number | null;
+  operating_capacity?: number | null;
+  licensed_capacity?: number | null;
+  capacity_as_of?: string | null;
   roster_count: number;
   reconciliation_status: ClinicalReconciliationStatus;
   delta: number | null;
 };
 
 export type ClinicalCensusResponse = ClinicalMetadata & {
+  weekly_movement?: ClinicalWeeklyMovement[];
   communities: ClinicalCensusCommunity[];
   portfolio_census_total: number | null;
   roster_count: number;
   reconciliation_status: ClinicalReconciliationStatus;
   delta: number | null;
+};
+
+export type ClinicalWeeklyMovement = {
+  week_start: string;
+  week_end: string;
+  complete: boolean;
+  communities: { community_id: string; community_name: string; admissions: number | null; discharges: number | null }[];
 };
 
 export type ClinicalResident = {
@@ -288,14 +299,21 @@ export function parseClinicalCensusResponse(value: unknown): ClinicalCensusRespo
   const row = record(value, "clinical census response");
   return {
     ...parseMetadata(row),
+    weekly_movement: parseWeeklyMovement(row.weekly_movement, row.communities, row.data_as_of),
     communities: array(row.communities, "communities").map((value, index) => {
       const community = record(value, `communities[${index}]`);
+      const operatingCapacity = community.operating_capacity == null ? null : integer(community.operating_capacity, "operating_capacity", 1);
+      const licensedCapacity = community.licensed_capacity == null ? null : integer(community.licensed_capacity, "licensed_capacity", 1);
+      if (operatingCapacity !== null && licensedCapacity !== null && operatingCapacity > licensedCapacity) throw new Error("Operating capacity exceeds licensed capacity.");
       return {
         community_id: stringValue(community.community_id, "community_id"),
         community_name: stringValue(community.community_name, "community_name"),
         city: stringValue(community.city, "city"),
         state: stringValue(community.state, "state"),
         current_census: nullableInteger(community.current_census, "current_census"),
+        operating_capacity: operatingCapacity,
+        licensed_capacity: licensedCapacity,
+        capacity_as_of: community.capacity_as_of == null ? null : date(community.capacity_as_of, "capacity_as_of"),
         roster_count: integer(community.roster_count, "roster_count"),
         reconciliation_status: reconciliationStatus(community.reconciliation_status),
         delta: nullableInteger(community.delta, "delta", -10000),
@@ -306,6 +324,35 @@ export function parseClinicalCensusResponse(value: unknown): ClinicalCensusRespo
     reconciliation_status: reconciliationStatus(row.reconciliation_status),
     delta: nullableInteger(row.delta, "delta", -10000),
   };
+}
+
+function parseWeeklyMovement(value: unknown, communityValues: unknown, asOf: unknown): ClinicalWeeklyMovement[] {
+  // Additive feed: older Platform deployments remain usable, with flow explicitly unavailable.
+  if (value === undefined) return [];
+  const weeks = array(value, "weekly_movement");
+  if (weeks.length > 12) throw new Error("Clinical weekly movement exceeds its reporting limit.");
+  const expectedIds = array(communityValues, "communities").map(item => stringValue(record(item, "community").community_id, "community_id"));
+  const seen = new Set<string>();
+  return weeks.map(value => {
+    const week = record(value, "weekly movement");
+    const start = date(week.week_start, "week_start");
+    const end = date(week.week_end, "week_end");
+    const startMs = Date.parse(`${start}T00:00:00Z`);
+    if (new Date(startMs).getUTCDay() !== 1 || Date.parse(`${end}T00:00:00Z`) - startMs !== 6 * 86400000 || seen.has(start)) throw new Error("Clinical weekly movement has an invalid period.");
+    seen.add(start);
+    const ids = new Set<string>();
+    const communities = array(week.communities, "movement communities").map(value => {
+      const row = record(value, "movement community");
+      const id = stringValue(row.community_id, "community_id");
+      if (!expectedIds.includes(id) || ids.has(id)) throw new Error("Clinical weekly movement has an invalid community.");
+      ids.add(id);
+      return { community_id: id, community_name: stringValue(row.community_name, "community_name"),
+        admissions: nullableInteger(row.admissions, "admissions"), discharges: nullableInteger(row.discharges, "discharges") };
+    });
+    const complete = booleanValue(week.complete, "complete");
+    if (complete && (end >= date(asOf, "data_as_of") || ids.size !== expectedIds.length || communities.some(row => row.admissions === null || row.discharges === null))) throw new Error("Clinical weekly movement has incomplete coverage.");
+    return { week_start: start, week_end: end, complete, communities };
+  });
 }
 
 export function parseClinicalRosterResponse(value: unknown): ClinicalRosterResponse {

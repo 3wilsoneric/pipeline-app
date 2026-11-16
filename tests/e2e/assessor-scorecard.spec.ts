@@ -244,7 +244,7 @@ test("failure is retryable, zero results are honest and other users cannot see t
   await page.route("**/api/auth/me", route => route.fulfill({ json: { user: { ...owner, id: "b72c34f0-0ee8-4ab4-8359-81c8f7b0d3b2", email: "sandeep@aaahealthservices.com" } } }));
   await page.reload();
   await expect(page).toHaveURL(/\?screen=operations$/);
-  await expect(page.getByRole("heading", { name: "Admissions & census", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Monday briefing", exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Assessor scorecard", exact: true })).toHaveCount(0);
   expect(privateRequests).toBe(0);
 });
@@ -289,13 +289,13 @@ test("Reports tabs keep history and delegated sessions cannot read the scorecard
   const tabs = page.getByRole("navigation", { name: "Reports", exact: true });
   await tabs.getByRole("link", { name: "Assessor scorecard" }).click();
   await expect(page.getByRole("region", { name: "Assessor usage review", exact: true })).toBeVisible();
-  await tabs.getByRole("link", { name: "Admissions & census", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Admissions & census" })).toBeVisible();
+  await tabs.getByRole("link", { name: "Monday briefing", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Monday briefing" })).toBeVisible();
   await page.goBack();
   await expect(tabs.getByRole("link", { name: "Assessor scorecard" })).toHaveAttribute("aria-current", "page");
   await expect(page.getByRole("region", { name: "Assessor usage review", exact: true })).toBeVisible();
   await page.goForward();
-  await expect(tabs.getByRole("link", { name: "Admissions & census", exact: true })).toHaveAttribute("aria-current", "page");
+  await expect(tabs.getByRole("link", { name: "Monday briefing", exact: true })).toHaveAttribute("aria-current", "page");
   const before = reads;
   delegated = true;
   await page.goto("/?screen=operations&report=assessor_scorecard");

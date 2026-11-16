@@ -99,7 +99,7 @@
 .mobileFooter [data-quick-recommendation] label > span { max-width: 72px; font-size: var(--text-meta); line-height: var(--text-meta--line-height); }
 .mobileFooter [data-quick-recommendation] select { width: 120px; flex: 1; }
 .mobileFooter:not([data-assessment-chart-review]) > div:has([data-assessment-saved]) { flex: 0 0 auto; flex-wrap: nowrap; gap: 6px; }
-.mobileFooter [data-assessment-saved] { flex: 0 0 auto; min-height: var(--spacing-control); }
+.mobileFooter [data-guide-target="assessment-save-status"][data-assessment-saved] { flex: 0 0 auto; min-height: var(--spacing-control); }
 .mobileFooter [data-assessment-saved] > span { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .mobileFooter [data-interview-date] { width: var(--spacing-control); min-width: var(--spacing-control); justify-content: center; }
 .mobileFooter:not([data-assessment-chart-review]) > div:has([data-guide-target="assessment-save-status"]:not([data-assessment-saved])) { flex-basis: 100%; }

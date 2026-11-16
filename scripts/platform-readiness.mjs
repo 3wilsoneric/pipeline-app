@@ -34,7 +34,7 @@ const checks = [
   {
     name: "Platform admissions summary is aggregate-only behind its own secret",
     command: "node",
-    args: ["--test", "scripts/platform-admissions-summary.test.mjs"],
+    args: ["--test", "scripts/platform-admissions-summary.test.mjs", "scripts/assessment-completion-milestones.test.mjs", "scripts/clinical-weekly-movement.test.mjs"],
   },
   {
     name: "Owner-only application activity and nonblocking sign-in audit",

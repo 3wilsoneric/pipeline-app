@@ -12,7 +12,7 @@ export default function ReportsFrame({ report, admissionFlow, scorecard, childre
   children: ReactNode;
 }) {
   const pages = [
-    { key: "", label: "Admissions & census" },
+    { key: "", label: "Monday briefing" },
     ...(admissionFlow ? [{ key: "admission_flow", label: "Admission flow" }] : []),
     ...(scorecard ? [{ key: "assessor_scorecard", label: "Assessor scorecard" }] : []),
   ];

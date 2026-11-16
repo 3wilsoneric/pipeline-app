@@ -53,6 +53,7 @@ test.describe("mobile assessment", () => {
         await expect(assessment.getByRole("button", { name: "Confirm chart", exact: true })).toBeHidden();
         await expect(assessment.getByRole("navigation", { name: "Question steps" }).getByRole("button", { name: /^Next/ })).toBeInViewport();
       } else await expect(assessment.getByLabel("Assessment section", { exact: true })).toBeInViewport();
+      if (phone) await expect(assessment.locator("[data-interview-date]")).toBeInViewport();
       expect(await assessment.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       const controls = [page.getByRole("button", { name: phone ? /^Open page menu/ : "Pipeline home" }), back, ...(phone ? [assessment.getByRole("button", { name: "Choose questionnaire section" }), assessment.getByRole("button", { name: "Client info" })] : [assessment.getByLabel("Assessment section", { exact: true })])];
