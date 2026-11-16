@@ -51,6 +51,10 @@ export type PlatformSummaryReferral = {
   assessmentScheduledDate: string | null;
   assessmentScheduledDurationMinutes: number | null;
   assessmentComplete: boolean;
+  assessmentCompletedAt?: string | null;
+  assessmentAssessor?: string | null;
+  /** Excludes historical/imported work from weekly assessment and decision activity. */
+  weeklyActivityEligible?: boolean;
   /** Current (not historical or archived) workspace. */
   currentWorkspace: boolean;
   /** Pipeline board column; null once the referral has left the board. */
@@ -98,8 +102,10 @@ export type PlatformAdmissionsSummaryInput = {
 type MonthCounts = { month: string; received: number; accepted: number; declined: number; admitted: number };
 
 function dayKey(value: string | null | undefined) {
-  const text = value?.slice(0, 10) ?? "";
-  return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : null;
+  if (!value) return null;
+  const parsed = new Date(value);
+  if (!Number.isFinite(parsed.getTime())) return null;
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : localDay(parsed);
 }
 
 function addDays(day: string, days: number) {
@@ -272,6 +278,26 @@ export function buildPlatformAdmissionsSummary(input: PlatformAdmissionsSummaryI
   const weekEnd = addDays(weekStart, 6);
   const lastWeekStart = addDays(weekStart, -7);
   const lastWeekEnd = addDays(weekStart, -1);
+  const weeklyContext = (referral: PlatformSummaryReferral) => ({
+    referral_id: referral.referralId,
+    client_name: referral.clientName.trim() || "Name not recorded",
+    community: referral.community.trim() || "Unassigned",
+    owner: referral.assessmentAssessor || (referral.unassigned ? "Unassigned" : referral.owner),
+    source_name: boundedText(referral.managementProfile.referralSource, 160),
+    referring_county: boundedText(referral.managementProfile.referringCounty, 120),
+    prior_placement: boundedText(referral.managementProfile.priorPlacement, 160),
+    pipeline_path: referral.pipelinePath,
+  });
+  const assessedLastWeek = input.referrals
+    .filter(referral => referral.weeklyActivityEligible && inWindow(referral.assessmentCompletedAt, lastWeekStart, lastWeekEnd))
+    .map(referral => ({ ...weeklyContext(referral), completed_at: referral.assessmentCompletedAt!,
+      decision: referral.decisionOutcome ?? "pending" }))
+    .sort((a, b) => b.completed_at.localeCompare(a.completed_at) || a.client_name.localeCompare(b.client_name));
+  const acceptedLastWeek = input.referrals
+    .filter(referral => referral.weeklyActivityEligible && referral.decisionOutcome === "accepted" && inWindow(referral.decidedAt, lastWeekStart, lastWeekEnd))
+    .map(referral => ({ ...weeklyContext(referral), accepted_at: referral.decidedAt!,
+      planned_at: referral.plannedAdmissionDate, admitted_at: admissionDate(referral), cancelled: referral.placementCancelled }))
+    .sort((a, b) => b.accepted_at.localeCompare(a.accepted_at) || a.client_name.localeCompare(b.client_name));
   const recentStart = addDays(today, -13);
   const briefingStatus = (referral: PlatformSummaryReferral) =>
     referral.placementCancelled ? "Did not move in" :
@@ -301,11 +327,8 @@ export function buildPlatformAdmissionsSummary(input: PlatformAdmissionsSummaryI
       !referral.assessmentComplete &&
       appointmentIsUpcoming(referral, input.now, today, weekEnd))
     .map((referral) => ({
-      referral_id: referral.referralId,
-      client_name: referral.clientName.trim() || "Name not recorded",
+      ...weeklyContext(referral),
       scheduled_at: referral.assessmentScheduledDate!,
-      community: referral.community.trim() || "Unassigned",
-      owner: referral.unassigned ? "Unassigned" : referral.owner,
       status: briefingStatus(referral),
       pipeline_path: referral.pipelinePath,
     }))
@@ -409,6 +432,8 @@ export function buildPlatformAdmissionsSummary(input: PlatformAdmissionsSummaryI
       last_week_start: lastWeekStart,
       last_week_end: lastWeekEnd,
       coverage: {
+        assessed_last_week_complete: assessedLastWeek.length <= MAX_BRIEFING_REFERRALS,
+        accepted_last_week_complete: acceptedLastWeek.length <= MAX_BRIEFING_REFERRALS,
         recent_referrals_complete: recentReferrals.length <= MAX_BRIEFING_REFERRALS,
         assessments_complete: upcomingAssessments.length <= MAX_BRIEFING_SCHEDULE,
         move_ins_complete: plannedMoveIns.length <= MAX_BRIEFING_SCHEDULE,
@@ -418,6 +443,8 @@ export function buildPlatformAdmissionsSummary(input: PlatformAdmissionsSummaryI
         weekly_trend_complete: true,
       },
       recent_referrals: recentReferrals.slice(0, MAX_BRIEFING_REFERRALS),
+      assessed_last_week: assessedLastWeek.slice(0, MAX_BRIEFING_REFERRALS),
+      accepted_last_week: acceptedLastWeek.slice(0, MAX_BRIEFING_REFERRALS),
       upcoming_assessments: upcomingAssessments.slice(0, MAX_BRIEFING_SCHEDULE),
       planned_move_ins: plannedMoveIns.slice(0, MAX_BRIEFING_SCHEDULE),
       admitted_last_week: admittedLastWeek.slice(0, MAX_BRIEFING_REFERRALS),

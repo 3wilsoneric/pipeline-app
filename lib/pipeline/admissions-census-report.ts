@@ -13,11 +13,17 @@ export function buildAdmissionsCensusReport(summary: PlatformAdmissionsSummary) 
       last_week_start: summary.briefing.last_week_start,
       last_week_end: summary.briefing.last_week_end,
       coverage: {
+        assessed_last_week_complete: summary.briefing.coverage.assessed_last_week_complete,
+        accepted_last_week_complete: summary.briefing.coverage.accepted_last_week_complete,
+        assessments_complete: summary.briefing.coverage.assessments_complete,
         move_ins_complete: summary.briefing.coverage.move_ins_complete,
         admitted_last_week_complete: summary.briefing.coverage.admitted_last_week_complete,
         moving_through_complete: summary.briefing.coverage.moving_through_complete,
         did_not_move_in_complete: summary.briefing.coverage.did_not_move_in_complete,
       },
+      assessed_last_week: summary.briefing.assessed_last_week,
+      accepted_last_week: summary.briefing.accepted_last_week,
+      upcoming_assessments: summary.briefing.upcoming_assessments,
       admitted_last_week: summary.briefing.admitted_last_week.map(({ client_name, admitted_at, community, owner, source_name, referring_county, prior_placement, pipeline_path }) =>
         ({ client_name, admitted_at, community, owner, source_name, referring_county, prior_placement, pipeline_path })),
       planned_move_ins: summary.briefing.planned_move_ins.map(({ client_name, planned_at, community, owner, readiness, source_name, referring_county, prior_placement, pipeline_path }) =>

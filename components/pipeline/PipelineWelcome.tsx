@@ -24,6 +24,9 @@ import type { Referral } from "@/lib/pipeline/referral-types";
 import type { PipelineSiteScreen } from "@/lib/pipeline/site-search";
 import { prefetchPipelineWorkspace, cancelPipelineWarmup } from "@/lib/pipeline/client-navigation";
 import { pipelineSurfaceReady } from "@/lib/observability/browser-performance-contract";
+import { toPipelinePath } from "@/lib/pipeline/base-path";
+import briefingStyles from "./PipelineCensusBriefing.module.css";
+import { CalendarDays, ArrowUpRight } from "lucide-react";
 import deckStyles from "./HomeFocusDeck.module.css";
 import { usePhoneAssessment } from "./use-phone-layout";
 
@@ -72,6 +75,7 @@ export default function PipelineWelcome({
   const [upcomingOrigin, setUpcomingOrigin] = useState<HomeDialogOrigin | null>(null);
   const { searchOpen, setSearchOpen } = usePipelineShell();
   const [searchVisible, setSearchVisible] = useState(true);
+  const [isMonday, setIsMonday] = useState(false);
 
   // Prepare one likely next workspace, not every referral/chart. Intent reads
   // still use the unchanged short TTL and protected shared cache. New briefing
@@ -114,7 +118,12 @@ export default function PipelineWelcome({
     const controller = new AbortController();
     refreshController.current = controller;
     const refreshOnFocus = () => {
-      if (document.visibilityState === "visible") void loadBriefing();
+      if (document.visibilityState === "visible") {
+        // Home promotion follows the same Pacific day as assessment scheduling.
+        // Refresh it on return and on the existing timer, including midnight.
+        setIsMonday(new Date(`${calendarToday()}T12:00:00Z`).getUTCDay() === 1);
+        void loadBriefing();
+      }
     };
     const initialLoad = window.setTimeout(refreshOnFocus, 0);
     const interval = window.setInterval(refreshOnFocus, 30_000);
@@ -156,6 +165,13 @@ export default function PipelineWelcome({
     <>
       <main data-guide-target="home-workspace" data-performance-ready={pipelineSurfaceReady("home", !briefing, error)} className="h-full overflow-y-auto bg-[#f4f6f5] text-[#202320] outline-none">
         <div className="mx-auto w-full max-w-[1380px] px-4 pb-10 pt-4 sm:px-6 sm:pt-5 lg:px-8">
+          {canAccessReports && isMonday ? <a className={briefingStyles.homeBriefing} href={toPipelinePath("/?screen=operations")}
+            onClick={event => {
+              if (event.button !== 0 || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
+              event.preventDefault(); onOpenSearchDestination("operations");
+            }}>
+            <CalendarDays size={28} aria-hidden="true" /><div><strong>Monday briefing</strong><span>Last week’s assessments and admissions · This week’s plans</span></div><ArrowUpRight size={22} aria-hidden="true" />
+          </a> : null}
           <HomeSearchAccess visible={searchVisible} searchProps={searchProps} onClose={() => setSearchOpen(false)} />
 
           {error ? (

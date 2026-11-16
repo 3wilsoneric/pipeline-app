@@ -1,5 +1,6 @@
 import "server-only";
 import { admissionFlowCohort } from "./admission-flow-cohort";
+import { getFirstAssessmentCompletions } from "@/lib/assessment/assessment-completion-milestones";
 import { supervisorQueuePage } from "./supervisor-queue-page";
 import { assumedAdmissionDate, getPlannedAdmissionDate, isAwaitingAdmission } from "./admission-lifecycle";
 
@@ -80,9 +81,11 @@ export async function getOperationsSnapshot(user?: PipelineUser): Promise<Operat
 
 /** Portfolio-wide live board for Alamo Platform; null when storage is unavailable. */
 export async function getPlatformAdmissionsSummary() {
-  const operational = await loadOperationalWork();
+  const operational = await loadOperationalWork(undefined, true);
   if (operational.source !== "referral_store") return null;
   const workByReferral = new Map(operational.work.map((item) => [item.referral_id, item]));
+  const weeklyIds = new Set(admissionFlowCohort(operational.referrals, "").map(referral => referral.id));
+  const completions = await getFirstAssessmentCompletions([...weeklyIds]);
   return buildPlatformAdmissionsSummary({
     now: operational.now,
     referrals: operational.referrals.map((referral) => {
@@ -113,6 +116,9 @@ export async function getPlatformAdmissionsSummary() {
         assessmentScheduledDate,
         assessmentScheduledDurationMinutes: workflowContext?.assessmentScheduledDurationMinutes ?? null,
         assessmentComplete: Boolean(workflowContext?.assessmentComplete ?? referral.assessment?.completedAt),
+        assessmentCompletedAt: completions.get(referral.id) ?? null,
+        assessmentAssessor: workflowContext?.assessmentAssessorName ?? null,
+        weeklyActivityEligible: weeklyIds.has(referral.id),
         currentWorkspace: (referral.workspaceStatus ?? "active") === "active",
         boardColumn: work?.board.stage ?? null,
         boardStatus: work?.board.detail ?? "",

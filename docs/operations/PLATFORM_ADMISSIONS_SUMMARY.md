@@ -34,9 +34,9 @@ referral side of it through one server-to-server endpoint:
   and confirmed arrivals do not. A cancelled placement has the distinct status
   "Did not move in" and appears in the recent 30-day `did_not_move_in` outcome
   slice; it never counts as an admission or an active referral. Moving rows include a canonical work phase and
-  planned date, if any, for the briefing's filtered drill-down. A passed planned
-  date is still pending until the governed census reconciliation confirms an
-  actual admission. Beyond those context fields, event rows
+  planned date, if any, for the briefing's filtered drill-down. The canonical
+  entered-date admission policy applies when the date arrives; subsequent census
+  reconciliation confirms or corrects that date. Beyond those context fields, event rows
   retain client name, destination, status, date where relevant, and the bounded
   Pipeline path already authorized for the board. Arrays are capped and their coverage flag turns false instead
   of silently presenting a truncated result as complete. The card and
@@ -56,6 +56,24 @@ referral side of it through one server-to-server endpoint:
   appointment timestamp and duration from `pipeline.assessments`, the same
   schedule source used by Pipeline Home. The clinical assessment date is never
   treated as an appointment.
+- **Monday work:** `assessed_last_week` counts each native, launch-eligible
+  workspace once at its first recorded interview completion or chart confirmation,
+  including prior revisions and reopened charts. It uses assessment audit events,
+  then stored completion/signature timestamps as fallback evidence; planned dates
+  and last-edit dates are never evidence of completion. `accepted_last_week` uses
+  current accepted decisions recorded in the prior week. These separate cohorts
+  retain client, source, county, prior placement and assessor context, with explicit
+  500-record coverage limits. Read all nondeleted workspace states so closing a
+  workspace does not remove last week's work. Reconfirmations do not count again;
+  decision corrections can change the accepted list. Weeks and timestamp events
+  use Pacific calendar dates, including Sunday UTC crossover and DST.
+- **Community movement:** Pipeline's read-only census adapter accepts Platform's
+  optional `weekly_movement` projection. The briefing selects the exact prior
+  Monday–Sunday period, never a nearby available week. Absent/incomplete movement
+  is unavailable/partial rather than zero. This includes all community residents,
+  whereas Pipeline client lists count workspaces. Current census keeps its own
+  source date. The summary and Home entry are read-only and retain existing report
+  access, including the authorized Eric-to-Andrew preview.
 - **Statuses:** the board's own details, with three renamed for leadership
   (Accept -> "Accepted, requirements open", Email not sent -> "Meet the Client
   not sent", Denied -> "Declined").

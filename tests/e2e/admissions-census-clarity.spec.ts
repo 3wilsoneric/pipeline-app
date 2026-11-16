@@ -45,7 +45,8 @@ for (const width of [1440, 390]) {
     } }));
     await page.goto("/?screen=operations");
     const main = page.getByRole("main", { name: "Reports" });
-    await expect(main.getByRole("heading", { name: "Admissions & census" })).toBeVisible();
+    await expect(main.getByRole("heading", { name: "Monday briefing" })).toBeVisible();
+    await main.getByRole("button", { name: /^1 Admitted$/ }).click();
     await expect(main.getByRole("link", { name: /Jordan Ellis/ })).toHaveAttribute("href", /referralId=901/);
     await page.screenshot({ path: testInfo.outputPath(`report-${width}.png`), fullPage: true });
 
@@ -53,7 +54,7 @@ for (const width of [1440, 390]) {
     for (const name of ["Avery Taylor", "Riley Parker", "Taylor Quinn"]) {
       await expect(main.getByRole("link", { name: new RegExp(name) })).toHaveCount(0);
     }
-    const details = page.getByRole("region", { name: "Admitted last week" }).locator("details");
+    const details = page.getByRole("region", { name: "Admitted", exact: true }).locator("details");
     await details.locator("summary").focus();
     await page.keyboard.press("Enter");
     await expect(details.getByText("Contra Costa", { exact: true })).toBeVisible();
@@ -71,7 +72,7 @@ for (const width of [1440, 390]) {
     await moving.getByRole("button", { name: /Intake & assessment/ }).click();
     await expect(moving.getByRole("link", { name: /Drew Bennett/ })).toBeVisible();
     await expect(moving.getByRole("link", { name: /Casey Brooks/ })).toHaveCount(0);
-    await moving.getByRole("button", { name: "View all 2" }).click();
+    await moving.getByRole("button", { name: "All 2" }).click();
     await expect(moving.getByRole("link", { name: /Casey Brooks/ })).toBeVisible();
   });
 }

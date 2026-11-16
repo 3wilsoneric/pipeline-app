@@ -119,7 +119,7 @@ test("snapshots the live board by column and status with client identity and dri
   assert.equal(summary.briefing.timezone, "America/Los_Angeles");
   assert.equal(summary.briefing.window_end, "2026-09-26");
   assert.deepEqual(summary.briefing.coverage, {
-    recent_referrals_complete: true,
+    assessed_last_week_complete: true, accepted_last_week_complete: true, recent_referrals_complete: true,
     assessments_complete: true,
     move_ins_complete: true,
     admitted_last_week_complete: true,
@@ -250,7 +250,7 @@ test("marks capped briefing slices incomplete instead of presenting truncation a
   }));
   const summary = summarize(referrals);
   assert.deepEqual(summary.briefing.coverage, {
-    recent_referrals_complete: false,
+    assessed_last_week_complete: true, accepted_last_week_complete: true, recent_referrals_complete: false,
     assessments_complete: false,
     move_ins_complete: false,
     admitted_last_week_complete: true,
@@ -283,4 +283,32 @@ test("platform summary route requires its own secret and never a browser session
   assert.equal(response.status, 200);
   assert.match(response.headers.get("cache-control"), /no-store/);
   assert.equal(reads, 1);
+});
+
+test('Monday activity respects Pacific boundaries, native workspaces and separate event dates', () => {
+  const summary = buildPlatformAdmissionsSummary({ now: new Date('2026-11-16T16:00:00Z'), referrals: [
+    referral({clientName:'Sunday finish', weeklyActivityEligible:true, assessmentCompletedAt:'2026-11-16T07:59:59Z', assessmentAssessor:'Actual assessor', decisionOutcome:'accepted', decidedAt:'2026-11-16T07:30:00Z', plannedAdmissionDate:'2026-11-20'}),
+    referral({clientName:'Monday finish', weeklyActivityEligible:true, assessmentCompletedAt:'2026-11-16T08:00:00Z', decisionOutcome:'accepted', decidedAt:'2026-11-16T08:00:00Z'}),
+    referral({clientName:'Imported', weeklyActivityEligible:false, assessmentCompletedAt:'2026-11-12T20:00:00Z', decisionOutcome:'accepted', decidedAt:'2026-11-12T20:00:00Z'}),
+    referral({clientName:'Scheduled only', weeklyActivityEligible:true, assessmentScheduledDate:'2026-11-12T20:00:00Z'}),
+    referral({clientName:'Denied', weeklyActivityEligible:true, assessmentCompletedAt:'2026-11-11T20:00:00Z', decisionOutcome:'declined', decidedAt:'2026-11-11T20:00:00Z'}),
+    referral({clientName:'Arrived', weeklyActivityEligible:true, actualAdmissionDate:'2026-11-10', decisionOutcome:'accepted', decidedAt:'2026-11-01T20:00:00Z'}),
+    referral({clientName:'Upcoming Sunday', assessmentScheduledDate:'2026-11-23T07:00:00Z'}),
+    referral({clientName:'Next Monday', assessmentScheduledDate:'2026-11-23T08:00:00Z'}),
+  ]});
+  const b = buildAdmissionsCensusReport(summary).briefing;
+  assert.equal(b.last_week_start,'2026-11-09');
+  assert.deepEqual(b.assessed_last_week.map(row=>row.client_name),['Sunday finish','Denied']);
+  assert.equal(b.assessed_last_week[0].owner,'Actual assessor');
+  assert.deepEqual(b.accepted_last_week.map(row=>row.client_name),['Sunday finish']);
+  assert.deepEqual(b.admitted_last_week.map(row=>row.client_name),['Arrived']);
+  assert.deepEqual(b.upcoming_assessments.map(row=>row.client_name),['Upcoming Sunday']);
+  assert.equal(b.upcoming_assessments[0].source_name,'County behavioral health');
+  assert.equal(b.assessed_last_week[0].prior_placement,'Acute hospital');
+});
+
+test('Monday moves the reporting window only at Pacific midnight, including DST', () => {
+  for (const [at, expected] of [['2026-11-02T07:59:59Z','2026-10-26'],['2026-11-02T08:00:00Z','2026-11-02'],['2026-11-16T07:59:59Z','2026-11-09'],['2026-11-16T08:00:00Z','2026-11-16']]) {
+    assert.equal(buildPlatformAdmissionsSummary({now:new Date(at), referrals:[]}).briefing.week_start,expected);
+  }
 });
