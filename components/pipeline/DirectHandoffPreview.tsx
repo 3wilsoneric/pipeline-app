@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import type { CommunicationView } from "@/lib/notifications/communication-contract";
 import CommunicationRecord from "./CommunicationRecord";
 import styles from "./CommunicationHistory.module.css";
@@ -14,6 +14,7 @@ export default function DirectHandoffPreview({ prepare, onBack, onDone, editor, 
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
+  const attachmentSummaryId = useId();
   const request = useRef<Promise<CommunicationView> | null>(null);
   const prepareRef = useRef(prepare);
   useEffect(() => { prepareRef.current = prepare; }, [prepare]);
@@ -41,7 +42,7 @@ export default function DirectHandoffPreview({ prepare, onBack, onDone, editor, 
     if (completed) onDone();
   };
   return <div>
-    {editing ? editor(() => void run()) : record ? <CommunicationRecord record={record} history={record.status !== "ready"} /> : !ready ? <div role="status"><h3>Finish preparing the packet</h3><ul>{readinessReasons.map(reason => <li key={reason}>{reason}</li>)}</ul></div> : !error ? <p className={styles.muted} role="status">Preparing the exact email and preserving every attachment…</p> : null}
+    {editing ? editor(() => void run()) : record ? <CommunicationRecord record={record} history={record.status !== "ready"} attachmentSummaryId={attachmentSummaryId} /> : !ready ? <div role="status"><h3>Finish preparing the packet</h3><ul>{readinessReasons.map(reason => <li key={reason}>{reason}</li>)}</ul></div> : !error ? <p className={styles.muted} role="status">Preparing the exact email and preserving every attachment…</p> : null}
     {error ? <p className={styles.error} role="alert">{error}</p> : null}
     {error || !ready || record?.status === "not_sent" ? refresh : null}
     {record?.status === "ready" && !editing ? <p className={styles.muted}>This email and these files will be sent from Alamo Admissions. The assessor receives a copy and replies.</p> : null}
@@ -51,7 +52,10 @@ export default function DirectHandoffPreview({ prepare, onBack, onDone, editor, 
         : editing ? <button type="button" className={styles.primary} disabled={busy || sending || !ready} onClick={() => void run()}>Save & preview email</button>
         : record?.status === "ready" ? <>
           <button type="button" className={styles.secondary} disabled={busy || sending} onClick={() => setEditing(true)}>Edit message</button>
-          <button type="button" className={styles.primary} disabled={busy || sending || !ready} onClick={() => void run(true)}>{busy || sending ? "Sending…" : "Send email & packet"}</button>
+          <button type="button" className={`${styles.primary} ${styles.sendPacket}`} aria-describedby={attachmentSummaryId} disabled={busy || sending || !ready} onClick={() => void run(true)}>
+            {busy || sending ? "Sending…" : "Send email & packet"}
+            <span className={styles.sendFileCount} aria-hidden="true">{record.files.length} {record.files.length === 1 ? "file" : "files"}</span>
+          </button>
         </> : error || record?.status === "not_sent" ? <button type="button" className={styles.primary} disabled={busy || sending || !ready} onClick={() => void run()}>Prepare preview again</button> : null}
     </footer>
   </div>;

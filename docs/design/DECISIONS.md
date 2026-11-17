@@ -824,3 +824,18 @@ Pacific Mondays only. Reuse their existing report authorization, including
 validated aliases and the authorized Andrew preview. On other days remove only
 the Home promotion; the normal Reports page stays available. Refresh the day on
 focus and the existing Home timer so an open app changes over at midnight.
+
+### Visible attachments before sending (owner, 2026-11-17)
+
+The owner requested making the selected files obvious before Send without another
+step. The exact email preview shows a permanently open selected-file list directly
+above its existing send controls. Each original filename has a non-interactive
+checkmark and retains its existing preview/download action; long names wrap.
+The existing Send button carries the prepared file count, with an accessible
+description tied to the list heading. Use the prepared communication snapshot for
+both the list and count, never the full upload inventory or unsaved selections.
+
+Keep the file selector, manual exclusions, data sheet rule, saved history, and
+send/retry behavior unchanged. No new confirmation, click, or consent is added.
+Use the existing typography, status, border and control-size tokens; stack the
+file list on phones. This is presentation only.
