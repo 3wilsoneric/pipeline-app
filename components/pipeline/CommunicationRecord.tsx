@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { X } from "lucide-react";
+import { Check, X } from "lucide-react";
 import { fetchPipelineApi } from "@/lib/auth/authenticated-fetch";
 import { communicationStatusLabels, type CommunicationView } from "@/lib/notifications/communication-contract";
 import { toPipelinePath } from "@/lib/pipeline/base-path";
@@ -21,7 +21,7 @@ export function CommunicationDialog({ title, onClose, children }: { title: strin
   </dialog>;
 }
 
-export default function CommunicationRecord({ record, history = false }: { record: CommunicationView; history?: boolean }) {
+export default function CommunicationRecord({ record, history = false, attachmentSummaryId }: { record: CommunicationView; history?: boolean; attachmentSummaryId?: string }) {
   const [error, setError] = useState("");
   const [file, setFile] = useState<{ url: string; name: string; type: string } | null>(null);
   const [opening, setOpening] = useState<string | null>(null);
@@ -50,11 +50,20 @@ export default function CommunicationRecord({ record, history = false }: { recor
       <dt>Admission</dt><dd>{record.admissionDate}</dd>
     </dl>
     {record.html ? <iframe title={history ? "Saved handoff email" : "Exact email preview"} srcDoc={record.html.replace('src="https://alamo-pipeline.com/brand/alamo-health-management.png"', `src="${toPipelinePath("/brand/alamo-health-management.png")}"`)} sandbox="" referrerPolicy="no-referrer" className={styles.email} /> : null}
-    <details className={styles.files} open><summary>{record.files.length} {record.files.length === 1 ? "attachment" : "attachments"} · original files and client data sheet</summary>
+    {history ? <details className={styles.files} open><summary>{record.files.length} {record.files.length === 1 ? "attachment" : "attachments"} · original files and client data sheet</summary>
       {record.files.map(item => <button type="button" className={styles.file} key={item.id} disabled={Boolean(opening)} onClick={() => void openFile(item.id)}>
         {opening === item.id ? "Opening…" : item.name}<span>{Math.max(1, Math.round(item.byteSize / 1024))} KB</span>
       </button>)}
-    </details>
+    </details> : <section className={styles.selectedFiles} aria-label="Selected files">
+      <h3 id={attachmentSummaryId}>{record.files.length} {record.files.length === 1 ? "file" : "files"} selected</h3>
+      <ul>{record.files.map(item => <li key={item.id}>
+        <button type="button" className={styles.selectedFile} disabled={Boolean(opening)} onClick={() => void openFile(item.id)}>
+          <Check size={18} aria-hidden="true" />
+          <span className={styles.selectedFileName}>{opening === item.id ? "Opening…" : item.name}</span>
+          <span className={styles.selectedFileSize}>{Math.max(1, Math.round(item.byteSize / 1024))} KB</span>
+        </button>
+      </li>)}</ul>
+    </section>}
     {error ? <p className={styles.error} role="alert">{error}</p> : null}
     {history ? <p className={styles.muted}>Prepared by {record.preparedBy} · Assessor: {record.assessorName} · Assessment version {record.assessmentVersion}. {record.status === "submitted" ? "Microsoft accepted this email for delivery. Recipient receipt and replies are not tracked." : record.note}</p> : null}
     {file ? <CommunicationDialog title={file.name} onClose={() => setFile(null)}>

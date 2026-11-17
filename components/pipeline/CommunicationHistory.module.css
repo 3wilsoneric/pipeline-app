@@ -21,6 +21,19 @@
 .files { margin: 20px 0; border-top: 1px solid #d5dfda; } .files summary { min-height: 44px; padding: 12px 0; font-weight: 650; cursor: pointer; }
 .file { display: flex; justify-content: space-between; gap: 16px; width: 100%; min-height: 44px; padding: 10px 0; text-align: left; color: #08745e; overflow-wrap: anywhere; font-size: 14px; }
 .file span { color: #586a61; flex-shrink: 0; }
+.selectedFiles { margin: 24px 0 0; color: var(--color-ink-2); }
+.selectedFiles h3 { margin: 0 0 8px; font-size: var(--text-section); line-height: var(--text-section--line-height); font-weight: var(--text-section--font-weight); }
+.selectedFiles ul { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 24px; margin: 0; padding: 0; list-style: none; }
+.selectedFiles li { min-width: 0; border-bottom: 1px solid var(--color-paper-rule); }
+.selectedFile { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: start; gap: 10px; width: 100%; min-height: var(--spacing-control); padding: 12px 0; text-align: left; border-radius: var(--radius-paper); }
+.selectedFile svg { color: var(--color-status-done); margin-top: 2px; }
+.selectedFileName { color: var(--color-link); font-size: var(--text-value); line-height: var(--text-value--line-height); font-weight: var(--text-label--font-weight); overflow-wrap: anywhere; }
+.selectedFileSize { color: var(--color-ink-muted); font-size: var(--text-meta); line-height: var(--text-value--line-height); white-space: nowrap; }
+.selectedFile:hover { background: var(--color-card-warm); }
+.selectedFile:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 3px; }
+.sendPacket { gap: 12px; }
+.sendFileCount { padding-inline-start: 12px; border-inline-start: 1px solid currentColor; font-size: var(--text-meta); font-weight: var(--text-label--font-weight); white-space: nowrap; }
+@media(max-width:600px) { .selectedFiles ul { grid-template-columns: minmax(0, 1fr); } .sendPacket { width: 100%; } }
 .dialog { position: fixed; inset: 0; margin: auto; padding: 0; width: min(940px, calc(100% - 32px)); max-height: calc(100dvh - 32px); border: 1px solid #bdcec3; border-radius: 10px; color: #263d32; background: white; box-shadow: 0 16px 64px #183a273d; }
 .dialog::backdrop { background: #152c2466; } .dialogHeader { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 18px 24px; border-bottom: 1px solid #d5dfda; } .dialogHeader h2 { font-size: 21px; font-weight: 700; }
 .body { padding: 20px 24px; overflow-y: auto; } .close { display: grid; place-items: center; min-width: 44px; min-height: 44px; }
