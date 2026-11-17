@@ -230,11 +230,11 @@ test("packet includes chart documents, assessment attachments and data sheet wit
   assert.ok((await pdfText(inventory.files[0].generatedContent)).includes("Synthetic placement note"));
   assert.equal(inventory.files[0].contentType, "application/pdf");
   assert.deepEqual((await attachmentOwner.prepareMeetClientMailAttachments(inventory))[0].contentBytes, inventory.files[0].generatedContent);
-  const defaultIds = attachmentOwner.defaultMeetClientAttachmentIds([
+  const defaultFiles = [
     inventory.files[0],
     { documentId: "agreement", category: "Admission agreement", name: "Admission agreement.pdf" },
     { documentId: "medication-old", category: "Medication list", name: "Signed Medication List - older.pdf", uploadedAt: "2026-08-01T00:00:00Z" },
-    { documentId: "medication", category: "Medication list", name: "Signed Medication List.pdf", uploadedAt: "2026-09-01T00:00:00Z" },
+    { documentId: "medication", category: "Medication list", name: "Discharge Medication List.pdf", uploadedAt: "2026-09-01T00:00:00Z" },
     { documentId: "mar", category: "Medication list", name: "MAR.pdf" },
     { documentId: "referral", category: "Referral packet", name: "Referral pack.pdf" },
     { documentId: "provider", category: "Provider form", name: "Provider form.pdf" },
@@ -244,8 +244,15 @@ test("packet includes chart documents, assessment attachments and data sheet wit
     { documentId: "lic601", category: "LIC 601/603", name: "LIC 601.pdf" },
     { documentId: "lic603", category: "LIC 601/603", name: "LIC 603.pdf" },
     { documentId: "conservator", category: "Conservatorship", name: "Conservator document.pdf" },
-  ]);
-  assert.deepEqual(defaultIds, [inventory.files[0].documentId, "agreement", "medication", "tb", "lic602", "lic601", "lic603", "conservator"]);
+  ];
+  for (const name of ["Discharge Medication List.pdf", "scan-001.pdf", "Signed Medication List.pdf", "MAR.pdf"]) {
+    const renamed = defaultFiles.map((file) => file.documentId === "medication" ? { ...file, name } : file);
+    const defaultIds = attachmentOwner.defaultMeetClientAttachmentIds(renamed);
+    assert.deepEqual(defaultIds, [inventory.files[0].documentId, "agreement", "medication", "tb", "lic602", "lic601", "lic603", "conservator"],
+      "the latest file categorized Medication list is selected regardless of filename; older lists and other categories stay unchecked");
+    const withoutMedication = attachmentOwner.selectMeetClientAttachmentInventory({ ...inventory, files: renamed }, defaultIds.filter((id) => id !== "medication"));
+    assert.ok(!withoutMedication.files.some((file) => file.documentId === "medication"), "staff can still uncheck the medication list");
+  }
   status = "infected";
   const blocked = await attachmentOwner.getMeetClientAttachmentInventory(referral);
   assert.equal(blocked.ready, false);
