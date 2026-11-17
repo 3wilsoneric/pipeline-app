@@ -83,14 +83,14 @@ export async function getMeetClientAttachmentInventory(
 
 /** Only admission handoff documents are suggested; staff review the exact set. */
 export function defaultMeetClientAttachmentIds(files: readonly MeetClientAttachmentItem[]): string[] {
-  // File labels cannot prove clinical currency. Suggest only the most recently
-  // uploaded signed list; staff confirm it is current before sending.
-  const signedMedicationList = files
-    .filter((file) => file.category === "Medication list" && /\bsigned\b/i.test(file.name) && !/\bMAR\b|medication administration record/i.test(file.name))
+  // Use the document category, not its filename. Suggest the latest uploaded
+  // medication list; staff still confirm it is current and signed before sending.
+  const medicationList = files
+    .filter((file) => file.category === "Medication list")
     .reduce<MeetClientAttachmentItem | undefined>((latest, file) => !latest || (file.uploadedAt ?? "") > (latest.uploadedAt ?? "") ? file : latest, undefined);
   return files.filter((file) => {
     if (file.generatedContent !== undefined) return true;
-    if (file.category === "Medication list") return file.documentId === signedMedicationList?.documentId;
+    if (file.category === "Medication list") return file.documentId === medicationList?.documentId;
     return ["Admission agreement", "TB test", "LIC 602", "LIC 601/603", "Conservatorship"].includes(file.category);
   }).map((file) => file.documentId);
 }
