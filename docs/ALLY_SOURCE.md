@@ -18,7 +18,7 @@ route and request ID without logging query contents.
 The `input` query parameter is a JSON object. `view=catalog` describes the named
 reads and limitations. `directory` searches active, historical and archived
 workspaces across assessors. `referralId` opens workflow, assessments, notes,
-contacts, file metadata, packet extraction, retained imported ALLO content or
+contacts, file metadata, page-level document text, Meet the Client communications, packet extraction, retained imported ALLO content or
 recent activity. `assessment` also requires the exact `assessmentId` and verifies
 its referral binding. Question definitions and provenance come from the same
 assessment-context owner used by the application.
@@ -29,11 +29,17 @@ change returns 409. Platform reads long text through revision-bound offsets. It
 excludes transport read times from content identity and never treats a capped
 page as a population total. Separate owner reads are not one atomic snapshot.
 
-Known ceilings: this reader does not return original file bytes or full OCR,
-deleted workspaces, or complete event history. The activity owner retains at most
+The document reader uses the native original/preview owner and its malware gate.
+Each PDF/image page is read on demand using the same parser/OCR as intake; page
+continuation is bound to the file SHA-256. It writes no files or referral fields.
+OCR and embedded text are explicitly labeled; visual content can still need
+human inspection. Unsupported formats and missing previews return an error.
+
+Known ceilings: this reader does not return original binary files, legacy
+Outlook/link communication archives, deleted workspaces, or complete event history. The activity owner retains at most
 100 events. Packet fields retain candidates/review state, not the whole document.
 The catalog exposes these gaps. Responses over 4 MiB fail without dropping
-evidence. If real questions need original documents or larger histories, extend
+evidence. If real questions need unsupported document formats or larger histories, extend
 the canonical document/history reader and pagination first; do not invent an
 answer from file metadata or raise limits silently.
 

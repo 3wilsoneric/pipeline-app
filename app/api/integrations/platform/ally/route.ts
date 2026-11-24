@@ -2,6 +2,7 @@ import { requireAllySource } from "@/lib/auth/internal-worker-auth";
 import { withApiLogging } from "@/lib/observability/api-logging";
 import { AllySourceError, readAllyPipelineSource } from "@/lib/pipeline/ally-source";
 import { requireReferralStore } from "@/lib/pipeline/referral-store";
+import { DocumentProcessingError } from "@/lib/extraction/document-processing";
 
 export const runtime = "nodejs";
 
@@ -28,7 +29,7 @@ export async function GET(request: Request) {
       }
       return new Response(body, { headers: { "Content-Type": "application/json", "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" } });
     } catch (error) {
-      if (error instanceof AllySourceError) return Response.json({ error: error.message }, { status: error.status });
+      if (error instanceof AllySourceError || error instanceof DocumentProcessingError) return Response.json({ error: error.message }, { status: error.status });
       throw error;
     }
   });

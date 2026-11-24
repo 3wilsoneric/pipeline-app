@@ -3,6 +3,8 @@ import "server-only";
 import { buildAssessmentContext } from "@/lib/assessment/assessment-context";
 import { getAssessment, listAssessments } from "@/lib/assessment/assessment-store";
 import { readPacketFields } from "@/lib/extraction/extraction-service";
+import { readReferralDocumentPage } from "@/lib/extraction/document-text";
+import { listCommunicationPackets } from "@/lib/notifications/admission-packet-store";
 import { listClientNotes } from "./client-notes-store";
 import { listReferralContacts } from "./contact-store";
 import { getHistoricalProfile } from "./historical-profile-store";
@@ -18,6 +20,8 @@ const views = {
   assessment: "Full assessment, source-owned question definitions, visibility, required fields, unanswered values, provenance, schedule, signature, addenda and audit.",
   notes: "All persisted note blocks for this referral. Older topic blocks may be archived; the unified block is the current editor. Preserve block keys, versions and authorship.",
   files: "Native file metadata for this referral, including category, processing status and source IDs. Follow next_cursor. File presence is not proof that its content was read.",
+  document: "Read one actual document page by documentId from files. Supply page (default 1), then documentHash and nextPage for continuation. PDF text or local OCR; source errors are explicit. This is page evidence, not a whole-document summary.",
+  communications: "Retained Meet the Client communications, including draft/submitted state, message, selected attachment metadata and delivery audit. Follow next_cursor. Submitted is not proof of recipient delivery. Legacy Outlook/link packets are outside this owner.",
   extraction: "The referral packet's retained extracted fields, candidates, reviewed values and bounded review history. This is not the full original document text.",
   imported: "Retained imported ALLO canvas text and historical assessment candidates. Imported values are source observations, not automatically verified current answers.",
   contacts: "Contacts linked to this referral, with relationship and source information.",
@@ -25,7 +29,8 @@ const views = {
 } as const;
 type View = keyof typeof views;
 type Input = { view: View; referralId?: number; assessmentId?: string; query?: string; community?: string; owner?: string;
-  month?: string; workspaceStatus?: ReferralListOptions["workspaceStatus"]; cursor?: string; sourceRevision?: number };
+  month?: string; workspaceStatus?: ReferralListOptions["workspaceStatus"]; cursor?: string; sourceRevision?: number;
+  documentId?: string; page?: number; documentHash?: string };
 
 export class AllySourceError extends Error {
   constructor(message: string, public readonly status = 400) { super(message); }
@@ -39,7 +44,8 @@ export function parseAllySourceInput(value: unknown): Input {
   const allowed = view === "catalog" ? ["view"] : view === "directory"
     ? ["view", "query", "community", "owner", "month", "workspaceStatus", "cursor", "sourceRevision"]
     : view === "assessment" ? ["view", "referralId", "assessmentId"]
-    : ["view", "referralId", ...(["files", "assessments"].includes(view) ? ["cursor"] : [])];
+    : view === "document" ? ["view", "referralId", "documentId", "page", "documentHash"]
+    : ["view", "referralId", ...(["files", "assessments", "communications"].includes(view) ? ["cursor"] : [])];
   if (Object.keys(input).some(key => !allowed.includes(key))) throw new AllySourceError("Unsupported source parameter.");
   if (!["catalog", "directory"].includes(view) && (!Number.isSafeInteger(input.referralId) || Number(input.referralId) < 1)) {
     throw new AllySourceError("Choose a valid referralId from the directory.");
@@ -50,6 +56,12 @@ export function parseAllySourceInput(value: unknown): Input {
     }
   }
   if (view === "assessment" && (typeof input.assessmentId !== "string" || !/^[a-zA-Z0-9_-]{1,100}$/.test(input.assessmentId))) throw new AllySourceError("Choose an assessmentId from this referral.");
+  if (view === "document") {
+    if (typeof input.documentId !== "string" || !/^[a-zA-Z0-9_-]{1,100}$/.test(input.documentId)) throw new AllySourceError("Choose a documentId from files.");
+    if (input.page !== undefined && (!Number.isSafeInteger(input.page) || Number(input.page) < 1)) throw new AllySourceError("Choose a positive page number.");
+    if (input.documentHash !== undefined && (typeof input.documentHash !== "string" || !/^[a-f0-9]{64}$/.test(input.documentHash))) throw new AllySourceError("Invalid documentHash.");
+    if (Number(input.page ?? 1) > 1 && !input.documentHash) throw new AllySourceError("Continue with the documentHash from page one.");
+  }
   if (input.workspaceStatus !== undefined && !["active", "historical", "archived", "all"].includes(String(input.workspaceStatus))) throw new AllySourceError("Invalid workspaceStatus.");
   if (input.month !== undefined && !/^\d{4}-(0[1-9]|1[0-2])$/.test(String(input.month))) throw new AllySourceError("Choose a YYYY-MM month.");
   if (input.sourceRevision !== undefined && (!Number.isSafeInteger(input.sourceRevision) || Number(input.sourceRevision) < 0)) throw new AllySourceError("Invalid sourceRevision.");
@@ -64,7 +76,7 @@ export async function readAllyPipelineSource(value: unknown) {
   if (input.view === "catalog") {
     data = { views: Object.entries(views).map(([view, description]) => ({ view, description })),
       limits: { directoryPage: 20, assessmentsPage: 20, filesPage: 20, activityEvents: 100 },
-      gaps: ["original-document-bytes", "full-OCR-document-text", "complete-activity-history", "deleted-workspaces"],
+      gaps: ["original-document-bytes-not-returned", "complete-activity-history", "legacy-outlook-link-communications", "deleted-workspaces"],
       parameters: { directory: ["query", "community", "owner", "month", "workspaceStatus", "cursor", "sourceRevision"],
         perReferral: "referralId required; assessment also requires assessmentId; files and assessments accept cursor" } };
   } else if (input.view === "directory") {
@@ -116,6 +128,19 @@ export async function readAllyPipelineSource(value: unknown) {
         break;
       }
       case "extraction": data = { packetId: referral.packetId ?? null, fields: referral.packetId ? await readPacketFields(referral.packetId) : null }; complete = false; break;
+      case "document": data = await readReferralDocumentPage(referral.id, input.documentId!, input.page ?? 1, input.documentHash); complete = false; break;
+      case "communications": {
+        const page = await listCommunicationPackets({ referralId: referral.id, cursor: input.cursor });
+        data = { next_cursor: page.nextCursor ?? null, records: page.items.map(packet => ({
+          id: packet.id, createdAt: packet.createdAt, assessmentId: packet.assessmentId, assessmentVersion: packet.assessmentVersion,
+          message: packet.message, status: packet.communication!.status, submittedAt: packet.communication!.submittedAt ?? null,
+          community: packet.communication!.community, admissionDate: packet.communication!.admissionDate,
+          assessorName: packet.communication!.assessorName, from: packet.communication!.from, to: packet.communication!.to, cc: packet.communication!.cc,
+          audit: packet.communication!.audit, note: packet.communication!.note,
+          files: packet.files.map(({ id, name, contentType, byteSize, archived }) => ({ id, name, contentType, byteSize, archived })),
+        })) };
+        complete = !page.nextCursor; break;
+      }
       case "imported": data = ["allo", "import"].includes(referral.workspaceOrigin ?? "") ? await getHistoricalProfile(referral) : { available: false, reason: "This workspace is not imported." }; break;
       case "contacts": data = { contacts: await listReferralContacts(referral.id) }; break;
       case "activity": {

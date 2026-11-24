@@ -38,6 +38,8 @@ function fixture() {
       getAssessment:async()=>({...assessment,referral_id:crossCase?99:42}),
       listAssessments:async options=>{calls.push(['listAssessments',options]);return {assessments:[assessment],total:21,revision:4,next_cursor:'assessment-next'};},
     },
+    '@/lib/extraction/document-text':{readReferralDocumentPage:async()=>({documentId:'file',pageNumber:1,pageCount:2,text:'Actual fictional page',nextPage:2})},
+    '@/lib/notifications/admission-packet-store':{listCommunicationPackets:async()=>({items:[{id:'message',createdAt:'2026-11-24',message:{subject:'Meet the Client',body:'Fictional message'},communication:{status:'submitted',audit:{},to:[],cc:[]},files:[{id:'file',name:'meds.pdf',source:{key:'private-key'}}],recipients:[{sessions:[{hash:'private-session'}]}]}],nextCursor:'next'})},
     './workflow-store':{getReferralWorkflowSnapshot:async()=>workflow},
     './client-notes-store':{listClientNotes:async()=>[{block_key:'unified',body:'Full fictional note',version:3}]},
     './contact-store':{listReferralContacts:async()=>[{relationship:'referrer',name:'Fictional referrer'}]},
@@ -73,6 +75,8 @@ test('canonical assessments keep unanswered values and provenance; history and f
   assert.equal((await read('contacts')).data.contacts[0].relationship,'referrer');
   const files=await read('files');assert.equal(files.complete,false);assert.equal(files.data.next_cursor,'file-next');assert(!JSON.stringify(files).includes('private-url'));
   const assessments=await read('assessments');assert.equal(assessments.complete,false);assert.equal(assessments.data.records[0].status,'draft');
+  const page=await f.source.readAllyPipelineSource({view:'document',referralId:42,documentId:'file'});assert.equal(page.data.text,'Actual fictional page');assert.equal(page.complete,false);
+  const comm=await read('communications');assert.equal(comm.data.records[0].status,'submitted');assert.equal(comm.complete,false);assert(!JSON.stringify(comm).includes('private-'));
   const activity=await read('activity');assert.equal(activity.complete,false);assert.equal(activity.data.events[0].undo,undefined);
   const extracted=await read('extraction');assert.equal(extracted.complete,false);assert.equal(extracted.data.fields.fields[0].review_status,'pending');
   f.cross();await assert.rejects(()=>f.source.readAllyPipelineSource({view:'assessment',referralId:42,assessmentId:'assessment-fixture'}),error=>error.status===404);
@@ -81,7 +85,7 @@ test('canonical assessments keep unanswered values and provenance; history and f
 
 test('unknown operations, native writes, malformed IDs and undeclared parameters fail before reading',async()=>{
   const f=fixture();
-  for(const input of [null,[],{view:'delete'},{view:'notes',referralId:'42'},{view:'notes',referralId:0},{view:'directory',assignedOwnerId:subject},{view:'directory',scope:'mine'},{view:'directory',month:'2026-14'},{view:'directory',workspaceStatus:'trash'},{view:'notes',referralId:42,body:'write'},{view:'assessment',referralId:42,assessmentId:'../../private'}]) await assert.rejects(()=>f.source.readAllyPipelineSource(input));
+  for(const input of [null,[],{view:'delete'},{view:'document',referralId:42,documentId:'../secret'},{view:'document',referralId:42,documentId:'file',page:2},{view:'document',referralId:42,documentId:'file',page:0},{view:'notes',referralId:'42'},{view:'notes',referralId:0},{view:'directory',assignedOwnerId:subject},{view:'directory',scope:'mine'},{view:'directory',month:'2026-14'},{view:'directory',workspaceStatus:'trash'},{view:'notes',referralId:42,body:'write'},{view:'assessment',referralId:42,assessmentId:'../../private'}]) await assert.rejects(()=>f.source.readAllyPipelineSource(input));
   assert.equal(f.calls.length,0);
 });
 
