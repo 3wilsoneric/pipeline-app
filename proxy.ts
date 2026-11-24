@@ -7,6 +7,7 @@ import {
   requireAuthenticatedUser,
 } from "@/lib/auth/pipeline-auth";
 import { getCanonicalPageRedirect } from "@/lib/auth/canonical-origin";
+import { requireAllySource } from "@/lib/auth/internal-worker-auth";
 import { fromPipelinePath, toPipelinePath } from "@/lib/pipeline/base-path";
 import { PIPELINE_PERMISSIONS_POLICY, pipelineContentSecurityPolicy } from "@/shared/pipeline-security-headers.mjs";
 
@@ -26,6 +27,9 @@ export async function proxy(request: NextRequest) {
 
   // Client-level briefing and the broad board summary never share a credential.
   if (applicationPathname.startsWith("/api/integrations/platform/")) {
+    if (applicationPathname === "/api/integrations/platform/ally") {
+      return withSecurityHeaders(requireAllySource(request) ?? continueRequest(request), request);
+    }
     const denied = requireBearerSecretAtProxy(
       request,
       applicationPathname === "/api/integrations/platform/client-briefing"

@@ -28,6 +28,24 @@ export function requirePlatformClientBriefing(request: Request) {
   );
 }
 
+/** Organization-wide analytical reads have their own credential and represented identity.
+ * This is not a browser login, worker credential, or permission to mutate a record. */
+export function requireAllySource(request: Request) {
+  const denied = requireBearerSecret(request, process.env.PIPELINE_ALLY_SOURCE_SECRET?.trim(), "Ally source is not configured.");
+  if (denied) return denied;
+  const uuid = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/;
+  const tenant = process.env.PIPELINE_ALLY_SOURCE_TENANT_ID?.trim().toLowerCase();
+  const subjects = process.env.PIPELINE_ALLY_SOURCE_SUBJECT_IDS?.split(",").map(value => value.trim().toLowerCase()).filter(Boolean) ?? [];
+  if (!tenant || !uuid.test(tenant) || !subjects.length || subjects.some(value => !uuid.test(value))) {
+    return Response.json({ error: "Ally source identity is not configured." }, { status: 503 });
+  }
+  const subject = request.headers.get("x-ally-subject")?.toLowerCase() ?? "";
+  if (request.headers.get("x-ally-tenant")?.toLowerCase() !== tenant || !uuid.test(subject) || !subjects.includes(subject)) {
+    return Response.json({ error: "Unauthorized" }, { status: 403 });
+  }
+  return null;
+}
+
 function requireBearerSecret(request: Request, expected: string | undefined, unconfiguredMessage: string) {
   if (!expected) {
     return Response.json({ error: unconfiguredMessage }, { status: 503 });
