@@ -135,7 +135,7 @@ test("the pinned archive replaces only the reviewed lint callers without picomat
   }
   const pluginRequire = createRequire(path.join(pluginRoot, "package.json"));
   const plugin = JSON.parse(readFileSync(path.join(pluginRoot, "package.json"), "utf8"));
-  assert.equal(plugin.version, "16.4.3", "Review Next's glob callers after upgrades");
+  assert.equal(plugin.version, "16.4.6", "Review Next's glob callers after upgrades");
   assert.equal(plugin.dependencies["fast-glob"], "3.3.1");
   const consumers = readdirSync(path.join(pluginRoot, "dist"), { recursive: true })
     .filter((file) => file.endsWith(".js") && readFileSync(path.join(pluginRoot, "dist", file), "utf8").includes('require("fast-glob")'));
@@ -146,7 +146,7 @@ test("the pinned archive replaces only the reviewed lint callers without picomat
   assert.match(caller, /onlyDirectories: true/);
   const lock = JSON.parse(readFileSync(path.join(root, "package-lock.json"), "utf8"));
   for (const [name, version, dependency, source] of [
-    ["@next/eslint-plugin-next", "16.4.3", "fast-glob", "dist/utils/get-root-dirs.js"],
+    ["@next/eslint-plugin-next", "16.4.6", "fast-glob", "dist/utils/get-root-dirs.js"],
     ["@typescript-eslint/typescript-estree", "8.57.1", "tinyglobby", "dist/parseSettings/resolveProjectList.js"],
     ["eslint-import-resolver-typescript", "3.10.1", "tinyglobby", "lib/index.js"],
   ]) {
