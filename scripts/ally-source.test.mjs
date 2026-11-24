@@ -104,3 +104,25 @@ test('real route authenticates before data access, rechecks revocation, disables
   oversize=true;assert.equal((await route.GET(request())).status,413);oversize=false;
   revoke=true;assert.equal((await route.GET(request())).status,403);
 });
+
+
+test('cohort assessment reads preserve question values, provenance, filtering, trash exclusion and revision-bound continuation', async()=>{
+  const f=fixture();f.assessment.created_at='2026-11-20T12:00:00Z';
+  f.assessment.field_provenance.language_barrier=[{source:'interview',value:'unknown'}];
+  const input={view:'assessment-review',fields:['language_barrier','assessment_notes'],dateField:'created_at',from:'2026-11-01T00:00:00Z',through:'2026-11-30T23:59:59Z'};
+  const result=await f.source.readAllyPipelineSource(input);
+  assert.equal(result.data.records.length,1);assert.equal(result.complete,false);
+  const answers=result.data.records[0].answers;
+  assert.equal(answers.find(a=>a.key==='language_barrier').value,'unknown');
+  assert.equal(answers.find(a=>a.key==='language_barrier').provenance.length,1);
+  assert.equal(answers.find(a=>a.key==='assessment_notes').value,'Fictional retained answer');
+  assert.equal(result.data.scanned,1);assert.equal(result.data.total,undefined,'Never call a page count a cohort total');
+  assert.equal((await f.source.readAllyPipelineSource({...input,from:'2026-11-21T00:00:00Z'})).data.records.length,0);
+  assert.equal((await f.source.readAllyPipelineSource({...input,community:'Other'})).data.records.length,0);
+  await assert.rejects(()=>f.source.readAllyPipelineSource({...input,cursor:'assessment-next'}),/both sourceRevision/);
+  await assert.rejects(()=>f.source.readAllyPipelineSource({...input,cursor:'assessment-next',sourceRevision:3,referralRevision:8}),error=>error.status===409);
+  const next=await f.source.readAllyPipelineSource({...input,cursor:'assessment-next',sourceRevision:4,referralRevision:8});assert.equal(next.data.records.length,1);
+  f.setRevision(9);await assert.rejects(()=>f.source.readAllyPipelineSource({...input,cursor:'assessment-next',sourceRevision:4,referralRevision:8}),error=>error.status===409);
+  f.remove();assert.equal((await f.source.readAllyPipelineSource(input)).data.records.length,0);
+  for(const patch of [{fields:['private_field']},{fields:[]},{dateField:'sent_at'},{from:'November'},{dateField:undefined},{fields:['language_barrier','language_barrier']}]) await assert.rejects(()=>f.source.readAllyPipelineSource({...input,...patch}));
+});
