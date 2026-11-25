@@ -113,6 +113,11 @@ test('cohort assessment reads preserve question values, provenance, filtering, t
   const result=await f.source.readAllyPipelineSource(input);
   assert.deepEqual(clean(f.calls.find(([name])=>name==='listAssessments')[1]),{limit:20,dateField:input.dateField,from:input.from,through:input.through});
   assert.equal(result.data.records.length,1);assert.equal(result.complete,false);
+  assert.equal(result.data.records[0].assessmentType,'Pipeline intake assessment');
+  assert.equal(result.data.records[0].plannedInterviewMethod,null);
+  assert.match(result.data.assessmentDefinition.scoring,/no standardized clinical total score/);
+  const single=await f.source.readAllyPipelineSource({view:'assessment',referralId:42,assessmentId:f.assessment.assessment_id});
+  assert.deepEqual(clean(single.data.assessmentDefinition),clean(result.data.assessmentDefinition));
   const answers=result.data.records[0].answers;
   assert.equal(answers.find(a=>a.key==='language_barrier').value,'unknown');
   assert.equal(answers.find(a=>a.key==='language_barrier').provenance.length,1);
@@ -126,4 +131,20 @@ test('cohort assessment reads preserve question values, provenance, filtering, t
   f.setRevision(9);await assert.rejects(()=>f.source.readAllyPipelineSource({...input,cursor:'assessment-next',sourceRevision:4,referralRevision:8}),error=>error.status===409);
   f.remove();assert.equal((await f.source.readAllyPipelineSource(input)).data.records.length,0);
   for(const patch of [{fields:['private_field']},{fields:[]},{dateField:'sent_at'},{from:'November'},{dateField:undefined},{fields:['language_barrier','language_barrier']}]) await assert.rejects(()=>f.source.readAllyPipelineSource({...input,...patch}));
+});
+
+test('workspace review returns the requested records with original notes and no duplicate checklist or clinical claims',async()=>{
+  const f=fixture();
+  f.workflow.context.assessmentData={assessment_notes:'Recorded explanation, unchanged',peer_interaction_notes:'A source observation',language_barrier:'unknown'};
+  f.workflow.referral.note='Original referral message';
+  const result=await f.source.readAllyPipelineSource({view:'workspace-review',referralIds:[42]});
+  assert.equal(result.complete,true);assert.deepEqual(clean(result.data.requestedReferralIds),[42]);
+  const record=result.data.records[0];assert.equal(record.referralId,42);assert.deepEqual(clean(record.requirements),f.workflow.work_items);
+  assert.equal(record.referral.requirements,undefined);assert.equal(record.assessment.assessmentData,undefined);
+  assert.equal(record.notes.referral,'Original referral message');assert.equal(record.notes.assessment.assessment_notes,'Recorded explanation, unchanged');
+  assert.equal(record.notes.assessment.language_barrier,undefined);assert.equal(record.notes.blocks[0].version,3);assert.equal(record.notes.blocks[0].body,'Full fictional note');
+  assert.match(result.data.coverage,/not documented causes/);assert.match(result.data.coverage,/not an atomic/);
+  for(const referralIds of [[],[42,42],[0],['42'],[1,2,3,4,5,6,7]])await assert.rejects(()=>f.source.readAllyPipelineSource({view:'workspace-review',referralIds}),/distinct/);
+  await assert.rejects(()=>f.source.readAllyPipelineSource({view:'workspace-review',referralIds:[42,999]}),error=>error.status===404);
+  f.remove();await assert.rejects(()=>f.source.readAllyPipelineSource({view:'workspace-review',referralIds:[42]}),error=>error.status===404);
 });

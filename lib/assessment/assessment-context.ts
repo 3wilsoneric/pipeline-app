@@ -12,6 +12,13 @@ import {
 import { getAssessmentCompletionSummary } from "./assessment-completion";
 import type { PipelineAssessmentRecord } from "./assessment-records";
 
+// Product identity, not an inferred clinical instrument or score.
+export const pipelineAssessmentDefinition = {
+  type: "Pipeline intake assessment",
+  scoring: "Questionnaire answers and workflow completion; no standardized clinical total score.",
+  method: "scheduled_method records the planned interview method, not a different assessment type.",
+} as const;
+
 // Definitions are owned by the same modules that render and validate the form.
 // Consumers must preserve this hash: a question can change without an answer changing.
 export function assessmentContextDefinitions() {
@@ -61,6 +68,7 @@ export function buildAssessmentContext(record: PipelineAssessmentRecord) {
     schemaVersion: 1,
     kind: "pipeline.assessment-context",
     ownerApplication: "pipeline",
+    assessmentDefinition: pipelineAssessmentDefinition,
     definitionHash,
     source: { path: readPath, assessmentId: record.assessment_id, referralId: record.referral_id,
       recordVersion: record.version, updatedAt: record.updated_at },
