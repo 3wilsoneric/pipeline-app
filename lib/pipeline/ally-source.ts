@@ -117,7 +117,9 @@ export async function readAllyPipelineSource(value: unknown) {
         if(!referral)throw new AllySourceError("A requested workspace is unavailable. Refresh the cohort.",404);
         const workflow=await getReferralWorkflowSnapshot(referralId);
         if(!workflow || workflow.referral.id!==referralId)throw new AllySourceError("Workspace changed during this read.",409);
-        const {assessmentData,requirements:_requirements,decision:_decision,recommendation:_recommendation,review:_review,...assessment}=workflow.context;
+        const {assessmentData}=workflow.context;
+        const assessment=Object.fromEntries(Object.entries(workflow.context).filter(([key])=>
+          !["assessmentData","requirements","decision","recommendation","review"].includes(key)));
         const identityKeys=["id","version","clientId","name","community","owner","ownerId","stage","workflowStatus","workspaceStatus","date","createdAt","updatedAt","plannedAdmissionDate","actualAdmissionDate","admissionDate"] as const;
         return {referralId,referral:{...Object.fromEntries(identityKeys.map(key=>[key,workflow.referral[key] ?? null])),...admissionProjection(workflow.referral,readAt)},
           requirements:workflow.work_items,decision:workflow.decision,recommendation:workflow.recommendation,review:workflow.review,reviews:workflow.reviews,assessment,
