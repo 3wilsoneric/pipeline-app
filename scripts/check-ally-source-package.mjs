@@ -35,6 +35,7 @@ try {
   assert.equal((await fetch(route,{headers:{...headers,'x-ally-subject':tenant}})).status,403);
   const response=await fetch(route,{headers});assert.equal(response.status,200);assert.match(response.headers.get('cache-control'),/no-store/);
   const record=await response.json();assert.equal(record.owner,'pipeline');assert(record.data.views.some(view=>view.view==='assessment'));
+  assert(record.data.views.some(view=>view.view==='workspace-review'));assert.equal(record.data.limits.workspaceReviewBatch,6);
   for(const method of ['POST','PUT','PATCH','DELETE'])assert.equal((await fetch(route,{method,headers})).status,405);
   assert.equal((await fetch(base+'/api/integrations/platform/ally?input=%7B',{headers})).status,400);
   console.log('Packaged source: Proxy, route, catalog, separate credentials, tenant/subject boundary, no-store and read-only methods passed.');
