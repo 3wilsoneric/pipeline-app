@@ -66,7 +66,8 @@ test('directory preserves all workspace states, native filters, pagination and s
 
 test('canonical assessments keep unanswered values and provenance; history and files never imply complete content',async()=>{
   const f=fixture(), read=view=>f.source.readAllyPipelineSource({view,referralId:42});
-  assert.deepEqual(clean((await read('workspace')).data),f.workflow);
+  const workspace=clean((await read('workspace')).data),{admission,...original}=workspace;
+  assert.deepEqual(original,f.workflow);assert.equal(admission.placementCancelled,false);
   const assessment=await f.source.readAllyPipelineSource({view:'assessment',referralId:42,assessmentId:'assessment-fixture'});
   assert.deepEqual(clean(assessment.data.record),clean(f.assessment));
   assert.equal(assessment.data.fields.find(field=>field.definition.key==='language_barrier').answer.value,'unknown');
@@ -147,4 +148,25 @@ test('workspace review returns the requested records with original notes and no 
   for(const referralIds of [[],[42,42],[0],['42'],[1,2,3,4,5,6,7]])await assert.rejects(()=>f.source.readAllyPipelineSource({view:'workspace-review',referralIds}),/distinct/);
   await assert.rejects(()=>f.source.readAllyPipelineSource({view:'workspace-review',referralIds:[42,999]}),error=>error.status===404);
   f.remove();await assert.rejects(()=>f.source.readAllyPipelineSource({view:'workspace-review',referralIds:[42]}),error=>error.status===404);
+});
+
+test('all record readers expose due-plan assumptions and cancellation without changing confirmed arrival or source records',async()=>{
+  const f=fixture(),referral=f.workflow.referral;
+  Object.assign(referral,{workspaceOrigin:'pipeline',workspaceStatus:'active',stage:'Community Review',
+    admissionDecision:{outcome:'accepted'},plannedAdmissionDate:'2020-01-02'});
+  for(const mode of ['due','future','cancelled','confirmed']){
+    referral.plannedAdmissionDate=mode==='future'?'2099-01-02':'2020-01-02';
+    referral.placementCancellation=mode==='cancelled'?{cancelledAt:'2020-01-03T12:00:00Z'}:undefined;
+    referral.actualAdmissionDate=mode==='confirmed'?'2020-01-03':undefined;
+    const before=clean(referral),directory=(await f.source.readAllyPipelineSource({view:'directory'})).data.records[0];
+    const review=(await f.source.readAllyPipelineSource({view:'workspace-review',referralIds:[42]})).data.records[0].referral;
+    const workspace=(await f.source.readAllyPipelineSource({view:'workspace',referralId:42})).data.admission;
+    for(const value of [directory,review,workspace]){
+      assert.equal(value.assumedAdmissionDate,mode==='due'?'2020-01-02':null);
+      assert.equal(value.actualAdmissionDate,mode==='confirmed'?'2020-01-03':null);
+      assert.equal(value.placementCancelled,mode==='cancelled');assert.equal(value.decisionOutcome,'accepted');
+      assert.equal(value.placementCancelledAt,mode==='cancelled'?'2020-01-03T12:00:00Z':null);
+    }
+    assert.deepEqual(clean(referral),before,'Reading cannot confirm or alter an arrival');
+  }
 });

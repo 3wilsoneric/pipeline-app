@@ -1,3 +1,18 @@
+# Admission lifecycle evidence — November 25 candidate
+
+Directory, workspace and batch review reads now expose the same admission
+projection used by the operating summary: planned date, confirmed arrival,
+due-plan assumption, recorded decision and cancellation. They reuse the canonical
+admission helpers. An active workspace is a storage state, not proof that the
+client is still awaiting admission; an assumed date is not census confirmation.
+This lets the analyst reconcile detailed records against the operational cohort
+without inventing a second admission rule. No records or workflow actions change.
+
+A focused regression covers due and future plans, cancelled placements and
+confirmed arrivals across all three readers, preserving the original records.
+The source/summary suite passes 19 tests and TypeScript passes. Real delegated
+cohort verification and deployment remain outstanding for this candidate.
+
 # Exact source pagination — November 25 candidate
 
 Canonical referral, assessment and file readers now retain PostgreSQL's

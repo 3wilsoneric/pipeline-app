@@ -11,10 +11,12 @@ import { getHistoricalProfile } from "./historical-profile-store";
 import { getReferralActivitySnapshot } from "./referral-activity";
 import { getReferral, getReferralStoreRevision, listReferralFiles, listReferrals, type ReferralListOptions } from "./referral-store";
 import { getReferralWorkflowSnapshot } from "./workflow-store";
+import { assumedAdmissionDate, getPlannedAdmissionDate } from "./admission-lifecycle";
+import type { Referral } from "./referral-types";
 
 const views = {
   catalog: "Available source-owned reads. These operations cannot edit, sign, send or admit.",
-  directory: "Workspace search across all active, historical and archived referrals, excluding trash. query searches the native directory; community, owner, month and workspaceStatus are optional filters. Follow next_cursor with the same filters and sourceRevision; one person may have several referral episodes.",
+  directory: "Workspace search across all active, historical and archived referrals, excluding trash. Active is a workspace storage state, not awaiting admission. Admission fields reuse the operating summary: assumedAdmissionDate is a due accepted plan, not census confirmation; placementCancelled excludes a cancelled move-in. query searches the native directory; community, owner, month and workspaceStatus are optional filters. Follow next_cursor with the same filters and sourceRevision; one person may have several referral episodes.",
   workspace: "Current full workflow: referral, requirements, decisions, reviews, recommendation and linked assessment ID. Separate source reads are not an atomic historical snapshot.",
   "workspace-review": "Review one to six explicit referralIds together. Returns identity, full requirements, decision/recommendation/reviews, assessment state, referral note, assessment note fields and all persisted note blocks without duplicate checklist copies. Current records, not an atomic historical cohort. This does not read clinical answers, documents, communications or imported ALLO history; use those readers when relevant. Follow response-size paging before treating all requested records as inspected.",
   assessments: "Assessment records for one referral, including drafts and revisions. Follow next_cursor. Use assessment to open a returned assessmentId with question definitions and answer provenance.",
@@ -34,6 +36,17 @@ type Input = { view: View; referralId?: number; referralIds?: number[]; assessme
   month?: string; workspaceStatus?: ReferralListOptions["workspaceStatus"]; cursor?: string; sourceRevision?: number;
   documentId?: string; page?: number; documentHash?: string; fields?: string[];
   from?: string; through?: string; dateField?: "created_at" | "completed_at" | "scheduled_start_at"; referralRevision?: number };
+
+// Match the existing operations snapshot without changing any admission record.
+// Assumed arrival and confirmed arrival must remain separate source facts.
+function admissionProjection(referral: Referral, now: Date) {
+  return {plannedAdmissionDate:getPlannedAdmissionDate(referral) || null,
+    actualAdmissionDate:referral.actualAdmissionDate ?? null,
+    assumedAdmissionDate:assumedAdmissionDate(referral,now),
+    decisionOutcome:referral.admissionDecision?.outcome ?? null,
+    placementCancelled:Boolean(referral.placementCancellation),
+    placementCancelledAt:referral.placementCancellation?.cancelledAt ?? null};
+}
 
 export class AllySourceError extends Error {
   constructor(message: string, public readonly status = 400) { super(message); }
@@ -86,6 +99,7 @@ export function parseAllySourceInput(value: unknown): Input {
 
 export async function readAllyPipelineSource(value: unknown) {
   const input = parseAllySourceInput(value);
+  const readAt = new Date();
   let data: unknown;
   let complete = true;
   if (input.view === "catalog") {
@@ -105,7 +119,7 @@ export async function readAllyPipelineSource(value: unknown) {
         if(!workflow || workflow.referral.id!==referralId)throw new AllySourceError("Workspace changed during this read.",409);
         const {assessmentData,requirements:_requirements,decision:_decision,recommendation:_recommendation,review:_review,...assessment}=workflow.context;
         const identityKeys=["id","version","clientId","name","community","owner","ownerId","stage","workflowStatus","workspaceStatus","date","createdAt","updatedAt","plannedAdmissionDate","actualAdmissionDate","admissionDate"] as const;
-        return {referralId,referral:Object.fromEntries(identityKeys.map(key=>[key,workflow.referral[key] ?? null])),
+        return {referralId,referral:{...Object.fromEntries(identityKeys.map(key=>[key,workflow.referral[key] ?? null])),...admissionProjection(workflow.referral,readAt)},
           requirements:workflow.work_items,decision:workflow.decision,recommendation:workflow.recommendation,review:workflow.review,reviews:workflow.reviews,assessment,
           notes:{referral:workflow.referral.note ?? null,
             assessment:assessmentData ? Object.fromEntries(Object.entries(assessmentData).filter(([key])=>key.endsWith("_notes"))) : null,
@@ -155,17 +169,18 @@ export async function readAllyPipelineSource(value: unknown) {
       records: page.referrals.map(r => ({ referralId: r.id, clientId: r.clientId, name: r.name, community: r.community,
         owner: r.owner, stage: r.stage, workflowStatus: r.workflowStatus, workspaceStatus: r.workspaceStatus,
         workspaceOrigin: r.workspaceOrigin, received: r.date, createdAt: r.createdAt, updatedAt: r.updatedAt,
-        county: r.county, referralSource: r.source, plannedAdmissionDate: r.plannedAdmissionDate,
-        actualAdmissionDate: r.actualAdmissionDate, admissionDate: r.admissionDate })) };
+        county: r.county, referralSource: r.source, ...admissionProjection(r,readAt), admissionDate: r.admissionDate })) };
     complete = !page.next_cursor;
   } else {
     const referral = await getReferral(input.referralId!);
     if (!referral) throw new AllySourceError("Workspace not found.", 404);
     switch (input.view) {
-      case "workspace":
-        data = await getReferralWorkflowSnapshot(referral.id);
-        if (!data) throw new AllySourceError("Workspace changed during this read.", 409);
+      case "workspace": {
+        const workflow=await getReferralWorkflowSnapshot(referral.id);
+        if (!workflow) throw new AllySourceError("Workspace changed during this read.", 409);
+        data = {...workflow,admission:admissionProjection(workflow.referral,readAt)};
         break;
+      }
       case "assessments": {
         const page = await listAssessments({ referralId: referral.id, limit: 20, cursor: input.cursor });
         data = { total: page.total, sourceRevision: page.revision, next_cursor: page.next_cursor,
