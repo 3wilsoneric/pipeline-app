@@ -111,6 +111,7 @@ test('cohort assessment reads preserve question values, provenance, filtering, t
   f.assessment.field_provenance.language_barrier=[{source:'interview',value:'unknown'}];
   const input={view:'assessment-review',fields:['language_barrier','assessment_notes'],dateField:'created_at',from:'2026-11-01T00:00:00Z',through:'2026-11-30T23:59:59Z'};
   const result=await f.source.readAllyPipelineSource(input);
+  assert.deepEqual(clean(f.calls.find(([name])=>name==='listAssessments')[1]),{limit:20,dateField:input.dateField,from:input.from,through:input.through});
   assert.equal(result.data.records.length,1);assert.equal(result.complete,false);
   const answers=result.data.records[0].answers;
   assert.equal(answers.find(a=>a.key==='language_barrier').value,'unknown');

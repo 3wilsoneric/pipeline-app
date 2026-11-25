@@ -14,3 +14,12 @@ The focused source tests cover both owner revisions, missing/unknown answers,
 drafts, deleted referrals, source authentication, API read-only methods and source
 rechecking before returning data. Deployment and real-data evidence are tracked
 in the Ally engine build spec; this is candidate source until that receipt exists.
+# November 24: cohort filtering candidate
+
+Assessment review applies its requested timestamp range in the canonical list
+reader before pagination, in both local and PostgreSQL adapters. This avoids
+making Ally scan unrelated recent pages to reach an older cohort. Missing dates
+remain excluded from a dated cohort; unfiltered callers retain their behavior.
+Community/owner and trash checks remain at the source, and continuation still
+checks both source revisions. Read-only adapter parity tests cover inclusive
+boundaries, timezone equivalents, missing dates and multiple pages.

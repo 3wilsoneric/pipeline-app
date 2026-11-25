@@ -96,7 +96,7 @@ export async function readAllyPipelineSource(value: unknown) {
   } else if (input.view === "assessment-review") {
     const referralRevision = await getReferralStoreRevision();
     if (input.referralRevision !== undefined && input.referralRevision !== referralRevision) throw new AllySourceError("Workspaces changed. Restart this review.",409);
-    const page = await listAssessments({limit:20,cursor:input.cursor});
+    const page = await listAssessments({limit:20,cursor:input.cursor,dateField:input.dateField,from:input.from,through:input.through});
     if (input.sourceRevision !== undefined && input.sourceRevision !== page.revision) throw new AllySourceError("Assessments changed. Restart this review.",409);
     const records = [];
     for (let start=0; start<page.assessments.length; start+=3) {
