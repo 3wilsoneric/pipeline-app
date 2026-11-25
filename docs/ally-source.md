@@ -92,3 +92,15 @@ remain excluded from a dated cohort; unfiltered callers retain their behavior.
 Community/owner and trash checks remain at the source, and continuation still
 checks both source revisions. Read-only adapter parity tests cover inclusive
 boundaries, timezone equivalents, missing dates and multiple pages.
+
+## November 25: complete assessment continuation (development only)
+
+The per-workspace assessment reader accepts and requires the returned
+`sourceRevision` when continuing a cursor. Both assessment readers now bracket
+their multi-query work with the canonical assessment store revision, rejecting
+changes during the first page as well as between pages. This closes a mismatch
+between the engine's native collector and the source parameter validator.
+The local and PostgreSQL revision adapters reuse existing state/query owners;
+there are no migrations or clinical writes. Focused checks exercise continuation,
+missing revision, revision changes and reads racing with updates. This candidate
+has not been deployed or verified against the production database.

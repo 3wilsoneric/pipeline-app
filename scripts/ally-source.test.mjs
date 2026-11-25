@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { loadEntry, clean } from './contact-import-fixtures.mjs';
 
 const tenant = '11111111-1111-1111-1111-111111111111', subject = '22222222-2222-2222-2222-222222222222';
@@ -20,7 +23,7 @@ test('source reads require the separate credential, exact tenant and approved re
 });
 
 function fixture() {
-  let revision=8, deleted=false, crossCase=false, changeDuringRead=false;
+  let revision=8, assessmentRevision=4, deleted=false, crossCase=false, changeDuringRead=false, assessmentRace=false;
   const calls=[];
   const referral={id:42,version:5,name:'Fictional Client',workspaceOrigin:'allo',workspaceStatus:'historical',packetId:'packet-fixture',stage:'Declined',county:'Fictional county'};
   const {createEmptyAssessmentToolData}=loadEntry('lib/assessment/assessment-tool-schema.ts');
@@ -36,7 +39,8 @@ function fixture() {
     },
     '@/lib/assessment/assessment-store':{
       getAssessment:async()=>({...assessment,referral_id:crossCase?99:42}),
-      listAssessments:async options=>{calls.push(['listAssessments',options]);return {assessments:[assessment],total:21,revision:4,next_cursor:'assessment-next'};},
+      getAssessmentStoreRevision:async()=>assessmentRevision,
+      listAssessments:async options=>{calls.push(['listAssessments',options]);const current=assessmentRevision;if(assessmentRace)assessmentRevision++;return {assessments:[assessment],total:21,revision:current,next_cursor:options.cursor?null:'assessment-next'};},
     },
     '@/lib/extraction/document-text':{readReferralDocumentPage:async()=>({documentId:'file',pageNumber:1,pageCount:2,text:'Actual fictional page',nextPage:2})},
     '@/lib/notifications/admission-packet-store':{listCommunicationPackets:async()=>({items:[{id:'message',createdAt:'2026-11-24',message:{subject:'Meet the Client',body:'Fictional message'},communication:{status:'submitted',audit:{},to:[],cc:[]},files:[{id:'file',name:'meds.pdf',source:{key:'private-key'}}],recipients:[{sessions:[{hash:'private-session'}]}]}],nextCursor:'next'})},
@@ -48,8 +52,39 @@ function fixture() {
     '@/lib/extraction/extraction-service':{readPacketFields:async()=>({fields:[{field_key:'dob',proposed_value:'1980-01-01',final_value:null,review_status:'pending'}]})},
   };
   const source=loadEntry('lib/pipeline/ally-source.ts',owners);
-  return {source,calls,workflow,assessment,setRevision:value=>{revision=value;},remove:()=>{deleted=true;},cross:()=>{crossCase=true;},race:()=>{changeDuringRead=true;}};
+  return {source,calls,workflow,assessment,setRevision:value=>{revision=value;},setAssessmentRevision:value=>{assessmentRevision=value;},assessmentRace:()=>{assessmentRace=true;},remove:()=>{deleted=true;},cross:()=>{crossCase=true;},race:()=>{changeDuringRead=true;}};
 }
+
+test('assessment continuation accepts the collector revision and rejects an unbound or changed page',async()=>{
+  const f=fixture(),input={view:'assessments',referralId:42};
+  const first=await f.source.readAllyPipelineSource(input);
+  const continuation={...input,cursor:first.data.next_cursor,sourceRevision:first.data.sourceRevision};
+  const last=await f.source.readAllyPipelineSource(continuation);
+  assert.equal(last.complete,true);assert.equal(last.data.sourceRevision,4);
+  await assert.rejects(()=>f.source.readAllyPipelineSource({...input,cursor:first.data.next_cursor}),/sourceRevision/);
+  f.setAssessmentRevision(5);await assert.rejects(()=>f.source.readAllyPipelineSource(continuation),error=>error.status===409);
+  for(const view of ['assessments','assessment-review']){
+    const race=fixture();race.assessmentRace();
+    await assert.rejects(()=>race.source.readAllyPipelineSource({view,...(view==='assessments'?{referralId:42}:{})}),error=>error.status===409);
+  }
+});
+
+test('assessment revision reads the configured local or PostgreSQL owner without writing',async()=>{
+  const directory=await mkdtemp(join(tmpdir(),'ally-assessment-revision-'));
+  try{
+    const file=join(directory,'assessments.json');
+    await writeFile(file,JSON.stringify({version:1,revision:19,assessments:[]}));
+    const environment=mode=>({process:{...process,env:{NODE_ENV:'test',PIPELINE_DATABASE_MODE:mode==='postgres'?mode:'disconnected',
+      PIPELINE_DATABASE_URL:mode==='postgres'?'postgres://unused.invalid/fixture':'',PIPELINE_ASSESSMENT_STORE_MODE:mode,PIPELINE_ASSESSMENT_STORE_PATH:file}},globalThis:{}});
+    const local=loadEntry('lib/assessment/assessment-store.ts',{},environment('local_file'));
+    assert.equal(await local.getAssessmentStoreRevision(),19);
+    let reads=0;
+    const sql=async strings=>{reads++;assert.match(strings.join(''),/^\s*select revision from pipeline\.store_revisions/);return[{revision:'27'}];};
+    const databaseOwner=loadEntry('lib/database/pipeline-database.ts',{},environment('postgres'));
+    const database=loadEntry('lib/assessment/assessment-store.ts',{'@/lib/database/pipeline-database':{...databaseOwner,getPipelineSql:()=>sql}},environment('postgres'));
+    assert.equal(await database.getAssessmentStoreRevision(),27);assert.equal(reads,1);
+  }finally{await rm(directory,{recursive:true,force:true});}
+});
 
 test('directory preserves all workspace states, native filters, pagination and separate referral episodes',async()=>{
   const f=fixture();

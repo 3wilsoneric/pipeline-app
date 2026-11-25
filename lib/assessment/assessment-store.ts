@@ -308,6 +308,14 @@ export async function listAssessments(options: AssessmentListOptions = {}) {
   return getAssessmentStore().list(options);
 }
 
+/** Source readers bracket multi-query reads with the owning store revision. */
+export async function getAssessmentStoreRevision() {
+  if (getAssessmentStoreReadiness().mode === "postgres") return getPostgresAssessmentRevision();
+  getAssessmentStore(); // Preserve the configured adapter's availability check.
+  await ensureLoaded();
+  return state.revision;
+}
+
 /** Serialize only the final send against saves, so the emailed version is exact.
  * A failed send changes nothing. No editor is locked merely by signing.
  */
