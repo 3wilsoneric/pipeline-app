@@ -89,6 +89,7 @@ const NextResponse = {
 };
 const proxy = load("proxy.ts", {
   "next/server": { NextResponse },
+  "@/lib/auth/internal-worker-auth": loadTypeScriptModule(process.cwd(), "lib/auth/internal-worker-auth.ts"),
   "@/lib/auth/pipeline-auth": {
     requireAuthenticatedUser: async () => auth, canAccessPipeline: (user) => user.pipeline,
     canAccessNoteLab: (user) => user.noteLab, isProtectedPath: (path) => path !== "/sign-in",

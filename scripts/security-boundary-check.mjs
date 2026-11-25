@@ -45,6 +45,7 @@ const forbiddenClientPatterns = [
   /AZURE_STORAGE_ACCOUNT_KEY/,
   /PIPELINE_WORKER_SHARED_SECRET/,
   /PIPELINE_PLATFORM_SUMMARY_SECRET/,
+  /PIPELINE_ALLY_SOURCE_SECRET/,
   /from ["']postgres["']/,
   /@\/lib\/database\/pipeline-database/,
   /@\/lib\/clinical\/clinical-data/,
@@ -60,6 +61,7 @@ check("browser modules do not call ElderMark, Databricks, or Alamo integration r
 const serverBoundaryFiles = [
   "lib/database/pipeline-database.ts",
   "lib/pipeline/referral-store.ts",
+  "lib/pipeline/ally-source.ts",
   "lib/pipeline/workflow-store.ts",
   "lib/pipeline/resident-link-store.ts",
   "lib/pipeline/client-history-store.ts",

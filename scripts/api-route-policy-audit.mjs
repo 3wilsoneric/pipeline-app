@@ -107,7 +107,7 @@ for (const absoluteFile of routeFiles) {
       check(`${key} requires internal-worker authentication`, body.includes("requireInternalWorker("));
       check(`${key} does not accept browser-user authentication`, !body.includes("requirePipelineUser("));
     } else if (isPlatformIntegration) {
-      const requiredBoundary = route === "/api/integrations/platform/client-briefing"
+      const requiredBoundary = route === "/api/integrations/platform/ally" ? "requireAllySource(" : route === "/api/integrations/platform/client-briefing"
         ? "requirePlatformClientBriefing("
         : "requirePlatformIntegration(";
       check(`${key} requires Platform integration authentication`, body.includes(requiredBoundary));

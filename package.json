@@ -215,7 +215,7 @@
     "fflate": "^0.8.3",
     "jose": "^6.2.8",
     "lucide-react": "^0.577.0",
-    "next": "16.4.3",
+    "next": "16.4.6",
     "pdfjs-dist": "^6.2.108",
     "postgres": "^3.4.9",
     "react": "19.2.4",
@@ -232,7 +232,7 @@
     "axe-core": "^4.11.1",
     "babel-plugin-react-compiler": "1.0.0",
     "eslint": "^9",
-    "eslint-config-next": "16.4.3",
+    "eslint-config-next": "16.4.6",
     "postcss": "8.5.26",
     "tailwindcss": "^4",
     "typescript": "^5"
@@ -244,7 +244,7 @@
     "postcss": "8.5.26",
     "sharp": "0.35.5",
     "source-map-js": "1.2.2",
-    "@next/eslint-plugin-next@16.4.3": {
+    "@next/eslint-plugin-next@16.4.6": {
       "fast-glob": "file:scripts/vendor/next-eslint-glob/next-eslint-glob-2.0.0.tgz"
     },
     "@typescript-eslint/typescript-estree@8.57.1": {

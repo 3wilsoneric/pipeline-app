@@ -120,6 +120,9 @@ export type AssessmentListOptions = {
   residentKey?: string;
   limit?: number;
   cursor?: string;
+  dateField?: "created_at" | "completed_at" | "scheduled_start_at";
+  from?: string;
+  through?: string;
 };
 
 export type AssessmentStoreReadiness = {
@@ -296,6 +299,12 @@ function getAssessmentStore() {
 }
 
 export async function listAssessments(options: AssessmentListOptions = {}) {
+  if (options.dateField !== undefined && !["created_at", "completed_at", "scheduled_start_at"].includes(options.dateField) ||
+      (options.from !== undefined || options.through !== undefined) && !options.dateField ||
+      [options.from, options.through].some(value => value !== undefined && (!/^\d{4}-\d{2}-\d{2}T.*(?:Z|[+-]\d{2}:\d{2})$/.test(value) || !Number.isFinite(Date.parse(value)))) ||
+      options.from && options.through && Date.parse(options.from) > Date.parse(options.through)) {
+    throw new Error("Choose an assessment date field and an ordered ISO timestamp range.");
+  }
   return getAssessmentStore().list(options);
 }
 
@@ -513,6 +522,12 @@ async function listLocalAssessments(options: AssessmentListOptions = {}): Promis
     .filter((assessment) => !canonicalClientId || assessment.canonical_client_id === canonicalClientId)
     .filter((assessment) => !residentNumber || normalize(assessment.resident_number ?? "") === residentNumber)
     .filter((assessment) => !residentKey || assessment.resident_key === residentKey)
+    .filter((assessment) => {
+      if (!options.from && !options.through) return true;
+      const value = assessment[options.dateField!];
+      const when = value ? Date.parse(value) : NaN;
+      return Number.isFinite(when) && (!options.from || when >= Date.parse(options.from)) && (!options.through || when <= Date.parse(options.through));
+    })
     .sort(compareAssessments);
   const cursor = decodeKeysetCursor(options.cursor);
   const limit = clampPageSize(options.limit);
@@ -993,6 +1008,7 @@ type AssessmentRow = {
   created_at: Date | string;
   updated_at: Date | string;
   total_count?: number | string;
+  cursor_time?: string;
 };
 
 type AssessmentProvenanceRow = {
@@ -1064,18 +1080,26 @@ async function listPostgresAssessments(options: AssessmentListOptions = {}): Pro
   const residentKey = options.residentKey?.trim() || null;
   const canonicalClientId = options.canonicalClientId?.trim() || null;
   const referralId = options.referralId ?? null;
+  const dateField = options.dateField ?? null;
+  const from = options.from ?? null;
+  const through = options.through ?? null;
   const rows = await sql<AssessmentRow[]>`
     with filtered as (
-      select a.*, count(*) over() as total_count
+      select a.*, count(*) over() as total_count,
+        to_char(a.updated_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as cursor_time
       from pipeline.assessments a
       where (${referralId}::bigint is null or a.referral_id = ${referralId})
         and (${canonicalClientId}::text is null or a.canonical_client_id = ${canonicalClientId})
         and (${residentNumber}::text is null or a.resident_number = ${residentNumber})
         and (${residentKey}::text is null or a.resident_key = ${residentKey})
+        and (${from}::timestamptz is null or
+          (case ${dateField}::text when 'created_at' then a.created_at when 'completed_at' then a.completed_at when 'scheduled_start_at' then a.scheduled_start_at end) >= ${from}::timestamptz)
+        and (${through}::timestamptz is null or
+          (case ${dateField}::text when 'created_at' then a.created_at when 'completed_at' then a.completed_at when 'scheduled_start_at' then a.scheduled_start_at end) <= ${through}::timestamptz)
     )
     select * from filtered
-    where (${cursorTimestamp}::timestamptz is null
-      or (updated_at, assessment_id) < (${cursorTimestamp}::timestamptz, ${cursorKey}::text))
+    where (${cursorTimestamp}::text::timestamptz is null
+      or (updated_at, assessment_id) < (${cursorTimestamp}::text::timestamptz, ${cursorKey}::text))
     order by updated_at desc, assessment_id desc
     limit ${queryLimit}
   `;
@@ -1088,7 +1112,7 @@ async function listPostgresAssessments(options: AssessmentListOptions = {}): Pro
     total,
     revision: await getPostgresAssessmentRevision(),
     next_cursor: rows.length > limit && last
-      ? encodeKeysetCursor({ timestamp: isoTimestamp(last.updated_at), key: last.assessment_id })
+      ? encodeKeysetCursor({ timestamp: last.cursor_time ?? isoTimestamp(last.updated_at), key: last.assessment_id })
       : null,
     generated_at: new Date().toISOString(),
     store: { mode: "postgres", multi_instance_safe: true },

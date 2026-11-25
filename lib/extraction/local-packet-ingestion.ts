@@ -86,6 +86,33 @@ export async function previewLocalPacket(bytes: Uint8Array, contentType: string,
     : extractImage(bytes, packetId);
 }
 
+// On-demand evidence reading uses the same parser/OCR as intake, without its
+// early identity stop, field extraction, storage or referral mutations.
+export async function readDocumentPageText(bytes: Uint8Array, contentType: string, pageNumber: number) {
+  if (!Number.isSafeInteger(pageNumber) || pageNumber < 1) throw new DocumentProcessingError("invalid_page", 400, "Choose a positive page number.");
+  if (!["application/pdf", "image/png", "image/jpeg"].includes(contentType)) {
+    throw new DocumentProcessingError("text_unavailable", 409, "Page text is available for PDF, PNG and JPEG files. Other formats need a safe converted preview.");
+  }
+  validateFileSignature(contentType, bytes);
+  if (contentType !== "application/pdf") {
+    if (pageNumber !== 1) throw new DocumentProcessingError("page_not_found", 404, "Page not found.");
+    return { pageNumber: 1, pageCount: 1, method: "ocr", text: await recognizeImage(bytes) };
+  }
+  const { getDocument } = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  const task = getDocument({ data: new Uint8Array(bytes), wasmUrl: `${path.join(process.cwd(), "node_modules", "pdfjs-dist", "wasm")}${path.sep}` });
+  try {
+    const document = await task.promise;
+    if (pageNumber > document.numPages) throw new DocumentProcessingError("page_not_found", 404, "Page not found.");
+    const page = await document.getPage(pageNumber);
+    try {
+      const content = await page.getTextContent();
+      const embedded = content.items.map(item => "str" in item ? item.str + (item.hasEOL ? "\n" : " ") : "").join("").trim();
+      const useOcr = embedded.length < minimumEmbeddedTextLength;
+      return { pageNumber, pageCount: document.numPages, method: useOcr ? "ocr" : "embedded-text", text: useOcr ? await recognizePdfPage(page) : embedded };
+    } finally { page.cleanup(); }
+  } finally { await task.destroy(); }
+}
+
 export function buildLocalIntakeFields(
   pages: PacketPageText[],
   totalPageCount: number,
@@ -133,7 +160,7 @@ export function buildLocalIntakeFields(
 async function extractPdf(bytes: Uint8Array, packetId: string): Promise<LocalPacketResult> {
   const { getDocument } = await import("pdfjs-dist/legacy/build/pdf.mjs");
   const loadingTask = getDocument({
-    data: bytes.slice(),
+    data: new Uint8Array(bytes),
     wasmUrl: `${path.join(process.cwd(), "node_modules", "pdfjs-dist", "wasm")}${path.sep}`,
   });
   const document = await loadingTask.promise;
