@@ -1,4 +1,4 @@
-# Workspace investigation — November 24 local candidate
+# Workspace investigation — November 24 source release
 
 `workspace-review` accepts one to six explicit referral IDs and composes their
 canonical workflow snapshots with the existing note-block store. It retains
@@ -17,12 +17,18 @@ workflow actions change.
 
 Focused source tests and TypeScript checks pass. A private deterministic replay
 of thirteen real accepted workspaces preserves every requirement and note block,
-with the largest record 8,410 bytes. Model interpretation and live deployment are
-separate proof obligations; neither is claimed by that replay.
+with the largest record 8,410 bytes. Model interpretation is a separate proof
+obligation; it is not claimed by that replay. Source commit `8ba03860` passed the
+native Linux packaged OCR/PDF and read-only source check and is deployed as
+`pipeline-prod-web--ally-invest-v12`. Live delegated reads preserved both requested
+record identities across revision-bound response pages. Existing environment,
+identity and application configuration were unchanged. Image and conditional
+rollback receipts are private in
+`/Users/eric/suite-deploy/.state/ally-system-repair-20261124/investigation-v12/`.
 
 # Ally assessment reads
 
-## Assessment semantics — November 24 local candidate
+## Assessment semantics — included in the November 24 source release
 
 The canonical assessment context now names its product type: Pipeline intake
 assessment. The catalog, individual record and cohort reader reuse that same
