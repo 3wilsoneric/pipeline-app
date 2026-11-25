@@ -1008,6 +1008,7 @@ type AssessmentRow = {
   created_at: Date | string;
   updated_at: Date | string;
   total_count?: number | string;
+  cursor_time?: string;
 };
 
 type AssessmentProvenanceRow = {
@@ -1084,7 +1085,8 @@ async function listPostgresAssessments(options: AssessmentListOptions = {}): Pro
   const through = options.through ?? null;
   const rows = await sql<AssessmentRow[]>`
     with filtered as (
-      select a.*, count(*) over() as total_count
+      select a.*, count(*) over() as total_count,
+        to_char(a.updated_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as cursor_time
       from pipeline.assessments a
       where (${referralId}::bigint is null or a.referral_id = ${referralId})
         and (${canonicalClientId}::text is null or a.canonical_client_id = ${canonicalClientId})
@@ -1096,8 +1098,8 @@ async function listPostgresAssessments(options: AssessmentListOptions = {}): Pro
           (case ${dateField}::text when 'created_at' then a.created_at when 'completed_at' then a.completed_at when 'scheduled_start_at' then a.scheduled_start_at end) <= ${through}::timestamptz)
     )
     select * from filtered
-    where (${cursorTimestamp}::timestamptz is null
-      or (updated_at, assessment_id) < (${cursorTimestamp}::timestamptz, ${cursorKey}::text))
+    where (${cursorTimestamp}::text::timestamptz is null
+      or (updated_at, assessment_id) < (${cursorTimestamp}::text::timestamptz, ${cursorKey}::text))
     order by updated_at desc, assessment_id desc
     limit ${queryLimit}
   `;
@@ -1110,7 +1112,7 @@ async function listPostgresAssessments(options: AssessmentListOptions = {}): Pro
     total,
     revision: await getPostgresAssessmentRevision(),
     next_cursor: rows.length > limit && last
-      ? encodeKeysetCursor({ timestamp: isoTimestamp(last.updated_at), key: last.assessment_id })
+      ? encodeKeysetCursor({ timestamp: last.cursor_time ?? isoTimestamp(last.updated_at), key: last.assessment_id })
       : null,
     generated_at: new Date().toISOString(),
     store: { mode: "postgres", multi_instance_safe: true },

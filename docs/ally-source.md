@@ -1,3 +1,18 @@
+# Exact source pagination — November 25 candidate
+
+Canonical referral, assessment and file readers now retain PostgreSQL's
+microsecond cursor precision. Cursor parameters bind as text before the database
+timestamp cast; the default driver timestamp serializer otherwise converts them
+through millisecond-only JavaScript dates. Assessments also retain the database's
+exact timestamp when constructing the cursor. No records or migrations change.
+
+A disposable PostgreSQL instance with every existing migration reproduced
+duplicate ascending referrals and skipped descending referrals, assessments and
+files. The same regression passes for all five paths after the fix, including
+equal-timestamp ID ties, multiple pages and finite termination. The reads execute
+in a read-only transaction. Local/cohort parity and source checks also pass.
+This is a local candidate pending source release and real cohort verification.
+
 # Workspace investigation — November 24 source release
 
 `workspace-review` accepts one to six explicit referral IDs and composes their

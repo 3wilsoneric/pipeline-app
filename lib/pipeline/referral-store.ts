@@ -1466,6 +1466,8 @@ type ReferralFileRow = {
 };
 
 function referralSqlCursor(cursor: ReturnType<typeof decodeReferralSortCursor>, sort: NonNullable<ReferralListOptions["sort"]>) {
+  // Bind cursor timestamps as text in SQL; postgres.js timestamp serialization
+  // otherwise rounds this exact microsecond boundary through a JS Date.
   const cursorTimestamp = cursor && ["updated_desc", "created_desc", "created_asc"].includes(sort)
     ? cursor.value
     : null;
@@ -1627,10 +1629,10 @@ async function listPostgresReferrals(options: ReferralListOptions = {}): Promise
       case when ${includeTotal} then (select count(*) from filtered) else null end as total_count
     from filtered
     where (${cursor?.value ?? null}::text is null
-      or (${sort} = 'updated_desc' and (updated_at, referral_id) < (${cursorTimestamp}::timestamptz, ${cursorId}::bigint))
+      or (${sort} = 'updated_desc' and (updated_at, referral_id) < (${cursorTimestamp}::text::timestamptz, ${cursorId}::bigint))
       or (${sort} = 'received_desc' and (sort_received, referral_id) < (${sort === "received_desc" ? cursor?.value ?? null : null}::date, ${cursorId}::bigint))
-      or (${sort} = 'created_desc' and (created_at, referral_id) < (${cursorTimestamp}::timestamptz, ${cursorId}::bigint))
-      or (${sort} = 'created_asc' and (created_at, referral_id) > (${cursorTimestamp}::timestamptz, ${cursorId}::bigint))
+      or (${sort} = 'created_desc' and (created_at, referral_id) < (${cursorTimestamp}::text::timestamptz, ${cursorId}::bigint))
+      or (${sort} = 'created_asc' and (created_at, referral_id) > (${cursorTimestamp}::text::timestamptz, ${cursorId}::bigint))
       or (${sort} = 'owner_asc' and (sort_owner, referral_id) > (${cursorText}::text, ${cursorId}::bigint))
       or (${sort} = 'community_asc' and (sort_community, referral_id) > (${cursorText}::text, ${cursorId}::bigint))
       or (${sort} = 'client_asc' and (sort_client, referral_id) > (${cursorText}::text, ${cursorId}::bigint))
@@ -2026,8 +2028,8 @@ async function listPostgresReferralFiles(options: ReferralFileListOptions = {}):
     )
     select filtered_rows.*, (select count(*) from filtered_rows) as total_count
     from filtered_rows
-    where (${cursor?.timestamp ?? null}::timestamptz is null or
-      (uploaded_at, id) < (${cursor?.timestamp ?? null}::timestamptz, ${cursor?.key ?? null}::text))
+    where (${cursor?.timestamp ?? null}::text::timestamptz is null or
+      (uploaded_at, id) < (${cursor?.timestamp ?? null}::text::timestamptz, ${cursor?.key ?? null}::text))
     order by uploaded_at desc, id desc
     limit ${limit + 1}
   `;
