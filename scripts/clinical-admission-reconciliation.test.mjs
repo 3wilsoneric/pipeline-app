@@ -3,7 +3,10 @@ import test from "node:test";
 import { loadEntry, root } from "./contact-import-fixtures.mjs";
 import { loadTypeScriptModule } from "./ts-module-loader.mjs";
 
-const { selectAutomaticAdmissions, selectAdmissionIdentityCandidates, verifiedAdmissionBirthDate } = loadTypeScriptModule(root, "lib/pipeline/clinical-admission-selection.ts");
+const { selectAutomaticAdmissions, evaluateAutomaticAdmissions, selectAdmissionIdentityCandidates, verifiedAdmissionBirthDate } = loadTypeScriptModule(root, "lib/pipeline/clinical-admission-selection.ts");
+const { legacySelectAutomaticAdmissions } = loadTypeScriptModule(root, "scripts/fixtures/legacy-automatic-admission-selection.ts");
+const { explainAssumedAdmissionBlockers } = loadTypeScriptModule(root, "lib/pipeline/admission-confirmation-explain.ts");
+const { admissionConfirmationBlockerLabels } = loadTypeScriptModule(root, "lib/pipeline/admission-confirmation.ts");
 const { calendarToday } = loadTypeScriptModule(root, "lib/pipeline/calendar-date.ts");
 const today = calendarToday();
 const yesterday = calendarToday(new Date(Date.now() - 86_400_000));
@@ -238,4 +241,197 @@ test("daily reconciliation accepts a fresh roster DOB when the canonical databas
   assert.equal(result.admissions_confirmed, 1);
   assert.equal(result.no_match, 0);
   assert.equal(transitions[0][6], today);
+});
+
+// Seeded generator over small value domains so clients, links and residents collide often.
+function seededRandom(seed) {
+  let state = seed >>> 0;
+  return () => { state = (Math.imul(state, 1664525) + 1013904223) >>> 0; return state / 2 ** 32; };
+}
+
+function randomCase(random) {
+  const pick = (values) => values[Math.floor(random() * values.length)];
+  // Start from a case that selects, then perturb each field with some probability.
+  const vary = (value, values, chance = 0.12) => random() < chance ? pick(values) : value;
+  const names = ["Synthetic Client", "Synthetic A. Client", "Synthetic B. Client", "Other Person"];
+  const keys = ["site:1", "site:2", "site:3"];
+  const referral = (id) => ({
+    id,
+    clientId: vary("c1", [undefined, "c2", "c3"], 0.08),
+    version: vary(3, [undefined, 1.5], 0.05),
+    sectionVersions: vary({ workflow: 2 }, [{}, undefined, { workflow: 0.5 }], 0.05),
+    deletedAt: vary(undefined, ["2026-01-01T00:00:00Z"], 0.04),
+    workspaceStatus: vary("active", ["historical", "archived", undefined], 0.06),
+    workspaceOrigin: "pipeline",
+    placementCancellation: vary(undefined, [{ reason: "Other placement" }], 0.04),
+    stage: vary("Community Review", ["New", "Accepted / Admitted", "Declined"], 0.06),
+    actualAdmissionDate: vary(undefined, [yesterday], 0.04),
+    admissionDecision: vary({ outcome: "accepted", decidedAt: `${yesterday}T12:00:00Z` }, [
+      { outcome: "accepted", decidedAt: `${twoDaysAgo}T12:00:00Z` }, { outcome: "accepted", decidedAt: `${today}T12:00:00Z` },
+      { outcome: "accepted" }, { outcome: "declined" }, null,
+    ]),
+    plannedAdmissionDate: vary(yesterday, [twoDaysAgo, today, "2099-01-01", "", "not a date", undefined]),
+    name: vary("Synthetic Client", names),
+    dob: vary("1970-01-01", ["1971-01-01", "", undefined], 0.08),
+    community: vary("San Pablo", ["Turlock"], 0.06),
+  });
+  const link = () => ({
+    pipeline_client_id: vary("c1", ["c2", "c3"], 0.08),
+    status: vary("confirmed", ["candidate", "rejected"], 0.1),
+    resident_key: vary("site:1", keys, 0.1), resident_number: vary("1", ["2"], 0.05), community_id: vary("site", ["other"], 0.05),
+  });
+  const resident = () => ({
+    resident_key: vary("site:1", keys, 0.1), resident_id: "1", resident_number: vary("1", ["2"], 0.05),
+    community_id: vary("site", ["other"], 0.05), community_name: vary("San Pablo", ["Turlock"], 0.06),
+    date_of_birth: vary("1970-01-01", ["1971-01-01", null], 0.08),
+    canonical_client_id: "alamo-1", display_name: vary("Synthetic Client", names),
+    admit_date: vary(today, [yesterday, twoDaysAgo, "2099-01-01", null]),
+  });
+  const many = (make, extraChance) => { const rows = [make(1)]; while (random() < extraChance) rows.push(make(rows.length + 1)); return rows; };
+  return {
+    referrals: many(referral, 0.25),
+    links: random() < 0.06 ? [] : many(link, 0.2),
+    residents: random() < 0.06 ? [] : many(resident, 0.2),
+    dataAsOf: vary(today, [yesterday, null], 0.08),
+  };
+}
+
+const selectionKey = (rows) => JSON.stringify(rows.map(({ referral, actualDate }) => [referral.id, actualDate]));
+
+test("refactored selection is identical to the frozen pre-refactor selection, and every other referral gets exactly one reason", () => {
+  const random = seededRandom(20261125);
+  const seen = new Set();
+  let selectedCases = 0;
+  for (let index = 0; index < 20_000; index += 1) {
+    const { referrals, links, residents, dataAsOf } = randomCase(random);
+    const legacy = legacySelectAutomaticAdmissions(referrals, links, residents, dataAsOf);
+    const current = selectAutomaticAdmissions(referrals, links, residents, dataAsOf);
+    assert.equal(selectionKey(current), selectionKey(legacy), `selection diverged for case ${index}`);
+    assert.ok(current.every((row, position) => row.referral === legacy[position].referral), "same referral objects, same order");
+    const { selected, blocked } = evaluateAutomaticAdmissions(referrals, links, residents, dataAsOf);
+    assert.equal(selectionKey(selected), selectionKey(legacy));
+    const selectedIds = new Set(selected.map(({ referral }) => referral.id));
+    for (const referral of referrals) {
+      assert.notEqual(selectedIds.has(referral.id), blocked.has(referral.id), "selected XOR blocked");
+      if (blocked.has(referral.id)) {
+        assert.ok(Object.hasOwn(admissionConfirmationBlockerLabels, blocked.get(referral.id)));
+        seen.add(blocked.get(referral.id));
+      }
+    }
+    if (legacy.length) selectedCases += 1;
+  }
+  assert.ok(selectedCases > 2_000, `fuzz exercised real selections (${selectedCases})`);
+  const reachable = Object.keys(admissionConfirmationBlockerLabels)
+    .filter((code) => !["ready_for_next_reconciliation", "census_not_fresh", "birth_date_lookup_failed"].includes(code)); // read-time only
+  assert.deepEqual(reachable.filter((code) => !seen.has(code)), [], "every selection reason is exercised by the fuzz");
+});
+
+test("each automatic-admission check reports its own plain-language reason", () => {
+  const { referral, link, resident } = fixtures();
+  const reason = (referrals = [referral], links = [link], residents = [resident], asOf = today) =>
+    evaluateAutomaticAdmissions(referrals, links, residents, asOf).blocked.get(referral.id) ?? null;
+  assert.equal(reason(), null);
+  assert.equal(reason([{ ...referral, clientId: undefined }]), "no_client_record");
+  assert.equal(reason([referral, { ...referral, id: 43 }]), "multiple_active_referrals");
+  assert.equal(reason([{ ...referral, plannedAdmissionDate: "2099-01-01" }]), "planned_after_census_date");
+  assert.equal(reason([referral], [link], [resident], null), "census_unavailable");
+  assert.equal(reason([{ ...referral, version: undefined }]), "missing_version_info");
+  assert.equal(reason([referral], []), "no_confirmed_resident_link");
+  assert.equal(reason([referral], [link, { ...link, resident_key: "site:other" }]), "multiple_confirmed_links");
+  assert.equal(reason([referral], [link, { ...link, status: "candidate", resident_key: "site:other" }]), "conflicting_candidate_link");
+  assert.equal(reason([referral], [link], []), "resident_not_in_census");
+  assert.equal(reason([referral], [link], [resident, resident]), "ambiguous_census_resident");
+  assert.equal(reason([referral], [link], [{ ...resident, community_name: "Turlock" }]), "community_mismatch");
+  assert.equal(reason([referral], [link], [{ ...resident, display_name: "Other Person" }]), "name_mismatch");
+  assert.equal(reason([{ ...referral, dob: "" }]), "birth_date_missing");
+  assert.equal(reason([referral], [link], [{ ...resident, date_of_birth: null }]), "census_birth_date_missing");
+  assert.equal(reason([referral], [link], [{ ...resident, date_of_birth: "1971-01-01" }]), "birth_date_mismatch");
+  assert.equal(reason([referral], [{ ...link, resident_number: "99" }]), "governed_identity_conflict");
+  assert.equal(reason([referral], [link], [{ ...resident, admit_date: null }]), "census_admit_date_missing");
+  assert.equal(reason([{ ...referral, admissionDecision: { outcome: "accepted" } }]), "acceptance_date_missing");
+  assert.equal(reason([referral], [link], [{ ...resident, admit_date: twoDaysAgo }]), "census_admit_before_acceptance");
+  assert.equal(reason([referral], [link], [resident], yesterday), "census_admit_date_invalid");
+});
+
+test("assumed referrals are explained from the reconciliation inputs without persisting anything", () => {
+  const { referral, link, resident } = fixtures();
+  const explain = (rows, links, residents, fresh = true) =>
+    Object.fromEntries([...explainAssumedAdmissionBlockers([42], rows, links, residents, today, fresh)].map(([id, value]) => [id, value.code]));
+  assert.deepEqual(explain([referral], [link], [resident]), { 42: "ready_for_next_reconciliation" });
+  assert.deepEqual(explain([referral], [], [resident]), { 42: "no_confirmed_resident_link" });
+  assert.deepEqual(explain([referral], [link], [resident], false), { 42: "census_not_fresh" });
+  assert.deepEqual(explain([], [link], [resident]), { 42: "not_eligible" }, "outside the reconciled active list");
+  const labelled = explainAssumedAdmissionBlockers([42], [referral], [], [resident], today, true).get(42);
+  assert.match(labelled.label, /No ElderMark resident is confirmed/);
+});
+
+// Read-time blockers reuse the job's governed client-record DOB lookup when the census row has no DOB.
+function governedDobHarness({ clientRecordDob = "1970-01-01", lookupFails = false } = {}) {
+  const { referral, link, resident: base } = fixtures();
+  const resident = { ...base, date_of_birth: null };
+  const lookups = [];
+  const transitions = [];
+  const worker = loadEntry("lib/pipeline/clinical-backlog-reconciliation.ts", {
+    "@/lib/clinical/clinical-data": {
+      ClinicalDataError: class extends Error {},
+      getClinicalAuthMode: () => "client_credentials",
+      getClinicalRoster: async () => ({ residents: [resident], snapshot_id: "snapshot-42", data_as_of: today, freshness: { status: "fresh" }, next_cursor: null }),
+      getClinicalClient: async (_request, id) => {
+        lookups.push(id);
+        if (lookupFails) throw new Error("governed client record unavailable");
+        return clientDetail(resident, { enrichment: { date_of_birth: clientRecordDob } });
+      },
+    },
+    "@/lib/observability/pipeline-metrics": { recordPipelineMetric: () => {} },
+    "@/lib/pipeline/referral-store": { listReferrals: async () => ({ referrals: [referral], next_cursor: null }) },
+    "@/lib/pipeline/resident-link-store": {
+      listResidentLinks: async () => ({ links: [link], next_cursor: null }),
+      createResidentLink: async () => { throw Error("read-time explanation must not create links"); },
+      reviewResidentLink: async () => { throw Error("read-time explanation must not review links"); },
+    },
+    "@/lib/pipeline/referral-clinical-reconciliation": { findClinicalResidentMatch: () => null },
+    "@/lib/pipeline/workflow-store": { transitionReferral: async (...args) => { transitions.push(args); return { ok: true }; } },
+  });
+  const blockers = loadEntry("lib/pipeline/admission-confirmation-blockers.ts", {
+    "@/lib/clinical/clinical-data": {
+      getClinicalAuthMode: () => "client_credentials", getClinicalDataMode: () => "alamo_api", getClinicalDataReadiness: () => ({ ready: true }),
+    },
+    "./clinical-backlog-reconciliation": worker,
+  });
+  const explain = async () => (await blockers.loadAdmissionConfirmationBlockers(new Date(), [referral])).get(referral.id)?.code;
+  return { referral, worker, explain, lookups, transitions };
+}
+
+test("DOB present only in the governed client record: read time agrees with the job (ready, then confirmed)", async () => {
+  const h = governedDobHarness();
+  assert.equal(await h.explain(), "ready_for_next_reconciliation");
+  assert.equal(await h.explain(), "ready_for_next_reconciliation");
+  assert.deepEqual(h.lookups, ["alamo-42"], "the second read reuses the 60s lookup cache");
+  assert.equal(h.transitions.length, 0, "explaining never transitions a referral");
+  const result = await h.worker.reconcileClinicalBacklog(new Request("https://pipeline.invalid"));
+  assert.equal(result.admissions_confirmed, 1, "the job selects the same referral using the same lookup");
+});
+
+test("DOB absent from census and governed record: census_birth_date_missing, and the job does not confirm", async () => {
+  const h = governedDobHarness({ clientRecordDob: null });
+  assert.equal(await h.explain(), "census_birth_date_missing");
+  assert.equal((await h.worker.reconcileClinicalBacklog(new Request("https://pipeline.invalid"))).admissions_confirmed, 0);
+});
+
+test("a failed governed lookup degrades to birth_date_lookup_failed without throwing, and is retried", async () => {
+  const h = governedDobHarness({ lookupFails: true });
+  assert.equal(await h.explain(), "birth_date_lookup_failed");
+  assert.equal(await h.explain(), "birth_date_lookup_failed");
+  assert.equal(h.lookups.length, 2, "failures are not cached");
+  assert.equal((await h.worker.reconcileClinicalBacklog(new Request("https://pipeline.invalid"))).admissions_confirmed, 0);
+});
+
+test("explainer maps a DOB-missing block to the lookup-failure code only for failed lookups", () => {
+  const { referral, link, resident } = fixtures();
+  const noDob = [{ ...resident, date_of_birth: null }];
+  const code = (failed) => explainAssumedAdmissionBlockers([42], [referral], [link], noDob, today, true, new Set(failed)).get(42).code;
+  assert.equal(code([]), "census_birth_date_missing");
+  assert.equal(code([42]), "birth_date_lookup_failed");
+  assert.equal(explainAssumedAdmissionBlockers([42], [referral], [link], [resident], today, true, new Set([42])).get(42).code,
+    "ready_for_next_reconciliation", "a failed lookup never masks a passing referral");
 });

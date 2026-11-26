@@ -1,5 +1,6 @@
 "use client";
 
+import { DUE_AWAITING_CENSUS_LABEL } from "@/lib/pipeline/admission-confirmation";
 import { useCallback, useEffect, useState } from "react";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 
@@ -125,7 +126,7 @@ export function WeeklyCompletionMemoPage({ onBack, onOpenPacket }: {
             data-status={client.status}
             className={styles.client}>
             <span className={styles.clientIdentity}><strong>{client.client_name}</strong><span>{client.community}{memo.scope === "team" ? ` · ${client.owner}` : ""}</span></span>
-            <span className={styles.clientStatus}>{client.status === "admitted" ? "Admitted" : "Accepted"}{!client.assessment_signed ? " · Signature needed" : ""}</span>
+            <span className={styles.clientStatus}>{client.awaiting_census ? DUE_AWAITING_CENSUS_LABEL : client.status === "admitted" ? "Admitted" : "Accepted"}{!client.assessment_signed ? " · Signature needed" : ""}</span>
             <span className={styles.clientCount}>{client.tasks.length}<small> {client.tasks.length === 1 ? "item" : "items"}</small></span>
             <ArrowRight size={19} className={styles.clientChevron} aria-hidden="true" />
           </button>

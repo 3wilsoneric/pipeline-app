@@ -538,8 +538,10 @@ test.describe("role-scoped home and reports", () => {
       ],
       briefing: {
         window_end: "2026-09-28", week_start: "2026-09-28", week_end: "2026-10-04", last_week_start: "2026-09-21", last_week_end: "2026-09-27",
-        coverage: { admitted_last_week_complete: true, move_ins_complete: true, moving_through_complete: true },
+        coverage: { admitted_last_week_complete: true, confirmed_admissions_last_week_complete: true, assumed_arrivals_last_week_complete: true, move_ins_complete: true, moving_through_complete: true },
         admitted_last_week: [{ client_name: "Synthetic Admit", admitted_at: "2026-09-25", community: "San Pablo", source_name: "County hospital", referring_county: "Contra Costa", pipeline_path: "/?view=referrals&screen=packet&referralId=8" }],
+        confirmed_admissions_last_week: [{ client_name: "Synthetic Admit", admitted_at: "2026-09-25", community: "San Pablo", source_name: "County hospital", referring_county: "Contra Costa", pipeline_path: "/?view=referrals&screen=packet&referralId=8" }],
+        assumed_arrivals_last_week: [],
         planned_move_ins: [{ client_name: "Synthetic Arrival", planned_at: "2026-09-30", community: "San Pablo", readiness: "ready", source_name: "Referral partner", referring_county: "Solano", pipeline_path: "/?view=referrals&screen=packet&referralId=10" }],
         moving_through: [
           { client_name: "Synthetic Assessee", stage: "in_progress", phase: "intake_assessment", planned_at: null, status: "Assessment underway", community: "San Pablo", owner: "Test Assessor", source_name: "Community hospital", referring_county: null, pipeline_path: "/?view=referrals&screen=packet&referralId=9" },

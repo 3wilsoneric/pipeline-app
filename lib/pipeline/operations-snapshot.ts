@@ -3,6 +3,7 @@ import { admissionFlowCohort } from "./admission-flow-cohort";
 import { getFirstAssessmentCompletions } from "@/lib/assessment/assessment-completion-milestones";
 import { supervisorQueuePage } from "./supervisor-queue-page";
 import { assumedAdmissionDate, getPlannedAdmissionDate, isAwaitingAdmission } from "./admission-lifecycle";
+import { loadAdmissionConfirmationBlockers } from "./admission-confirmation-blockers";
 
 import type { PipelineUser } from "@/lib/auth/pipeline-auth";
 import { getClinicalDataReadiness } from "@/lib/clinical/clinical-data";
@@ -85,7 +86,10 @@ export async function getPlatformAdmissionsSummary() {
   if (operational.source !== "referral_store") return null;
   const workByReferral = new Map(operational.work.map((item) => [item.referral_id, item]));
   const weeklyIds = new Set(admissionFlowCohort(operational.referrals, "").map(referral => referral.id));
-  const completions = await getFirstAssessmentCompletions([...weeklyIds]);
+  const [completions, confirmationBlockers] = await Promise.all([
+    getFirstAssessmentCompletions([...weeklyIds]),
+    loadAdmissionConfirmationBlockers(operational.now, operational.referrals),
+  ]);
   return buildPlatformAdmissionsSummary({
     now: operational.now,
     referrals: operational.referrals.map((referral) => {
@@ -111,6 +115,7 @@ export async function getPlatformAdmissionsSummary() {
         plannedAdmissionDate: getPlannedAdmissionDate(referral) || null,
         actualAdmissionDate: referral.actualAdmissionDate ?? null,
         assumedAdmissionDate: assumedAdmissionDate(referral, operational.now),
+        confirmationBlocker: confirmationBlockers.get(referral.id) ?? null,
         placementCancelled: Boolean(referral.placementCancellation),
         placementCancelledAt: referral.placementCancellation?.cancelledAt ?? null,
         assessmentScheduledDate,

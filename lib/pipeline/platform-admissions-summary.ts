@@ -5,7 +5,12 @@
 // Platform documents the consumer side in
 // alamo-platform-app/docs/platform/admissions-zone.md.
 
-export const PLATFORM_ADMISSIONS_SUMMARY_VERSION = "3.5";
+import { DUE_AWAITING_CENSUS_LABEL, type AdmissionConfirmationBlocker } from "./admission-confirmation";
+
+// 3.6 adds confirmed_admissions / assumed_arrivals / planned_arrivals beside the
+// deprecated combined `admitted` counts (owner-approved admission definition).
+// Additive within 3.6: assumed_arrivals_last_week rows carry confirmation_blocker.
+export const PLATFORM_ADMISSIONS_SUMMARY_VERSION = "3.6";
 
 const DAY_MS = 86_400_000;
 const TREND_MONTHS = 6;
@@ -46,6 +51,8 @@ export type PlatformSummaryReferral = {
   actualAdmissionDate: string | null;
   /** Due plan, still awaiting a governed census or staff-confirmed actual date. */
   assumedAdmissionDate?: string | null;
+  /** Why the daily census check has not confirmed an assumed arrival (read-time, same checks). */
+  confirmationBlocker?: AdmissionConfirmationBlocker | null;
   placementCancelled: boolean;
   placementCancelledAt: string | null;
   assessmentScheduledDate: string | null;
@@ -99,7 +106,20 @@ export type PlatformAdmissionsSummaryInput = {
   referrals: PlatformSummaryReferral[];
 };
 
-type MonthCounts = { month: string; received: number; accepted: number; declined: number; admitted: number };
+type MonthCounts = {
+  month: string;
+  received: number;
+  accepted: number;
+  declined: number;
+  /** @deprecated confirmed + assumed. Kept for existing consumers; use confirmed_admissions. */
+  admitted: number;
+  /** Admissions: recorded actual arrival (census match or staff-confirmed date) only. */
+  confirmed_admissions: number;
+  /** Due accepted plans still awaiting confirmation. Never an admission. */
+  assumed_arrivals: number;
+  /** Accepted plans not yet due, confirmed or cancelled, by planned month. Never an admission. */
+  planned_arrivals: number;
+};
 
 function dayKey(value: string | null | undefined) {
   if (!value) return null;
@@ -181,10 +201,27 @@ function arrivalNeedsReview(referral: PlatformSummaryReferral, today: string) {
     !referral.placementCancelled && Boolean(planned && planned < today);
 }
 
-// Entered dates establish operational admission; later recorded arrival takes precedence.
-// Census totals still come only from the governed clinical snapshot.
+// Admission definition (owner-approved): an admission is a confirmed arrival only,
+// i.e. a recorded actual date from the governed census (ElderMark episode) or an
+// explicit staff confirmation. Assumed (due, unconfirmed) and planned dates are
+// separate labels and are never counted as admissions. Cancelled placements are
+// neither.
+function confirmedAdmissionDate(referral: PlatformSummaryReferral) {
+  return referral.placementCancelled ? null : referral.actualAdmissionDate || null;
+}
+
+function assumedArrivalDate(referral: PlatformSummaryReferral) {
+  return referral.placementCancelled || referral.actualAdmissionDate ? null : referral.assumedAdmissionDate || null;
+}
+
+function plannedArrivalDate(referral: PlatformSummaryReferral) {
+  return referral.placementCancelled || referral.actualAdmissionDate || referral.assumedAdmissionDate
+    || referral.decisionOutcome !== "accepted" ? null : referral.plannedAdmissionDate || null;
+}
+
+/** @deprecated Confirmed OR assumed. Backs only the legacy `admitted` fields and labels. */
 function admissionDate(referral: PlatformSummaryReferral) {
-  return referral.placementCancelled ? null : referral.actualAdmissionDate || referral.assumedAdmissionDate || null;
+  return confirmedAdmissionDate(referral) || assumedArrivalDate(referral);
 }
 
 function isActiveReferral(referral: PlatformSummaryReferral) {
@@ -197,7 +234,10 @@ export function buildPlatformAdmissionsSummary(input: PlatformAdmissionsSummaryI
   const month = today.slice(0, 7);
   const timingStart = addDays(today, -DECISION_TIMING_DAYS);
   const monthly = new Map<string, MonthCounts>(recentMonths(today, TREND_MONTHS)
-    .map((key) => [key, { month: key, received: 0, accepted: 0, declined: 0, admitted: 0 }]));
+    .map((key) => [key, {
+      month: key, received: 0, accepted: 0, declined: 0, admitted: 0,
+      confirmed_admissions: 0, assumed_arrivals: 0, planned_arrivals: 0,
+    }]));
   const decisionDays: number[] = [];
   const observedMonths = new Set<string>();
 
@@ -214,6 +254,15 @@ export function buildPlatformAdmissionsSummary(input: PlatformAdmissionsSummaryI
     if (decidedMonth && referral.decisionOutcome) decidedMonth[referral.decisionOutcome] += 1;
     const admittedMonth = admitted ? monthly.get(admitted.slice(0, 7)) : undefined;
     if (admittedMonth) admittedMonth.admitted += 1;
+    const confirmed = dayKey(confirmedAdmissionDate(referral));
+    const confirmedMonth = confirmed ? monthly.get(confirmed.slice(0, 7)) : undefined;
+    if (confirmedMonth) confirmedMonth.confirmed_admissions += 1;
+    const assumed = dayKey(assumedArrivalDate(referral));
+    const assumedMonth = assumed ? monthly.get(assumed.slice(0, 7)) : undefined;
+    if (assumedMonth) assumedMonth.assumed_arrivals += 1;
+    const plannedArrival = dayKey(plannedArrivalDate(referral));
+    const plannedMonth = plannedArrival ? monthly.get(plannedArrival.slice(0, 7)) : undefined;
+    if (plannedMonth) plannedMonth.planned_arrivals += 1;
     if (received && decided && decided >= timingStart && decided >= received) {
       decisionDays.push(daysBetween(received, decided));
     }
@@ -231,7 +280,7 @@ export function buildPlatformAdmissionsSummary(input: PlatformAdmissionsSummaryI
         referral_id: referral.referralId,
         client_name: referral.clientName.trim() || "Name not recorded",
         column: referral.boardColumn as PlatformBoardColumn,
-        status: admissionDate(referral) ? "Admitted" : leadershipStatus[referral.boardStatus] ?? referral.boardStatus,
+        status: confirmedAdmissionDate(referral) ? "Admitted" : assumedArrivalDate(referral) ? DUE_AWAITING_CENSUS_LABEL : leadershipStatus[referral.boardStatus] ?? referral.boardStatus,
         next_action: referral.nextAction,
         community: referral.community.trim() || "Unassigned",
         owner: referral.unassigned ? "Unassigned" : referral.owner,
@@ -296,12 +345,18 @@ export function buildPlatformAdmissionsSummary(input: PlatformAdmissionsSummaryI
   const acceptedLastWeek = input.referrals
     .filter(referral => referral.weeklyActivityEligible && referral.decisionOutcome === "accepted" && inWindow(referral.decidedAt, lastWeekStart, lastWeekEnd))
     .map(referral => ({ ...weeklyContext(referral), accepted_at: referral.decidedAt!,
-      planned_at: referral.plannedAdmissionDate, admitted_at: admissionDate(referral), cancelled: referral.placementCancelled }))
+      planned_at: referral.plannedAdmissionDate,
+      /** @deprecated confirmed OR assumed; use confirmed_admission_at / assumed_arrival_at. */
+      admitted_at: admissionDate(referral),
+      confirmed_admission_at: confirmedAdmissionDate(referral),
+      assumed_arrival_at: assumedArrivalDate(referral),
+      cancelled: referral.placementCancelled }))
     .sort((a, b) => b.accepted_at.localeCompare(a.accepted_at) || a.client_name.localeCompare(b.client_name));
   const recentStart = addDays(today, -13);
   const briefingStatus = (referral: PlatformSummaryReferral) =>
     referral.placementCancelled ? "Did not move in" :
-    admissionDate(referral) ? "Admitted" :
+    confirmedAdmissionDate(referral) ? "Admitted" :
+    assumedArrivalDate(referral) ? DUE_AWAITING_CENSUS_LABEL :
     arrivalNeedsReview(referral, today) ? "Planned date passed · admission unconfirmed here" :
     (leadershipStatus[referral.boardStatus] ?? referral.boardStatus.trim()) ||
     (referral.actualAdmissionDate ? "Admitted" : referral.decisionOutcome === "accepted" ? "Accepted" : referral.decisionOutcome === "declined" ? "Declined" : "Closed");
@@ -351,12 +406,33 @@ export function buildPlatformAdmissionsSummary(input: PlatformAdmissionsSummaryI
       pipeline_path: referral.pipelinePath,
     }))
     .sort((left, right) => left.planned_at.localeCompare(right.planned_at) || left.client_name.localeCompare(right.client_name));
+  const lastWeekArrival = (referral: PlatformSummaryReferral) => ({
+    referral_id: referral.referralId,
+    client_name: referral.clientName.trim() || "Name not recorded",
+    community: referral.community.trim() || "Unassigned",
+    source_name: boundedText(referral.managementProfile.referralSource, 160),
+    referring_county: boundedText(referral.managementProfile.referringCounty, 120),
+    prior_placement: boundedText(referral.managementProfile.priorPlacement, 160),
+    owner: referral.unassigned ? "Unassigned" : referral.owner,
+    pipeline_path: referral.pipelinePath,
+  });
+  const confirmedAdmissionsLastWeek = input.referrals
+    .filter((referral) => inWindow(confirmedAdmissionDate(referral), lastWeekStart, lastWeekEnd))
+    .map((referral) => ({ ...lastWeekArrival(referral), admitted_at: confirmedAdmissionDate(referral)! }))
+    .sort((left, right) => right.admitted_at.localeCompare(left.admitted_at) || left.client_name.localeCompare(right.client_name));
+  const assumedArrivalsLastWeek = input.referrals
+    .filter((referral) => inWindow(assumedArrivalDate(referral), lastWeekStart, lastWeekEnd))
+    .map((referral) => ({ ...lastWeekArrival(referral), assumed_at: assumedArrivalDate(referral)!,
+      confirmation_blocker: referral.confirmationBlocker ?? null }))
+    .sort((left, right) => right.assumed_at.localeCompare(left.assumed_at) || left.client_name.localeCompare(right.client_name));
+  // Deprecated combined slice (confirmed + assumed); each row names its basis.
   const admittedLastWeek = input.referrals
     .filter((referral) => inWindow(admissionDate(referral), lastWeekStart, lastWeekEnd))
     .map((referral) => ({
       referral_id: referral.referralId,
       client_name: referral.clientName.trim() || "Name not recorded",
       admitted_at: admissionDate(referral)!,
+      admission_basis: (confirmedAdmissionDate(referral) ? "confirmed" : "assumed") as "confirmed" | "assumed",
       community: referral.community.trim() || "Unassigned",
       source_name: boundedText(referral.managementProfile.referralSource, 160),
       referring_county: boundedText(referral.managementProfile.referringCounty, 120),
@@ -380,6 +456,23 @@ export function buildPlatformAdmissionsSummary(input: PlatformAdmissionsSummaryI
       pipeline_path: referral.pipelinePath,
     }))
     .sort((left, right) => right.cancelled_at.localeCompare(left.cancelled_at) || left.client_name.localeCompare(right.client_name));
+  const communityRows = new Map<string, { community: string; confirmed_admissions: number; assumed_arrivals: number; admitted: number }>();
+  const communityRow = (community: string) => {
+    const existing = communityRows.get(community);
+    if (existing) return existing;
+    const row = { community, confirmed_admissions: 0, assumed_arrivals: 0, admitted: 0 };
+    communityRows.set(community, row);
+    return row;
+  };
+  for (const row of confirmedAdmissionsLastWeek) communityRow(row.community).confirmed_admissions += 1;
+  for (const row of assumedArrivalsLastWeek) communityRow(row.community).assumed_arrivals += 1;
+  for (const row of admittedLastWeek) communityRow(row.community).admitted += 1;
+  const admissionsByCommunityLastWeek = [...communityRows.values()].sort((left, right) => left.community.localeCompare(right.community));
+  const plannedByCommunity = new Map<string, number>();
+  for (const row of plannedMoveIns) plannedByCommunity.set(row.community, (plannedByCommunity.get(row.community) ?? 0) + 1);
+  const plannedArrivalsByCommunityThisWeek = [...plannedByCommunity]
+    .map(([community, planned_arrivals]) => ({ community, planned_arrivals }))
+    .sort((left, right) => left.community.localeCompare(right.community));
   const movingThrough = input.referrals
     .filter((referral) => referral.currentWorkspace && !referral.placementCancelled && !admissionDate(referral) &&
       (referral.decisionOutcome === "accepted" || (referral.boardColumn && isActiveReferral(referral))))
@@ -438,6 +531,8 @@ export function buildPlatformAdmissionsSummary(input: PlatformAdmissionsSummaryI
         assessments_complete: upcomingAssessments.length <= MAX_BRIEFING_SCHEDULE,
         move_ins_complete: plannedMoveIns.length <= MAX_BRIEFING_SCHEDULE,
         admitted_last_week_complete: admittedLastWeek.length <= MAX_BRIEFING_REFERRALS,
+        confirmed_admissions_last_week_complete: confirmedAdmissionsLastWeek.length <= MAX_BRIEFING_REFERRALS,
+        assumed_arrivals_last_week_complete: assumedArrivalsLastWeek.length <= MAX_BRIEFING_REFERRALS,
         moving_through_complete: movingThrough.length <= MAX_BRIEFING_REFERRALS,
         did_not_move_in_complete: didNotMoveIn.length <= MAX_BRIEFING_REFERRALS,
         weekly_trend_complete: true,
@@ -447,7 +542,13 @@ export function buildPlatformAdmissionsSummary(input: PlatformAdmissionsSummaryI
       accepted_last_week: acceptedLastWeek.slice(0, MAX_BRIEFING_REFERRALS),
       upcoming_assessments: upcomingAssessments.slice(0, MAX_BRIEFING_SCHEDULE),
       planned_move_ins: plannedMoveIns.slice(0, MAX_BRIEFING_SCHEDULE),
+      /** @deprecated confirmed + assumed; use confirmed_admissions_last_week / assumed_arrivals_last_week. */
       admitted_last_week: admittedLastWeek.slice(0, MAX_BRIEFING_REFERRALS),
+      confirmed_admissions_last_week: confirmedAdmissionsLastWeek.slice(0, MAX_BRIEFING_REFERRALS),
+      assumed_arrivals_last_week: assumedArrivalsLastWeek.slice(0, MAX_BRIEFING_REFERRALS),
+      // Full (uncapped) counts from the same slices above.
+      admissions_by_community_last_week: admissionsByCommunityLastWeek,
+      planned_arrivals_by_community_this_week: plannedArrivalsByCommunityThisWeek,
       moving_through: movingThrough.slice(0, MAX_BRIEFING_REFERRALS),
       did_not_move_in: didNotMoveIn.slice(0, MAX_BRIEFING_REFERRALS),
       weekly_trend: weeklyTrend,

@@ -4,6 +4,7 @@ import { assessmentInterviewFieldLabel, assessmentInterviewQuestions, isAssessme
 import { assessmentSectionForField } from "@/lib/assessment/assessment-sections";
 import type { AssessmentToolData, AssessmentToolFieldKey } from "@/lib/assessment/assessment-tool-schema";
 import { isAssignedToUser } from "./referral-ownership";
+import { assumedAdmissionDate } from "./admission-lifecycle";
 import { getWorkspaceState, isRequirementGateActive, isRequirementStatusResolved } from "./workspace-state";
 import type { OperationsWorkItem } from "./operations-types";
 import type { Referral } from "./referral-types";
@@ -26,6 +27,8 @@ export type CompletionMemoClient = {
   community: Referral["community"];
   owner: string;
   status: "accepted" | "admitted";
+  /** Due plan only: shown as "Due — awaiting census confirmation", never "Admitted". */
+  awaiting_census?: boolean;
   assessment_signed: boolean;
   tasks: CompletionMemoTask[];
 };
@@ -151,7 +154,7 @@ export function buildWeeklyCompletionMemo({
       referral_id: referral.id, client_name: referral.name, community: referral.community,
       assessment_id: context.assessmentId,
       owner: context.assessmentAssessorId && context.assessmentData?.assessor || referral.owner,
-      status, assessment_signed: state.assessment === "signed", tasks,
+      status, awaiting_census: !item.actual_admission_date && Boolean(assumedAdmissionDate(referral)), assessment_signed: state.assessment === "signed", tasks,
     }] : [];
   }).sort((left, right) =>
     Number(right.status === "accepted") - Number(left.status === "accepted")

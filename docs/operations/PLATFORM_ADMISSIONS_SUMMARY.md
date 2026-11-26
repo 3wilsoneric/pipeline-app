@@ -22,7 +22,7 @@ referral side of it through one server-to-server endpoint:
   `metrics`, `upcoming_admissions`, and `history` (six-month counts and median
   days to decision) sit beside it. `metrics.active_referrals` excludes declined
   referrals while `board.total` and `metrics.on_board` continue to describe all
-  cards still visible on the board. Contract 3.5 also publishes `briefing`: the
+  cards still visible on the board. Contract 3.5 added `briefing`: the
   Los Angeles reporting date, explicit completeness flags, the trailing 14 days
   of referrals with source and county, remaining assessments scheduled through
   Sunday, planned move-ins for the Monday-through-Sunday week, and 12 weekly
@@ -34,9 +34,9 @@ referral side of it through one server-to-server endpoint:
   and confirmed arrivals do not. A cancelled placement has the distinct status
   "Did not move in" and appears in the recent 30-day `did_not_move_in` outcome
   slice; it never counts as an admission or an active referral. Moving rows include a canonical work phase and
-  planned date, if any, for the briefing's filtered drill-down. The canonical
-  entered-date admission policy applies when the date arrives; subsequent census
-  reconciliation confirms or corrects that date. Beyond those context fields, event rows
+  planned date, if any, for the briefing's filtered drill-down. When a planned
+  date arrives without confirmation it is reported as an assumed arrival, not an
+  admission; census reconciliation or staff confirmation records the actual date. Beyond those context fields, event rows
   retain client name, destination, status, date where relevant, and the bounded
   Pipeline path already authorized for the board. Arrays are capped and their coverage flag turns false instead
   of silently presenting a truncated result as complete. The card and
@@ -45,6 +45,46 @@ referral side of it through one server-to-server endpoint:
   referral notes, contact details, uploaded documents, extraction evidence,
   and unsigned assessment narrative remain outside this contract. Arrays and
   text lengths are capped before transmission.
+- **Admission definition (contract 3.6, owner-approved):** an admission is a
+  *confirmed* arrival only: a recorded actual admission date from the governed
+  census (ElderMark episode) or an explicit staff confirmation. Pipeline
+  *assumed* dates (an accepted plan whose date has arrived but is unconfirmed)
+  and *planned* dates (accepted plans not yet due) are separate labels and are
+  never counted as admissions. A cancelled placement is excluded from all three.
+  Every grain that reports `admitted` now also reports the split:
+  - `history.monthly[]` and `history.month_outcomes`: `confirmed_admissions`,
+    `assumed_arrivals`, `planned_arrivals` (by planned month; only accepted,
+    unconfirmed, unassumed, uncancelled plans).
+  - Last week: `briefing.confirmed_admissions_last_week[]` (`admitted_at` is the
+    confirmed date) and `briefing.assumed_arrivals_last_week[]` (`assumed_at`),
+    each with a `*_complete` coverage flag; `admitted_last_week[]` rows carry
+    `admission_basis` (`confirmed` | `assumed`); `accepted_last_week[]` rows
+    carry `confirmed_admission_at` and `assumed_arrival_at`.
+  - Per community: `briefing.admissions_by_community_last_week[]`
+    (`confirmed_admissions`, `assumed_arrivals`, deprecated `admitted`) and
+    `briefing.planned_arrivals_by_community_this_week[]` (`planned_arrivals`,
+    the same membership as `planned_move_ins`).
+  - **Deprecated:** `admitted` (monthly, month_outcomes, per community),
+    `admitted_last_week[]` and `accepted_last_week[].admitted_at` keep their
+    3.5 meaning, *confirmed + assumed*, for existing consumers only. New
+    consumers must read the split fields.
+  - Derived status labels (board rows, briefing rows) say "Admitted" only for a
+    confirmed arrival; an assumed arrival is labelled
+    "Due — awaiting census confirmation". The real "Accepted / Admitted" stage
+    label is unchanged.
+  - Additive within 3.6: each `briefing.assumed_arrivals_last_week[]` row has
+    `confirmation_blocker` (`{ code, label }` or `null` when unknown): the first
+    rule of the daily census reconciliation (`selectAutomaticAdmissions`) the
+    referral does not meet, computed at read time from the same inputs (active
+    referrals, resident links, governed roster). Nothing new is persisted. Codes
+    and plain-language labels live in `lib/pipeline/admission-confirmation.ts`;
+    `ready_for_next_reconciliation` means every rule passes and the next daily
+    run will record it, `census_not_fresh` / `census_unavailable` mean the
+    census could not be evaluated. When the census row has no date of birth,
+    the read-time check uses the job's own governed client-record lookup
+    (`verifyIdentityCandidateBirthDate`, cached 60s); `census_birth_date_missing`
+    therefore means the job could not verify it either, and
+    `birth_date_lookup_failed` means that lookup failed (retried next read).
 - **History coverage:** `history.coverage_start_month` is the first month with a
   recorded referral, decision, or admission event. `history.monthly` begins at
   that month; earlier months are unavailable and are never emitted as zero

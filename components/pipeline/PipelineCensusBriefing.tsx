@@ -7,10 +7,11 @@ import { toPipelinePath } from "@/lib/pipeline/base-path";
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import type { ClinicalCensusResponse } from "@/lib/clinical/clinical-contracts";
 import type { AdmissionsCensusReport } from "@/lib/pipeline/admissions-census-report";
+import { DUE_AWAITING_CENSUS_LABEL } from "@/lib/pipeline/admission-confirmation";
 import styles from "./PipelineCensusBriefing.module.css";
 
 type ClientContext = { source_name: string | null; referring_county: string | null; prior_placement: string | null; owner: string };
-type WeekRow = ClientContext & { client_name: string; date: string; detail: string; pipeline_path: string };
+type WeekRow = ClientContext & { client_name: string; date: string; detail: string; pipeline_path: string; blocker?: string | null };
 type MovingRow = AdmissionsCensusReport["briefing"]["moving_through"][number];
 type MovingPhase = MovingRow["phase"] | "outcome_review";
 const movingPhases: { key: MovingPhase; label: string }[] = [
@@ -73,7 +74,7 @@ export default function PipelineCensusBriefing() {
       <footer data-guide-target="operations-briefing-source" className={styles.source}>
         <span>{admissions ? `Updated ${formatTimestamp(admissions.generated_at)}` : ""}</span>
         <details><summary>Sources &amp; counting</summary>
-          <p>Pipeline records · Pacific weeks. Assessments count the first interview finish or chart confirmation per native workspace. Acceptances use current decision dates. Admissions use the entered date, then reconcile with census.</p>
+          <p>Pipeline records · Pacific weeks. Assessments count the first interview finish or chart confirmation per native workspace. Acceptances use current decision dates. Admissions count only arrivals confirmed by the ElderMark census or recorded by staff. Planned admissions whose date has passed are shown as due and awaiting census confirmation, with the reason, and are not counted as admissions.</p>
           {census ? <><p>Alamo Platform census: {formatDate(census.data_as_of)}. Weekly movement includes all community residents. Census bars use operating capacity, not licensed maximums.</p>
             <ul>{census.communities.map(community => <li key={community.community_id}>{community.community_name}: {community.operating_capacity ?? "unknown"} operating / {community.licensed_capacity ?? "unknown"} licensed beds{community.capacity_as_of ? ` · effective ${formatDate(community.capacity_as_of)}` : ""}.</li>)}</ul></> : null}
         </details>
@@ -123,10 +124,16 @@ function WeekList({ title, dates, items, complete, empty }: { title: string; dat
     <div className={styles.weekHeading}><div><p className={styles.overline}>{dates}</p><h2>{title}</h2></div><strong>{items.length}{complete ? "" : "+"}</strong></div>
     {items.length ? <ul className={styles.weekList}>{items.map((item) => <li key={item.pipeline_path}>
       <div><a href={toPipelinePath(item.pipeline_path)}>{item.client_name}</a><span>{formatDate(item.date, false)}</span></div>
-      <p>{item.detail} · {item.owner || "Unassigned"}</p><ClientContextText item={item} />
+      <p>{item.detail} · {item.owner || "Unassigned"}</p><BlockerText item={item} /><ClientContextText item={item} />
     </li>)}</ul> : <p className={styles.empty}>{empty}</p>}
     {!complete ? <p className={styles.caption}>The list is capped; more records exist.</p> : null}
   </section>;
+}
+
+/** Plain-language reason the daily census check has not confirmed a due admission. */
+function BlockerText({ item }: { item: object }) {
+  const blocker = "blocker" in item && typeof item.blocker === "string" ? item.blocker : null;
+  return blocker ? <p data-confirmation-blocker="true" className={styles.blocker}><strong>Why not confirmed:</strong> {blocker}</p> : null;
 }
 
 function ClientContextText({ item }: { item: ClientContext }) {
@@ -147,9 +154,12 @@ function WeeklyWork({ report }: { report: AdmissionsCensusReport }) {
     { label: "Assessments", tone: "assessment", complete: b.coverage.assessed_last_week_complete,
       items: b.assessed_last_week?.map(row => ({ ...row, date: row.completed_at, detail: `${row.community} · ${row.decision === "accepted" ? "Accepted" : row.decision === "declined" ? "Denied" : "Decision pending"}` })) ?? [] },
     { label: "Accepted", tone: "accepted", complete: b.coverage.accepted_last_week_complete,
-      items: b.accepted_last_week?.map(row => ({ ...row, date: row.accepted_at, detail: `${row.community} · ${row.cancelled ? "Placement cancelled" : row.admitted_at ? `Admitted ${formatDate(row.admitted_at)}` : row.planned_at ? `Planned ${formatDate(row.planned_at)}` : "Needs admit date"}` })) ?? [] },
-    { label: "Admitted", tone: "admitted", complete: b.coverage.admitted_last_week_complete,
-      items: b.admitted_last_week.map(row => ({ ...row, date: row.admitted_at, detail: row.community })) },
+      items: b.accepted_last_week?.map(row => ({ ...row, date: row.accepted_at, detail: `${row.community} · ${row.cancelled ? "Placement cancelled" : row.confirmed_admission_at ? `Admitted ${formatDate(row.confirmed_admission_at)}` : row.assumed_arrival_at ? `${DUE_AWAITING_CENSUS_LABEL} · planned ${formatDate(row.assumed_arrival_at)}` : row.planned_at ? `Planned ${formatDate(row.planned_at)}` : "Needs admit date"}` })) ?? [] },
+    // Admitted = census-confirmed or staff-recorded arrivals only; due plans are listed separately with the reason.
+    { label: "Admitted", tone: "admitted", complete: b.coverage.confirmed_admissions_last_week_complete,
+      items: b.confirmed_admissions_last_week?.map(row => ({ ...row, date: row.admitted_at, detail: row.community })) ?? [] },
+    { label: "Due — awaiting census", tone: "due", complete: b.coverage.assumed_arrivals_last_week_complete,
+      items: b.assumed_arrivals_last_week?.map(row => ({ ...row, date: row.assumed_at, detail: `${row.community} · ${DUE_AWAITING_CENSUS_LABEL}`, blocker: row.confirmation_blocker?.label ?? null })) ?? [] },
   ];
   const group = groups[selected];
   const origins = [...new Set(group.items.map(row => row.source_name || "Origin not recorded"))].sort();
@@ -182,6 +192,7 @@ function WeeklyWork({ report }: { report: AdmissionsCensusReport }) {
       {group.complete === true ? <p className={styles.weekNarrative} aria-live="polite">
         {selected === 0 ? <><strong>{assessed.length} {assessed.length === 1 ? "client was" : "clients were"} assessed.</strong>{assessed.length ? <> {assessedAccepted} accepted, {assessedDenied} denied, {assessedPending} awaiting a decision.</> : null}</>
           : selected === 1 ? <><strong>{accepted.length} {accepted.length === 1 ? "client received an acceptance decision" : "clients received acceptance decisions"}.</strong>{needsDate ? <> {needsDate} still {needsDate === 1 ? "needs" : "need"} an admit date.</> : null}</>
+          : selected === 3 ? <><strong>{group.items.length} planned {group.items.length === 1 ? "admission is" : "admissions are"} due and awaiting census confirmation.</strong>{group.items.length ? " They are not counted as admissions; each shows why the census check has not confirmed it." : null}</>
           : <><strong>{group.items.length} {group.items.length === 1 ? "client was" : "clients were"} admitted</strong>{group.items.length ? <> across {new Set(group.items.map(row => row.community)).size} {new Set(group.items.map(row => row.community)).size === 1 ? "community" : "communities"}.</> : "."}</>}
         {missingOrigins ? <> {missingOrigins} {missingOrigins === 1 ? "origin" : "origins"} not recorded.</> : null}
       </p> : null}
@@ -192,7 +203,7 @@ function WeeklyWork({ report }: { report: AdmissionsCensusReport }) {
         {group.complete === undefined ? <p className={styles.empty}>This activity is not available in the current report.</p>
           : rows.length ? <ul className={styles.weekList}>{rows.slice(0, 3).map(item => <li key={item.pipeline_path}>
             <div><a href={toPipelinePath(item.pipeline_path)}>{item.client_name}</a><span>{formatDate(item.date, false)}</span></div>
-            <p>{item.detail} · {item.owner}</p><ClientContextText item={item} />
+            <p>{item.detail} · {item.owner}</p><BlockerText item={item} /><ClientContextText item={item} />
           </li>)}</ul> : <p className={styles.empty}>No matching records last week.</p>}
         {rows.length > 3 ? <button type="button" className={styles.allClients} onClick={e => setExpanded(e.currentTarget.getBoundingClientRect())}>View all {rows.length} clients</button> : null}
         {group.complete === false ? <p className={styles.caption}>Showing the first {group.items.length} records; the report limit was reached.</p> : null}

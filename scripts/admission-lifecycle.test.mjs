@@ -46,9 +46,14 @@ test("a due admit date is assumed but never recorded as a verified arrival", () 
   assert.equal(dates.assumedAdmissionDate(referral, new Date("2026-01-01T20:00:00Z")), "2026-01-01");
   assert.equal(presentation.getWorkspaceAdmissionOutcome(referral).evidence, "assumed");
   assert.equal(presentation.getWorkspaceAdmissionOutcome(referral).status, "admitted");
-  assert.equal(presentation.getWorkspaceAdmissionOutcome(referral).label, "Admitted");
+  assert.equal(presentation.getWorkspaceAdmissionOutcome(referral).label, "Due — awaiting census confirmation",
+    "a derived label never shows a due plan as Admitted");
+  assert.equal(presentation.getWorkspaceWorkflowLabel(referral), "Due — awaiting census confirmation");
   assert.equal(referral.actualAdmissionDate, undefined);
   assert.equal(flow.getReferralBoardState(referral, {}).location.view, "email", "handoff is still reachable");
+  assert.equal(flow.getReferralBoardState(referral, {}).detail, "Due — awaiting census confirmation");
+  assert.equal(flow.getReferralBoardState({ ...referral, stage: "Accepted / Admitted", actualAdmissionDate: "2026-01-01" }, {}).detail, "Admitted",
+    "the real Accepted / Admitted stage keeps its Admitted label");
   assert.equal(flow.getReferralWorkflowStatus(referral), "admitted");
   assert.equal(progress.getReferralProgress(referral, { packetSentAt: "2026-01-01T10:00:00Z" }).waiting, false);
   for (const changes of [{ plannedAdmissionDate: "2099-01-01" }, { plannedAdmissionDate: "" }, { admissionDecision: undefined }]) {

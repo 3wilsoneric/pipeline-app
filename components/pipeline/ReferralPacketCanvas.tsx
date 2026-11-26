@@ -30,6 +30,7 @@ import {
 
 import { pipelineCommunities, type PipelineCommunity } from "@/lib/pipeline/community-config";
 import { assumedAdmissionDate, getPlannedAdmissionDate, handoffWorkspaceView } from "@/lib/pipeline/admission-lifecycle";
+import { DUE_AWAITING_CENSUS_LABEL } from "@/lib/pipeline/admission-confirmation";
 import { formatProfileDate } from "@/lib/pipeline/client-profile-presentation";
 import { workflowStatusLabels } from "@/lib/pipeline/workflow-status";
 import { formatPhoneForEntry } from "@/lib/pipeline/phone-display";
@@ -3642,7 +3643,9 @@ function workspaceStepDetails(referral: Referral | null, assessment: {
     email: referral.placementCancellation
       ? { label: "Did not move in", date: referral.placementCancellation.cancelledAt, neutral: true }
       : status === "admitted"
-        ? { label: workflowStatusLabels.admitted, date: referral.actualAdmissionDate || assumedAdmissionDate(referral) }
+        ? assumedAdmissionDate(referral)
+          ? { label: DUE_AWAITING_CENSUS_LABEL, date: assumedAdmissionDate(referral) }
+          : { label: workflowStatusLabels.admitted, date: referral.actualAdmissionDate }
         : status === "closed"
           ? { label: workflowStatusLabels.closed, neutral: true }
           : plannedDate

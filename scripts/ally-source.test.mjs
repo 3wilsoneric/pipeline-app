@@ -50,6 +50,8 @@ function fixture() {
     './historical-profile-store':{getHistoricalProfile:async()=>({capturedSources:[{text:'Retained ALLO text'}]})},
     './referral-activity':{getReferralActivitySnapshot:async()=>({events:[{event_id:'event',undo:{deletion_id:'must-not-expose'}}]})},
     '@/lib/extraction/extraction-service':{readPacketFields:async()=>({fields:[{field_key:'dob',proposed_value:'1980-01-01',final_value:null,review_status:'pending'}]})},
+    './resident-link-store':{listResidentLinks:async options=>{calls.push(['listResidentLinks',options]);return {links:[{link_id:'l1',person_id:'p1',pipeline_client_id:'pipeline-client-1',referral_id:42,resident_key:'337:R-100',resident_number:'R-100',community_id:'337',status:'confirmed',match_method:'imported',match_confidence:1,version:1,created_by:{id:'census',name:'Alamo census reconciliation'},reviewed_by:{id:'census',name:'Alamo census reconciliation'},review_note:'Confirmed from snapshot',created_at:'2026-11-01',reviewed_at:'2026-11-01',updated_at:'2026-11-01',audit_events:[{actor:'x'}]}],total:101,next_cursor:options.cursor?null:'link-next',generated_at:'2026-11-26',store:{mode:'postgres',multi_instance_safe:true}};}},
+    './admission-confirmation-blockers':{loadAdmissionConfirmationBlockers:async()=>{calls.push(['blockers']);return new Map([[42,{code:'name_mismatch',label:'The name in the census does not match the referral name.'}]]);}},
   };
   const source=loadEntry('lib/pipeline/ally-source.ts',owners);
   return {source,calls,workflow,assessment,setRevision:value=>{revision=value;},setAssessmentRevision:value=>{assessmentRevision=value;},assessmentRace:()=>{assessmentRace=true;},remove:()=>{deleted=true;},cross:()=>{crossCase=true;},race:()=>{changeDuringRead=true;}};
@@ -201,7 +203,22 @@ test('all record readers expose due-plan assumptions and cancellation without ch
       assert.equal(value.actualAdmissionDate,mode==='confirmed'?'2020-01-03':null);
       assert.equal(value.placementCancelled,mode==='cancelled');assert.equal(value.decisionOutcome,'accepted');
       assert.equal(value.placementCancelledAt,mode==='cancelled'?'2020-01-03T12:00:00Z':null);
+      assert.equal(value.admissionStatus,mode==='due'?'Due — awaiting census confirmation':null);
+      assert.equal(value.confirmationBlocker?.code ?? null,mode==='due'?'name_mismatch':null,'only an assumed arrival carries the census reason');
     }
     assert.deepEqual(clean(referral),before,'Reading cannot confirm or alter an arrival');
   }
+});
+
+test('resident links return keys and provenance only, confirmed by default, with validated filters', async () => {
+  const f=fixture();
+  const first=await f.source.readAllyPipelineSource({view:'resident-links'});
+  assert.equal(first.complete,false); assert.equal(first.data.status,'confirmed'); assert.equal(first.data.next_cursor,'link-next');
+  assert.deepEqual(clean(first.data.records),[{referralId:42,clientId:'pipeline-client-1',residentKey:'337:R-100',residentNumber:'R-100',communityId:'337',status:'confirmed',matchMethod:'imported',matchConfidence:1,reviewedAt:'2026-11-01',updatedAt:'2026-11-01'}]);
+  assert(!JSON.stringify(first).includes('Alamo census reconciliation') && !JSON.stringify(first).includes('Confirmed from snapshot'),'No actors or review notes');
+  assert.deepEqual(clean(f.calls.find(c=>c[0]==='listResidentLinks')[1]),{status:'confirmed',limit:100});
+  const next=await f.source.readAllyPipelineSource({view:'resident-links',status:'candidate',residentKey:'337:R-100',cursor:'link-next'});
+  assert.equal(next.complete,true); assert.equal(f.calls.at(-1)[1].status,'candidate'); assert.equal(f.calls.at(-1)[1].residentKey,'337:R-100');
+  for(const bad of [{status:'maybe'},{residentKey:'R-100'},{referralId:0},{clientId:'a b'},{community:'Turlock'}])
+    await assert.rejects(f.source.readAllyPipelineSource({view:'resident-links',...bad}));
 });
