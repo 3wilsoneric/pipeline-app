@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { loadEntry, clean } from './contact-import-fixtures.mjs';
 
 const tenant = '11111111-1111-1111-1111-111111111111', subject = '22222222-2222-2222-2222-222222222222';
@@ -20,7 +23,7 @@ test('source reads require the separate credential, exact tenant and approved re
 });
 
 function fixture() {
-  let revision=8, deleted=false, crossCase=false, changeDuringRead=false;
+  let revision=8, assessmentRevision=4, deleted=false, crossCase=false, changeDuringRead=false, assessmentRace=false;
   const calls=[];
   const referral={id:42,version:5,name:'Fictional Client',workspaceOrigin:'allo',workspaceStatus:'historical',packetId:'packet-fixture',stage:'Declined',county:'Fictional county'};
   const {createEmptyAssessmentToolData}=loadEntry('lib/assessment/assessment-tool-schema.ts');
@@ -36,7 +39,8 @@ function fixture() {
     },
     '@/lib/assessment/assessment-store':{
       getAssessment:async()=>({...assessment,referral_id:crossCase?99:42}),
-      listAssessments:async options=>{calls.push(['listAssessments',options]);return {assessments:[assessment],total:21,revision:4,next_cursor:'assessment-next'};},
+      getAssessmentStoreRevision:async()=>assessmentRevision,
+      listAssessments:async options=>{calls.push(['listAssessments',options]);const current=assessmentRevision;if(assessmentRace)assessmentRevision++;return {assessments:[assessment],total:21,revision:current,next_cursor:options.cursor?null:'assessment-next'};},
     },
     '@/lib/extraction/document-text':{readReferralDocumentPage:async()=>({documentId:'file',pageNumber:1,pageCount:2,text:'Actual fictional page',nextPage:2})},
     '@/lib/notifications/admission-packet-store':{listCommunicationPackets:async()=>({items:[{id:'message',createdAt:'2026-11-24',message:{subject:'Meet the Client',body:'Fictional message'},communication:{status:'submitted',audit:{},to:[],cc:[]},files:[{id:'file',name:'meds.pdf',source:{key:'private-key'}}],recipients:[{sessions:[{hash:'private-session'}]}]}],nextCursor:'next'})},
@@ -46,10 +50,43 @@ function fixture() {
     './historical-profile-store':{getHistoricalProfile:async()=>({capturedSources:[{text:'Retained ALLO text'}]})},
     './referral-activity':{getReferralActivitySnapshot:async()=>({events:[{event_id:'event',undo:{deletion_id:'must-not-expose'}}]})},
     '@/lib/extraction/extraction-service':{readPacketFields:async()=>({fields:[{field_key:'dob',proposed_value:'1980-01-01',final_value:null,review_status:'pending'}]})},
+    './resident-link-store':{listResidentLinks:async options=>{calls.push(['listResidentLinks',options]);return {links:[{link_id:'l1',person_id:'p1',pipeline_client_id:'pipeline-client-1',referral_id:42,resident_key:'337:R-100',resident_number:'R-100',community_id:'337',status:'confirmed',match_method:'imported',match_confidence:1,version:1,created_by:{id:'census',name:'Alamo census reconciliation'},reviewed_by:{id:'census',name:'Alamo census reconciliation'},review_note:'Confirmed from snapshot',created_at:'2026-11-01',reviewed_at:'2026-11-01',updated_at:'2026-11-01',audit_events:[{actor:'x'}]}],total:101,next_cursor:options.cursor?null:'link-next',generated_at:'2026-11-26',store:{mode:'postgres',multi_instance_safe:true}};}},
+    './admission-confirmation-blockers':{loadAdmissionConfirmationBlockers:async()=>{calls.push(['blockers']);return new Map([[42,{code:'name_mismatch',label:'The name in the census does not match the referral name.'}]]);}},
   };
   const source=loadEntry('lib/pipeline/ally-source.ts',owners);
-  return {source,calls,workflow,assessment,setRevision:value=>{revision=value;},remove:()=>{deleted=true;},cross:()=>{crossCase=true;},race:()=>{changeDuringRead=true;}};
+  return {source,calls,workflow,assessment,setRevision:value=>{revision=value;},setAssessmentRevision:value=>{assessmentRevision=value;},assessmentRace:()=>{assessmentRace=true;},remove:()=>{deleted=true;},cross:()=>{crossCase=true;},race:()=>{changeDuringRead=true;}};
 }
+
+test('assessment continuation accepts the collector revision and rejects an unbound or changed page',async()=>{
+  const f=fixture(),input={view:'assessments',referralId:42};
+  const first=await f.source.readAllyPipelineSource(input);
+  const continuation={...input,cursor:first.data.next_cursor,sourceRevision:first.data.sourceRevision};
+  const last=await f.source.readAllyPipelineSource(continuation);
+  assert.equal(last.complete,true);assert.equal(last.data.sourceRevision,4);
+  await assert.rejects(()=>f.source.readAllyPipelineSource({...input,cursor:first.data.next_cursor}),/sourceRevision/);
+  f.setAssessmentRevision(5);await assert.rejects(()=>f.source.readAllyPipelineSource(continuation),error=>error.status===409);
+  for(const view of ['assessments','assessment-review']){
+    const race=fixture();race.assessmentRace();
+    await assert.rejects(()=>race.source.readAllyPipelineSource({view,...(view==='assessments'?{referralId:42}:{})}),error=>error.status===409);
+  }
+});
+
+test('assessment revision reads the configured local or PostgreSQL owner without writing',async()=>{
+  const directory=await mkdtemp(join(tmpdir(),'ally-assessment-revision-'));
+  try{
+    const file=join(directory,'assessments.json');
+    await writeFile(file,JSON.stringify({version:1,revision:19,assessments:[]}));
+    const environment=mode=>({process:{...process,env:{NODE_ENV:'test',PIPELINE_DATABASE_MODE:mode==='postgres'?mode:'disconnected',
+      PIPELINE_DATABASE_URL:mode==='postgres'?'postgres://unused.invalid/fixture':'',PIPELINE_ASSESSMENT_STORE_MODE:mode,PIPELINE_ASSESSMENT_STORE_PATH:file}},globalThis:{}});
+    const local=loadEntry('lib/assessment/assessment-store.ts',{},environment('local_file'));
+    assert.equal(await local.getAssessmentStoreRevision(),19);
+    let reads=0;
+    const sql=async strings=>{reads++;assert.match(strings.join(''),/^\s*select revision from pipeline\.store_revisions/);return[{revision:'27'}];};
+    const databaseOwner=loadEntry('lib/database/pipeline-database.ts',{},environment('postgres'));
+    const database=loadEntry('lib/assessment/assessment-store.ts',{'@/lib/database/pipeline-database':{...databaseOwner,getPipelineSql:()=>sql}},environment('postgres'));
+    assert.equal(await database.getAssessmentStoreRevision(),27);assert.equal(reads,1);
+  }finally{await rm(directory,{recursive:true,force:true});}
+});
 
 test('directory preserves all workspace states, native filters, pagination and separate referral episodes',async()=>{
   const f=fixture();
@@ -166,7 +203,22 @@ test('all record readers expose due-plan assumptions and cancellation without ch
       assert.equal(value.actualAdmissionDate,mode==='confirmed'?'2020-01-03':null);
       assert.equal(value.placementCancelled,mode==='cancelled');assert.equal(value.decisionOutcome,'accepted');
       assert.equal(value.placementCancelledAt,mode==='cancelled'?'2020-01-03T12:00:00Z':null);
+      assert.equal(value.admissionStatus,mode==='due'?'Due — awaiting census confirmation':null);
+      assert.equal(value.confirmationBlocker?.code ?? null,mode==='due'?'name_mismatch':null,'only an assumed arrival carries the census reason');
     }
     assert.deepEqual(clean(referral),before,'Reading cannot confirm or alter an arrival');
   }
+});
+
+test('resident links return keys and provenance only, confirmed by default, with validated filters', async () => {
+  const f=fixture();
+  const first=await f.source.readAllyPipelineSource({view:'resident-links'});
+  assert.equal(first.complete,false); assert.equal(first.data.status,'confirmed'); assert.equal(first.data.next_cursor,'link-next');
+  assert.deepEqual(clean(first.data.records),[{referralId:42,clientId:'pipeline-client-1',residentKey:'337:R-100',residentNumber:'R-100',communityId:'337',status:'confirmed',matchMethod:'imported',matchConfidence:1,reviewedAt:'2026-11-01',updatedAt:'2026-11-01'}]);
+  assert(!JSON.stringify(first).includes('Alamo census reconciliation') && !JSON.stringify(first).includes('Confirmed from snapshot'),'No actors or review notes');
+  assert.deepEqual(clean(f.calls.find(c=>c[0]==='listResidentLinks')[1]),{status:'confirmed',limit:100});
+  const next=await f.source.readAllyPipelineSource({view:'resident-links',status:'candidate',residentKey:'337:R-100',cursor:'link-next'});
+  assert.equal(next.complete,true); assert.equal(f.calls.at(-1)[1].status,'candidate'); assert.equal(f.calls.at(-1)[1].residentKey,'337:R-100');
+  for(const bad of [{status:'maybe'},{residentKey:'R-100'},{referralId:0},{clientId:'a b'},{community:'Turlock'}])
+    await assert.rejects(f.source.readAllyPipelineSource({view:'resident-links',...bad}));
 });

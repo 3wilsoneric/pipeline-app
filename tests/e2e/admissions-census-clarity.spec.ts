@@ -8,8 +8,10 @@ const report = {
   generated_at: "2026-11-02T04:00:00Z", board_columns: [],
   briefing: {
     window_end: "2026-11-01", week_start: "2026-10-26", week_end: "2026-11-01", last_week_start: "2026-10-19", last_week_end: "2026-10-25",
-    coverage: { admitted_last_week_complete: true, move_ins_complete: true, moving_through_complete: true, did_not_move_in_complete: true },
+    coverage: { admitted_last_week_complete: true, confirmed_admissions_last_week_complete: true, assumed_arrivals_last_week_complete: true, move_ins_complete: true, moving_through_complete: true, did_not_move_in_complete: true },
     admitted_last_week: [{ ...context, client_name: "Jordan Ellis", admitted_at: "2026-10-22", pipeline_path: "/?view=referrals&screen=packet&referralId=901" }],
+    confirmed_admissions_last_week: [{ ...context, client_name: "Jordan Ellis", admitted_at: "2026-10-22", pipeline_path: "/?view=referrals&screen=packet&referralId=901" }],
+    assumed_arrivals_last_week: [{ ...context, client_name: "Sam Park", assumed_at: "2026-10-23", confirmation_blocker: { code: "no_confirmed_resident_link", label: "No ElderMark resident is confirmed for this client yet. Confirm the resident match, or check that the client appears in the census." }, pipeline_path: "/?view=referrals&screen=packet&referralId=908" }],
     planned_move_ins: [{ ...context, client_name: "Morgan Wells", planned_at: "2026-11-01", readiness: "ready", pipeline_path: "/?view=referrals&screen=packet&referralId=902" }],
     moving_through: [
       { ...context, client_name: "Casey Brooks", stage: "decision", phase: "needs_date", planned_at: null, status: "Accepted · no planned admit date", pipeline_path: "/?view=referrals&screen=packet&referralId=903" },
@@ -46,8 +48,16 @@ for (const width of [1440, 390]) {
     await page.goto("/?screen=operations");
     const main = page.getByRole("main", { name: "Reports" });
     await expect(main.getByRole("heading", { name: "Monday briefing" })).toBeVisible();
+    await main.getByRole("button", { name: /^1 Due — awaiting census$/ }).click();
+    const due = main.getByRole("region", { name: "Due — awaiting census", exact: true });
+    await expect(due.getByRole("link", { name: /Sam Park/ })).toHaveAttribute("href", /referralId=908/);
+    await expect(due).toContainText("Due — awaiting census confirmation");
+    await expect(due).toContainText("Why not confirmed: No ElderMark resident is confirmed for this client yet.");
+    await expect(main).toContainText("not counted as admissions");
+    await page.screenshot({ path: testInfo.outputPath(`report-due-${width}.png`), fullPage: true });
     await main.getByRole("button", { name: /^1 Admitted$/ }).click();
     await expect(main.getByRole("link", { name: /Jordan Ellis/ })).toHaveAttribute("href", /referralId=901/);
+    await expect(main.getByRole("region", { name: "Admitted", exact: true })).not.toContainText("Sam Park");
     await page.screenshot({ path: testInfo.outputPath(`report-${width}.png`), fullPage: true });
 
     await expect(main.getByRole("heading", { name: /Placement did not happen|Did not move in|Placement cancelled/ })).toHaveCount(0);

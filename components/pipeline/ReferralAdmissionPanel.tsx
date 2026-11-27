@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { formatProfileDate } from "@/lib/pipeline/client-profile-presentation";
 import { assumedAdmissionDate, getPlannedAdmissionDate } from "@/lib/pipeline/admission-lifecycle";
+import { DUE_AWAITING_CENSUS_LABEL } from "@/lib/pipeline/admission-confirmation";
 import type { Referral } from "@/lib/pipeline/referral-types";
 
 type Props = {
@@ -59,8 +60,8 @@ export default function ReferralAdmissionPanel({ referral, packetSentAt, admissi
     </form> : null}
     {showDateEditor ? <p id="planned-admission-help" className="text-[11px] text-[#68716c]">{cancelled ? packetSentAt ? "The planned date and sent handoff remain in history. No new handoff can be sent for this cancelled placement." : "The planned date remains in history. No handoff can be sent for this cancelled placement." : packetSentAt ? "The packet has been sent. Reviewing it or changing the planned date does not send another email." : showReviewButton ? "You can review the email and packet now. Add a planned admit date before sending; it will populate the email automatically." : "Save a date change here. Meet the Client uses the planned date below."}</p> : null}
     {cancelled ? <p role="status" className="text-[12px] font-semibold text-[#6b443a]">Did not move in · {referral.placementCancellation?.reason}</p> : null}
-    {showReviewButton && packetSentAt ? <p role="status" className="text-[12px] font-semibold text-[var(--color-link)]">Packet sent {formatProfileDate(packetSentAt)}{admitted || cancelled ? "" : assumedDate ? " · Admitted" : " · Awaiting admission"}</p> : null}
-    {assumedDate ? <p role="status" className="text-[12px] text-[var(--color-ink-2)]">Admitted {formatProfileDate(assumedDate)} · Census reconciliation pending.</p> : null}
+    {showReviewButton && packetSentAt ? <p role="status" className="text-[12px] font-semibold text-[var(--color-link)]">Packet sent {formatProfileDate(packetSentAt)}{admitted || cancelled ? "" : assumedDate ? ` · ${DUE_AWAITING_CENSUS_LABEL}` : " · Awaiting admission"}</p> : null}
+    {assumedDate ? <p role="status" className="text-[12px] text-[var(--color-ink-2)]">{DUE_AWAITING_CENSUS_LABEL} · planned {formatProfileDate(assumedDate)}. Not counted as an admission until the census confirms it or staff record the actual date.</p> : null}
     {showReviewButton && admitted ? <p role="status" className="text-[12px] text-[var(--color-ink-2)]">Admission confirmed{referral.actualAdmissionDate ? ` · ${formatProfileDate(referral.actualAdmissionDate)}` : " · Actual date not recorded"}. This workspace remains available under Completed and Admitted.</p> : null}
   </section>;
 }

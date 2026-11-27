@@ -7,6 +7,7 @@ import type { PipelineWorkspaceLocation } from "./work-continuity";
 import { isDocumentRequirementType } from "./document-requirements";
 import { getWorkspaceAdmissionOutcome } from "./workspace-presentation";
 import { assumedAdmissionDate } from "./admission-lifecycle";
+import { DUE_AWAITING_CENSUS_LABEL } from "./admission-confirmation";
 
 export const activeReferralFlowStates = [
   { key: "ready_to_schedule", label: "Intake & scheduling", emptyLabel: "No intake or scheduling work" },
@@ -60,7 +61,11 @@ export function getReferralBoardState(
 }
 
 function decisionBoardState(referral: Referral, context: WorkflowContext, state: WorkspaceStateProjection): ReferralBoardState | null {
-  if (referral.stage === "Accepted / Admitted" || referral.workflowStatus === "admitted" || assumedAdmissionDate(referral)) {
+  // A due plan is never shown as admitted; only the real stage or a recorded status is.
+  if (assumedAdmissionDate(referral)) {
+    return boardCard(null, DUE_AWAITING_CENSUS_LABEL, context.packetSentAt ? "Open workspace" : "Send Meet the Client", context.packetSentAt ? "chart" : "email");
+  }
+  if (referral.stage === "Accepted / Admitted" || referral.workflowStatus === "admitted") {
     return boardCard(null, "Admitted", context.packetSentAt ? "Open workspace" : "Send Meet the Client", context.packetSentAt ? "chart" : "email");
   }
   if (state.outcome === "declined") return boardCard(null, "Denied", "Open workspace", "workflow");

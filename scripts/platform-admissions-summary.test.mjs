@@ -90,7 +90,8 @@ test("snapshots the live board by column and status with client identity and dri
 
   assert.deepEqual(summary.metrics, { on_board: 5, active_referrals: 4, stale: 1, unassigned: 1, awaiting_admission: 2 });
   assert.deepEqual(summary.upcoming_admissions, { next_7_days: 1, next_30_days: 1, past_planned_date: 1, no_planned_date: 0 });
-  assert.deepEqual(summary.history.month_outcomes, { month: "2026-09", received: 5, accepted: 2, declined: 1, admitted: 1 });
+  assert.deepEqual(summary.history.month_outcomes, { month: "2026-09", received: 5, accepted: 2, declined: 1, admitted: 1,
+    confirmed_admissions: 1, assumed_arrivals: 0, planned_arrivals: 2 });
   assert.equal(summary.history.decision_timing.decisions_counted, 4);
   assert.equal(summary.history.decision_timing.median_days_to_decision, 4.5);
   assert.deepEqual(newest.management_profile, {
@@ -111,7 +112,7 @@ test("snapshots the live board by column and status with client identity and dri
     medications: ["Medication A", "Medication B"],
     medication_source: "signed_assessment",
   });
-  assert.equal(summary.contract_version, "3.5");
+  assert.equal(summary.contract_version, "3.6");
   assert.equal(summary.history.coverage_start_month, "2025-01");
   assert.deepEqual(summary.history.monthly.map((row) => row.month), [
     "2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09",
@@ -123,6 +124,8 @@ test("snapshots the live board by column and status with client identity and dri
     assessments_complete: true,
     move_ins_complete: true,
     admitted_last_week_complete: true,
+    confirmed_admissions_last_week_complete: true,
+    assumed_arrivals_last_week_complete: true,
     moving_through_complete: true,
     did_not_move_in_complete: true,
     weekly_trend_complete: true,
@@ -145,7 +148,7 @@ test("does not present months before Pipeline coverage as zero activity", () => 
 
   assert.equal(summary.history.coverage_start_month, "2026-09");
   assert.deepEqual(summary.history.monthly, [
-    { month: "2026-09", received: 2, accepted: 0, declined: 0, admitted: 0 },
+    { month: "2026-09", received: 2, accepted: 0, declined: 0, admitted: 0, confirmed_admissions: 0, assumed_arrivals: 0, planned_arrivals: 0 },
   ]);
 });
 
@@ -176,7 +179,7 @@ test("briefing separates actual admissions from planned arrivals and carries eac
   }
 });
 
-test("entered admission dates count as admitted; later verified dates replace them without double counting", () => {
+test("deprecated admitted fields keep confirmed + assumed; later verified dates replace them without double counting", () => {
   const summary = summarize([
     referral({ clientName: "Assumed arrival", decisionOutcome: "accepted", plannedAdmissionDate: "2026-09-24", assumedAdmissionDate: "2026-09-24", boardColumn: null, boardStatus: "Admitted" }),
     referral({ clientName: "Confirmed arrival", decisionOutcome: "accepted", plannedAdmissionDate: "2026-09-18", actualAdmissionDate: "2026-09-18", boardColumn: null, boardStatus: "Admitted" }),
@@ -200,6 +203,52 @@ test("entered admission dates count as admitted; later verified dates replace th
   const cancelled = summarize([referral({ assumedAdmissionDate: "2026-09-18", placementCancelled: true, boardColumn: null })]);
   assert.equal(cancelled.history.month_outcomes.admitted, 0);
   assert.equal(cancelled.briefing.admitted_last_week.length, 0);
+});
+
+test("admission means confirmed only; assumed and planned arrivals are separate and cancelled is neither", () => {
+  const summary = summarize([
+    referral({ clientName: "Confirmed", community: "San Pablo", decisionOutcome: "accepted", plannedAdmissionDate: "2026-09-15", actualAdmissionDate: "2026-09-16", boardColumn: null }),
+    referral({ clientName: "Assumed", community: "Turlock", decisionOutcome: "accepted", plannedAdmissionDate: "2026-09-17", assumedAdmissionDate: "2026-09-17", boardColumn: null }),
+    referral({ clientName: "Planned", community: "Turlock", decisionOutcome: "accepted", plannedAdmissionDate: "2026-09-27", boardColumn: "decision", boardStatus: "Awaiting admit" }),
+    referral({ clientName: "Cancelled assumed", decisionOutcome: "accepted", plannedAdmissionDate: "2026-09-18", assumedAdmissionDate: "2026-09-18", placementCancelled: true, placementCancelledAt: "2026-09-19", boardColumn: null }),
+    referral({ clientName: "Cancelled confirmed", decisionOutcome: "accepted", actualAdmissionDate: "2026-09-18", placementCancelled: true, placementCancelledAt: "2026-09-19", boardColumn: null }),
+    referral({ clientName: "Confirmed overrides assumed", community: "San Pablo", decisionOutcome: "accepted", actualAdmissionDate: "2026-09-19", assumedAdmissionDate: "2026-09-14", boardColumn: null }),
+  ]);
+  const month = summary.history.month_outcomes;
+  assert.equal(month.confirmed_admissions, 2, "only recorded actual arrivals are admissions");
+  assert.equal(month.assumed_arrivals, 1, "a due unconfirmed plan is reported separately");
+  assert.equal(month.planned_arrivals, 1, "a future plan is reported separately");
+  assert.equal(month.admitted, 3, "deprecated field keeps confirmed + assumed");
+  assert.deepEqual(summary.history.monthly.at(-1), month);
+
+  const b = summary.briefing;
+  assert.deepEqual(b.confirmed_admissions_last_week.map((row) => [row.client_name, row.admitted_at]),
+    [["Confirmed overrides assumed", "2026-09-19"], ["Confirmed", "2026-09-16"]]);
+  assert.deepEqual(b.assumed_arrivals_last_week.map((row) => [row.client_name, row.assumed_at]), [["Assumed", "2026-09-17"]]);
+  assert.deepEqual(b.admitted_last_week.map((row) => [row.client_name, row.admitted_at, row.admission_basis]), [
+    ["Confirmed overrides assumed", "2026-09-19", "confirmed"],
+    ["Assumed", "2026-09-17", "assumed"],
+    ["Confirmed", "2026-09-16", "confirmed"],
+  ]);
+  for (const slice of [b.confirmed_admissions_last_week, b.assumed_arrivals_last_week, b.admitted_last_week]) {
+    assert.equal(slice.some((row) => row.client_name.startsWith("Cancelled")), false, "cancelled placements are excluded");
+  }
+  assert.deepEqual(b.admissions_by_community_last_week, [
+    { community: "San Pablo", confirmed_admissions: 2, assumed_arrivals: 0, admitted: 2 },
+    { community: "Turlock", confirmed_admissions: 0, assumed_arrivals: 1, admitted: 1 },
+  ]);
+  assert.deepEqual(b.planned_arrivals_by_community_this_week, [{ community: "Turlock", planned_arrivals: 1 }]);
+});
+
+test("accepted last-week rows expose confirmed and assumed dates beside the deprecated admitted_at", () => {
+  const summary = summarize([
+    referral({ clientName: "Accepted assumed", decisionOutcome: "accepted", decidedAt: "2026-09-15", weeklyActivityEligible: true, plannedAdmissionDate: "2026-09-18", assumedAdmissionDate: "2026-09-18", boardColumn: null }),
+    referral({ clientName: "Accepted confirmed", decisionOutcome: "accepted", decidedAt: "2026-09-16", weeklyActivityEligible: true, actualAdmissionDate: "2026-09-19", boardColumn: null }),
+  ]);
+  assert.deepEqual(summary.briefing.accepted_last_week.map((row) => [row.client_name, row.admitted_at, row.confirmed_admission_at, row.assumed_arrival_at]), [
+    ["Accepted confirmed", "2026-09-19", "2026-09-19", null],
+    ["Accepted assumed", "2026-09-18", null, "2026-09-18"],
+  ]);
 });
 
 test("accepted clients without an admit date remain visible even after leaving the board, except cancelled placements", () => {
@@ -254,6 +303,8 @@ test("marks capped briefing slices incomplete instead of presenting truncation a
     assessments_complete: false,
     move_ins_complete: false,
     admitted_last_week_complete: true,
+    confirmed_admissions_last_week_complete: true,
+    assumed_arrivals_last_week_complete: true,
     moving_through_complete: false,
     did_not_move_in_complete: true,
     weekly_trend_complete: true,
@@ -311,4 +362,23 @@ test('Monday moves the reporting window only at Pacific midnight, including DST'
   for (const [at, expected] of [['2026-11-02T07:59:59Z','2026-10-26'],['2026-11-02T08:00:00Z','2026-11-02'],['2026-11-16T07:59:59Z','2026-11-09'],['2026-11-16T08:00:00Z','2026-11-16']]) {
     assert.equal(buildPlatformAdmissionsSummary({now:new Date(at), referrals:[]}).briefing.week_start,expected);
   }
+});
+
+test("assumed arrival rows carry the census check's confirmation blocker and are never labelled Admitted", () => {
+  const blocker = { code: "no_confirmed_resident_link", label: "No ElderMark resident is confirmed for this client yet." };
+  const summary = summarize([
+    referral({ clientName: "Assumed", decisionOutcome: "accepted", plannedAdmissionDate: "2026-09-17", assumedAdmissionDate: "2026-09-17", confirmationBlocker: blocker, boardColumn: "decision", boardStatus: "Awaiting admit" }),
+    referral({ clientName: "Assumed unexplained", decisionOutcome: "accepted", plannedAdmissionDate: "2026-09-16", assumedAdmissionDate: "2026-09-16", boardColumn: null }),
+    referral({ clientName: "Confirmed", decisionOutcome: "accepted", actualAdmissionDate: "2026-09-16", boardColumn: null }),
+  ]);
+  assert.deepEqual(summary.briefing.assumed_arrivals_last_week.map((row) => [row.client_name, row.confirmation_blocker]),
+    [["Assumed", blocker], ["Assumed unexplained", null]]);
+  assert.equal(summary.briefing.confirmed_admissions_last_week[0].confirmation_blocker, undefined, "confirmed rows are unchanged");
+  const assumedStatuses = [];
+  JSON.stringify(summary, (key, value) => {
+    if (value && typeof value === "object" && typeof value.client_name === "string" && value.client_name.startsWith("Assumed") && "status" in value) assumedStatuses.push(value.status);
+    return value;
+  });
+  assert.ok(assumedStatuses.length > 0, "derived status rows exist for assumed referrals");
+  assert.ok(assumedStatuses.every((status) => status === "Due — awaiting census confirmation"), JSON.stringify(assumedStatuses));
 });

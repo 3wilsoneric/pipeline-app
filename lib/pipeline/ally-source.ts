@@ -1,7 +1,7 @@
 import "server-only";
 
 import { buildAssessmentContext, assessmentContextDefinitions, pipelineAssessmentDefinition } from "@/lib/assessment/assessment-context";
-import { getAssessment, listAssessments } from "@/lib/assessment/assessment-store";
+import { getAssessment, getAssessmentStoreRevision, listAssessments } from "@/lib/assessment/assessment-store";
 import { readPacketFields } from "@/lib/extraction/extraction-service";
 import { readReferralDocumentPage } from "@/lib/extraction/document-text";
 import { listCommunicationPackets } from "@/lib/notifications/admission-packet-store";
@@ -12,14 +12,17 @@ import { getReferralActivitySnapshot } from "./referral-activity";
 import { getReferral, getReferralStoreRevision, listReferralFiles, listReferrals, type ReferralListOptions } from "./referral-store";
 import { getReferralWorkflowSnapshot } from "./workflow-store";
 import { assumedAdmissionDate, getPlannedAdmissionDate } from "./admission-lifecycle";
+import { admissionConfirmationBlocker, DUE_AWAITING_CENSUS_LABEL, type AdmissionConfirmationBlocker } from "./admission-confirmation";
+import { loadAdmissionConfirmationBlockers } from "./admission-confirmation-blockers";
+import { listResidentLinks } from "./resident-link-store";
 import type { Referral } from "./referral-types";
 
 const views = {
   catalog: "Available source-owned reads. These operations cannot edit, sign, send or admit.",
-  directory: "Workspace search across all active, historical and archived referrals, excluding trash. Active is a workspace storage state, not awaiting admission. Admission fields reuse the operating summary: assumedAdmissionDate is a due accepted plan, not census confirmation; placementCancelled excludes a cancelled move-in. query searches the native directory; community, owner, month and workspaceStatus are optional filters. Follow next_cursor with the same filters and sourceRevision; one person may have several referral episodes.",
+  directory: "Workspace search across all active, historical and archived referrals, excluding trash. Active is a workspace storage state, not awaiting admission. Admission definition: an admission is actualAdmissionDate only (ElderMark census match or explicit staff confirmation). assumedAdmissionDate is a due accepted plan and plannedAdmissionDate (legacy admissionDate) is a plan; neither is ever an admission. An assumed referral has admissionStatus 'Due — awaiting census confirmation' and confirmationBlocker {code,label}: the daily census check's first unmet rule (read-time, not persisted). placementCancelled excludes the move-in from all three. query searches the native directory; community, owner, month and workspaceStatus are optional filters. Follow next_cursor with the same filters and sourceRevision; one person may have several referral episodes.",
   workspace: "Current full workflow: referral, requirements, decisions, reviews, recommendation and linked assessment ID. Separate source reads are not an atomic historical snapshot.",
   "workspace-review": "Review one to six explicit referralIds together. Returns identity, full requirements, decision/recommendation/reviews, assessment state, referral note, assessment note fields and all persisted note blocks without duplicate checklist copies. Current records, not an atomic historical cohort. This does not read clinical answers, documents, communications or imported ALLO history; use those readers when relevant. Follow response-size paging before treating all requested records as inspected.",
-  assessments: "Assessment records for one referral, including drafts and revisions. Follow next_cursor. Use assessment to open a returned assessmentId with question definitions and answer provenance.",
+  assessments: "Assessment records for one referral, including drafts and revisions. Follow next_cursor with sourceRevision. Use assessment to open a returned assessmentId with question definitions and answer provenance.",
   "assessment-review": "Review assessment answers across workspaces in batches. fields selects exact question keys; query searches question labels/keys, not people. Optional community and owner filter the linked referral. Optional from/through are inclusive ISO timestamps on dateField (created_at, completed_at or scheduled_start_at). Follow next_cursor with sourceRevision and referralRevision until complete; scanned counts are not matching-population totals. Trash is excluded. Missing answers and drafts remain explicit.",
   assessment: "Full assessment, source-owned question definitions, visibility, required fields, unanswered values, provenance, schedule, signature, addenda and audit.",
   notes: "All persisted note blocks for this referral. Older topic blocks may be archived; the unified block is the current editor. Preserve block keys, versions and authorship.",
@@ -29,20 +32,28 @@ const views = {
   extraction: "The referral packet's retained extracted fields, candidates, reviewed values and bounded review history. This is not the full original document text.",
   imported: "Retained imported ALLO canvas text and historical assessment candidates. Imported values are source observations, not automatically verified current answers.",
   contacts: "Contacts linked to this referral, with relationship and source information.",
+  "resident-links": "Identity links from Pipeline clients and referrals to the Platform resident key <ElderMark facility>:<ElderMark resident number>. Default status confirmed (census-reconciled or staff-reviewed); candidate and rejected links are not identity. Keys and match provenance only, never names. Filter by residentKey, referralId or clientId; follow next_cursor. A client without a link is unlinked, not absent from the census.",
   activity: "Native recent workspace activity, at most 100 events; this is partial history, never a whole-population activity count.",
 } as const;
 type View = keyof typeof views;
 type Input = { view: View; referralId?: number; referralIds?: number[]; assessmentId?: string; query?: string; community?: string; owner?: string;
   month?: string; workspaceStatus?: ReferralListOptions["workspaceStatus"]; cursor?: string; sourceRevision?: number;
   documentId?: string; page?: number; documentHash?: string; fields?: string[];
-  from?: string; through?: string; dateField?: "created_at" | "completed_at" | "scheduled_start_at"; referralRevision?: number };
+  from?: string; through?: string; dateField?: "created_at" | "completed_at" | "scheduled_start_at"; referralRevision?: number;
+  status?: "confirmed" | "candidate" | "rejected"; residentKey?: string; clientId?: string };
 
 // Match the existing operations snapshot without changing any admission record.
 // Assumed arrival and confirmed arrival must remain separate source facts.
-function admissionProjection(referral: Referral, now: Date) {
+// confirmationBlocker explains, with the daily census check's own rules, why an
+// assumed arrival is still unconfirmed; it is null for every other referral.
+type Blockers = Map<number, AdmissionConfirmationBlocker>;
+function admissionProjection(referral: Referral, now: Date, blockers: Blockers) {
+  const assumed = assumedAdmissionDate(referral,now);
   return {plannedAdmissionDate:getPlannedAdmissionDate(referral) || null,
     actualAdmissionDate:referral.actualAdmissionDate ?? null,
-    assumedAdmissionDate:assumedAdmissionDate(referral,now),
+    assumedAdmissionDate:assumed,
+    admissionStatus:assumed ? DUE_AWAITING_CENSUS_LABEL : null,
+    confirmationBlocker:assumed ? blockers.get(referral.id) ?? admissionConfirmationBlocker("census_unavailable") : null,
     decisionOutcome:referral.admissionDecision?.outcome ?? null,
     placementCancelled:Boolean(referral.placementCancellation),
     placementCancelledAt:referral.placementCancellation?.cancelledAt ?? null};
@@ -57,14 +68,21 @@ export function parseAllySourceInput(value: unknown): Input {
   const input = value as Record<string, unknown>;
   const view = input.view ?? "catalog";
   if (typeof view !== "string" || !Object.hasOwn(views, view)) throw new AllySourceError("Choose a catalog view.");
-  const allowed = view === "catalog" ? ["view"] : view === "workspace-review" ? ["view", "referralIds"] : view === "assessment-review"
+  const allowed = view === "catalog" ? ["view"] : view === "resident-links" ? ["view", "status", "residentKey", "referralId", "clientId", "cursor"] : view === "workspace-review" ? ["view", "referralIds"] : view === "assessment-review"
     ? ["view", "fields", "query", "community", "owner", "from", "through", "dateField", "cursor", "sourceRevision", "referralRevision"] : view === "directory"
     ? ["view", "query", "community", "owner", "month", "workspaceStatus", "cursor", "sourceRevision"]
     : view === "assessment" ? ["view", "referralId", "assessmentId"]
     : view === "document" ? ["view", "referralId", "documentId", "page", "documentHash"]
-    : ["view", "referralId", ...(["files", "assessments", "communications"].includes(view) ? ["cursor"] : [])];
+    : ["view", "referralId", ...(["files", "assessments", "communications"].includes(view) ? ["cursor"] : []), ...(view === "assessments" ? ["sourceRevision"] : [])];
   if (Object.keys(input).some(key => !allowed.includes(key))) throw new AllySourceError("Unsupported source parameter.");
-  if (!["catalog", "directory", "assessment-review", "workspace-review"].includes(view) && (!Number.isSafeInteger(input.referralId) || Number(input.referralId) < 1)) {
+  if (view === "resident-links") {
+    if (input.status !== undefined && !["confirmed", "candidate", "rejected"].includes(String(input.status))) throw new AllySourceError("Choose a link status: confirmed, candidate or rejected.");
+    if (input.residentKey !== undefined && (typeof input.residentKey !== "string" || !/^\d{1,6}:[A-Za-z0-9_-]{1,40}$/.test(input.residentKey))) throw new AllySourceError("residentKey is <facility>:<resident number>.");
+    if (input.clientId !== undefined && (typeof input.clientId !== "string" || !/^[A-Za-z0-9_.:-]{1,120}$/.test(input.clientId))) throw new AllySourceError("Choose a Pipeline clientId.");
+    if (input.referralId !== undefined && (!Number.isSafeInteger(input.referralId) || Number(input.referralId) < 1)) throw new AllySourceError("Choose a referralId.");
+    if (input.cursor !== undefined && (typeof input.cursor !== "string" || input.cursor.length > 500)) throw new AllySourceError("Continue with next_cursor.");
+  }
+  if (!["catalog", "directory", "assessment-review", "workspace-review", "resident-links"].includes(view) && (!Number.isSafeInteger(input.referralId) || Number(input.referralId) < 1)) {
     throw new AllySourceError("Choose a valid referralId from the directory.");
   }
   if (view === "workspace-review" && (!Array.isArray(input.referralIds) || !input.referralIds.length || input.referralIds.length > 6 || new Set(input.referralIds).size !== input.referralIds.length || input.referralIds.some(id => !Number.isSafeInteger(id) || id < 1))) throw new AllySourceError("Choose one to six distinct referralIds from the cohort.");
@@ -93,13 +111,16 @@ export function parseAllySourceInput(value: unknown): Input {
   if (input.workspaceStatus !== undefined && !["active", "historical", "archived", "all"].includes(String(input.workspaceStatus))) throw new AllySourceError("Invalid workspaceStatus.");
   if (input.month !== undefined && !/^\d{4}-(0[1-9]|1[0-2])$/.test(String(input.month))) throw new AllySourceError("Choose a YYYY-MM month.");
   if (input.sourceRevision !== undefined && (!Number.isSafeInteger(input.sourceRevision) || Number(input.sourceRevision) < 0)) throw new AllySourceError("Invalid sourceRevision.");
-  if (view === "directory" && input.cursor && input.sourceRevision === undefined) throw new AllySourceError("Continue with the sourceRevision from the first page.");
+  if (["directory", "assessments"].includes(view) && input.cursor && input.sourceRevision === undefined) throw new AllySourceError("Continue with the sourceRevision from the first page.");
   return { ...input, view } as Input;
 }
 
 export async function readAllyPipelineSource(value: unknown) {
   const input = parseAllySourceInput(value);
   const readAt = new Date();
+  // Census inputs are read only when a returned referral is actually assumed.
+  const blockersFor = async (referrals: Referral[]): Promise<Blockers> =>
+    referrals.some(referral => assumedAdmissionDate(referral,readAt)) ? loadAdmissionConfirmationBlockers(readAt) : new Map();
   let data: unknown;
   let complete = true;
   if (input.view === "catalog") {
@@ -107,7 +128,7 @@ export async function readAllyPipelineSource(value: unknown) {
       assessmentQuestions: assessmentContextDefinitions().fields.map(field => ({key:field.key, label:field.label, section:field.section})),
       limits: { workspaceReviewBatch:6, assessmentReviewPage:20, directoryPage: 20, assessmentsPage: 20, filesPage: 20, activityEvents: 100 },
       gaps: ["original-document-bytes-not-returned", "complete-activity-history", "legacy-outlook-link-communications", "deleted-workspaces"],
-      parameters: { workspaceReview:["referralIds"], directory: ["query", "community", "owner", "month", "workspaceStatus", "cursor", "sourceRevision"],
+      parameters: { residentLinks:["status","residentKey","referralId","clientId","cursor"], workspaceReview:["referralIds"], directory: ["query", "community", "owner", "month", "workspaceStatus", "cursor", "sourceRevision"],
         perReferral: "referralId required; assessment also requires assessmentId; files and assessments accept cursor" } };
   } else if (input.view === "workspace-review") {
     const records = [];
@@ -121,7 +142,7 @@ export async function readAllyPipelineSource(value: unknown) {
         const assessment=Object.fromEntries(Object.entries(workflow.context).filter(([key])=>
           !["assessmentData","requirements","decision","recommendation","review"].includes(key)));
         const identityKeys=["id","version","clientId","name","community","owner","ownerId","stage","workflowStatus","workspaceStatus","date","createdAt","updatedAt","plannedAdmissionDate","actualAdmissionDate","admissionDate"] as const;
-        return {referralId,referral:{...Object.fromEntries(identityKeys.map(key=>[key,workflow.referral[key] ?? null])),...admissionProjection(workflow.referral,readAt)},
+        return {referralId,referral:{...Object.fromEntries(identityKeys.map(key=>[key,workflow.referral[key] ?? null])),...admissionProjection(workflow.referral,readAt,await blockersFor([workflow.referral]))},
           requirements:workflow.work_items,decision:workflow.decision,recommendation:workflow.recommendation,review:workflow.review,reviews:workflow.reviews,assessment,
           notes:{referral:workflow.referral.note ?? null,
             assessment:assessmentData ? Object.fromEntries(Object.entries(assessmentData).filter(([key])=>key.endsWith("_notes"))) : null,
@@ -133,8 +154,10 @@ export async function readAllyPipelineSource(value: unknown) {
   } else if (input.view === "assessment-review") {
     const referralRevision = await getReferralStoreRevision();
     if (input.referralRevision !== undefined && input.referralRevision !== referralRevision) throw new AllySourceError("Workspaces changed. Restart this review.",409);
+    const assessmentRevision = await getAssessmentStoreRevision();
+    if (input.sourceRevision !== undefined && input.sourceRevision !== assessmentRevision) throw new AllySourceError("Assessments changed. Restart this review.",409);
     const page = await listAssessments({limit:20,cursor:input.cursor,dateField:input.dateField,from:input.from,through:input.through});
-    if (input.sourceRevision !== undefined && input.sourceRevision !== page.revision) throw new AllySourceError("Assessments changed. Restart this review.",409);
+    if (assessmentRevision !== page.revision) throw new AllySourceError("Assessments changed. Restart this review.",409);
     const records = [];
     for (let start=0; start<page.assessments.length; start+=3) {
       const batch = await Promise.all(page.assessments.slice(start,start+3).map(async assessment => {
@@ -155,11 +178,19 @@ export async function readAllyPipelineSource(value: unknown) {
     }
     // Both owners must retain their revision through a page. Continuation never
     // silently mixes an amended assessment or a changed referral assignment.
-    const after = await listAssessments({limit:1});
-    if (after.revision !== page.revision || await getReferralStoreRevision() !== referralRevision) throw new AllySourceError("Source changed during review. Restart.",409);
+    if (await getAssessmentStoreRevision() !== page.revision || await getReferralStoreRevision() !== referralRevision) throw new AllySourceError("Source changed during review. Restart.",409);
     data = {sourceRevision:page.revision,referralRevision, assessmentDefinition:pipelineAssessmentDefinition, scanned:page.assessments.length, next_cursor:page.next_cursor,
       dateField:input.dateField ?? null, from:input.from ?? null, through:input.through ?? null, records,
       coverage:"Answers selected from this page of assessment records. Follow every page for the complete cohort; records are assessments, not unique people. Historical versions and unanswered values remain distinct."};
+    complete = !page.next_cursor;
+  } else if (input.view === "resident-links") {
+    const page = await listResidentLinks({ status: input.status ?? "confirmed", residentKey: input.residentKey, referralId: input.referralId,
+      pipelineClientId: input.clientId, cursor: input.cursor, limit: 100 });
+    // Keys and provenance only: names, birth dates and audit actors stay in Pipeline.
+    data = { total: page.total, next_cursor: page.next_cursor ?? null, status: input.status ?? "confirmed",
+      records: page.links.map(link => ({ referralId: link.referral_id, clientId: link.pipeline_client_id, residentKey: link.resident_key,
+        residentNumber: link.resident_number, communityId: link.community_id, status: link.status, matchMethod: link.match_method,
+        matchConfidence: link.match_confidence, reviewedAt: link.reviewed_at, updatedAt: link.updated_at })) };
     complete = !page.next_cursor;
   } else if (input.view === "directory") {
     const before = await getReferralStoreRevision();
@@ -167,11 +198,12 @@ export async function readAllyPipelineSource(value: unknown) {
     const page = await listReferrals({ scope: "team", query: input.query, community: input.community, owner: input.owner,
       month: input.month, workspaceStatus: input.workspaceStatus ?? "all", cursor: input.cursor, limit: 20, sort: "created_asc", includeTotal: true });
     if (before !== page.revision || before !== await getReferralStoreRevision()) throw new AllySourceError("Workspace directory changed during this read. Retry it.", 409);
+    const blockers = await blockersFor(page.referrals);
     data = { sourceRevision: page.revision, total: page.total, next_cursor: page.next_cursor ?? null,
       records: page.referrals.map(r => ({ referralId: r.id, clientId: r.clientId, name: r.name, community: r.community,
         owner: r.owner, stage: r.stage, workflowStatus: r.workflowStatus, workspaceStatus: r.workspaceStatus,
         workspaceOrigin: r.workspaceOrigin, received: r.date, createdAt: r.createdAt, updatedAt: r.updatedAt,
-        county: r.county, referralSource: r.source, ...admissionProjection(r,readAt), admissionDate: r.admissionDate })) };
+        county: r.county, referralSource: r.source, ...admissionProjection(r,readAt,blockers), admissionDate: r.admissionDate })) };
     complete = !page.next_cursor;
   } else {
     const referral = await getReferral(input.referralId!);
@@ -180,11 +212,14 @@ export async function readAllyPipelineSource(value: unknown) {
       case "workspace": {
         const workflow=await getReferralWorkflowSnapshot(referral.id);
         if (!workflow) throw new AllySourceError("Workspace changed during this read.", 409);
-        data = {...workflow,admission:admissionProjection(workflow.referral,readAt)};
+        data = {...workflow,admission:admissionProjection(workflow.referral,readAt,await blockersFor([workflow.referral]))};
         break;
       }
       case "assessments": {
+        const before = await getAssessmentStoreRevision();
+        if (input.sourceRevision !== undefined && input.sourceRevision !== before) throw new AllySourceError("Assessments changed. Restart from the first page.",409);
         const page = await listAssessments({ referralId: referral.id, limit: 20, cursor: input.cursor });
+        if (page.revision !== before || await getAssessmentStoreRevision() !== before) throw new AllySourceError("Assessments changed during this read. Retry it.",409);
         data = { total: page.total, sourceRevision: page.revision, next_cursor: page.next_cursor,
           records: page.assessments.map(a => ({ assessmentId: a.assessment_id, referralId: a.referral_id, version: a.version,
             status: a.status, assessorId: a.assessor_id, createdAt: a.created_at, updatedAt: a.updated_at,

@@ -18,6 +18,8 @@ export function buildAdmissionsCensusReport(summary: PlatformAdmissionsSummary) 
         assessments_complete: summary.briefing.coverage.assessments_complete,
         move_ins_complete: summary.briefing.coverage.move_ins_complete,
         admitted_last_week_complete: summary.briefing.coverage.admitted_last_week_complete,
+        confirmed_admissions_last_week_complete: summary.briefing.coverage.confirmed_admissions_last_week_complete,
+        assumed_arrivals_last_week_complete: summary.briefing.coverage.assumed_arrivals_last_week_complete,
         moving_through_complete: summary.briefing.coverage.moving_through_complete,
         did_not_move_in_complete: summary.briefing.coverage.did_not_move_in_complete,
       },
@@ -26,6 +28,11 @@ export function buildAdmissionsCensusReport(summary: PlatformAdmissionsSummary) 
       upcoming_assessments: summary.briefing.upcoming_assessments,
       admitted_last_week: summary.briefing.admitted_last_week.map(({ client_name, admitted_at, community, owner, source_name, referring_county, prior_placement, pipeline_path }) =>
         ({ client_name, admitted_at, community, owner, source_name, referring_county, prior_placement, pipeline_path })),
+      confirmed_admissions_last_week: summary.briefing.confirmed_admissions_last_week.map(({ client_name, admitted_at, community, owner, source_name, referring_county, prior_placement, pipeline_path }) =>
+        ({ client_name, admitted_at, community, owner, source_name, referring_county, prior_placement, pipeline_path })),
+      // Due plans awaiting census confirmation, with the census check's reason. Never admissions.
+      assumed_arrivals_last_week: summary.briefing.assumed_arrivals_last_week.map(({ client_name, assumed_at, confirmation_blocker, community, owner, source_name, referring_county, prior_placement, pipeline_path }) =>
+        ({ client_name, assumed_at, confirmation_blocker, community, owner, source_name, referring_county, prior_placement, pipeline_path })),
       planned_move_ins: summary.briefing.planned_move_ins.map(({ client_name, planned_at, community, owner, readiness, source_name, referring_county, prior_placement, pipeline_path }) =>
         ({ client_name, planned_at, community, owner, readiness, source_name, referring_county, prior_placement, pipeline_path })),
       moving_through: summary.briefing.moving_through.map(({ client_name, stage, phase, planned_at, status, community, owner, source_name, referring_county, prior_placement, pipeline_path }) =>

@@ -1,3 +1,21 @@
+# Admission definition — November 25 candidate
+
+Owner-approved: an admission is a confirmed arrival only (`actualAdmissionDate`:
+ElderMark census match or explicit staff confirmation). `assumedAdmissionDate`
+(due accepted plan) and `plannedAdmissionDate` are separate labels and are never
+counted as admissions; a cancelled placement is none of the three. The source
+directory description says so, and the Platform admissions summary (contract
+3.6) publishes `confirmed_admissions`, `assumed_arrivals` and `planned_arrivals`
+beside its deprecated combined `admitted` counts. See
+`docs/operations/PLATFORM_ADMISSIONS_SUMMARY.md`.
+
+Admission projections (`directory`, `workspace`, `workspace-review`) add
+`admissionStatus` ("Due — awaiting census confirmation" for an assumed arrival,
+otherwise null) and `confirmationBlocker` (`{ code, label }`): the first daily
+census-check rule the assumed referral does not meet, computed at read time
+with the reconciliation's own selection rules. Census inputs are read only when
+a returned referral is assumed; nothing is persisted.
+
 # Admission lifecycle evidence — November 25 candidate
 
 Directory, workspace and batch review reads now expose the same admission
@@ -92,3 +110,27 @@ remain excluded from a dated cohort; unfiltered callers retain their behavior.
 Community/owner and trash checks remain at the source, and continuation still
 checks both source revisions. Read-only adapter parity tests cover inclusive
 boundaries, timezone equivalents, missing dates and multiple pages.
+
+## November 25: complete assessment continuation (development only)
+
+The per-workspace assessment reader accepts and requires the returned
+`sourceRevision` when continuing a cursor. Both assessment readers now bracket
+their multi-query work with the canonical assessment store revision, rejecting
+changes during the first page as well as between pages. This closes a mismatch
+between the engine's native collector and the source parameter validator.
+The local and PostgreSQL revision adapters reuse existing state/query owners;
+there are no migrations or clinical writes. Focused checks exercise continuation,
+missing revision, revision changes and reads racing with updates. This candidate
+has not been deployed or verified against the production database.
+
+## Resident links
+
+`view: "resident-links"` returns identity links from Pipeline clients and
+referrals to the Platform resident key `<ElderMark facility>:<ElderMark resident
+number>`: referralId, clientId, residentKey, residentNumber, communityId,
+status, matchMethod, matchConfidence, reviewedAt, updatedAt. Default status is
+`confirmed` (census reconciliation or staff review); `candidate` and
+`rejected` must be requested and are not identity. Filters: residentKey,
+referralId, clientId; 100 per page with next_cursor. No names, birth dates,
+review notes or actors. Platform joins these with Carelog and ElderMark keys in
+its `identity-links` capability.

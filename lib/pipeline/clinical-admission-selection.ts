@@ -6,52 +6,86 @@ import { findGovernedIdentityConflict } from "./master-record-matching";
 import { clientProfileBirthDates } from "./client-profile-presentation";
 import type { Referral } from "./referral-types";
 import type { PipelineResidentLink } from "./resident-link-records";
+import type { AdmissionConfirmationBlockerCode } from "./admission-confirmation";
 
+export type AutomaticAdmissionEvaluation = {
+  selected: Array<{ referral: Referral; actualDate: string }>;
+  /** One reason per referral that was not selected, keyed by referral id. */
+  blocked: Map<number, AdmissionConfirmationBlockerCode>;
+};
+
+/** The reconciliation's selection, unchanged; see evaluateAutomaticAdmissions for reasons. */
 export function selectAutomaticAdmissions(
   referrals: Referral[],
   links: PipelineResidentLink[],
   residents: ClinicalResident[],
   dataAsOf: string | null,
 ) {
+  return evaluateAutomaticAdmissions(referrals, links, residents, dataAsOf).selected;
+}
+
+/**
+ * Applies the automatic-admission checks in order and records the first failing
+ * check for every referral that is not selected. Selection is identical to the
+ * historical selectAutomaticAdmissions (proved in clinical-admission-reconciliation.test.mjs).
+ */
+export function evaluateAutomaticAdmissions(
+  referrals: Referral[],
+  links: PipelineResidentLink[],
+  residents: ClinicalResident[],
+  dataAsOf: string | null,
+): AutomaticAdmissionEvaluation {
+  const blocked = new Map<number, AdmissionConfirmationBlockerCode>();
   const activeByClient = new Map<string, Referral[]>();
   for (const referral of referrals) {
-    if (!referral.clientId || referral.deletedAt || referral.workspaceStatus === "historical"
+    if (!referral.clientId) { blocked.set(referral.id, "no_client_record"); continue; }
+    if (referral.deletedAt || referral.workspaceStatus === "historical"
       || referral.placementCancellation || referral.stage === "Accepted / Admitted" || referral.stage === "Declined"
-      || referral.actualAdmissionDate) continue;
+      || referral.actualAdmissionDate) { blocked.set(referral.id, "not_eligible"); continue; }
     activeByClient.set(referral.clientId, [...(activeByClient.get(referral.clientId) ?? []), referral]);
   }
 
-  return [...activeByClient.entries()].flatMap(([clientId, active]) => {
-    if (active.length !== 1) return [];
+  const selected = [...activeByClient.entries()].flatMap(([clientId, active]) => {
+    if (active.length !== 1) {
+      for (const referral of active) blocked.set(referral.id, "multiple_active_referrals");
+      return [];
+    }
     const referral = active[0];
-    if (referral.admissionDecision?.outcome !== "accepted") return [];
+    const reject = (code: AdmissionConfirmationBlockerCode) => { blocked.set(referral.id, code); return []; };
+    if (referral.admissionDecision?.outcome !== "accepted") return reject("decision_not_accepted");
     const plannedDate = normalizeSourceCalendarDate(getPlannedAdmissionDate(referral));
-    if (!plannedDate || plannedDate > (dataAsOf ?? "")) return [];
-    if (!Number.isInteger(referral.version) || !Number.isInteger(referral.sectionVersions?.workflow)) return [];
+    if (!plannedDate) return reject("planned_date_missing");
+    if (plannedDate > (dataAsOf ?? "")) return reject(dataAsOf ? "planned_after_census_date" : "census_unavailable");
+    if (!Number.isInteger(referral.version) || !Number.isInteger(referral.sectionVersions?.workflow)) return reject("missing_version_info");
     const clientLinks = links.filter((link) => link.pipeline_client_id === clientId);
     const confirmed = clientLinks.filter((link) => link.status === "confirmed");
-    if (confirmed.length !== 1) return [];
+    if (confirmed.length !== 1) return reject(confirmed.length ? "multiple_confirmed_links" : "no_confirmed_resident_link");
     const link = confirmed[0];
-    if (clientLinks.some((candidate) => candidate.status === "candidate" && candidate.resident_key !== link.resident_key)) return [];
+    if (clientLinks.some((candidate) => candidate.status === "candidate" && candidate.resident_key !== link.resident_key)) return reject("conflicting_candidate_link");
     const matches = residents.filter((resident) => resident.resident_key === link.resident_key);
-    if (matches.length !== 1) return [];
+    if (matches.length !== 1) return reject(matches.length ? "ambiguous_census_resident" : "resident_not_in_census");
     const resident = matches[0];
-    if (pipelineCommunityFromClinicalName(resident.community_name) !== referral.community) return [];
-    if (!admissionNamesMatch(referral.name, resident.display_name)) return [];
+    if (pipelineCommunityFromClinicalName(resident.community_name) !== referral.community) return reject("community_mismatch");
+    if (!admissionNamesMatch(referral.name, resident.display_name)) return reject("name_mismatch");
     const dob = normalizeSourceCalendarDate(referral.dob);
-    if (!dob || normalizeSourceCalendarDate(resident.date_of_birth) !== dob) return [];
+    if (!dob) return reject("birth_date_missing");
+    const residentDob = normalizeSourceCalendarDate(resident.date_of_birth);
+    if (residentDob !== dob) return reject(residentDob ? "birth_date_mismatch" : "census_birth_date_missing");
     if (findGovernedIdentityConflict({
       community_id: link.community_id,
       resident_number: link.resident_number,
       date_of_birth: referral.dob,
-    }, resident)) return [];
+    }, resident)) return reject("governed_identity_conflict");
 
     const actualDate = normalizeSourceCalendarDate(resident.admit_date);
     const decisionDate = normalizeSourceCalendarDate(referral.admissionDecision?.decidedAt);
-    if (!actualDate || !decisionDate || actualDate < decisionDate || actualDate > (dataAsOf ?? "")
-      || actualAdmissionDateError(actualDate)) return [];
+    if (!actualDate) return reject("census_admit_date_missing");
+    if (!decisionDate) return reject("acceptance_date_missing");
+    if (actualDate < decisionDate) return reject("census_admit_before_acceptance");
+    if (actualDate > (dataAsOf ?? "") || actualAdmissionDateError(actualDate)) return reject("census_admit_date_invalid");
     return [{ referral, actualDate }];
   });
+  return { selected, blocked };
 }
 
 /** Narrow census candidates before fetching governed client details; a name alone never joins identities. */

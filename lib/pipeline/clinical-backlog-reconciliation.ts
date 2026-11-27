@@ -134,19 +134,10 @@ export async function reconcileClinicalBacklog(
 
   for (const { referral, resident } of selectAdmissionIdentityCandidates(referrals, workingLinks, roster.residents, roster.dataAsOf)) {
     try {
-      if (resident.date_of_birth === referral.dob && workingLinks.some((link) => link.pipeline_client_id === referral.clientId
-        && link.resident_key === resident.resident_key && link.status === "confirmed")) continue;
-      const dob = resident.canonical_client_id
-        ? verifiedAdmissionBirthDate(
-          referral, resident, await getClinicalClient(request, resident.canonical_client_id),
-          roster.snapshotId, roster.dataAsOf,
-        )
-        : normalizeSourceCalendarDate(resident.date_of_birth) === normalizeSourceCalendarDate(referral.dob)
-          ? normalizeSourceCalendarDate(referral.dob)
-          : null;
+      if (identityBirthDateAlreadyVerified(referral, resident, workingLinks)) continue;
+      const dob = await verifyIdentityCandidateBirthDate(request, referral, resident, roster.snapshotId, roster.dataAsOf);
       if (!dob) continue;
-      const verifiedIndex = verifiedResidents.findIndex((row) => row.resident_key === resident.resident_key);
-      verifiedResidents[verifiedIndex] = { ...resident, date_of_birth: dob };
+      applyVerifiedBirthDate(verifiedResidents, resident, dob);
       if (workingLinks.some((link) => link.pipeline_client_id === referral.clientId
         && link.resident_key === resident.resident_key && link.status === "confirmed")) continue;
       const actor = { id: "pipeline-clinical-reconciliation", name: "Alamo census reconciliation" };
@@ -204,7 +195,37 @@ export async function reconcileClinicalBacklog(
   return { status: "complete", ...counts };
 }
 
-async function loadClinicalRoster(request: Request) {
+/** The job skips the governed lookup when the roster DOB already matches a confirmed link. */
+export function identityBirthDateAlreadyVerified(referral: Referral, resident: ClinicalResident, links: PipelineResidentLink[]) {
+  return resident.date_of_birth === referral.dob && links.some((link) => link.pipeline_client_id === referral.clientId
+    && link.resident_key === resident.resident_key && link.status === "confirmed");
+}
+
+/**
+ * Governed date-of-birth verification for one census identity candidate: the
+ * client record when the resident has a canonical client, otherwise the roster
+ * DOB. Read-only. Shared by the daily job and read-time confirmation blockers.
+ */
+export async function verifyIdentityCandidateBirthDate(
+  request: Request | undefined, referral: Referral, resident: ClinicalResident,
+  snapshotId: string | null, dataAsOf: string | null,
+) {
+  return resident.canonical_client_id
+    ? verifiedAdmissionBirthDate(
+      referral, resident, await getClinicalClient(request, resident.canonical_client_id),
+      snapshotId, dataAsOf,
+    )
+    : normalizeSourceCalendarDate(resident.date_of_birth) === normalizeSourceCalendarDate(referral.dob)
+      ? normalizeSourceCalendarDate(referral.dob)
+      : null;
+}
+
+export function applyVerifiedBirthDate(residents: ClinicalResident[], resident: ClinicalResident, dob: string) {
+  const verifiedIndex = residents.findIndex((row) => row.resident_key === resident.resident_key);
+  residents[verifiedIndex] = { ...resident, date_of_birth: dob };
+}
+
+export async function loadClinicalRoster(request: Request | undefined) {
   const residents: ClinicalResident[] = [];
   let cursor: string | undefined;
   let snapshotId: string | null = null;
@@ -233,7 +254,7 @@ async function loadClinicalRoster(request: Request) {
   return { residents, snapshotId, dataAsOf, fresh };
 }
 
-async function loadReferrals() {
+export async function loadReferrals() {
   const referrals: Referral[] = [];
   let cursor: string | undefined;
   do {
@@ -245,7 +266,7 @@ async function loadReferrals() {
   return referrals;
 }
 
-async function loadResidentLinks() {
+export async function loadResidentLinks() {
   const links: PipelineResidentLink[] = [];
   let cursor: string | undefined;
   do {

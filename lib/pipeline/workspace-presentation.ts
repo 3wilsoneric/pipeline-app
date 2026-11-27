@@ -4,10 +4,11 @@ import { resolveReferralWorkflowStatus, workflowStatusLabels } from "./workflow-
 import { normalizeWorkspaceMonth } from "./workspace-month.mjs";
 import { historicalAdmissionSource } from "./historical-admission";
 import { assumedAdmissionDate } from "./admission-lifecycle";
+import { DUE_AWAITING_CENSUS_LABEL } from "./admission-confirmation";
 
 export type WorkspaceAdmissionOutcome = {
   status: "admitted" | "accepted" | "denied" | "cancelled" | "pending" | "unknown";
-  label: "Admitted" | "Accepted" | "Denied" | "Did not move in" | "In progress" | "Outcome not recorded";
+  label: "Admitted" | typeof DUE_AWAITING_CENSUS_LABEL | "Accepted" | "Denied" | "Did not move in" | "In progress" | "Outcome not recorded";
   evidence: "recorded" | "census_match" | "assumed" | "open" | "historical";
   explanation: string;
 };
@@ -115,9 +116,9 @@ export function getWorkspaceAdmissionOutcome(referral: Referral): WorkspaceAdmis
   if (assumedAdmissionDate(referral)) {
     return {
       status: "admitted",
-      label: "Admitted",
+      label: DUE_AWAITING_CENSUS_LABEL,
       evidence: "assumed",
-      explanation: "Admitted using the entered admission date. ElderMark reconciliation is pending.",
+      explanation: "The planned admit date has passed. This is not an admission until the daily ElderMark census check confirms the arrival or staff record the actual date.",
     };
   }
 
